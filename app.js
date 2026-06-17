@@ -12897,6 +12897,8 @@
   var CHECKS_KEY = "ltb-cook-checks";
   var SHOPPING_KEY = "ltb-shopping";
   var WEEK_KEY = "ltb-week";
+  var PENDING_KEY = "ltb-pending-orders";
+  var SEEN_ROWS_KEY = "ltb-seen-rows";
   var I = (name, q, u, staple = false) => ({ name, q, u, staple });
   var RECIPES = {
     "Indian Style Curry": {
@@ -13938,6 +13940,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     const [showPaste, setShowPaste] = (0, import_react.useState)(false);
     const [showAmend, setShowAmend] = (0, import_react.useState)(false);
     const [showCsv, setShowCsv] = (0, import_react.useState)(false);
+    const [pendingOrders, setPendingOrders] = (0, import_react.useState)([]);
+    const [showPendingIdx, setShowPendingIdx] = (0, import_react.useState)(null);
     const [expandedOrder, setExpandedOrder] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
       let mounted = true;
@@ -13969,8 +13973,11 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
           const valid = loadedWeek.selected.filter((n) => ALL_DINNERS.some((d) => d.name === n));
           setWeekDishes(valid.length > 0 ? valid : DEFAULT_WEEK);
         }
+        const savedPending = await loadJSON(PENDING_KEY, []);
+        if (mounted) setPendingOrders(savedPending || []);
         setLoading(false);
         cleanupPhotos(migrated);
+        pollFormOrders(migrated, savedPending || []);
       })();
       return () => {
         mounted = false;
@@ -14025,6 +14032,71 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       setShowCsv(false);
       setExportMsg(`Imported ${newOrders.length} order${newOrders.length !== 1 ? "s" : ""} from the sheet.`);
       setTimeout(() => setExportMsg(null), 4e3);
+    }, []);
+    const pollFormOrders = import_react.default.useCallback(async (existingOrders, existingPending) => {
+      const rows = await fetchFormRows();
+      if (!rows) return;
+      const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
+      const seen = seenRaw || {};
+      const newPending = [];
+      rows.forEach((row) => {
+        const ts = row["Timestamp"] || row["timestamp"] || "";
+        if (!ts || seen[ts]) return;
+        const { customer, items, notes } = parseFormRow(row);
+        if (items.length === 0 && !notes) return;
+        newPending.push({
+          pendingId: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2),
+          timestamp: ts,
+          customer,
+          items,
+          notes
+        });
+        seen[ts] = true;
+      });
+      if (newPending.length > 0) {
+        const updated = [...existingPending, ...newPending];
+        setPendingOrders(updated);
+        await saveJSON(PENDING_KEY, updated);
+        await saveJSON(SEEN_ROWS_KEY, seen);
+      } else {
+        await saveJSON(SEEN_ROWS_KEY, seen);
+      }
+      setTimeout(() => pollFormOrders(existingOrders, existingPending), 5 * 60 * 1e3);
+    }, []);
+    const acceptPending = (0, import_react.useCallback)((pending) => {
+      const total = orderTotal(pending.items, 0, 0, null, 0, [], false);
+      const order = {
+        id: uid(),
+        customer: pending.customer,
+        items: pending.items,
+        jarSwaps: 0,
+        containerReturns: 0,
+        notes: pending.notes || "",
+        discountType: null,
+        discountValue: 0,
+        customCharges: [],
+        waiveSurcharge: false,
+        total,
+        status: "Ordered",
+        paid: false,
+        archived: false,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      setOrders((prev) => {
+        const next = [order, ...prev || []];
+        saveJSON(ORDERS_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+      dismissPending(pending.pendingId);
+      setShowPendingIdx(null);
+    }, []);
+    const dismissPending = (0, import_react.useCallback)((pendingId) => {
+      setPendingOrders((prev) => {
+        const next = prev.filter((p) => p.pendingId !== pendingId);
+        saveJSON(PENDING_KEY, next);
+        return next;
+      });
+      setShowPendingIdx(null);
     }, []);
     const updateOrder = (0, import_react.useCallback)((id, patch) => {
       setOrders((prev) => {
@@ -14312,7 +14384,7 @@ This will replace your current orders.`
         onSave: saveOrder,
         onCancel: () => setFormMode(null)
       }
-    ), activeOrders.length === 0 && !formMode && !showPaste && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, or "Import from sheet" to pull in orders from the Google Form.')), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderList }, activeOrders.map((order) => /* @__PURE__ */ import_react.default.createElement(
+    ), activeOrders.length === 0 && !formMode && !showPaste && pendingOrders.length === 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, or "Import from sheet" to pull in orders from the Google Form.')), pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingSectionHeader }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingBadge }, pendingOrders.length), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingSectionTitle }, "Pending form order", pendingOrders.length !== 1 ? "s" : "")), pendingOrders.map((p, idx) => showPendingIdx === idx ? /* @__PURE__ */ import_react.default.createElement("div", { key: p.pendingId, style: styles.pendingCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardName }, p.customer), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardTime }, p.timestamp)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingItemList }, p.items.map((it, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.pendingItem }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemName }, it.name), it.variant && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemVariant }, " \u2014 ", it.variant), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemPrice }, " $", it.price.toFixed(2)))), p.notes && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingNotes }, "Notes: ", p.notes)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingAcceptBtn, onClick: () => acceptPending(p) }, /* @__PURE__ */ import_react.default.createElement(Check, { size: 16 }), " Accept"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingRejectBtn, onClick: () => dismissPending(p.pendingId) }, /* @__PURE__ */ import_react.default.createElement(X, { size: 16 }), " Reject"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingBackBtn, onClick: () => setShowPendingIdx(null) }, "Back"))) : /* @__PURE__ */ import_react.default.createElement("button", { key: p.pendingId, style: styles.pendingRow, onClick: () => setShowPendingIdx(idx) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingRowName }, p.customer), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingRowCount }, p.items.length, " item", p.items.length !== 1 ? "s" : ""), /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 16 })))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderList }, activeOrders.map((order) => /* @__PURE__ */ import_react.default.createElement(
       OrderCard,
       {
         key: order.id,
@@ -15819,6 +15891,145 @@ This will replace your current orders.`
       opacity: 0.4,
       cursor: "not-allowed",
       filter: "grayscale(100%)"
+    },
+    // ── Pending form orders styles ────────────────────────────────────────────
+    pendingSection: {
+      marginBottom: "12px",
+      borderRadius: "12px",
+      border: "2px solid #c9a84c",
+      overflow: "hidden"
+    },
+    pendingSectionHeader: {
+      background: "#2a3a2a",
+      padding: "10px 14px",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px"
+    },
+    pendingSectionTitle: {
+      color: "#c9a84c",
+      fontWeight: 700,
+      fontSize: "13px",
+      letterSpacing: "0.5px",
+      textTransform: "uppercase"
+    },
+    pendingBadge: {
+      background: "#c9a84c",
+      color: "#1a3a3a",
+      borderRadius: "10px",
+      padding: "1px 7px",
+      fontSize: "12px",
+      fontWeight: 800
+    },
+    pendingRow: {
+      width: "100%",
+      background: "#1e2e1e",
+      border: "none",
+      borderTop: "1px solid #2d4a2d",
+      padding: "12px 14px",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      cursor: "pointer",
+      color: "#d4c9a8",
+      textAlign: "left"
+    },
+    pendingRowName: {
+      flex: 1,
+      fontWeight: 600,
+      fontSize: "14px"
+    },
+    pendingRowCount: {
+      fontSize: "12px",
+      color: "#9aa5a0"
+    },
+    pendingCard: {
+      background: "#1e2e1e",
+      borderTop: "1px solid #2d4a2d",
+      padding: "14px"
+    },
+    pendingCardHeader: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      marginBottom: "10px"
+    },
+    pendingCardName: {
+      fontWeight: 700,
+      fontSize: "15px",
+      color: "#e8dfc0"
+    },
+    pendingCardTime: {
+      fontSize: "11px",
+      color: "#9aa5a0"
+    },
+    pendingItemList: {
+      marginBottom: "12px"
+    },
+    pendingItem: {
+      padding: "4px 0",
+      borderBottom: "1px solid #2d4a2d",
+      fontSize: "13px"
+    },
+    pendingItemName: {
+      color: "#d4c9a8",
+      fontWeight: 600
+    },
+    pendingItemVariant: {
+      color: "#9aa5a0"
+    },
+    pendingItemPrice: {
+      color: "#c9a84c",
+      float: "right"
+    },
+    pendingNotes: {
+      marginTop: "8px",
+      fontSize: "12px",
+      color: "#9aa5a0",
+      fontStyle: "italic"
+    },
+    pendingActions: {
+      display: "flex",
+      gap: "8px"
+    },
+    pendingAcceptBtn: {
+      flex: 1,
+      background: "#1D9E75",
+      color: "#fff",
+      border: "none",
+      borderRadius: "8px",
+      padding: "10px",
+      fontSize: "13px",
+      fontWeight: 700,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "6px"
+    },
+    pendingRejectBtn: {
+      flex: 1,
+      background: "#8B2020",
+      color: "#fff",
+      border: "none",
+      borderRadius: "8px",
+      padding: "10px",
+      fontSize: "13px",
+      fontWeight: 700,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "6px"
+    },
+    pendingBackBtn: {
+      background: "transparent",
+      color: "#9aa5a0",
+      border: "1px solid #37403c",
+      borderRadius: "8px",
+      padding: "10px 14px",
+      fontSize: "13px",
+      cursor: "pointer"
     },
     // Strikethrough applied to the button label text only (keeps the icon intact).
     struckText: {

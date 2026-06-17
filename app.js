@@ -14085,6 +14085,23 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       }
       setCheckingForm(false);
     }, []);
+    const resetRecentSeenRows = import_react.default.useCallback(async () => {
+      const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
+      const seen = seenRaw || {};
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1e3;
+      let removed = 0;
+      const updated = {};
+      Object.entries(seen).forEach(([ts, val]) => {
+        const parsed = new Date(ts);
+        if (!isNaN(parsed.getTime()) && parsed.getTime() >= cutoff) {
+          removed++;
+        } else {
+          updated[ts] = val;
+        }
+      });
+      await saveJSON(SEEN_ROWS_KEY, updated);
+      alert("Reset " + removed + " recent order" + (removed !== 1 ? "s" : "") + ' from seen history. Tap "Check for new orders" to re-import them.');
+    }, []);
     const pollFormOrders = import_react.default.useCallback(async (existingOrders, existingPending) => {
       const rows = await fetchFormRows();
       if (!rows) return;
@@ -14399,7 +14416,30 @@ This will replace your current orders.`
       /* @__PURE__ */ import_react.default.createElement("span", { style: styles.errorRetry }, "Tap to retry saving")
     ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.pasteBtn, ...styles.disabledBtn }, onClick: () => {
     }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Paste a text")), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.amendBtn, ...styles.disabledBtn }, onClick: () => {
-    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.checkFormBtn, onClick: checkFormNow, disabled: checkingForm }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 16, style: checkingForm ? styles.spinning : void 0 }), checkingForm ? "Checking..." : "Check for new orders")), showPaste && /* @__PURE__ */ import_react.default.createElement(
+    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: styles.checkFormBtn,
+        onClick: checkFormNow,
+        onContextMenu: (e) => {
+          e.preventDefault();
+          resetRecentSeenRows();
+        },
+        onTouchStart: (e) => {
+          const t = setTimeout(() => resetRecentSeenRows(), 700);
+          e.currentTarget._ltbLongPress = t;
+        },
+        onTouchEnd: (e) => {
+          clearTimeout(e.currentTarget._ltbLongPress);
+        },
+        onTouchMove: (e) => {
+          clearTimeout(e.currentTarget._ltbLongPress);
+        },
+        disabled: checkingForm
+      },
+      /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 16, style: checkingForm ? styles.spinning : void 0 }),
+      checkingForm ? "Checking..." : "Check for new orders"
+    )), showPaste && /* @__PURE__ */ import_react.default.createElement(
       PasteOrderCard,
       {
         menu,

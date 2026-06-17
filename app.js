@@ -12710,36 +12710,35 @@
   });
 
   // entry.jsx
-  var import_react = __toESM(require_react());
+  var import_react2 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // LTB_Order_Tracker_CDN.jsx
-  var React = window.React;
-  var { useState, useEffect, useMemo, useCallback } = window.React;
-  var Icon = ({ size = 24, children, ...props }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", ...props }, ...Array.isArray(children) ? children : [children]);
-  var _p = (d) => React.createElement("path", { d });
-  var _ci = (cx, cy, r) => React.createElement("circle", { cx, cy, r });
-  var _rect = (x, y, w, h, rx) => React.createElement("rect", { x, y, width: w, height: h, rx });
-  var _line = (x1, y1, x2, y2) => React.createElement("line", { x1, y1, x2, y2 });
-  var _poly = (points) => React.createElement("polyline", { points });
-  var Plus = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M12 5v14"), _p("M5 12h14"));
-  var Trash2 = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M3 6h18"), _p("M19 6l-1 14H6L5 6"), _p("M8 6V4h8v2"), _p("M10 11v6"), _p("M14 11v6"));
-  var Check = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _poly("20 6 9 17 4 12"));
-  var ChevronDown = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _poly("6 9 12 15 18 9"));
-  var ChevronUp = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _poly("18 15 12 9 6 15"));
-  var X = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M18 6 6 18"), _p("M6 6l12 12"));
-  var Pencil = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"));
-  var Copy = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _rect(8, 8, 13, 13, 2), _p("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"));
-  var RotateCcw = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"), _p("M3 3v5h5"));
-  var ClipboardPaste = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M9 3h6v3H9z"), _p("M8 3H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"), _p("M8 13h8"), _p("M8 17h8"), _p("M8 9h8"));
-  var Archive = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _rect(2, 3, 20, 5, 0), _p("M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"), _p("M10 12h4"));
-  var ImageIcon = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _rect(3, 3, 18, 18, 2), _ci(8.5, 8.5, 1.5), _poly("21 15 16 10 5 21"));
-  var AlertTriangle = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"), _line(12, 9, 12, 13), _line(12, 17, 12.01, 17));
-  var FileText = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"), _poly("14 2 14 8 20 8"), _p("M16 13H8"), _p("M16 17H8"), _p("M10 9H8"));
-  var Scale = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M16 16h6"), _p("M2 16h6"), _line(12, 2, 12, 22), _p("M8 16 2 8l6-8"), _p("M16 16l6-8-6-8"));
-  var Camera = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"), _ci(12, 13, 4));
-  var Download = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("7 10 12 15 17 10"), _line(12, 15, 12, 3));
-  var Upload = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("17 8 12 3 7 8"), _line(12, 3, 12, 15));
+  var import_react = __toESM(require_react());
+  var Icon = ({ size = 24, children, ...props }) => import_react.default.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", ...props }, ...Array.isArray(children) ? children : [children]);
+  var _p = (d) => import_react.default.createElement("path", { d });
+  var _ci = (cx, cy, r) => import_react.default.createElement("circle", { cx, cy, r });
+  var _rect = (x, y, w, h, rx) => import_react.default.createElement("rect", { x, y, width: w, height: h, rx });
+  var _line = (x1, y1, x2, y2) => import_react.default.createElement("line", { x1, y1, x2, y2 });
+  var _poly = (points) => import_react.default.createElement("polyline", { points });
+  var Plus = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M12 5v14"), _p("M5 12h14"));
+  var Trash2 = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M3 6h18"), _p("M19 6l-1 14H6L5 6"), _p("M8 6V4h8v2"), _p("M10 11v6"), _p("M14 11v6"));
+  var Check = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _poly("20 6 9 17 4 12"));
+  var ChevronDown = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _poly("6 9 12 15 18 9"));
+  var ChevronUp = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _poly("18 15 12 9 6 15"));
+  var X = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M18 6 6 18"), _p("M6 6l12 12"));
+  var Pencil = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"));
+  var Copy = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _rect(8, 8, 13, 13, 2), _p("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"));
+  var RotateCcw = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"), _p("M3 3v5h5"));
+  var ClipboardPaste = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M9 3h6v3H9z"), _p("M8 3H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"), _p("M8 13h8"), _p("M8 17h8"), _p("M8 9h8"));
+  var Archive = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _rect(2, 3, 20, 5, 0), _p("M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"), _p("M10 12h4"));
+  var ImageIcon = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _rect(3, 3, 18, 18, 2), _ci(8.5, 8.5, 1.5), _poly("21 15 16 10 5 21"));
+  var AlertTriangle = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"), _line(12, 9, 12, 13), _line(12, 17, 12.01, 17));
+  var FileText = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"), _poly("14 2 14 8 20 8"), _p("M16 13H8"), _p("M16 17H8"), _p("M10 9H8"));
+  var Scale = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M16 16h6"), _p("M2 16h6"), _line(12, 2, 12, 22), _p("M8 16 2 8l6-8"), _p("M16 16l6-8-6-8"));
+  var Camera = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"), _ci(12, 13, 4));
+  var Download = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("7 10 12 15 17 10"), _line(12, 15, 12, 3));
+  var Upload = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("17 8 12 3 7 8"), _line(12, 3, 12, 15));
   var ALL_DINNERS = [
     { name: "Indian Style Curry", variants: [
       { label: "Chicken, Small (~4-5)", price: 27, cost: 14.97 },
@@ -13907,8 +13906,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     };
   }
   function ImportModal({ onSubmit, onCancel }) {
-    const [text, setText] = useState("");
-    return /* @__PURE__ */ React.createElement("div", { style: styles.invoiceOverlay, onClick: onCancel }, /* @__PURE__ */ React.createElement("div", { style: styles.importModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalTitle }, "Paste backup"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), /* @__PURE__ */ React.createElement("div", { style: styles.importModalHint }, "Open your backup note, select all, copy, then long-press in the box below and paste."), /* @__PURE__ */ React.createElement(
+    const [text, setText] = (0, import_react.useState)("");
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onCancel }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.importModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalTitle }, "Paste backup"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.importModalHint }, "Open your backup note, select all, copy, then long-press in the box below and paste."), /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "140px", fontSize: "11px", fontFamily: "monospace" },
@@ -13917,7 +13916,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         onChange: (e) => setText(e.target.value),
         autoFocus: true
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, ...text.trim() ? {} : styles.saveBtnDisabled },
@@ -13928,19 +13927,19 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     )));
   }
   function LTBOrderTracker() {
-    const [orders, setOrders] = useState(null);
-    const [cookChecks, setCookChecks] = useState({});
-    const [shopping, setShopping] = useState([]);
-    const [weekDishes, setWeekDishes] = useState(DEFAULT_WEEK);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [view, setView] = useState("orders");
-    const [formMode, setFormMode] = useState(null);
-    const [showPaste, setShowPaste] = useState(false);
-    const [showAmend, setShowAmend] = useState(false);
-    const [showCsv, setShowCsv] = useState(false);
-    const [expandedOrder, setExpandedOrder] = useState(null);
-    useEffect(() => {
+    const [orders, setOrders] = (0, import_react.useState)(null);
+    const [cookChecks, setCookChecks] = (0, import_react.useState)({});
+    const [shopping, setShopping] = (0, import_react.useState)([]);
+    const [weekDishes, setWeekDishes] = (0, import_react.useState)(DEFAULT_WEEK);
+    const [loading, setLoading] = (0, import_react.useState)(true);
+    const [error, setError] = (0, import_react.useState)(null);
+    const [view, setView] = (0, import_react.useState)("orders");
+    const [formMode, setFormMode] = (0, import_react.useState)(null);
+    const [showPaste, setShowPaste] = (0, import_react.useState)(false);
+    const [showAmend, setShowAmend] = (0, import_react.useState)(false);
+    const [showCsv, setShowCsv] = (0, import_react.useState)(false);
+    const [expandedOrder, setExpandedOrder] = (0, import_react.useState)(null);
+    (0, import_react.useEffect)(() => {
       let mounted = true;
       (async () => {
         const [loadedOrders, loadedChecks, loadedShopping, loadedWeek] = await Promise.all([
@@ -13977,17 +13976,17 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         mounted = false;
       };
     }, []);
-    const persistOrders = useCallback(async (next) => {
+    const persistOrders = (0, import_react.useCallback)(async (next) => {
       setOrders(next);
       const res = await saveJSON(ORDERS_KEY, next);
       setError(saveError(res));
       return res;
     }, []);
-    const persistShopping = useCallback((next) => {
+    const persistShopping = (0, import_react.useCallback)((next) => {
       setShopping(next);
       saveJSON(SHOPPING_KEY, next).then((res) => setError(saveError(res)));
     }, []);
-    const saveOrder = useCallback((order) => {
+    const saveOrder = (0, import_react.useCallback)((order) => {
       setOrders((prev) => {
         const exists = (prev || []).some((o) => o.id === order.id);
         const next = exists ? (prev || []).map((o) => o.id === order.id ? order : o) : [order, ...prev || []];
@@ -13996,7 +13995,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       });
       setFormMode(null);
     }, []);
-    const importOrders = useCallback((parsedOrders) => {
+    const importOrders = (0, import_react.useCallback)((parsedOrders) => {
       const newOrders = parsedOrders.map((p) => {
         const items = p.items || [];
         const total = orderTotal(items, p.jarSwaps || 0, p.containerReturns || 0, null, 0, [], false);
@@ -14027,14 +14026,14 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       setExportMsg(`Imported ${newOrders.length} order${newOrders.length !== 1 ? "s" : ""} from the sheet.`);
       setTimeout(() => setExportMsg(null), 4e3);
     }, []);
-    const updateOrder = useCallback((id, patch) => {
+    const updateOrder = (0, import_react.useCallback)((id, patch) => {
       setOrders((prev) => {
         const next = (prev || []).map((o) => o.id === id ? { ...o, ...patch } : o);
         saveJSON(ORDERS_KEY, next).then((res) => setError(saveError(res)));
         return next;
       });
     }, []);
-    const deleteOrder = useCallback((id) => {
+    const deleteOrder = (0, import_react.useCallback)((id) => {
       setOrders((prev) => {
         const target = (prev || []).find((o) => o.id === id);
         if (target) (target.items || []).forEach((it, i) => {
@@ -14045,13 +14044,13 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         return next;
       });
     }, []);
-    const archiveDelivered = useCallback(() => {
+    const archiveDelivered = (0, import_react.useCallback)(() => {
       persistOrders((orders || []).map(
         (o) => o.status === "Delivered" && !o.archived ? { ...o, archived: true } : o
       ));
     }, [orders, persistOrders]);
-    const [exportMsg, setExportMsg] = useState(null);
-    const exportData = useCallback(async () => {
+    const [exportMsg, setExportMsg] = (0, import_react.useState)(null);
+    const exportData = (0, import_react.useCallback)(async () => {
       const payload = {
         version: "ltb-v1",
         exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -14080,7 +14079,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       }
       setTimeout(() => setExportMsg(null), 4e3);
     }, [orders, shopping, weekDishes]);
-    const importData = useCallback(async (e) => {
+    const importData = (0, import_react.useCallback)(async (e) => {
       let json;
       if (typeof e === "string") {
         json = e;
@@ -14124,11 +14123,11 @@ This will replace your current orders.`
         setError("Couldn't read that backup \u2014 make sure you copied the full text.");
       }
     }, [persistOrders]);
-    const [showImportModal, setShowImportModal] = useState(false);
-    const pasteImport = useCallback(() => {
+    const [showImportModal, setShowImportModal] = (0, import_react.useState)(false);
+    const pasteImport = (0, import_react.useCallback)(() => {
       setShowImportModal(true);
     }, []);
-    const submitImport = useCallback(async (text) => {
+    const submitImport = (0, import_react.useCallback)(async (text) => {
       setShowImportModal(false);
       if (!text.trim()) return;
       try {
@@ -14156,15 +14155,15 @@ This will replace your current orders.`
         setError("Couldn't read that \u2014 make sure you copied the full backup text.");
       }
     }, [persistOrders]);
-    const currentOrders = useMemo(() => (orders || []).filter((o) => !o.archived), [orders]);
-    const activeOrders = useMemo(() => currentOrders.filter((o) => o.status !== "Delivered"), [currentOrders]);
-    const deliveredOrders = useMemo(() => currentOrders.filter((o) => o.status === "Delivered"), [currentOrders]);
-    const stats = useMemo(() => {
+    const currentOrders = (0, import_react.useMemo)(() => (orders || []).filter((o) => !o.archived), [orders]);
+    const activeOrders = (0, import_react.useMemo)(() => currentOrders.filter((o) => o.status !== "Delivered"), [currentOrders]);
+    const deliveredOrders = (0, import_react.useMemo)(() => currentOrders.filter((o) => o.status === "Delivered"), [currentOrders]);
+    const stats = (0, import_react.useMemo)(() => {
       const booked = currentOrders.reduce((s, o) => s + o.total, 0);
       const unpaid = currentOrders.filter((o) => !o.paid).reduce((s, o) => s + o.total, 0);
       return { active: activeOrders.length, booked: round2(booked), unpaid: round2(unpaid) };
     }, [currentOrders, activeOrders]);
-    const activeFinancials = useMemo(() => {
+    const activeFinancials = (0, import_react.useMemo)(() => {
       let revenue = 0;
       let cost = 0;
       activeOrders.forEach((o) => {
@@ -14173,7 +14172,7 @@ This will replace your current orders.`
       });
       return { revenue: round2(revenue), cost: round2(cost), profit: round2(revenue - cost) };
     }, [activeOrders]);
-    const recentCustomers = useMemo(() => {
+    const recentCustomers = (0, import_react.useMemo)(() => {
       const seen = /* @__PURE__ */ new Set();
       const names = [];
       for (const o of orders || []) {
@@ -14186,7 +14185,7 @@ This will replace your current orders.`
       }
       return names;
     }, [orders]);
-    const cookingList = useMemo(() => {
+    const cookingList = (0, import_react.useMemo)(() => {
       const map = /* @__PURE__ */ new Map();
       activeOrders.forEach((o) => {
         (o.items || []).forEach((it) => {
@@ -14202,7 +14201,7 @@ This will replace your current orders.`
         (a, b) => catOrder.indexOf(a.category) - catOrder.indexOf(b.category) || a.name.localeCompare(b.name)
       );
     }, [activeOrders]);
-    const toggleCheck = useCallback((key) => {
+    const toggleCheck = (0, import_react.useCallback)((key) => {
       setCookChecks((prev) => {
         const next = { ...prev, [key]: !prev[key] };
         const validKeys = new Set(cookingList.map((it) => it.key));
@@ -14213,19 +14212,19 @@ This will replace your current orders.`
         return next;
       });
     }, [cookingList]);
-    const resetChecks = useCallback(() => {
+    const resetChecks = (0, import_react.useCallback)(() => {
       setCookChecks({});
       saveJSON(CHECKS_KEY, {});
     }, []);
-    const menu = useMemo(() => buildMenu(weekDishes), [weekDishes]);
-    const toggleWeekDish = useCallback((name) => {
+    const menu = (0, import_react.useMemo)(() => buildMenu(weekDishes), [weekDishes]);
+    const toggleWeekDish = (0, import_react.useCallback)((name) => {
       setWeekDishes((prev) => {
         const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
         saveJSON(WEEK_KEY, { selected: next }).then((res) => setError(saveError(res)));
         return next;
       });
     }, []);
-    const generateShopping = useCallback((includeStaples) => {
+    const generateShopping = (0, import_react.useCallback)((includeStaples) => {
       const lines = generateShoppingItems(activeOrders, includeStaples);
       setShopping((prev) => {
         const checkedByText = new Map(prev.filter((it) => it.checked).map((it) => [it.text, true]));
@@ -14242,15 +14241,15 @@ This will replace your current orders.`
       });
     }, [activeOrders]);
     if (loading) {
-      return /* @__PURE__ */ React.createElement("div", { style: styles.page }, /* @__PURE__ */ React.createElement("div", { style: styles.loadingText }, "Loading orders..."));
+      return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loadingText }, "Loading orders..."));
     }
-    return /* @__PURE__ */ React.createElement("div", { style: styles.page }, /* @__PURE__ */ React.createElement("header", { style: styles.header }, /* @__PURE__ */ React.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ React.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ React.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ React.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ React.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v8.7-GH")), /* @__PURE__ */ React.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ React.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ React.createElement(Download, { size: 16 })), /* @__PURE__ */ React.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ React.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ React.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ React.createElement("nav", { style: styles.tabs }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v8.7-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
       ["orders", "Orders"],
       ["cook", "Cook"],
       ["shop", "Shop"],
       ["money", "Money"],
       ["week", "Week"]
-    ].map(([key, label]) => /* @__PURE__ */ React.createElement(
+    ].map(([key, label]) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key,
@@ -14258,8 +14257,8 @@ This will replace your current orders.`
         onClick: () => setView(key)
       },
       label,
-      key === "orders" && stats.active > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.tabBadge }, stats.active)
-    )))), error && /* @__PURE__ */ React.createElement(
+      key === "orders" && stats.active > 0 && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.tabBadge }, stats.active)
+    )))), error && /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.errorBanner,
@@ -14273,10 +14272,10 @@ This will replace your current orders.`
         }
       },
       error,
-      /* @__PURE__ */ React.createElement("span", { style: styles.errorRetry }, "Tap to retry saving")
-    ), showImportModal && /* @__PURE__ */ React.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ React.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ React.createElement("div", { style: styles.topActions }, /* @__PURE__ */ React.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ React.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ React.createElement("button", { style: { ...styles.pasteBtn, ...styles.disabledBtn }, onClick: () => {
-    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ React.createElement(ClipboardPaste, { size: 18 }), /* @__PURE__ */ React.createElement("span", { style: styles.struckText }, "Paste a text")), /* @__PURE__ */ React.createElement("button", { style: { ...styles.amendBtn, ...styles.disabledBtn }, onClick: () => {
-    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ React.createElement(Pencil, { size: 16 }), /* @__PURE__ */ React.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ React.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ React.createElement(FileText, { size: 16 }), "Import from sheet")), showPaste && /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ import_react.default.createElement("span", { style: styles.errorRetry }, "Tap to retry saving")
+    ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.pasteBtn, ...styles.disabledBtn }, onClick: () => {
+    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Paste a text")), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.amendBtn, ...styles.disabledBtn }, onClick: () => {
+    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet")), showPaste && /* @__PURE__ */ import_react.default.createElement(
       PasteOrderCard,
       {
         menu,
@@ -14286,7 +14285,7 @@ This will replace your current orders.`
         },
         onCancel: () => setShowPaste(false)
       }
-    ), showAmend && /* @__PURE__ */ React.createElement(
+    ), showAmend && /* @__PURE__ */ import_react.default.createElement(
       AmendOrderCard,
       {
         menu,
@@ -14297,14 +14296,14 @@ This will replace your current orders.`
         },
         onCancel: () => setShowAmend(false)
       }
-    ), showCsv && /* @__PURE__ */ React.createElement(
+    ), showCsv && /* @__PURE__ */ import_react.default.createElement(
       CsvImportCard,
       {
         menu,
         onImport: importOrders,
         onCancel: () => setShowCsv(false)
       }
-    ), formMode && /* @__PURE__ */ React.createElement(
+    ), formMode && /* @__PURE__ */ import_react.default.createElement(
       OrderForm,
       {
         menu,
@@ -14313,7 +14312,7 @@ This will replace your current orders.`
         onSave: saveOrder,
         onCancel: () => setFormMode(null)
       }
-    ), activeOrders.length === 0 && !formMode && !showPaste && /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ React.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, or "Import from sheet" to pull in orders from the Google Form.')), /* @__PURE__ */ React.createElement("div", { style: styles.orderList }, activeOrders.map((order) => /* @__PURE__ */ React.createElement(
+    ), activeOrders.length === 0 && !formMode && !showPaste && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, or "Import from sheet" to pull in orders from the Google Form.')), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderList }, activeOrders.map((order) => /* @__PURE__ */ import_react.default.createElement(
       OrderCard,
       {
         key: order.id,
@@ -14327,7 +14326,7 @@ This will replace your current orders.`
           setExpandedOrder(null);
         }
       }
-    ))), deliveredOrders.length > 0 && /* @__PURE__ */ React.createElement("details", { style: styles.deliveredSection }, /* @__PURE__ */ React.createElement("summary", { style: styles.deliveredSummary }, "Delivered (", deliveredOrders.length, ")"), /* @__PURE__ */ React.createElement("div", { style: styles.orderList }, deliveredOrders.map((order) => /* @__PURE__ */ React.createElement(
+    ))), deliveredOrders.length > 0 && /* @__PURE__ */ import_react.default.createElement("details", { style: styles.deliveredSection }, /* @__PURE__ */ import_react.default.createElement("summary", { style: styles.deliveredSummary }, "Delivered (", deliveredOrders.length, ")"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderList }, deliveredOrders.map((order) => /* @__PURE__ */ import_react.default.createElement(
       OrderCard,
       {
         key: order.id,
@@ -14341,7 +14340,7 @@ This will replace your current orders.`
           setExpandedOrder(null);
         }
       }
-    ))), /* @__PURE__ */ React.createElement(ArchiveDeliveredButton, { count: deliveredOrders.length, onArchive: archiveDelivered }))), view === "cook" && /* @__PURE__ */ React.createElement(
+    ))), /* @__PURE__ */ import_react.default.createElement(ArchiveDeliveredButton, { count: deliveredOrders.length, onArchive: archiveDelivered }))), view === "cook" && /* @__PURE__ */ import_react.default.createElement(
       CookingList,
       {
         items: cookingList,
@@ -14351,7 +14350,7 @@ This will replace your current orders.`
         onToggle: toggleCheck,
         onReset: resetChecks
       }
-    ), view === "shop" && /* @__PURE__ */ React.createElement(
+    ), view === "shop" && /* @__PURE__ */ import_react.default.createElement(
       ShoppingList,
       {
         items: shopping,
@@ -14360,33 +14359,33 @@ This will replace your current orders.`
         activeCount: activeOrders.length,
         estCost: activeFinancials.cost
       }
-    ), view === "money" && /* @__PURE__ */ React.createElement(MoneyTab, { orders: orders || [], onUpdate: updateOrder }), view === "week" && /* @__PURE__ */ React.createElement(WeekTab, { selected: weekDishes, onToggle: toggleWeekDish })));
+    ), view === "money" && /* @__PURE__ */ import_react.default.createElement(MoneyTab, { orders: orders || [], onUpdate: updateOrder }), view === "week" && /* @__PURE__ */ import_react.default.createElement(WeekTab, { selected: weekDishes, onToggle: toggleWeekDish })));
   }
   function WeekTab({ selected, onToggle }) {
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: styles.genCard }, /* @__PURE__ */ React.createElement("div", { style: styles.genTitle }, "This week's dinner lineup"), /* @__PURE__ */ React.createElement("div", { style: styles.genHint }, "Check the dishes you're offering. The order picker, text parser, and shopping list follow this instantly. Existing orders aren't affected. The customer-facing PDF still comes from Claude \u2014 just tell it your picks (or send it a screenshot of this screen)."), selected.length === 0 && /* @__PURE__ */ React.createElement("div", { style: styles.parseError }, "No dishes selected \u2014 the Dinner section will be empty on new orders.")), ALL_DINNERS.map((dish) => {
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "This week's dinner lineup"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Check the dishes you're offering. The order picker, text parser, and shopping list follow this instantly. Existing orders aren't affected. The customer-facing PDF still comes from Claude \u2014 just tell it your picks (or send it a screenshot of this screen)."), selected.length === 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parseError }, "No dishes selected \u2014 the Dinner section will be empty on new orders.")), ALL_DINNERS.map((dish) => {
       const isOn = selected.includes(dish.name);
       const prices = dish.variants.map((v) => v.price);
       const lo = Math.min(...prices);
       const hi = Math.max(...prices);
       const priceLabel = lo === hi ? currency(lo) : `${currency(lo)}\u2013${currency(hi)}`;
-      return /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
           key: dish.name,
           style: { ...styles.cookItem, ...isOn ? {} : { opacity: 0.55 } },
           onClick: () => onToggle(dish.name)
         },
-        /* @__PURE__ */ React.createElement("div", { style: { ...styles.checkbox, ...isOn ? styles.checkboxChecked : {} } }, isOn && /* @__PURE__ */ React.createElement(Check, { size: 14, color: "#1a1a1a" })),
-        /* @__PURE__ */ React.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ React.createElement("div", { style: styles.cookItemName }, dish.name), /* @__PURE__ */ React.createElement("div", { style: styles.cookItemVariant }, dish.variants.length, " option", dish.variants.length !== 1 ? "s" : "", " \xB7 ", priceLabel)),
-        /* @__PURE__ */ React.createElement("div", { style: { ...styles.cookItemQty, color: isOn ? "#5DCAA5" : "#5F5E5A", fontSize: "11px", fontWeight: 700 } }, isOn ? "ON" : "OFF")
+        /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.checkbox, ...isOn ? styles.checkboxChecked : {} } }, isOn && /* @__PURE__ */ import_react.default.createElement(Check, { size: 14, color: "#1a1a1a" })),
+        /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemName }, dish.name), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemVariant }, dish.variants.length, " option", dish.variants.length !== 1 ? "s" : "", " \xB7 ", priceLabel)),
+        /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.cookItemQty, color: isOn ? "#5DCAA5" : "#5F5E5A", fontSize: "11px", fontWeight: 700 } }, isOn ? "ON" : "OFF")
       );
     }));
   }
   function StatsBar({ stats }) {
-    return /* @__PURE__ */ React.createElement("div", { style: styles.statsBar }, /* @__PURE__ */ React.createElement("div", { style: styles.statTile }, /* @__PURE__ */ React.createElement("div", { style: styles.statValue }, stats.active), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, "Active")), /* @__PURE__ */ React.createElement("div", { style: styles.statTile }, /* @__PURE__ */ React.createElement("div", { style: styles.statValue }, currency(stats.booked)), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, "This week")), /* @__PURE__ */ React.createElement("div", { style: styles.statTile }, /* @__PURE__ */ React.createElement("div", { style: { ...styles.statValue, ...stats.unpaid > 0 ? { color: "#EF9F27" } : {} } }, currency(stats.unpaid)), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, "Unpaid")));
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statsBar }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, stats.active), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Active")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, currency(stats.booked)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "This week")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, ...stats.unpaid > 0 ? { color: "#EF9F27" } : {} } }, currency(stats.unpaid)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Unpaid")));
   }
   function QtyControl({ value, onChange, min = 0 }) {
-    return /* @__PURE__ */ React.createElement("div", { style: styles.qtyControl, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(Math.max(min, value - 1)), "aria-label": "Decrease" }, "\u2212"), /* @__PURE__ */ React.createElement("span", { style: styles.qtyValue }, value), /* @__PURE__ */ React.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(value + 1), "aria-label": "Increase" }, "+"));
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.qtyControl, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(Math.max(min, value - 1)), "aria-label": "Decrease" }, "\u2212"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.qtyValue }, value), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(value + 1), "aria-label": "Increase" }, "+"));
   }
   function parseDelimited(text) {
     const rows = [];
@@ -14440,10 +14439,10 @@ This will replace your current orders.`
     return { customer, text: parts.join("\n") };
   }
   function PasteOrderCard({ menu, onParsed, onCancel }) {
-    const [text, setText] = useState("");
-    const [imageFile, setImageFile] = useState(null);
-    const [parsing, setParsing] = useState(false);
-    const [parseError, setParseError] = useState(null);
+    const [text, setText] = (0, import_react.useState)("");
+    const [imageFile, setImageFile] = (0, import_react.useState)(null);
+    const [parsing, setParsing] = (0, import_react.useState)(false);
+    const [parseError, setParseError] = (0, import_react.useState)(null);
     const canParse = !!text.trim() || !!imageFile;
     const onPickImage = (e) => {
       const file = e.target.files && e.target.files[0];
@@ -14483,7 +14482,7 @@ This will replace your current orders.`
         setParsing(false);
       }
     };
-    return /* @__PURE__ */ React.createElement("div", { style: styles.formCard }, /* @__PURE__ */ React.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.formTitle }, "Paste a customer order"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), /* @__PURE__ */ React.createElement("div", { style: styles.pasteHint }, "Paste their text and I'll match it to the current menu and pre-fill the order \u2014 you just add their name and double-check. Items from an old menu get flagged in notes instead of guessed. (Photo reading is built in but waiting on platform support \u2014 text is the reliable path.)"), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formTitle }, "Paste a customer order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pasteHint }, "Paste their text and I'll match it to the current menu and pre-fill the order \u2014 you just add their name and double-check. Items from an old menu get flagged in notes instead of guessed. (Photo reading is built in but waiting on platform support \u2014 text is the reliable path.)"), /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "90px" },
@@ -14491,7 +14490,7 @@ This will replace your current orders.`
         value: text,
         onChange: (e) => setText(e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: styles.attachRow }, /* @__PURE__ */ React.createElement("label", { style: styles.attachBtn }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 15 }), imageFile ? "Change photo" : "Attach a photo", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: onPickImage, style: { display: "none" } })), imageFile && /* @__PURE__ */ React.createElement("div", { style: styles.attachChip }, /* @__PURE__ */ React.createElement("span", { style: styles.attachName }, imageFile.name || "photo"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: () => setImageFile(null), "aria-label": "Remove photo" }, /* @__PURE__ */ React.createElement(X, { size: 14 })))), parseError && /* @__PURE__ */ React.createElement("div", { style: styles.parseError }, parseError), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.attachRow }, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.attachBtn }, /* @__PURE__ */ import_react.default.createElement(ImageIcon, { size: 15 }), imageFile ? "Change photo" : "Attach a photo", /* @__PURE__ */ import_react.default.createElement("input", { type: "file", accept: "image/*", onChange: onPickImage, style: { display: "none" } })), imageFile && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.attachChip }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.attachName }, imageFile.name || "photo"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: () => setImageFile(null), "aria-label": "Remove photo" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 14 })))), parseError && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parseError }, parseError), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, ...!canParse || parsing ? styles.saveBtnDisabled : {} },
@@ -14502,10 +14501,10 @@ This will replace your current orders.`
     ));
   }
   function AmendOrderCard({ menu, orders, onAmended, onCancel }) {
-    const [selectedId, setSelectedId] = useState(orders.length === 1 ? orders[0].id : "");
-    const [text, setText] = useState("");
-    const [parsing, setParsing] = useState(false);
-    const [parseError, setParseError] = useState(null);
+    const [selectedId, setSelectedId] = (0, import_react.useState)(orders.length === 1 ? orders[0].id : "");
+    const [text, setText] = (0, import_react.useState)("");
+    const [parsing, setParsing] = (0, import_react.useState)(false);
+    const [parseError, setParseError] = (0, import_react.useState)(null);
     const selectedOrder = orders.find((o) => o.id === selectedId) || null;
     const canParse = !!selectedOrder && !!text.trim();
     const parse = async () => {
@@ -14527,16 +14526,16 @@ This will replace your current orders.`
         setParsing(false);
       }
     };
-    return /* @__PURE__ */ React.createElement("div", { style: styles.formCard }, /* @__PURE__ */ React.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.formTitle }, "Amend an order via text"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), orders.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.pasteHint }, "No active orders to amend yet.") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.pasteHint }, "Pick the customer's order, paste their follow-up message, and I'll apply the change and open the updated order for you to review before saving."), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Which order?"), /* @__PURE__ */ React.createElement("div", { style: styles.amendOrderPicker }, orders.map((o) => /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formTitle }, "Amend an order via text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), orders.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pasteHint }, "No active orders to amend yet.") : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pasteHint }, "Pick the customer's order, paste their follow-up message, and I'll apply the change and open the updated order for you to review before saving."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Which order?"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.amendOrderPicker }, orders.map((o) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: o.id,
         style: { ...styles.amendOrderChip, ...selectedId === o.id ? styles.amendOrderChipActive : {} },
         onClick: () => setSelectedId(o.id)
       },
-      /* @__PURE__ */ React.createElement("span", { style: styles.amendChipName }, o.customer),
-      /* @__PURE__ */ React.createElement("span", { style: styles.amendChipMeta }, (o.items || []).reduce((s, it) => s + it.qty, 0), " items \xB7 ", currency(o.total))
-    ))), selectedOrder && /* @__PURE__ */ React.createElement("div", { style: styles.amendCurrentBox }, /* @__PURE__ */ React.createElement("div", { style: styles.amendCurrentTitle }, "Current order:"), (selectedOrder.items || []).map((it, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: styles.amendCurrentItem }, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ React.createElement("span", { style: styles.orderItemVariant }, "(", isPerLbItem(it.name) && it.weight > 0 ? `${it.weight} lb` : it.variant, ")")))), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Their follow-up message"), /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ import_react.default.createElement("span", { style: styles.amendChipName }, o.customer),
+      /* @__PURE__ */ import_react.default.createElement("span", { style: styles.amendChipMeta }, (o.items || []).reduce((s, it) => s + it.qty, 0), " items \xB7 ", currency(o.total))
+    ))), selectedOrder && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.amendCurrentBox }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.amendCurrentTitle }, "Current order:"), (selectedOrder.items || []).map((it, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.amendCurrentItem }, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderItemVariant }, "(", isPerLbItem(it.name) && it.weight > 0 ? `${it.weight} lb` : it.variant, ")")))), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Their follow-up message"), /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "80px" },
@@ -14544,7 +14543,7 @@ This will replace your current orders.`
         value: text,
         onChange: (e) => setText(e.target.value)
       }
-    ), parseError && /* @__PURE__ */ React.createElement("div", { style: styles.parseError }, parseError), /* @__PURE__ */ React.createElement(
+    ), parseError && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parseError }, parseError), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, ...!canParse || parsing ? styles.saveBtnDisabled : {} },
@@ -14555,11 +14554,11 @@ This will replace your current orders.`
     )));
   }
   function CsvImportCard({ menu, onImport, onCancel }) {
-    const [text, setText] = useState("");
-    const [parsing, setParsing] = useState(false);
-    const [progress, setProgress] = useState(null);
-    const [results, setResults] = useState(null);
-    const [parseError, setParseError] = useState(null);
+    const [text, setText] = (0, import_react.useState)("");
+    const [parsing, setParsing] = (0, import_react.useState)(false);
+    const [progress, setProgress] = (0, import_react.useState)(null);
+    const [results, setResults] = (0, import_react.useState)(null);
+    const [parseError, setParseError] = (0, import_react.useState)(null);
     const run = async () => {
       setParseError(null);
       const rows = parseDelimited(text);
@@ -14607,7 +14606,7 @@ This will replace your current orders.`
       onImport(good.map((r) => r.order));
     };
     const goodCount = results ? results.filter((r) => r.order && r.order.items.length > 0).length : 0;
-    return /* @__PURE__ */ React.createElement("div", { style: styles.formCard }, /* @__PURE__ */ React.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.formTitle }, "Import from Google Sheet"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), !results ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.pasteHint }, "In your Google Sheet, select the order rows ", /* @__PURE__ */ React.createElement("strong", null, "including the header row"), ", copy, and paste below. Each row becomes an order you can review before saving."), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formTitle }, "Import from Google Sheet"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), !results ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pasteHint }, "In your Google Sheet, select the order rows ", /* @__PURE__ */ import_react.default.createElement("strong", null, "including the header row"), ", copy, and paste below. Each row becomes an order you can review before saving."), /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "120px", fontSize: "12px" },
@@ -14615,7 +14614,7 @@ This will replace your current orders.`
         value: text,
         onChange: (e) => setText(e.target.value)
       }
-    ), parseError && /* @__PURE__ */ React.createElement("div", { style: styles.parseError }, parseError), parsing && progress && /* @__PURE__ */ React.createElement("div", { style: styles.csvProgress }, "Reading orders... ", progress.done, "/", progress.total), /* @__PURE__ */ React.createElement(
+    ), parseError && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parseError }, parseError), parsing && progress && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.csvProgress }, "Reading orders... ", progress.done, "/", progress.total), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, ...!text.trim() || parsing ? styles.saveBtnDisabled : {} },
@@ -14623,7 +14622,7 @@ This will replace your current orders.`
         disabled: !text.trim() || parsing
       },
       parsing ? "Reading..." : "Read orders"
-    )) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.pasteHint }, goodCount, " order", goodCount !== 1 ? "s" : "", " ready to import", results.length - goodCount > 0 ? `, ${results.length - goodCount} with issues` : "", "."), /* @__PURE__ */ React.createElement("div", { style: styles.csvResultsList }, results.map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: styles.csvResultRow }, /* @__PURE__ */ React.createElement("div", { style: styles.csvResultName }, r.customer), r.order && r.order.items.length > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.csvResultItems }, r.order.items.map((it, j) => /* @__PURE__ */ React.createElement("span", { key: j, style: styles.csvResultItem }, it.qty, "\xD7 ", it.name, j < r.order.items.length - 1 ? "," : "")), r.order.reviewReasons && r.order.reviewReasons.length > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.csvResultFlag }, " \xB7 ", r.order.reviewReasons.length, " to review")) : /* @__PURE__ */ React.createElement("div", { style: styles.csvResultError }, r.error ? "Could not read this row" : "No items matched")))), /* @__PURE__ */ React.createElement(
+    )) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pasteHint }, goodCount, " order", goodCount !== 1 ? "s" : "", " ready to import", results.length - goodCount > 0 ? `, ${results.length - goodCount} with issues` : "", "."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.csvResultsList }, results.map((r, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.csvResultRow }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.csvResultName }, r.customer), r.order && r.order.items.length > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.csvResultItems }, r.order.items.map((it, j) => /* @__PURE__ */ import_react.default.createElement("span", { key: j, style: styles.csvResultItem }, it.qty, "\xD7 ", it.name, j < r.order.items.length - 1 ? "," : "")), r.order.reviewReasons && r.order.reviewReasons.length > 0 && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.csvResultFlag }, " \xB7 ", r.order.reviewReasons.length, " to review")) : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.csvResultError }, r.error ? "Could not read this row" : "No items matched")))), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, ...goodCount === 0 ? styles.saveBtnDisabled : {} },
@@ -14634,14 +14633,14 @@ This will replace your current orders.`
       goodCount,
       " order",
       goodCount !== 1 ? "s" : ""
-    ), /* @__PURE__ */ React.createElement("button", { style: styles.csvBackBtn, onClick: () => {
+    ), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBackBtn, onClick: () => {
       setResults(null);
       setText("");
     } }, "Start over")));
   }
   function ReviewModal({ reasons, items, onApplyNote, onApplyUpcharge, onApplyWeight, onAddCustomCharge, onResolve, onClose }) {
-    const [idx, setIdx] = useState(0);
-    const [resolved, setResolved] = useState({});
+    const [idx, setIdx] = (0, import_react.useState)(0);
+    const [resolved, setResolved] = (0, import_react.useState)({});
     const total = reasons.length;
     const allDone = Object.keys(resolved).length >= total;
     const matchItem = (reason2) => {
@@ -14655,13 +14654,13 @@ This will replace your current orders.`
     const reason = reasons[idx];
     const itemIdx = reason ? matchItem(reason) : -1;
     const item = itemIdx >= 0 ? items[itemIdx] : null;
-    const [noteInput, setNoteInput] = useState("");
-    const [upLabel, setUpLabel] = useState("");
-    const [upAmount, setUpAmount] = useState("");
-    const [weightInput, setWeightInput] = useState("");
-    const [chargeLabel, setChargeLabel] = useState("");
-    const [chargeAmount, setChargeAmount] = useState("");
-    useEffect(() => {
+    const [noteInput, setNoteInput] = (0, import_react.useState)("");
+    const [upLabel, setUpLabel] = (0, import_react.useState)("");
+    const [upAmount, setUpAmount] = (0, import_react.useState)("");
+    const [weightInput, setWeightInput] = (0, import_react.useState)("");
+    const [chargeLabel, setChargeLabel] = (0, import_react.useState)("");
+    const [chargeAmount, setChargeAmount] = (0, import_react.useState)("");
+    (0, import_react.useEffect)(() => {
       setNoteInput(item?.note || "");
       setUpLabel(item?.upcharge?.label || "");
       setUpAmount(item?.upcharge?.amount ? String(item.upcharge.amount) : "");
@@ -14678,7 +14677,7 @@ This will replace your current orders.`
     const isWeightReason = /weight/i.test(reason || "");
     const isUpchargeReason = /price for|upcharge/i.test(reason || "");
     const isMatchReason = /match|menu/i.test(reason || "");
-    return /* @__PURE__ */ React.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalTitle }, "Let's sort this out"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onClose, "aria-label": "Close" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), /* @__PURE__ */ React.createElement("div", { style: styles.reviewProgress }, Object.keys(resolved).length, " of ", total, " handled"), !allDone && reason && /* @__PURE__ */ React.createElement("div", { style: styles.reviewStep }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewReasonBox }, reason), item && /* @__PURE__ */ React.createElement("div", { style: styles.reviewItemContext }, "On: ", /* @__PURE__ */ React.createElement("strong", null, item.qty, "\xD7 ", item.name), " (", item.variant, ")"), isWeightReason && item && /* @__PURE__ */ React.createElement("div", { style: styles.reviewField }, /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "How many pounds? (", currency(PER_LB_ITEMS[item.name]?.pricePerLb || 0), "/lb + $1.50 bag)"), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalTitle }, "Let's sort this out"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onClose, "aria-label": "Close" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewProgress }, Object.keys(resolved).length, " of ", total, " handled"), !allDone && reason && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewStep }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewReasonBox }, reason), item && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewItemContext }, "On: ", /* @__PURE__ */ import_react.default.createElement("strong", null, item.qty, "\xD7 ", item.name), " (", item.variant, ")"), isWeightReason && item && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewField }, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "How many pounds? (", currency(PER_LB_ITEMS[item.name]?.pricePerLb || 0), "/lb + $1.50 bag)"), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: styles.input,
@@ -14689,7 +14688,7 @@ This will replace your current orders.`
         onChange: (e) => setWeightInput(e.target.value),
         autoFocus: true
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.doneItemBtn, marginTop: "8px", alignSelf: "flex-start", ...parseFloat(weightInput) > 0 ? {} : styles.saveBtnDisabled },
@@ -14700,7 +14699,7 @@ This will replace your current orders.`
         }
       },
       "Set weight & price"
-    )), isUpchargeReason && item && /* @__PURE__ */ React.createElement("div", { style: styles.reviewField }, /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "What should this cost?"), /* @__PURE__ */ React.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ React.createElement(
+    )), isUpchargeReason && item && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewField }, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "What should this cost?"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 2, marginTop: 0 },
@@ -14708,7 +14707,7 @@ This will replace your current orders.`
         value: upLabel,
         onChange: (e) => setUpLabel(e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 1, marginTop: 0 },
@@ -14719,7 +14718,7 @@ This will replace your current orders.`
         onChange: (e) => setUpAmount(e.target.value),
         autoFocus: true
       }
-    )), /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.doneItemBtn, marginTop: "8px", alignSelf: "flex-start", ...parseFloat(upAmount) > 0 ? {} : styles.saveBtnDisabled },
@@ -14730,7 +14729,7 @@ This will replace your current orders.`
         }
       },
       "Set upcharge"
-    )), !isWeightReason && !isUpchargeReason && /* @__PURE__ */ React.createElement("div", { style: styles.reviewField }, item && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "Add a note to this item"), /* @__PURE__ */ React.createElement(
+    )), !isWeightReason && !isUpchargeReason && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewField }, item && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Add a note to this item"), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: styles.input,
@@ -14738,7 +14737,7 @@ This will replace your current orders.`
         value: noteInput,
         onChange: (e) => setNoteInput(e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.reviewActionBtn, ...noteInput.trim() ? {} : styles.saveBtnDisabled },
@@ -14749,7 +14748,7 @@ This will replace your current orders.`
         }
       },
       "Add note & resolve"
-    ), /* @__PURE__ */ React.createElement("div", { style: styles.reviewOr }, "or")), /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "Add a custom charge for this request"), /* @__PURE__ */ React.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewOr }, "or")), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Add a custom charge for this request"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 2, marginTop: 0 },
@@ -14757,7 +14756,7 @@ This will replace your current orders.`
         value: chargeLabel,
         onChange: (e) => setChargeLabel(e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 1, marginTop: 0 },
@@ -14767,7 +14766,7 @@ This will replace your current orders.`
         value: chargeAmount,
         onChange: (e) => setChargeAmount(e.target.value)
       }
-    )), /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.reviewActionBtn, ...chargeLabel.trim() && parseFloat(chargeAmount) > 0 ? {} : styles.saveBtnDisabled },
@@ -14778,7 +14777,7 @@ This will replace your current orders.`
         }
       },
       "Add charge & resolve"
-    )), /* @__PURE__ */ React.createElement("button", { style: styles.reviewSkipBtn, onClick: markResolved }, "Nothing needed, mark handled"), total > 1 && /* @__PURE__ */ React.createElement("div", { style: styles.reviewNav }, reasons.map((_, i) => /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.reviewSkipBtn, onClick: markResolved }, "Nothing needed, mark handled"), total > 1 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewNav }, reasons.map((_, i) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: i,
@@ -14790,23 +14789,23 @@ This will replace your current orders.`
         onClick: () => setIdx(i),
         "aria-label": `Item ${i + 1}`
       }
-    )))), allDone && /* @__PURE__ */ React.createElement("div", { style: styles.reviewDone }, /* @__PURE__ */ React.createElement(Check, { size: 28, color: "#1D9E75" }), /* @__PURE__ */ React.createElement("div", { style: styles.reviewDoneText }, "All sorted. You're good to save."), /* @__PURE__ */ React.createElement("button", { style: styles.doneItemBtn, onClick: onClose }, "Back to order"))));
+    )))), allDone && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewDone }, /* @__PURE__ */ import_react.default.createElement(Check, { size: 28, color: "#1D9E75" }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewDoneText }, "All sorted. You're good to save."), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.doneItemBtn, onClick: onClose }, "Back to order"))));
   }
   function OrderForm({ menu, initial, recentCustomers, onSave, onCancel }) {
     const isEdit = !!initial?.id;
-    const [customer, setCustomer] = useState(initial?.customer || "");
-    const [items, setItems] = useState(initial?.items || []);
-    const [jarSwaps, setJarSwaps] = useState(initial?.jarSwaps || 0);
-    const [containerReturns, setContainerReturns] = useState(initial?.containerReturns || 0);
-    const [notes, setNotes] = useState(initial?.notes || "");
-    const [discountType, setDiscountType] = useState(initial?.discountType || null);
-    const [discountValue, setDiscountValue] = useState(initial?.discountValue ? String(initial.discountValue) : "");
-    const [customCharges, setCustomCharges] = useState(initial?.customCharges || []);
-    const [waiveSurcharge, setWaiveSurcharge] = useState(!!initial?.waiveSurcharge);
-    const [pickerCategory, setPickerCategory] = useState(null);
-    const [reviewReasons, setReviewReasons] = useState(initial?.reviewReasons || []);
-    const [expandedItem, setExpandedItem] = useState(null);
-    const [showReview, setShowReview] = useState(false);
+    const [customer, setCustomer] = (0, import_react.useState)(initial?.customer || "");
+    const [items, setItems] = (0, import_react.useState)(initial?.items || []);
+    const [jarSwaps, setJarSwaps] = (0, import_react.useState)(initial?.jarSwaps || 0);
+    const [containerReturns, setContainerReturns] = (0, import_react.useState)(initial?.containerReturns || 0);
+    const [notes, setNotes] = (0, import_react.useState)(initial?.notes || "");
+    const [discountType, setDiscountType] = (0, import_react.useState)(initial?.discountType || null);
+    const [discountValue, setDiscountValue] = (0, import_react.useState)(initial?.discountValue ? String(initial.discountValue) : "");
+    const [customCharges, setCustomCharges] = (0, import_react.useState)(initial?.customCharges || []);
+    const [waiveSurcharge, setWaiveSurcharge] = (0, import_react.useState)(!!initial?.waiveSurcharge);
+    const [pickerCategory, setPickerCategory] = (0, import_react.useState)(null);
+    const [reviewReasons, setReviewReasons] = (0, import_react.useState)(initial?.reviewReasons || []);
+    const [expandedItem, setExpandedItem] = (0, import_react.useState)(null);
+    const [showReview, setShowReview] = (0, import_react.useState)(false);
     const discNum = parseFloat(discountValue) || 0;
     const itemsTotal = itemsBaseTotal(items);
     const disc = discountAmount(itemsTotal, discountType, discNum);
@@ -14878,14 +14877,14 @@ This will replace your current orders.`
       });
     };
     const showChips = !isEdit && !customer.trim() && recentCustomers.length > 0;
-    const selectedByCategory = useMemo(() => {
+    const selectedByCategory = (0, import_react.useMemo)(() => {
       const counts = {};
       items.forEach((it) => {
         counts[it.category] = (counts[it.category] || 0) + it.qty;
       });
       return counts;
     }, [items]);
-    return /* @__PURE__ */ React.createElement("div", { style: styles.formCard }, /* @__PURE__ */ React.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.formTitle }, isEdit ? `Edit order \u2014 ${initial.customer}` : "New order"), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), reviewReasons.length > 0 && /* @__PURE__ */ React.createElement("button", { style: styles.reviewOpenBtn, onClick: () => setShowReview(true) }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 16 }), /* @__PURE__ */ React.createElement("div", { style: styles.reviewOpenText }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewOpenTitle }, reviewReasons.length, " thing", reviewReasons.length !== 1 ? "s" : "", " to sort out"), /* @__PURE__ */ React.createElement("div", { style: styles.reviewOpenSub }, "Tap to work through them")), /* @__PURE__ */ React.createElement(ChevronDown, { size: 16, style: { transform: "rotate(-90deg)" } })), showReview && /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.formTitle }, isEdit ? `Edit order \u2014 ${initial.customer}` : "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onCancel, "aria-label": "Cancel" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), reviewReasons.length > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.reviewOpenBtn, onClick: () => setShowReview(true) }, /* @__PURE__ */ import_react.default.createElement(AlertTriangle, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewOpenText }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewOpenTitle }, reviewReasons.length, " thing", reviewReasons.length !== 1 ? "s" : "", " to sort out"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewOpenSub }, "Tap to work through them")), /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 16, style: { transform: "rotate(-90deg)" } })), showReview && /* @__PURE__ */ import_react.default.createElement(
       ReviewModal,
       {
         reasons: reviewReasons,
@@ -14897,7 +14896,7 @@ This will replace your current orders.`
         onResolve: (i) => dismissReview(i),
         onClose: () => setShowReview(false)
       }
-    ), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Customer"), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Customer"), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: styles.input,
@@ -14906,7 +14905,7 @@ This will replace your current orders.`
         onChange: (e) => setCustomer(e.target.value),
         autoFocus: !isEdit && items.length > 0
       }
-    ), showChips && /* @__PURE__ */ React.createElement("div", { style: styles.chipRow }, recentCustomers.map((name) => /* @__PURE__ */ React.createElement("button", { key: name, style: styles.chip, onClick: () => setCustomer(name) }, name))), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Items"), itemCount > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.selectedSummary }, itemCount, " item", itemCount !== 1 ? "s" : "", " selected \xB7 ", currency(itemsTotal)), /* @__PURE__ */ React.createElement("div", { style: styles.categoryGrid }, Object.keys(menu).map((cat) => /* @__PURE__ */ React.createElement(
+    ), showChips && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.chipRow }, recentCustomers.map((name) => /* @__PURE__ */ import_react.default.createElement("button", { key: name, style: styles.chip, onClick: () => setCustomer(name) }, name))), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Items"), itemCount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.selectedSummary }, itemCount, " item", itemCount !== 1 ? "s" : "", " selected \xB7 ", currency(itemsTotal)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.categoryGrid }, Object.keys(menu).map((cat) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: cat,
@@ -14917,12 +14916,12 @@ This will replace your current orders.`
         onClick: () => setPickerCategory(pickerCategory === cat ? null : cat)
       },
       CATEGORY_LABELS[cat],
-      selectedByCategory[cat] > 0 && /* @__PURE__ */ React.createElement("span", { style: styles.catCount }, selectedByCategory[cat]),
-      pickerCategory === cat ? /* @__PURE__ */ React.createElement(ChevronUp, { size: 16 }) : /* @__PURE__ */ React.createElement(ChevronDown, { size: 16 })
-    ))), pickerCategory && /* @__PURE__ */ React.createElement("div", { style: styles.picker }, menu[pickerCategory].map((menuItem) => /* @__PURE__ */ React.createElement("div", { key: menuItem.name, style: styles.pickerGroup }, /* @__PURE__ */ React.createElement("div", { style: styles.pickerGroupName }, menuItem.name), /* @__PURE__ */ React.createElement("div", { style: styles.pickerVariants }, menuItem.variants.map((variant) => {
+      selectedByCategory[cat] > 0 && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.catCount }, selectedByCategory[cat]),
+      pickerCategory === cat ? /* @__PURE__ */ import_react.default.createElement(ChevronUp, { size: 16 }) : /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 16 })
+    ))), pickerCategory && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.picker }, menu[pickerCategory].map((menuItem) => /* @__PURE__ */ import_react.default.createElement("div", { key: menuItem.name, style: styles.pickerGroup }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pickerGroupName }, menuItem.name), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pickerVariants }, menuItem.variants.map((variant) => {
       const idx = findItemIndex(pickerCategory, menuItem.name, variant);
       const selected = idx >= 0;
-      return /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement(
         "div",
         {
           key: variant.label,
@@ -14931,21 +14930,21 @@ This will replace your current orders.`
           role: "button",
           tabIndex: 0
         },
-        /* @__PURE__ */ React.createElement("span", { style: styles.variantLabel }, variant.label),
-        selected ? /* @__PURE__ */ React.createElement(QtyControl, { value: items[idx].qty, onChange: (q) => setQty(idx, q) }) : /* @__PURE__ */ React.createElement("span", { style: styles.variantPrice }, currency(variant.price))
+        /* @__PURE__ */ import_react.default.createElement("span", { style: styles.variantLabel }, variant.label),
+        selected ? /* @__PURE__ */ import_react.default.createElement(QtyControl, { value: items[idx].qty, onChange: (q) => setQty(idx, q) }) : /* @__PURE__ */ import_react.default.createElement("span", { style: styles.variantPrice }, currency(variant.price))
       );
-    }))))), items.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.reviewList }, items.map((it, idx) => {
+    }))))), items.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewList }, items.map((it, idx) => {
       const open = expandedItem === idx;
       const hasExtra = it.note || it.upcharge;
-      return /* @__PURE__ */ React.createElement("div", { key: `${it.category}-${it.name}-${it.variant}-${idx}`, style: styles.reviewItemCard }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewRow }, /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: `${it.category}-${it.name}-${it.variant}-${idx}`, style: styles.reviewItemCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewRow }, /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
           style: styles.reviewItemMain,
           onClick: () => setExpandedItem(open ? null : idx)
         },
-        /* @__PURE__ */ React.createElement("span", { style: styles.reviewText }, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ React.createElement("span", { style: styles.orderItemVariant }, "(", it.variant, ")")),
-        hasExtra && /* @__PURE__ */ React.createElement("span", { style: styles.itemExtraDot })
-      ), /* @__PURE__ */ React.createElement(QtyControl, { value: it.qty, onChange: (q) => setQty(idx, q) })), !open && isPerLbItem(it.name) && (it.weight > 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.itemUpchargePreview }, it.weight, " lb \xB7 ", currency(it.price)) : /* @__PURE__ */ React.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "set weight \u2304")), !open && it.note && /* @__PURE__ */ React.createElement("div", { style: styles.itemNotePreview }, "\u201C", it.note, "\u201D"), !open && it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.itemUpchargePreview }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), ")"), !open && it.upcharge && !it.upcharge.amount && /* @__PURE__ */ React.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "+ ", it.upcharge.label, " \u2014 set a price \u2304"), open && /* @__PURE__ */ React.createElement("div", { style: styles.itemEditor }, isPerLbItem(it.name) && /* @__PURE__ */ React.createElement("div", { style: styles.weightDeferNote }, "Priced by weight (", currency(PER_LB_ITEMS[it.name].pricePerLb), "/lb + $1.50 bag). Set the actual weight from the order after you've weighed it."), /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "Note for this item"), /* @__PURE__ */ React.createElement(
+        /* @__PURE__ */ import_react.default.createElement("span", { style: styles.reviewText }, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderItemVariant }, "(", it.variant, ")")),
+        hasExtra && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.itemExtraDot })
+      ), /* @__PURE__ */ import_react.default.createElement(QtyControl, { value: it.qty, onChange: (q) => setQty(idx, q) })), !open && isPerLbItem(it.name) && (it.weight > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargePreview }, it.weight, " lb \xB7 ", currency(it.price)) : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "set weight \u2304")), !open && it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemNotePreview }, "\u201C", it.note, "\u201D"), !open && it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargePreview }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), ")"), !open && it.upcharge && !it.upcharge.amount && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "+ ", it.upcharge.label, " \u2014 set a price \u2304"), open && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemEditor }, isPerLbItem(it.name) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightDeferNote }, "Priced by weight (", currency(PER_LB_ITEMS[it.name].pricePerLb), "/lb + $1.50 bag). Set the actual weight from the order after you've weighed it."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Note for this item"), /* @__PURE__ */ import_react.default.createElement(
         "input",
         {
           style: styles.input,
@@ -14953,7 +14952,7 @@ This will replace your current orders.`
           value: it.note || "",
           onChange: (e) => setItemNote(idx, e.target.value)
         }
-      ), /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "Upcharge (optional)"), /* @__PURE__ */ React.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ React.createElement(
+      ), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Upcharge (optional)"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ import_react.default.createElement(
         "input",
         {
           style: { ...styles.input, flex: 2, marginTop: 0 },
@@ -14961,7 +14960,7 @@ This will replace your current orders.`
           value: it.upcharge?.label || "",
           onChange: (e) => setItemUpcharge(idx, e.target.value, it.upcharge?.amount || "")
         }
-      ), /* @__PURE__ */ React.createElement(
+      ), /* @__PURE__ */ import_react.default.createElement(
         "input",
         {
           style: { ...styles.input, flex: 1, marginTop: 0 },
@@ -14971,7 +14970,7 @@ This will replace your current orders.`
           value: it.upcharge?.amount || "",
           onChange: (e) => setItemUpcharge(idx, it.upcharge?.label || "Upcharge", e.target.value)
         }
-      )), /* @__PURE__ */ React.createElement("div", { style: styles.itemEditorActions }, hasExtra && /* @__PURE__ */ React.createElement(
+      )), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemEditorActions }, hasExtra && /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
           style: styles.clearItemExtra,
@@ -14981,12 +14980,12 @@ This will replace your current orders.`
           }
         },
         "Clear"
-      ), /* @__PURE__ */ React.createElement("button", { style: styles.doneItemBtn, onClick: () => setExpandedItem(null) }, "Done"))));
-    })), /* @__PURE__ */ React.createElement("div", { style: styles.loopRow }, /* @__PURE__ */ React.createElement("div", { style: styles.loopField }, /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Jar swaps"), /* @__PURE__ */ React.createElement(QtyControl, { value: jarSwaps, onChange: setJarSwaps }), /* @__PURE__ */ React.createElement("div", { style: styles.loopHint }, "\u2212$2.00 each")), /* @__PURE__ */ React.createElement("div", { style: styles.loopField }, /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Containers returned"), /* @__PURE__ */ React.createElement(QtyControl, { value: containerReturns, onChange: setContainerReturns }), /* @__PURE__ */ React.createElement("div", { style: styles.loopHint }, "\u2212$1.00 each"))), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Discount"), /* @__PURE__ */ React.createElement("div", { style: styles.discountRow }, [
+      ), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.doneItemBtn, onClick: () => setExpandedItem(null) }, "Done"))));
+    })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopRow }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopField }, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Jar swaps"), /* @__PURE__ */ import_react.default.createElement(QtyControl, { value: jarSwaps, onChange: setJarSwaps }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopHint }, "\u2212$2.00 each")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopField }, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Containers returned"), /* @__PURE__ */ import_react.default.createElement(QtyControl, { value: containerReturns, onChange: setContainerReturns }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopHint }, "\u2212$1.00 each"))), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Discount"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.discountRow }, [
       [null, "None"],
       ["percent", "%"],
       ["dollar", "$"]
-    ].map(([type, label]) => /* @__PURE__ */ React.createElement(
+    ].map(([type, label]) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: label,
@@ -14997,7 +14996,7 @@ This will replace your current orders.`
         onClick: () => setDiscountType(type)
       },
       label
-    )), discountType && /* @__PURE__ */ React.createElement(
+    )), discountType && /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 1, marginTop: 0 },
@@ -15008,7 +15007,7 @@ This will replace your current orders.`
         value: discountValue,
         onChange: (e) => setDiscountValue(e.target.value)
       }
-    )), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Custom charges"), customCharges.length > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.customChargeList }, customCharges.map((ch) => /* @__PURE__ */ React.createElement("div", { key: ch.id, style: styles.customChargeRow }, /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Custom charges"), customCharges.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.customChargeList }, customCharges.map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.customChargeRow }, /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 2, marginTop: 0 },
@@ -15016,7 +15015,7 @@ This will replace your current orders.`
         value: ch.label,
         onChange: (e) => updateCustomCharge(ch.id, "label", e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: { ...styles.input, flex: 1, marginTop: 0 },
@@ -15026,7 +15025,7 @@ This will replace your current orders.`
         value: ch.amount,
         onChange: (e) => updateCustomCharge(ch.id, "amount", e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: () => removeCustomCharge(ch.id), "aria-label": "Remove charge" }, /* @__PURE__ */ React.createElement(X, { size: 16 }))))), /* @__PURE__ */ React.createElement("button", { style: styles.addChargeBtn, onClick: addCustomCharge }, /* @__PURE__ */ React.createElement(Plus, { size: 15 }), " Add a custom charge"), /* @__PURE__ */ React.createElement("label", { style: styles.label }, "Notes"), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: () => removeCustomCharge(ch.id), "aria-label": "Remove charge" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 16 }))))), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.addChargeBtn, onClick: addCustomCharge }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 15 }), " Add a custom charge"), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.label }, "Notes"), /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: styles.textarea,
@@ -15034,15 +15033,15 @@ This will replace your current orders.`
         value: notes,
         onChange: (e) => setNotes(e.target.value)
       }
-    ), itemsUpchargeTotal(items) > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.extraLine }, /* @__PURE__ */ React.createElement("span", null, "Item upcharges"), /* @__PURE__ */ React.createElement("span", null, "+", currency(itemsUpchargeTotal(items)))), disc > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.discountLine }, /* @__PURE__ */ React.createElement("span", null, "Discount", discountType === "percent" ? ` (${discNum}%)` : ""), /* @__PURE__ */ React.createElement("span", null, "\u2212", currency(disc))), customChargesTotal(customCharges) > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.extraLine }, /* @__PURE__ */ React.createElement("span", null, "Custom charges"), /* @__PURE__ */ React.createElement("span", null, "+", currency(customChargesTotal(customCharges)))), /* @__PURE__ */ React.createElement(
+    ), itemsUpchargeTotal(items) > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.extraLine }, /* @__PURE__ */ import_react.default.createElement("span", null, "Item upcharges"), /* @__PURE__ */ import_react.default.createElement("span", null, "+", currency(itemsUpchargeTotal(items)))), disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.discountLine }, /* @__PURE__ */ import_react.default.createElement("span", null, "Discount", discountType === "percent" ? ` (${discNum}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(disc))), customChargesTotal(customCharges) > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.extraLine }, /* @__PURE__ */ import_react.default.createElement("span", null, "Custom charges"), /* @__PURE__ */ import_react.default.createElement("span", null, "+", currency(customChargesTotal(customCharges)))), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.waiveSurchargeRow,
         onClick: () => setWaiveSurcharge((v) => !v)
       },
-      /* @__PURE__ */ React.createElement("span", { style: styles.waiveSurchargeLabel }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.waiveCheckbox, ...waiveSurcharge ? styles.waiveCheckboxOn : {} } }, waiveSurcharge && /* @__PURE__ */ React.createElement(Check, { size: 12 })), "Waive the $2 surcharge"),
-      /* @__PURE__ */ React.createElement("span", { style: styles.waiveSurchargeHint }, waiveSurcharge ? "waived" : "applied")
-    ), /* @__PURE__ */ React.createElement("div", { style: styles.totalRow }, /* @__PURE__ */ React.createElement("span", null, "Total ", waiveSurcharge ? "(surcharge waived)" : "(incl. $2 surcharge)"), /* @__PURE__ */ React.createElement("span", { style: { ...styles.totalValue, ...total < 0 ? { color: "#E8799A" } : {} } }, currency(total))), total < 0 && /* @__PURE__ */ React.createElement("div", { style: styles.negativeTotalNote }, "This order is below zero, so you'll be covering ", currency(Math.abs(total)), " out of pocket. Saved as-is."), hasPerLbItems && /* @__PURE__ */ React.createElement("div", { style: styles.weightDeferNote }, "Sous vide proteins are priced by weight \u2014 save the order, then set each weight from the order card once you've weighed them."), /* @__PURE__ */ React.createElement(
+      /* @__PURE__ */ import_react.default.createElement("span", { style: styles.waiveSurchargeLabel }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.waiveCheckbox, ...waiveSurcharge ? styles.waiveCheckboxOn : {} } }, waiveSurcharge && /* @__PURE__ */ import_react.default.createElement(Check, { size: 12 })), "Waive the $2 surcharge"),
+      /* @__PURE__ */ import_react.default.createElement("span", { style: styles.waiveSurchargeHint }, waiveSurcharge ? "waived" : "applied")
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.totalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Total ", waiveSurcharge ? "(surcharge waived)" : "(incl. $2 surcharge)"), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.totalValue, ...total < 0 ? { color: "#E8799A" } : {} } }, currency(total))), total < 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.negativeTotalNote }, "This order is below zero, so you'll be covering ", currency(Math.abs(total)), " out of pocket. Saved as-is."), hasPerLbItems && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightDeferNote }, "Sous vide proteins are priced by weight \u2014 save the order, then set each weight from the order card once you've weighed them."), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, ...!customer.trim() || items.length === 0 ? styles.saveBtnDisabled : {} },
@@ -15055,19 +15054,19 @@ This will replace your current orders.`
   function InvoiceModal({ order, onClose }) {
     const disc = discountAmount(itemsBaseTotal(order.items), order.discountType, order.discountValue);
     const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" }) : "";
-    return /* @__PURE__ */ React.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ React.createElement("div", { style: styles.invoiceScroll, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { style: styles.invoiceCard }, /* @__PURE__ */ React.createElement("div", { style: styles.invoiceHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.invoiceLogo }, "LTB"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: styles.invoiceBrand }, "Lettuce, Turnip, The Beet"), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceTagline }, "meal prep, delivered fresh"))), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceMeta }, /* @__PURE__ */ React.createElement("span", { style: styles.invoiceCustomer }, order.customer), dateStr && /* @__PURE__ */ React.createElement("span", { style: styles.invoiceDate }, dateStr)), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceItems }, (order.items || []).map((it, idx) => {
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceScroll, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceLogo }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceBrand }, "Lettuce, Turnip, The Beet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTagline }, "meal prep, delivered fresh"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceMeta }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceCustomer }, order.customer), dateStr && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceDate }, dateStr)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItems }, (order.items || []).map((it, idx) => {
       const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
       const lineTotal = (it.price + up) * it.qty;
-      return /* @__PURE__ */ React.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ React.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ React.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ React.createElement("span", { style: styles.invoiceItemPrice }, currency(lineTotal))), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceItemVariant }, isPerLbItem(it.name) && it.weight ? `${it.weight} lb` : it.variant), it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)"), it.note && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceItemNote }, "\u201C", it.note, "\u201D"));
-    })), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceTotals }, disc > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ React.createElement("span", { style: { color: "#C0517A" } }, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ React.createElement("span", { style: { color: "#C0517A" } }, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ React.createElement("div", { key: ch.id, style: styles.invoiceTotalRow }, /* @__PURE__ */ React.createElement("span", null, ch.label), /* @__PURE__ */ React.createElement("span", null, currency(Number(ch.amount) || 0)))), !order.waiveSurcharge && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ React.createElement("span", null, "Order surcharge"), /* @__PURE__ */ React.createElement("span", null, currency(SURCHARGE))), order.jarSwaps > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ React.createElement("span", null, "Jar swap x", order.jarSwaps), /* @__PURE__ */ React.createElement("span", null, "\u2212", currency(order.jarSwaps * 2))), order.containerReturns > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ React.createElement("span", null, "Containers returned x", order.containerReturns), /* @__PURE__ */ React.createElement("span", null, "\u2212", currency(order.containerReturns)))), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceGrandTotal }, /* @__PURE__ */ React.createElement("span", null, "Total"), /* @__PURE__ */ React.createElement("span", { style: styles.invoiceGrandValue }, currency(order.total))), order.notes && /* @__PURE__ */ React.createElement("div", { style: styles.invoiceNotes }, order.notes), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceFooter }, "All prices all-in. Thanks for the order!")), /* @__PURE__ */ React.createElement("button", { style: styles.invoiceClose, onClick: onClose }, "Done"), /* @__PURE__ */ React.createElement("div", { style: styles.invoiceHint }, "Screenshot the card above to send it.")));
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemPrice }, currency(lineTotal))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemVariant }, isPerLbItem(it.name) && it.weight ? `${it.weight} lb` : it.variant), it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)"), it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemNote }, "\u201C", it.note, "\u201D"));
+    })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotals }, disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: { color: "#C0517A" } }, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", { style: { color: "#C0517A" } }, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0)))), !order.waiveSurcharge && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Order surcharge"), /* @__PURE__ */ import_react.default.createElement("span", null, currency(SURCHARGE))), order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Jar swap x", order.jarSwaps), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(order.jarSwaps * 2))), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Containers returned x", order.containerReturns), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(order.containerReturns)))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceGrandTotal }, /* @__PURE__ */ import_react.default.createElement("span", null, "Total"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceGrandValue }, currency(order.total))), order.notes && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceNotes }, order.notes), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceFooter }, "All prices all-in. Thanks for the order!")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.invoiceClose, onClick: onClose }, "Done"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceHint }, "Screenshot the card above to send it.")));
   }
   function WeightPhotoModal({ orderId, itemIdx, item, stepLabel, onApply, onClose }) {
-    const [weight, setWeight] = useState(item.weight > 0 ? String(item.weight) : "");
-    const [photoBase64, setPhotoBase64] = useState(null);
-    const [existingPhoto, setExistingPhoto] = useState(null);
-    const [busy, setBusy] = useState(false);
-    const [err, setErr] = useState("");
-    useEffect(() => {
+    const [weight, setWeight] = (0, import_react.useState)(item.weight > 0 ? String(item.weight) : "");
+    const [photoBase64, setPhotoBase64] = (0, import_react.useState)(null);
+    const [existingPhoto, setExistingPhoto] = (0, import_react.useState)(null);
+    const [busy, setBusy] = (0, import_react.useState)(false);
+    const [err, setErr] = (0, import_react.useState)("");
+    (0, import_react.useEffect)(() => {
       let live = true;
       if (item.hasPhoto) {
         loadPhoto(orderId, itemIdx).then((d) => {
@@ -15103,7 +15102,7 @@ This will replace your current orders.`
       if (!stepLabel) onClose();
     };
     const shownPhoto = photoBase64 ? `data:image/jpeg;base64,${photoBase64}` : existingPhoto ? `data:image/jpeg;base64,${existingPhoto}` : null;
-    return /* @__PURE__ */ React.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ React.createElement("div", { style: styles.weightModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: styles.reviewModalTitle }, item.name), stepLabel && /* @__PURE__ */ React.createElement("div", { style: styles.weightStepLabel }, stepLabel)), /* @__PURE__ */ React.createElement("button", { style: styles.iconBtn, onClick: onClose, "aria-label": "Close" }, /* @__PURE__ */ React.createElement(X, { size: 18 }))), item.note && /* @__PURE__ */ React.createElement("div", { style: styles.weightIntentNote }, "Customer asked: ", item.note), /* @__PURE__ */ React.createElement("label", { style: styles.miniLabel }, "Actual weight (lb) \u2014 ", currency(info.pricePerLb), "/lb + $1.50 bag"), /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewModalTitle }, item.name), stepLabel && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightStepLabel }, stepLabel)), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.iconBtn, onClick: onClose, "aria-label": "Close" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 18 }))), item.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightIntentNote }, "Customer asked: ", item.note), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Actual weight (lb) \u2014 ", currency(info.pricePerLb), "/lb + $1.50 bag"), /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: styles.input,
@@ -15114,10 +15113,10 @@ This will replace your current orders.`
         onChange: (e) => setWeight(e.target.value),
         autoFocus: true
       }
-    ), livePrice !== null && /* @__PURE__ */ React.createElement("div", { style: styles.weightPriceHint }, "= ", currency(livePrice), " each"), /* @__PURE__ */ React.createElement("label", { style: { ...styles.miniLabel, marginTop: "14px" } }, "Proof photo (optional) \u2014 item on the scale"), shownPhoto ? /* @__PURE__ */ React.createElement("div", { style: styles.photoPreviewWrap }, /* @__PURE__ */ React.createElement("img", { src: shownPhoto, alt: "scale", style: styles.photoPreview }), /* @__PURE__ */ React.createElement("button", { style: styles.photoRemoveBtn, onClick: () => {
+    ), livePrice !== null && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightPriceHint }, "= ", currency(livePrice), " each"), /* @__PURE__ */ import_react.default.createElement("label", { style: { ...styles.miniLabel, marginTop: "14px" } }, "Proof photo (optional) \u2014 item on the scale"), shownPhoto ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.photoPreviewWrap }, /* @__PURE__ */ import_react.default.createElement("img", { src: shownPhoto, alt: "scale", style: styles.photoPreview }), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.photoRemoveBtn, onClick: () => {
       setPhotoBase64(null);
       setExistingPhoto(null);
-    } }, /* @__PURE__ */ React.createElement(X, { size: 13 }), " Remove")) : /* @__PURE__ */ React.createElement("label", { style: styles.photoUploadBtn }, /* @__PURE__ */ React.createElement(ImageIcon, { size: 15 }), busy ? "Working\u2026" : "Add scale photo", /* @__PURE__ */ React.createElement("input", { type: "file", accept: "image/*", onChange: onPickPhoto, style: { display: "none" } })), err && /* @__PURE__ */ React.createElement("div", { style: styles.parseError }, err), /* @__PURE__ */ React.createElement("div", { style: styles.weightModalHint }, "Photos are compressed, saved to this order, and auto-deleted after a month."), /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ import_react.default.createElement(X, { size: 13 }), " Remove")) : /* @__PURE__ */ import_react.default.createElement("label", { style: styles.photoUploadBtn }, /* @__PURE__ */ import_react.default.createElement(ImageIcon, { size: 15 }), busy ? "Working\u2026" : "Add scale photo", /* @__PURE__ */ import_react.default.createElement("input", { type: "file", accept: "image/*", onChange: onPickPhoto, style: { display: "none" } })), err && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parseError }, err), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightModalHint }, "Photos are compressed, saved to this order, and auto-deleted after a month."), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, marginTop: "14px", ...w > 0 && !busy ? {} : styles.saveBtnDisabled },
@@ -15128,12 +15127,12 @@ This will replace your current orders.`
     )));
   }
   function OrderCard({ order, expanded, onToggle, onUpdate, onDelete, onEdit }) {
-    const [confirmDelete, setConfirmDelete] = useState(false);
-    const [copied, setCopied] = useState(false);
-    const [editingNotes, setEditingNotes] = useState(false);
-    const [notesDraft, setNotesDraft] = useState("");
-    const [showInvoice, setShowInvoice] = useState(false);
-    const [weightFlow, setWeightFlow] = useState(null);
+    const [confirmDelete, setConfirmDelete] = (0, import_react.useState)(false);
+    const [copied, setCopied] = (0, import_react.useState)(false);
+    const [editingNotes, setEditingNotes] = (0, import_react.useState)(false);
+    const [notesDraft, setNotesDraft] = (0, import_react.useState)("");
+    const [showInvoice, setShowInvoice] = (0, import_react.useState)(false);
+    const [weightFlow, setWeightFlow] = (0, import_react.useState)(null);
     const perLbIdxs = (order.items || []).map((it, i) => isPerLbItem(it.name) ? i : -1).filter((i) => i >= 0);
     const anyPending = perLbIdxs.some((i) => order.items[i].weightPending || !(order.items[i].weight > 0));
     const applyWeight = async (itemIdx, weight, photoBase64) => {
@@ -15181,7 +15180,7 @@ This will replace your current orders.`
       onUpdate({ notes: notesDraft.trim() });
       setEditingNotes(false);
     };
-    return /* @__PURE__ */ React.createElement("div", { style: styles.orderCard }, /* @__PURE__ */ React.createElement("div", { style: styles.orderCardHeader, onClick: onToggle, role: "button", tabIndex: 0 }, /* @__PURE__ */ React.createElement("div", { style: styles.orderCardLeft }, /* @__PURE__ */ React.createElement("div", { style: styles.orderCustomer }, order.customer), /* @__PURE__ */ React.createElement("div", { style: styles.orderMeta }, (order.items || []).reduce((s, it) => s + it.qty, 0), " item", (order.items || []).reduce((s, it) => s + it.qty, 0) !== 1 ? "s" : "", " ", "\xB7 ", currency(order.total), disc > 0 ? " \xB7 disc" : "", order.createdAt ? ` \xB7 ${formatDate(order.createdAt)}` : "")), /* @__PURE__ */ React.createElement("div", { style: styles.orderCardRight }, /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardHeader, onClick: onToggle, role: "button", tabIndex: 0 }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCustomer }, order.customer), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderMeta }, (order.items || []).reduce((s, it) => s + it.qty, 0), " item", (order.items || []).reduce((s, it) => s + it.qty, 0) !== 1 ? "s" : "", " ", "\xB7 ", currency(order.total), disc > 0 ? " \xB7 disc" : "", order.createdAt ? ` \xB7 ${formatDate(order.createdAt)}` : "")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardRight }, /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: {
@@ -15191,30 +15190,30 @@ This will replace your current orders.`
         onClick: togglePaid
       },
       order.paid ? "Paid" : "Unpaid"
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.statusPill, background: `${STATUS_COLORS[order.status]}22`, color: STATUS_COLORS[order.status] },
         onClick: cycleStatus
       },
       order.status
-    ), expanded ? /* @__PURE__ */ React.createElement(ChevronUp, { size: 18 }) : /* @__PURE__ */ React.createElement(ChevronDown, { size: 18 }))), expanded && /* @__PURE__ */ React.createElement("div", { style: styles.orderCardBody }, /* @__PURE__ */ React.createElement("div", { style: styles.orderItemsList }, (order.items || []).map((it, idx) => {
+    ), expanded ? /* @__PURE__ */ import_react.default.createElement(ChevronUp, { size: 18 }) : /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 18 }))), expanded && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardBody }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemsList }, (order.items || []).map((it, idx) => {
       const perLb = isPerLbItem(it.name);
       const pending = perLb && (it.weightPending || !(it.weight > 0));
       const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
       const lineTotal = (it.price + up) * it.qty;
-      return /* @__PURE__ */ React.createElement("div", { key: idx, style: styles.orderItemBlock }, /* @__PURE__ */ React.createElement("div", { style: styles.orderItemLine }, /* @__PURE__ */ React.createElement("span", null, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ React.createElement("span", { style: styles.orderItemVariant }, "(", perLb && it.weight > 0 ? `${it.weight} lb` : it.variant, ")")), /* @__PURE__ */ React.createElement("span", null, pending ? /* @__PURE__ */ React.createElement("span", { style: styles.pendingPrice }, "weigh after shopping") : currency(lineTotal))), it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.orderItemSub }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)"), it.note && /* @__PURE__ */ React.createElement("div", { style: styles.orderItemNote }, "\u201C", it.note, "\u201D"), perLb && /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.orderItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderItemVariant }, "(", perLb && it.weight > 0 ? `${it.weight} lb` : it.variant, ")")), /* @__PURE__ */ import_react.default.createElement("span", null, pending ? /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingPrice }, "weigh after shopping") : currency(lineTotal))), it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemSub }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)"), it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemNote }, "\u201C", it.note, "\u201D"), perLb && /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
           style: styles.setWeightBtn,
           onClick: () => setWeightFlow({ mode: "single", queue: [idx], pos: 0 })
         },
-        /* @__PURE__ */ React.createElement(Scale, { size: 12 }),
+        /* @__PURE__ */ import_react.default.createElement(Scale, { size: 12 }),
         " ",
         it.weight > 0 ? "Update weight" : "Set weight",
         it.hasPhoto ? " \xB7 \u{1F4F7}" : ""
       ));
-    }), disc > 0 && /* @__PURE__ */ React.createElement("div", { style: { ...styles.orderItemLine, color: "#E8799A" } }, /* @__PURE__ */ React.createElement("span", null, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ React.createElement("span", null, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ React.createElement("div", { key: ch.id, style: styles.orderItemLine }, /* @__PURE__ */ React.createElement("span", null, ch.label), /* @__PURE__ */ React.createElement("span", null, currency(Number(ch.amount) || 0))))), (order.jarSwaps > 0 || order.containerReturns > 0) && /* @__PURE__ */ React.createElement("div", { style: styles.loopSummary }, order.jarSwaps > 0 && /* @__PURE__ */ React.createElement("span", null, order.jarSwaps, " jar swap", order.jarSwaps > 1 ? "s" : "", " (\u2212", currency(order.jarSwaps * 2), ")"), order.containerReturns > 0 && /* @__PURE__ */ React.createElement("span", null, order.containerReturns, " container", order.containerReturns > 1 ? "s" : "", " returned (\u2212", currency(order.containerReturns * 1), ")")), /* @__PURE__ */ React.createElement("div", { style: styles.notesBlock }, editingNotes ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(
+    }), disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.orderItemLine, color: "#E8799A" } }, /* @__PURE__ */ import_react.default.createElement("span", null, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0))))), (order.jarSwaps > 0 || order.containerReturns > 0) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopSummary }, order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.jarSwaps, " jar swap", order.jarSwaps > 1 ? "s" : "", " (\u2212", currency(order.jarSwaps * 2), ")"), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.containerReturns, " container", order.containerReturns > 1 ? "s" : "", " returned (\u2212", currency(order.containerReturns * 1), ")")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesBlock }, editingNotes ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "50px" },
@@ -15223,18 +15222,18 @@ This will replace your current orders.`
         placeholder: "Add a note for this order...",
         autoFocus: true
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: styles.notesEditActions }, /* @__PURE__ */ React.createElement("button", { style: styles.confirmYesGreen, onClick: saveNotes }, "Save note"), /* @__PURE__ */ React.createElement("button", { style: styles.confirmNo, onClick: () => setEditingNotes(false) }, "Cancel"))) : order.notes ? /* @__PURE__ */ React.createElement("div", { style: styles.orderNotes, onClick: startNotes, role: "button", tabIndex: 0 }, order.notes, /* @__PURE__ */ React.createElement("span", { style: styles.notesEditHint }, " \u2014 tap to edit")) : /* @__PURE__ */ React.createElement("button", { style: styles.addNoteBtn, onClick: startNotes }, /* @__PURE__ */ React.createElement(Pencil, { size: 13 }), "Add note")), /* @__PURE__ */ React.createElement("div", { style: styles.orderCardFooter }, perLbIdxs.length > 1 && /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesEditActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYesGreen, onClick: saveNotes }, "Save note"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setEditingNotes(false) }, "Cancel"))) : order.notes ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderNotes, onClick: startNotes, role: "button", tabIndex: 0 }, order.notes, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.notesEditHint }, " \u2014 tap to edit")) : /* @__PURE__ */ import_react.default.createElement("button", { style: styles.addNoteBtn, onClick: startNotes }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 13 }), "Add note")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardFooter }, perLbIdxs.length > 1 && /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.updateAllWeightsBtn,
         onClick: () => setWeightFlow({ mode: "walk", queue: perLbIdxs, pos: 0 })
       },
-      /* @__PURE__ */ React.createElement(Scale, { size: 14 }),
+      /* @__PURE__ */ import_react.default.createElement(Scale, { size: 14 }),
       anyPending ? "Set sous vide weights" : "Update sous vide weights",
       " (",
       perLbIdxs.length,
       ")"
-    ), /* @__PURE__ */ React.createElement("div", { style: styles.statusRow }, STATUSES.map((s) => /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statusRow }, STATUSES.map((s) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: s,
@@ -15245,11 +15244,11 @@ This will replace your current orders.`
         onClick: () => onUpdate({ status: s })
       },
       s
-    ))), /* @__PURE__ */ React.createElement("div", { style: styles.actionRow }, /* @__PURE__ */ React.createElement("button", { style: styles.actionBtn, onClick: onEdit }, /* @__PURE__ */ React.createElement(Pencil, { size: 14 }), "Edit"), /* @__PURE__ */ React.createElement("button", { style: styles.actionBtn, onClick: doCopy }, /* @__PURE__ */ React.createElement(Copy, { size: 14 }), copied ? "Copied!" : "Copy text"), /* @__PURE__ */ React.createElement("button", { style: styles.actionBtn, onClick: () => setShowInvoice(true) }, /* @__PURE__ */ React.createElement(FileText, { size: 14 }), "Invoice"), confirmDelete ? /* @__PURE__ */ React.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ React.createElement("button", { style: styles.confirmYes, onClick: onDelete }, "Delete"), /* @__PURE__ */ React.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmDelete(false) }, "Cancel")) : /* @__PURE__ */ React.createElement("button", { style: { ...styles.actionBtn, color: "#993556" }, onClick: () => setConfirmDelete(true) }, /* @__PURE__ */ React.createElement(Trash2, { size: 14 }), "Remove")))), showInvoice && /* @__PURE__ */ React.createElement(InvoiceModal, { order, onClose: () => setShowInvoice(false) }), weightFlow && (() => {
+    ))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.actionRow }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.actionBtn, onClick: onEdit }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 14 }), "Edit"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.actionBtn, onClick: doCopy }, /* @__PURE__ */ import_react.default.createElement(Copy, { size: 14 }), copied ? "Copied!" : "Copy text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.actionBtn, onClick: () => setShowInvoice(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 14 }), "Invoice"), confirmDelete ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYes, onClick: onDelete }, "Delete"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmDelete(false) }, "Cancel")) : /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.actionBtn, color: "#993556" }, onClick: () => setConfirmDelete(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 14 }), "Remove")))), showInvoice && /* @__PURE__ */ import_react.default.createElement(InvoiceModal, { order, onClose: () => setShowInvoice(false) }), weightFlow && (() => {
       const itemIdx = weightFlow.queue[weightFlow.pos];
       const it = order.items[itemIdx];
       if (!it) return null;
-      return /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement(
         WeightPhotoModal,
         {
           orderId: order.id,
@@ -15263,18 +15262,18 @@ This will replace your current orders.`
     })());
   }
   function ArchiveDeliveredButton({ count, onArchive }) {
-    const [confirm, setConfirm] = useState(false);
+    const [confirm, setConfirm] = (0, import_react.useState)(false);
     if (confirm) {
-      return /* @__PURE__ */ React.createElement("div", { style: styles.clearConfirmRow }, /* @__PURE__ */ React.createElement("span", { style: styles.confirmText }, "Archive all ", count, " delivered order", count !== 1 ? "s" : "", "? They stay in the Money tab."), /* @__PURE__ */ React.createElement("button", { style: styles.confirmYesGreen, onClick: () => {
+      return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.clearConfirmRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.confirmText }, "Archive all ", count, " delivered order", count !== 1 ? "s" : "", "? They stay in the Money tab."), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYesGreen, onClick: () => {
         onArchive();
         setConfirm(false);
-      } }, "Archive"), /* @__PURE__ */ React.createElement("button", { style: styles.confirmNo, onClick: () => setConfirm(false) }, "Cancel"));
+      } }, "Archive"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirm(false) }, "Cancel"));
     }
-    return /* @__PURE__ */ React.createElement("button", { style: styles.clearDeliveredBtn, onClick: () => setConfirm(true) }, /* @__PURE__ */ React.createElement(Archive, { size: 14 }), "Archive all delivered (start a new week)");
+    return /* @__PURE__ */ import_react.default.createElement("button", { style: styles.clearDeliveredBtn, onClick: () => setConfirm(true) }, /* @__PURE__ */ import_react.default.createElement(Archive, { size: 14 }), "Archive all delivered (start a new week)");
   }
   function CookingList({ items, orderCount, revenue, checks, onToggle, onReset }) {
     if (items.length === 0) {
-      return /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement("div", { style: styles.emptyTitle }, "Nothing to cook yet"), /* @__PURE__ */ React.createElement("div", { style: styles.emptyBody }, "Active orders will roll up into a cooking list here."));
+      return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "Nothing to cook yet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Active orders will roll up into a cooking list here."));
     }
     const grouped = {};
     items.forEach((it) => {
@@ -15282,25 +15281,25 @@ This will replace your current orders.`
       grouped[it.category].push(it);
     });
     const doneCount = items.filter((it) => checks[it.key]).length;
-    return /* @__PURE__ */ React.createElement("div", null, revenue > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.cookRevenueBar }, /* @__PURE__ */ React.createElement("span", { style: styles.cookRevenueLabel }, "In active orders"), /* @__PURE__ */ React.createElement("span", { style: styles.cookRevenueValue }, currency(revenue))), /* @__PURE__ */ React.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " done \xB7 from ", orderCount, " active order", orderCount !== 1 ? "s" : ""), doneCount > 0 && /* @__PURE__ */ React.createElement("button", { style: styles.resetBtn, onClick: onReset }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 13 }), "Reset")), Object.entries(grouped).map(([cat, catItems]) => /* @__PURE__ */ React.createElement("div", { key: cat, style: styles.cookCategory }, /* @__PURE__ */ React.createElement("div", { style: styles.cookCategoryTitle }, CATEGORY_LABELS[cat]), catItems.map((it) => {
+    return /* @__PURE__ */ import_react.default.createElement("div", null, revenue > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookRevenueBar }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.cookRevenueLabel }, "In active orders"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.cookRevenueValue }, currency(revenue))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " done \xB7 from ", orderCount, " active order", orderCount !== 1 ? "s" : ""), doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: onReset }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 13 }), "Reset")), Object.entries(grouped).map(([cat, catItems]) => /* @__PURE__ */ import_react.default.createElement("div", { key: cat, style: styles.cookCategory }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookCategoryTitle }, CATEGORY_LABELS[cat]), catItems.map((it) => {
       const isChecked = !!checks[it.key];
-      return /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
           key: it.key,
           style: { ...styles.cookItem, ...isChecked ? styles.cookItemChecked : {} },
           onClick: () => onToggle(it.key)
         },
-        /* @__PURE__ */ React.createElement("div", { style: { ...styles.checkbox, ...isChecked ? styles.checkboxChecked : {} } }, isChecked && /* @__PURE__ */ React.createElement(Check, { size: 14, color: "#1a1a1a" })),
-        /* @__PURE__ */ React.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ React.createElement("div", { style: styles.cookItemName }, it.name), /* @__PURE__ */ React.createElement("div", { style: styles.cookItemVariant }, it.variant)),
-        /* @__PURE__ */ React.createElement("div", { style: styles.cookItemQty }, "\xD7", it.qty)
+        /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.checkbox, ...isChecked ? styles.checkboxChecked : {} } }, isChecked && /* @__PURE__ */ import_react.default.createElement(Check, { size: 14, color: "#1a1a1a" })),
+        /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemName }, it.name), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemVariant }, it.variant)),
+        /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemQty }, "\xD7", it.qty)
       );
     }))));
   }
   function ShoppingList({ items, onChange, onGenerate, activeCount, estCost }) {
-    const [input, setInput] = useState("");
-    const [includeStaples, setIncludeStaples] = useState(false);
-    const [confirmClear, setConfirmClear] = useState(false);
+    const [input, setInput] = (0, import_react.useState)("");
+    const [includeStaples, setIncludeStaples] = (0, import_react.useState)(false);
+    const [confirmClear, setConfirmClear] = (0, import_react.useState)(false);
     const addItems = () => {
       const lines = input.split("\n").map((l) => l.replace(/^[\s•*\-–—]+|^\d+[.)]\s*/g, "").trim()).filter(Boolean);
       if (lines.length === 0) return;
@@ -15318,7 +15317,7 @@ This will replace your current orders.`
       onChange(items.map((it) => ({ ...it, checked: false })));
     };
     const doneCount = items.filter((it) => it.checked).length;
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: styles.genCard }, /* @__PURE__ */ React.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ React.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ React.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         type: "checkbox",
@@ -15326,7 +15325,7 @@ This will replace your current orders.`
         onChange: (e) => setIncludeStaples(e.target.checked),
         style: styles.genCheckbox
       }
-    ), "Include pantry staples (soy, spices, oils, etc.)"), /* @__PURE__ */ React.createElement(
+    ), "Include pantry staples (soy, spices, oils, etc.)"), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, marginTop: "8px", ...activeCount === 0 ? styles.saveBtnDisabled : {} },
@@ -15334,7 +15333,7 @@ This will replace your current orders.`
         disabled: activeCount === 0
       },
       activeCount === 0 ? "No active orders yet" : `Generate from ${activeCount} active order${activeCount !== 1 ? "s" : ""}`
-    )), estCost > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.shopCostBar }, /* @__PURE__ */ React.createElement("span", { style: styles.shopCostLabel }, "Est. ingredient spend for active orders"), /* @__PURE__ */ React.createElement("span", { style: styles.shopCostValue }, "~", currency(estCost))), /* @__PURE__ */ React.createElement("div", { style: styles.shopInputRow }, /* @__PURE__ */ React.createElement(
+    )), estCost > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.shopCostBar }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.shopCostLabel }, "Est. ingredient spend for active orders"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.shopCostValue }, "~", currency(estCost))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.shopInputRow }, /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "44px", flex: 1 },
@@ -15342,18 +15341,18 @@ This will replace your current orders.`
         value: input,
         onChange: (e) => setInput(e.target.value)
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.shopAddBtn, ...!input.trim() ? styles.saveBtnDisabled : {} },
         onClick: addItems,
         disabled: !input.trim()
       },
-      /* @__PURE__ */ React.createElement(Plus, { size: 18 })
-    )), items.length === 0 ? /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement("div", { style: styles.emptyTitle }, "Shopping list is empty"), /* @__PURE__ */ React.createElement("div", { style: styles.emptyBody }, "Type items one at a time, or paste a whole ingredient list and each line becomes its own entry.")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ React.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " in the cart"), doneCount > 0 && /* @__PURE__ */ React.createElement("button", { style: styles.resetBtn, onClick: uncheckAll }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 13 }), "Uncheck all")), /* @__PURE__ */ React.createElement("div", null, items.map((it) => /* @__PURE__ */ React.createElement("div", { key: it.id, style: { ...styles.shopItem, ...it.checked ? styles.cookItemChecked : {} } }, /* @__PURE__ */ React.createElement("button", { style: styles.shopItemMain, onClick: () => toggle(it.id) }, /* @__PURE__ */ React.createElement("div", { style: { ...styles.checkbox, ...it.checked ? styles.checkboxChecked : {} } }, it.checked && /* @__PURE__ */ React.createElement(Check, { size: 14, color: "#1a1a1a" })), /* @__PURE__ */ React.createElement("span", { style: { ...styles.shopItemText, ...it.checked ? styles.shopItemTextChecked : {} } }, it.text)), /* @__PURE__ */ React.createElement("button", { style: styles.shopDeleteBtn, onClick: () => remove(it.id), "aria-label": `Remove ${it.text}` }, /* @__PURE__ */ React.createElement(X, { size: 15 }))))), /* @__PURE__ */ React.createElement("div", { style: styles.shopBulkRow }, doneCount > 0 && /* @__PURE__ */ React.createElement("button", { style: styles.resetBtn, onClick: () => onChange(items.filter((it) => !it.checked)) }, /* @__PURE__ */ React.createElement(Trash2, { size: 13 }), "Remove checked (", doneCount, ")"), confirmClear ? /* @__PURE__ */ React.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ React.createElement("span", { style: styles.confirmText }, "Delete the whole list?"), /* @__PURE__ */ React.createElement("button", { style: styles.confirmYes, onClick: () => {
+      /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 })
+    )), items.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "Shopping list is empty"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Type items one at a time, or paste a whole ingredient list and each line becomes its own entry.")) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " in the cart"), doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: uncheckAll }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 13 }), "Uncheck all")), /* @__PURE__ */ import_react.default.createElement("div", null, items.map((it) => /* @__PURE__ */ import_react.default.createElement("div", { key: it.id, style: { ...styles.shopItem, ...it.checked ? styles.cookItemChecked : {} } }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.shopItemMain, onClick: () => toggle(it.id) }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.checkbox, ...it.checked ? styles.checkboxChecked : {} } }, it.checked && /* @__PURE__ */ import_react.default.createElement(Check, { size: 14, color: "#1a1a1a" })), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.shopItemText, ...it.checked ? styles.shopItemTextChecked : {} } }, it.text)), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.shopDeleteBtn, onClick: () => remove(it.id), "aria-label": `Remove ${it.text}` }, /* @__PURE__ */ import_react.default.createElement(X, { size: 15 }))))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.shopBulkRow }, doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: () => onChange(items.filter((it) => !it.checked)) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Remove checked (", doneCount, ")"), confirmClear ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.confirmText }, "Delete the whole list?"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYes, onClick: () => {
       onChange([]);
       setConfirmClear(false);
-    } }, "Clear"), /* @__PURE__ */ React.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ React.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ React.createElement(Trash2, { size: 13 }), "Clear list"))));
+    } }, "Clear"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Clear list"))));
   }
   function ProfitChart({ series }) {
     const W = 320, H = 160;
@@ -15376,13 +15375,13 @@ This will replace your current orders.`
     }).join(" ");
     const totalProfit = round2(series.reduce((sum, s) => sum + s.profit, 0));
     const avgProfit = round2(totalProfit / n);
-    return /* @__PURE__ */ React.createElement("div", { style: styles.chartCard }, /* @__PURE__ */ React.createElement("div", { style: styles.chartHeader }, /* @__PURE__ */ React.createElement("span", { style: styles.chartTitle }, "Profit over time"), /* @__PURE__ */ React.createElement("span", { style: styles.chartSubtitle }, "avg ", currency(avgProfit), "/period")), /* @__PURE__ */ React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, style: styles.chartSvg, preserveAspectRatio: "xMidYMid meet" }, /* @__PURE__ */ React.createElement("line", { x1: padL, y1: zeroY, x2: W - padR, y2: zeroY, stroke: "#37403c", strokeWidth: "1", strokeDasharray: "3,3" }), series.map((s, i) => {
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.chartCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.chartHeader }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.chartTitle }, "Profit over time"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.chartSubtitle }, "avg ", currency(avgProfit), "/period")), /* @__PURE__ */ import_react.default.createElement("svg", { viewBox: `0 0 ${W} ${H}`, style: styles.chartSvg, preserveAspectRatio: "xMidYMid meet" }, /* @__PURE__ */ import_react.default.createElement("line", { x1: padL, y1: zeroY, x2: W - padR, y2: zeroY, stroke: "#37403c", strokeWidth: "1", strokeDasharray: "3,3" }), series.map((s, i) => {
       const cx = padL + slotW * i + slotW / 2;
       const y = yFor(s.profit);
       const barTop = Math.min(y, zeroY);
       const barH = Math.abs(y - zeroY);
       const positive = s.profit >= 0;
-      return /* @__PURE__ */ React.createElement(
+      return /* @__PURE__ */ import_react.default.createElement(
         "rect",
         {
           key: i,
@@ -15394,29 +15393,29 @@ This will replace your current orders.`
           fill: positive ? "#1D9E7544" : "#EF444444"
         }
       );
-    }), n >= 2 && /* @__PURE__ */ React.createElement("polyline", { points: linePts, fill: "none", stroke: "#5DCAA5", strokeWidth: "2", strokeLinejoin: "round", strokeLinecap: "round" }), series.map((s, i) => {
+    }), n >= 2 && /* @__PURE__ */ import_react.default.createElement("polyline", { points: linePts, fill: "none", stroke: "#5DCAA5", strokeWidth: "2", strokeLinejoin: "round", strokeLinecap: "round" }), series.map((s, i) => {
       const cx = padL + slotW * i + slotW / 2;
-      return /* @__PURE__ */ React.createElement("circle", { key: i, cx, cy: yFor(s.profit), r: "2.5", fill: "#5DCAA5" });
+      return /* @__PURE__ */ import_react.default.createElement("circle", { key: i, cx, cy: yFor(s.profit), r: "2.5", fill: "#5DCAA5" });
     }), series.map((s, i) => {
       if (i % labelStep !== 0 && i !== n - 1) return null;
       const cx = padL + slotW * i + slotW / 2;
-      return /* @__PURE__ */ React.createElement("text", { key: i, x: cx, y: H - 8, textAnchor: "middle", fontSize: "8", fill: "#7a8480" }, shortLabel(s.label));
-    })), /* @__PURE__ */ React.createElement("div", { style: styles.chartLegend }, "Each bar is one ", series.length > 1 ? "period" : "period", "'s estimated profit. Green line shows the trend."));
+      return /* @__PURE__ */ import_react.default.createElement("text", { key: i, x: cx, y: H - 8, textAnchor: "middle", fontSize: "8", fill: "#7a8480" }, shortLabel(s.label));
+    })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.chartLegend }, "Each bar is one ", series.length > 1 ? "period" : "period", "'s estimated profit. Green line shows the trend."));
   }
   function shortLabel(label) {
     if (!label) return "";
     return label.replace(/^Week of /, "").replace(/^Week /, "W").slice(0, 9);
   }
   function MoneyTab({ orders, onUpdate }) {
-    const [sortField, setSortField] = useState("date");
-    const [sortDir, setSortDir] = useState("desc");
-    const [groupMode, setGroupMode] = useState("none");
-    const [unpaidOnly, setUnpaidOnly] = useState(false);
-    const [openPhotos, setOpenPhotos] = useState(null);
-    const [storage, setStorage] = useState(null);
-    const [search, setSearch] = useState("");
-    const [showChart, setShowChart] = useState(false);
-    useEffect(() => {
+    const [sortField, setSortField] = (0, import_react.useState)("date");
+    const [sortDir, setSortDir] = (0, import_react.useState)("desc");
+    const [groupMode, setGroupMode] = (0, import_react.useState)("none");
+    const [unpaidOnly, setUnpaidOnly] = (0, import_react.useState)(false);
+    const [openPhotos, setOpenPhotos] = (0, import_react.useState)(null);
+    const [storage, setStorage] = (0, import_react.useState)(null);
+    const [search, setSearch] = (0, import_react.useState)("");
+    const [showChart, setShowChart] = (0, import_react.useState)(false);
+    (0, import_react.useEffect)(() => {
       let live = true;
       photoStorageBytes().then((s) => {
         if (live) setStorage(s);
@@ -15425,13 +15424,13 @@ This will replace your current orders.`
         live = false;
       };
     }, [orders]);
-    const filtered = useMemo(() => {
+    const filtered = (0, import_react.useMemo)(() => {
       let arr = unpaidOnly ? orders.filter((o) => !o.paid) : orders;
       const q = search.trim().toLowerCase();
       if (q) arr = arr.filter((o) => (o.customer || "").toLowerCase().includes(q));
       return arr;
     }, [orders, unpaidOnly, search]);
-    const totals = useMemo(() => {
+    const totals = (0, import_react.useMemo)(() => {
       let booked = 0, collected = 0, cost = 0, costComplete = true;
       filtered.forEach((o) => {
         booked += o.total;
@@ -15449,7 +15448,7 @@ This will replace your current orders.`
         count: filtered.length
       };
     }, [filtered]);
-    const sorted = useMemo(() => {
+    const sorted = (0, import_react.useMemo)(() => {
       const arr = [...filtered];
       arr.sort((a, b) => {
         let cmp = 0;
@@ -15460,7 +15459,7 @@ This will replace your current orders.`
       });
       return arr;
     }, [filtered, sortField, sortDir]);
-    const groups = useMemo(() => {
+    const groups = (0, import_react.useMemo)(() => {
       if (groupMode === "none") return [{ label: null, stamp: 0, orders: sorted }];
       const map = /* @__PURE__ */ new Map();
       sorted.forEach((o) => {
@@ -15470,7 +15469,7 @@ This will replace your current orders.`
       });
       return Array.from(map.values()).sort((a, b) => b.stamp - a.stamp);
     }, [sorted, groupMode]);
-    const profitSeries = useMemo(() => {
+    const profitSeries = (0, import_react.useMemo)(() => {
       const mode = groupMode === "none" ? "week" : groupMode;
       const map = /* @__PURE__ */ new Map();
       filtered.forEach((o) => {
@@ -15491,13 +15490,13 @@ This will replace your current orders.`
       }
     };
     if (orders.length === 0) {
-      return /* @__PURE__ */ React.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ React.createElement("div", { style: styles.emptyTitle }, "No history yet"), /* @__PURE__ */ React.createElement("div", { style: styles.emptyBody }, "Every order you save shows up here \u2014 including archived past weeks."));
+      return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No history yet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Every order you save shows up here \u2014 including archived past weeks."));
     }
-    return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: styles.moneyStatsBar }, /* @__PURE__ */ React.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ React.createElement("div", { style: styles.statValue }, currency(totals.booked)), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, unpaidOnly ? "Unpaid total" : "Revenue")), /* @__PURE__ */ React.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ React.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.profit), totals.costComplete ? "" : "*"), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, "Est. profit")), /* @__PURE__ */ React.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ React.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.collected)), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, "Collected")), /* @__PURE__ */ React.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ React.createElement("div", { style: { ...styles.statValue, ...totals.outstanding > 0 ? { color: "#EF9F27" } : {} } }, currency(totals.outstanding)), /* @__PURE__ */ React.createElement("div", { style: styles.statLabel }, "Outstanding"))), !totals.costComplete && /* @__PURE__ */ React.createElement("div", { style: styles.moneyFootnote }, "* some items predate cost tracking, so profit is partial"), /* @__PURE__ */ React.createElement("div", { style: styles.sortRow }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatsBar }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, currency(totals.booked)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, unpaidOnly ? "Unpaid total" : "Revenue")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.profit), totals.costComplete ? "" : "*"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Est. profit")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.collected)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Collected")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, ...totals.outstanding > 0 ? { color: "#EF9F27" } : {} } }, currency(totals.outstanding)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Outstanding"))), !totals.costComplete && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyFootnote }, "* some items predate cost tracking, so profit is partial"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.sortRow }, [
       ["date", "Date"],
       ["total", "Amount"],
       ["name", "Customer"]
-    ].map(([field, label]) => /* @__PURE__ */ React.createElement(
+    ].map(([field, label]) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: field,
@@ -15505,20 +15504,20 @@ This will replace your current orders.`
         onClick: () => setSort(field)
       },
       label,
-      sortField === field && /* @__PURE__ */ React.createElement("span", { style: styles.sortDirText }, sortDir === "asc" ? "\u2191" : "\u2193")
-    )), /* @__PURE__ */ React.createElement(
+      sortField === field && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.sortDirText }, sortDir === "asc" ? "\u2191" : "\u2193")
+    )), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.sortBtn, ...unpaidOnly ? { color: "#EF9F27", borderColor: "#EF9F27" } : {} },
         onClick: () => setUnpaidOnly((v) => !v)
       },
       "Unpaid only"
-    )), /* @__PURE__ */ React.createElement("div", { style: styles.sortRow }, /* @__PURE__ */ React.createElement("span", { style: styles.groupLabel }, "Group:"), [
+    )), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.sortRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupLabel }, "Group:"), [
       ["none", "None"],
       ["week", "Week"],
       ["month", "Month"],
       ["year", "Year"]
-    ].map(([mode, label]) => /* @__PURE__ */ React.createElement(
+    ].map(([mode, label]) => /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         key: mode,
@@ -15526,7 +15525,7 @@ This will replace your current orders.`
         onClick: () => setGroupMode(mode)
       },
       label
-    )), /* @__PURE__ */ React.createElement("div", { style: styles.moneyCount }, totals.count, " order", totals.count !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: styles.moneySearchRow }, /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyCount }, totals.count, " order", totals.count !== 1 ? "s" : "")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneySearchRow }, /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         style: styles.moneySearchInput,
@@ -15534,14 +15533,14 @@ This will replace your current orders.`
         value: search,
         onChange: (e) => setSearch(e.target.value)
       }
-    ), search && /* @__PURE__ */ React.createElement("button", { style: styles.moneySearchClear, onClick: () => setSearch(""), "aria-label": "Clear search" }, /* @__PURE__ */ React.createElement(X, { size: 15 })), profitSeries.length >= 2 && /* @__PURE__ */ React.createElement(
+    ), search && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.moneySearchClear, onClick: () => setSearch(""), "aria-label": "Clear search" }, /* @__PURE__ */ import_react.default.createElement(X, { size: 15 })), profitSeries.length >= 2 && /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: { ...styles.chartToggleBtn, ...showChart ? styles.chartToggleBtnActive : {} },
         onClick: () => setShowChart((v) => !v)
       },
       showChart ? "Hide graph" : "Graph"
-    )), showChart && profitSeries.length >= 2 && /* @__PURE__ */ React.createElement(ProfitChart, { series: profitSeries }), groups.map((group) => {
+    )), showChart && profitSeries.length >= 2 && /* @__PURE__ */ import_react.default.createElement(ProfitChart, { series: profitSeries }), groups.map((group) => {
       let gRev = 0, gCost = 0, gCollected = 0;
       group.orders.forEach((o) => {
         gRev += o.total;
@@ -15550,18 +15549,18 @@ This will replace your current orders.`
       });
       const gProfit = round2(gRev - gCost);
       const gOutstanding = round2(gRev - gCollected);
-      return /* @__PURE__ */ React.createElement("div", { key: group.label || "all", style: styles.moneyGroup }, group.label && /* @__PURE__ */ React.createElement("div", { style: styles.groupHeaderRich }, /* @__PURE__ */ React.createElement("div", { style: styles.groupHeaderTop }, /* @__PURE__ */ React.createElement("span", { style: styles.groupTitle }, group.label), /* @__PURE__ */ React.createElement("span", { style: styles.groupOrderCount }, group.orders.length, " order", group.orders.length !== 1 ? "s" : "")), /* @__PURE__ */ React.createElement("div", { style: styles.groupStatsRow }, /* @__PURE__ */ React.createElement("div", { style: styles.groupStat }, /* @__PURE__ */ React.createElement("span", { style: styles.groupStatValue }, currency(round2(gRev))), /* @__PURE__ */ React.createElement("span", { style: styles.groupStatLabel }, "revenue")), /* @__PURE__ */ React.createElement("div", { style: styles.groupStat }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.groupStatValue, color: "#1D9E75" } }, currency(gProfit)), /* @__PURE__ */ React.createElement("span", { style: styles.groupStatLabel }, "profit")), /* @__PURE__ */ React.createElement("div", { style: styles.groupStat }, /* @__PURE__ */ React.createElement("span", { style: { ...styles.groupStatValue, color: gOutstanding > 0 ? "#EF9F27" : "#9aa5a0" } }, currency(gOutstanding)), /* @__PURE__ */ React.createElement("span", { style: styles.groupStatLabel }, "outstanding")))), /* @__PURE__ */ React.createElement("div", { style: styles.moneyList }, group.orders.map((o) => {
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: group.label || "all", style: styles.moneyGroup }, group.label && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.groupHeaderRich }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.groupHeaderTop }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupTitle }, group.label), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupOrderCount }, group.orders.length, " order", group.orders.length !== 1 ? "s" : "")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.groupStatsRow }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.groupStat }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupStatValue }, currency(round2(gRev))), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupStatLabel }, "revenue")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.groupStat }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.groupStatValue, color: "#1D9E75" } }, currency(gProfit)), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupStatLabel }, "profit")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.groupStat }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.groupStatValue, color: gOutstanding > 0 ? "#EF9F27" : "#9aa5a0" } }, currency(gOutstanding)), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.groupStatLabel }, "outstanding")))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyList }, group.orders.map((o) => {
         const info = orderCostInfo(o);
         const profit = round2(o.total - info.cost);
         const photoItems = (o.items || []).map((it, i) => ({ it, i })).filter(({ it }) => it.hasPhoto);
-        return /* @__PURE__ */ React.createElement("div", { key: o.id, style: { ...styles.moneyRowWrap, ...o.archived ? { opacity: 0.65 } : {} } }, /* @__PURE__ */ React.createElement(
+        return /* @__PURE__ */ import_react.default.createElement("div", { key: o.id, style: { ...styles.moneyRowWrap, ...o.archived ? { opacity: 0.65 } : {} } }, /* @__PURE__ */ import_react.default.createElement(
           "div",
           {
             style: { ...styles.moneyRow, ...photoItems.length ? { cursor: "pointer" } : {} },
             onClick: photoItems.length ? () => setOpenPhotos(openPhotos === o.id ? null : o.id) : void 0
           },
-          /* @__PURE__ */ React.createElement("div", { style: styles.moneyRowLeft }, /* @__PURE__ */ React.createElement("div", { style: styles.moneyName }, o.customer, photoItems.length > 0 && /* @__PURE__ */ React.createElement(Camera, { size: 12, style: { marginLeft: 6, verticalAlign: "middle", opacity: 0.7 } })), /* @__PURE__ */ React.createElement("div", { style: styles.moneyMeta }, formatDate(o.createdAt), o.archived ? " \xB7 archived" : ` \xB7 ${o.status}`, photoItems.length > 0 ? ` \xB7 ${photoItems.length} photo${photoItems.length !== 1 ? "s" : ""}` : "")),
-          /* @__PURE__ */ React.createElement("div", { style: styles.moneyRowRight }, /* @__PURE__ */ React.createElement("div", { style: styles.moneyAmounts }, /* @__PURE__ */ React.createElement("span", { style: styles.moneyAmount }, currency(o.total)), /* @__PURE__ */ React.createElement("span", { style: styles.moneyProfit }, info.complete || info.cost > 0 ? `+${currency(profit)}${info.complete ? "" : "*"}` : "\u2014")), /* @__PURE__ */ React.createElement(
+          /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyRowLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyName }, o.customer, photoItems.length > 0 && /* @__PURE__ */ import_react.default.createElement(Camera, { size: 12, style: { marginLeft: 6, verticalAlign: "middle", opacity: 0.7 } })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyMeta }, formatDate(o.createdAt), o.archived ? " \xB7 archived" : ` \xB7 ${o.status}`, photoItems.length > 0 ? ` \xB7 ${photoItems.length} photo${photoItems.length !== 1 ? "s" : ""}` : "")),
+          /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyRowRight }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyAmounts }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.moneyAmount }, currency(o.total)), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.moneyProfit }, info.complete || info.cost > 0 ? `+${currency(profit)}${info.complete ? "" : "*"}` : "\u2014")), /* @__PURE__ */ import_react.default.createElement(
             "button",
             {
               style: {
@@ -15575,13 +15574,13 @@ This will replace your current orders.`
             },
             o.paid ? "Paid" : "Unpaid"
           ))
-        ), openPhotos === o.id && photoItems.length > 0 && /* @__PURE__ */ React.createElement(OrderPhotos, { orderId: o.id, photoItems }));
+        ), openPhotos === o.id && photoItems.length > 0 && /* @__PURE__ */ import_react.default.createElement(OrderPhotos, { orderId: o.id, photoItems }));
       })));
-    }), storage && storage.count > 0 && /* @__PURE__ */ React.createElement("div", { style: styles.storageGauge }, /* @__PURE__ */ React.createElement(Camera, { size: 13 }), /* @__PURE__ */ React.createElement("span", null, storage.count, " scale photo", storage.count !== 1 ? "s" : "", " stored \xB7 ", fmtBytes(storage.bytes)), /* @__PURE__ */ React.createElement("span", { style: styles.storageGaugeNote }, "auto-deleted after 1 month")));
+    }), storage && storage.count > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.storageGauge }, /* @__PURE__ */ import_react.default.createElement(Camera, { size: 13 }), /* @__PURE__ */ import_react.default.createElement("span", null, storage.count, " scale photo", storage.count !== 1 ? "s" : "", " stored \xB7 ", fmtBytes(storage.bytes)), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.storageGaugeNote }, "auto-deleted after 1 month")));
   }
   function OrderPhotos({ orderId, photoItems }) {
-    const [photos, setPhotos] = useState({});
-    useEffect(() => {
+    const [photos, setPhotos] = (0, import_react.useState)({});
+    (0, import_react.useEffect)(() => {
       let live = true;
       (async () => {
         for (const { i } of photoItems) {
@@ -15594,7 +15593,7 @@ This will replace your current orders.`
         live = false;
       };
     }, [orderId]);
-    return /* @__PURE__ */ React.createElement("div", { style: styles.orderPhotosWrap }, photoItems.map(({ it, i }) => /* @__PURE__ */ React.createElement("div", { key: i, style: styles.orderPhotoItem }, /* @__PURE__ */ React.createElement("div", { style: styles.orderPhotoLabel }, it.name, it.weight > 0 ? ` \xB7 ${it.weight} lb` : ""), photos[i] === void 0 && /* @__PURE__ */ React.createElement("div", { style: styles.orderPhotoLoading }, "loading\u2026"), photos[i] === "none" && /* @__PURE__ */ React.createElement("div", { style: styles.orderPhotoLoading }, "photo expired or missing"), photos[i] && photos[i] !== "none" && /* @__PURE__ */ React.createElement("img", { src: `data:image/jpeg;base64,${photos[i]}`, alt: `${it.name} on scale`, style: styles.orderPhotoImg }))));
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderPhotosWrap }, photoItems.map(({ it, i }) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.orderPhotoItem }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderPhotoLabel }, it.name, it.weight > 0 ? ` \xB7 ${it.weight} lb` : ""), photos[i] === void 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderPhotoLoading }, "loading\u2026"), photos[i] === "none" && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderPhotoLoading }, "photo expired or missing"), photos[i] && photos[i] !== "none" && /* @__PURE__ */ import_react.default.createElement("img", { src: `data:image/jpeg;base64,${photos[i]}`, alt: `${it.name} on scale`, style: styles.orderPhotoImg }))));
   }
   var TEAL_DARK = "#1a3a3a";
   var TEAL_MID = "#2E6B6B";
@@ -17677,9 +17676,8 @@ This will replace your current orders.`
   };
 
   // entry.jsx
-  window.React = import_react.default;
   import_client.default.createRoot(document.getElementById("root")).render(
-    import_react.default.createElement(LTBOrderTracker)
+    import_react2.default.createElement(LTBOrderTracker)
   );
 })();
 /*! Bundled license information:

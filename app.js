@@ -13929,6 +13929,14 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     )));
   }
   function LTBOrderTracker() {
+    import_react.default.useEffect(() => {
+      if (!document.getElementById("ltb-spin-style")) {
+        const s = document.createElement("style");
+        s.id = "ltb-spin-style";
+        s.textContent = "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
+        document.head.appendChild(s);
+      }
+    }, []);
     const [orders, setOrders] = (0, import_react.useState)(null);
     const [cookChecks, setCookChecks] = (0, import_react.useState)({});
     const [shopping, setShopping] = (0, import_react.useState)([]);
@@ -13942,6 +13950,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     const [showCsv, setShowCsv] = (0, import_react.useState)(false);
     const [pendingOrders, setPendingOrders] = (0, import_react.useState)([]);
     const [showPendingIdx, setShowPendingIdx] = (0, import_react.useState)(null);
+    const [checkingForm, setCheckingForm] = (0, import_react.useState)(false);
     const [expandedOrder, setExpandedOrder] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
       let mounted = true;
@@ -14032,6 +14041,45 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       setShowCsv(false);
       setExportMsg(`Imported ${newOrders.length} order${newOrders.length !== 1 ? "s" : ""} from the sheet.`);
       setTimeout(() => setExportMsg(null), 4e3);
+    }, []);
+    const checkFormNow = import_react.default.useCallback(async () => {
+      setCheckingForm(true);
+      try {
+        const rows = await fetchFormRows();
+        if (!rows) {
+          setCheckingForm(false);
+          return;
+        }
+        const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
+        const seen = seenRaw || {};
+        const newPending = [];
+        rows.forEach((row) => {
+          const ts = row["Timestamp"] || row["timestamp"] || "";
+          if (!ts || seen[ts]) return;
+          const { customer, items, notes } = parseFormRow(row);
+          if (items.length === 0 && !notes) return;
+          newPending.push({
+            pendingId: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2),
+            timestamp: ts,
+            customer,
+            items,
+            notes
+          });
+          seen[ts] = true;
+        });
+        if (newPending.length > 0) {
+          setPendingOrders((prev) => {
+            const updated = [...prev, ...newPending];
+            saveJSON(PENDING_KEY, updated);
+            return updated;
+          });
+          await saveJSON(SEEN_ROWS_KEY, seen);
+        } else {
+          await saveJSON(SEEN_ROWS_KEY, seen);
+        }
+      } catch (e) {
+      }
+      setCheckingForm(false);
     }, []);
     const pollFormOrders = import_react.default.useCallback(async (existingOrders, existingPending) => {
       const rows = await fetchFormRows();
@@ -14347,7 +14395,7 @@ This will replace your current orders.`
       /* @__PURE__ */ import_react.default.createElement("span", { style: styles.errorRetry }, "Tap to retry saving")
     ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.pasteBtn, ...styles.disabledBtn }, onClick: () => {
     }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Paste a text")), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.amendBtn, ...styles.disabledBtn }, onClick: () => {
-    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet")), showPaste && /* @__PURE__ */ import_react.default.createElement(
+    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.checkFormBtn, onClick: checkFormNow, disabled: checkingForm }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 16, style: checkingForm ? styles.spinning : void 0 }), checkingForm ? "Checking..." : "Check for new orders")), showPaste && /* @__PURE__ */ import_react.default.createElement(
       PasteOrderCard,
       {
         menu,
@@ -17829,6 +17877,24 @@ This will replace your current orders.`
       fontSize: "14px",
       fontWeight: 600,
       cursor: "pointer"
+    },
+    checkFormBtn: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "7px",
+      flex: "1 1 100%",
+      background: "#1a2e1a",
+      color: "#7abf7a",
+      border: "1px solid #3a6a3a",
+      borderRadius: "10px",
+      padding: "13px",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer"
+    },
+    spinning: {
+      animation: "spin 1s linear infinite"
     },
     csvProgress: {
       fontSize: "13px",

@@ -13721,7 +13721,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     ] : prompt;
     let response;
     try {
-      response = await fetch("https://api.anthropic.com/v1/messages", {
+      response = await fetch("https://ltb-proxy.strickland-kevinj.workers.dev/parse-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -13864,7 +13864,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
 {"items":[{"category":"...","name":"...","variant":"...","qty":1,"note":"","upcharge":null,"weight":null}],"jarSwaps":0,"containerReturns":0,"notes":"","reviewReasons":[]}`;
     let response;
     try {
-      response = await fetch("https://api.anthropic.com/v1/messages", {
+      response = await fetch("https://ltb-proxy.strickland-kevinj.workers.dev/parse-amendment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -13952,6 +13952,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     const [pendingOrders, setPendingOrders] = (0, import_react.useState)([]);
     const [showPendingIdx, setShowPendingIdx] = (0, import_react.useState)(null);
     const [checkingForm, setCheckingForm] = (0, import_react.useState)(false);
+    const [parsedNotes, setParsedNotes] = (0, import_react.useState)({});
+    const [parsingNotes, setParsingNotes] = (0, import_react.useState)(null);
     const [expandedOrder, setExpandedOrder] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
       let mounted = true;
@@ -14384,7 +14386,7 @@ This will replace your current orders.`
     if (loading) {
       return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loadingText }, "Loading orders..."));
     }
-    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v8.9-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.0-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
       ["orders", "Orders"],
       ["cook", "Cook"],
       ["shop", "Shop"],
@@ -14414,9 +14416,7 @@ This will replace your current orders.`
       },
       error,
       /* @__PURE__ */ import_react.default.createElement("span", { style: styles.errorRetry }, "Tap to retry saving")
-    ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.pasteBtn, ...styles.disabledBtn }, onClick: () => {
-    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Paste a text")), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.amendBtn, ...styles.disabledBtn }, onClick: () => {
-    }, disabled: true, "aria-disabled": "true" }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.struckText }, "Amend via text")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
+    ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.checkFormBtn,
@@ -14476,7 +14476,22 @@ This will replace your current orders.`
         onSave: saveOrder,
         onCancel: () => setFormMode(null)
       }
-    ), activeOrders.length === 0 && !formMode && !showPaste && pendingOrders.length === 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, or "Import from sheet" to pull in orders from the Google Form.')), pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingSectionHeader }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingBadge }, pendingOrders.length), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingSectionTitle }, "Pending form order", pendingOrders.length !== 1 ? "s" : "")), pendingOrders.map((p, idx) => showPendingIdx === idx ? /* @__PURE__ */ import_react.default.createElement("div", { key: p.pendingId, style: styles.pendingCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardName }, p.customer), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardTime }, p.timestamp)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingItemList }, p.items.map((it, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.pendingItem }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemName }, it.name), it.variant && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemVariant }, " \u2014 ", it.variant), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemPrice }, " $", it.price.toFixed(2)))), p.notes && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingNotes }, "Notes: ", p.notes)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingAcceptBtn, onClick: () => acceptPending(p) }, /* @__PURE__ */ import_react.default.createElement(Check, { size: 16 }), " Accept"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingRejectBtn, onClick: () => dismissPending(p.pendingId) }, /* @__PURE__ */ import_react.default.createElement(X, { size: 16 }), " Reject"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingBackBtn, onClick: () => setShowPendingIdx(null) }, "Back"))) : /* @__PURE__ */ import_react.default.createElement("button", { key: p.pendingId, style: styles.pendingRow, onClick: () => setShowPendingIdx(idx) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingRowName }, p.customer), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingRowCount }, p.items.length, " item", p.items.length !== 1 ? "s" : ""), /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 16 })))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderList }, activeOrders.map((order) => /* @__PURE__ */ import_react.default.createElement(
+    ), activeOrders.length === 0 && !formMode && !showPaste && pendingOrders.length === 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, "Paste a text" to auto-read an order, or "Import from sheet" to pull in Google Form orders.')), pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingSectionHeader }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingBadge }, pendingOrders.length), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingSectionTitle }, "Pending form order", pendingOrders.length !== 1 ? "s" : "")), pendingOrders.map((p, idx) => showPendingIdx === idx ? /* @__PURE__ */ import_react.default.createElement("div", { key: p.pendingId, style: styles.pendingCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardName }, p.customer), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingCardTime }, p.timestamp)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingItemList }, p.items.map((it, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.pendingItem }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemName }, it.name), it.variant && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemVariant }, " \u2014 ", it.variant), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingItemPrice }, " $", it.price.toFixed(2)))), p.notes && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingNotesSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingNotes }, "Notes: ", p.notes), parsedNotes[p.pendingId] ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parsedNotesCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parsedNotesTitle }, "AI interpretation"), parsedNotes[p.pendingId].summary && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parsedNotesSummary }, parsedNotes[p.pendingId].summary), ["spice", "substitutions", "extras", "delivery", "other"].map(
+      (k) => parsedNotes[p.pendingId][k] ? /* @__PURE__ */ import_react.default.createElement("div", { key: k, style: styles.parsedNotesItem }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.parsedNotesKey }, k, ":"), " ", parsedNotes[p.pendingId][k]) : null
+    )) : /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: styles.parseNotesBtn,
+        disabled: parsingNotes === p.pendingId,
+        onClick: async () => {
+          setParsingNotes(p.pendingId);
+          const result = await parseFormNotes(p.notes);
+          if (result) setParsedNotes((prev) => ({ ...prev, [p.pendingId]: result }));
+          setParsingNotes(null);
+        }
+      },
+      parsingNotes === p.pendingId ? "Parsing..." : "Parse notes with AI"
+    ))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.pendingActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingAcceptBtn, onClick: () => acceptPending(p) }, /* @__PURE__ */ import_react.default.createElement(Check, { size: 16 }), " Accept"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingRejectBtn, onClick: () => dismissPending(p.pendingId) }, /* @__PURE__ */ import_react.default.createElement(X, { size: 16 }), " Reject"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pendingBackBtn, onClick: () => setShowPendingIdx(null) }, "Back"))) : /* @__PURE__ */ import_react.default.createElement("button", { key: p.pendingId, style: styles.pendingRow, onClick: () => setShowPendingIdx(idx) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingRowName }, p.customer), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingRowCount }, p.items.length, " item", p.items.length !== 1 ? "s" : ""), /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 16 })))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderList }, activeOrders.map((order) => /* @__PURE__ */ import_react.default.createElement(
       OrderCard,
       {
         key: order.id,
@@ -14646,6 +14661,24 @@ This will replace your current orders.`
         });
         return map;
       });
+    } catch {
+      return null;
+    }
+  }
+  async function parseFormNotes(notes) {
+    const prompt = 'You are a helper for a small meal prep chef reviewing customer order notes. The customer placed their order via a structured form (dropdowns), so the main items are already captured. These are their free-text notes: """' + notes + '""" Interpret these notes and return a JSON object with: "spice": any spice level request or null, "substitutions": any substitution requests as a string or null, "extras": any extra items or add-ons mentioned that were not in the form or null, "delivery": any delivery instructions or timing notes or null, "other": anything else worth flagging for the chef or null, "summary": a single short sentence summarizing what action the chef needs to take, or null if notes are routine. Return ONLY valid JSON, no markdown fences, no explanation.';
+    try {
+      const res = await fetch("https://ltb-proxy.strickland-kevinj.workers.dev/parse-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content: prompt }] })
+      });
+      const raw = await res.text();
+      const data = JSON.parse(raw);
+      const text = (data.content || []).map((b) => b.type === "text" ? b.text : "").join("");
+      const clean = text.replace(/```json|```/g, "").trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      return JSON.parse(jsonMatch ? jsonMatch[0] : clean);
     } catch {
       return null;
     }
@@ -16221,6 +16254,52 @@ This will replace your current orders.`
       padding: "10px 14px",
       fontSize: "13px",
       cursor: "pointer"
+    },
+    pendingNotesSection: {
+      marginBottom: "10px"
+    },
+    parsedNotesCard: {
+      background: "#1a2e1a",
+      border: "1px solid #3a6a3a",
+      borderRadius: "8px",
+      padding: "10px",
+      marginTop: "6px"
+    },
+    parsedNotesTitle: {
+      fontSize: "11px",
+      fontWeight: 700,
+      color: "#7abf7a",
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      marginBottom: "6px"
+    },
+    parsedNotesSummary: {
+      fontSize: "13px",
+      color: "#e8dfc0",
+      fontWeight: 600,
+      marginBottom: "6px"
+    },
+    parsedNotesItem: {
+      fontSize: "12px",
+      color: "#9aa5a0",
+      marginBottom: "3px"
+    },
+    parsedNotesKey: {
+      color: "#c9a84c",
+      fontWeight: 600,
+      textTransform: "capitalize"
+    },
+    parseNotesBtn: {
+      marginTop: "6px",
+      background: "#1a2e1a",
+      color: "#7abf7a",
+      border: "1px solid #3a6a3a",
+      borderRadius: "8px",
+      padding: "8px 12px",
+      fontSize: "12px",
+      fontWeight: 600,
+      cursor: "pointer",
+      width: "100%"
     },
     // Strikethrough applied to the button label text only (keeps the icon intact).
     struckText: {

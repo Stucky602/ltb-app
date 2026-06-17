@@ -24,7 +24,7 @@ var LTBApp = (() => {
   });
   var React = window.React;
   var { useState, useEffect, useMemo, useCallback } = window.React;
-  var { Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw, ClipboardPaste, ArrowUpDown, Archive, Image: ImageIcon, AlertTriangle, FileText, Scale, Camera, Download, Upload } = window.lucide;
+  var { Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw, ClipboardPaste, ArrowUpDown, Archive, Image: ImageIcon, AlertTriangle, FileText, Scale, Camera, Download, Upload } = window.LucideReact;
   var ALL_DINNERS = [
     { name: "Indian Style Curry", variants: [
       { label: "Chicken, Small (~4-5)", price: 27, cost: 14.97 },

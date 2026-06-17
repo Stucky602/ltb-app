@@ -14045,7 +14045,9 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     const checkFormNow = import_react.default.useCallback(async () => {
       setCheckingForm(true);
       try {
+        alert("Fetching CSV...");
         const rows = await fetchFormRows();
+        alert("Rows result: " + (rows === null ? "null (network fail)" : Array.isArray(rows) ? rows.length + " rows" : "unexpected: " + typeof rows));
         if (!rows) {
           setCheckingForm(false);
           return;

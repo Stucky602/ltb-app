@@ -14511,6 +14511,105 @@ This will replace your current orders.`
   function QtyControl({ value, onChange, min = 0 }) {
     return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.qtyControl, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(Math.max(min, value - 1)), "aria-label": "Decrease" }, "\u2212"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.qtyValue }, value), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(value + 1), "aria-label": "Increase" }, "+"));
   }
+  function parseFormRow(headerMap) {
+    const items = [];
+    const notes = [];
+    const priceIndex = {};
+    const addToIndex = (item) => {
+      (item.variants || []).forEach((v) => {
+        const key = Math.round(v.price * 100);
+        if (!priceIndex[key]) priceIndex[key] = [];
+        priceIndex[key].push({ name: item.name, label: v.label, price: v.price, cost: v.cost });
+      });
+    };
+    ALL_DINNERS.forEach(addToIndex);
+    Object.values(ALWAYS_MENU).flat().forEach(addToIndex);
+    let customer = "";
+    Object.entries(headerMap).forEach(([header, value]) => {
+      const h = header.toLowerCase().trim();
+      const v = String(value || "").trim();
+      if (!v || v.toLowerCase() === "no thanks" || h.includes("timestamp")) return;
+      if (h === "your name" || h.includes("your name")) {
+        customer = v;
+        return;
+      }
+      if (h.includes("notes") || h.includes("anything else") || h.includes("quantity") || h.includes("weight")) {
+        if (v) notes.push(v);
+        return;
+      }
+      const selections = v.includes(",") ? v.split(",").map((s) => s.trim()) : [v];
+      selections.forEach((sel) => {
+        if (!sel || sel.toLowerCase() === "no thanks") return;
+        const priceMatch = sel.match(/[—–-]\s*\$(\d+(?:\.\d+)?)/);
+        let matched = null;
+        if (priceMatch) {
+          const dollars = Math.round(parseFloat(priceMatch[1]) * 100);
+          const candidates = priceIndex[dollars] || [];
+          if (candidates.length === 1) {
+            matched = candidates[0];
+          } else if (candidates.length > 1) {
+            const hNorm = h.replace(/[^a-z0-9]/g, "");
+            matched = candidates.find((c) => {
+              const cNorm = c.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+              return cNorm.includes(hNorm.slice(0, 8)) || hNorm.includes(cNorm.slice(0, 8));
+            }) || candidates[0];
+          }
+        }
+        if (!matched) {
+          const selNorm = sel.toLowerCase().replace(/[^a-z0-9]/g, "");
+          let bestScore = 0;
+          [...ALL_DINNERS, ...Object.values(ALWAYS_MENU).flat()].forEach((item) => {
+            (item.variants || []).forEach((variant) => {
+              const combined = (item.name + " " + variant.label).toLowerCase().replace(/[^a-z0-9]/g, "");
+              let score = 0;
+              for (let i = 0; i < Math.min(selNorm.length, combined.length); i++) {
+                if (selNorm[i] === combined[i]) score++;
+              }
+              if (score > bestScore) {
+                bestScore = score;
+                matched = { name: item.name, label: variant.label, price: variant.price, cost: variant.cost };
+              }
+            });
+          });
+        }
+        if (matched) {
+          items.push({
+            name: matched.name,
+            variant: matched.label,
+            qty: 1,
+            price: matched.price,
+            cost: matched.cost || 0,
+            note: "",
+            upcharge: 0,
+            lbs: null,
+            hasPhoto: false
+          });
+        } else {
+          notes.push("Unmatched item: " + sel);
+        }
+      });
+    });
+    return { customer: customer || "Unknown", items, notes: notes.join(" | ") };
+  }
+  async function fetchFormRows() {
+    try {
+      const res = await fetch(FORM_CSV_URL, { cache: "no-store" });
+      if (!res.ok) return null;
+      const text = await res.text();
+      const rows = parseDelimited(text);
+      if (rows.length < 2) return [];
+      const headers = rows[0].map((h) => h.trim());
+      return rows.slice(1).map((cells) => {
+        const map = {};
+        headers.forEach((h, i) => {
+          map[h] = cells[i] || "";
+        });
+        return map;
+      });
+    } catch {
+      return null;
+    }
+  }
   function parseDelimited(text) {
     const rows = [];
     let row = [];

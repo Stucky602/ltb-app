@@ -12899,6 +12899,7 @@
   var WEEK_KEY = "ltb-week";
   var PENDING_KEY = "ltb-pending-orders";
   var SEEN_ROWS_KEY = "ltb-seen-rows";
+  var FORM_CSV_URL = "https://ltb-proxy.strickland-kevinj.workers.dev/sheet";
   var I = (name, q, u, staple = false) => ({ name, q, u, staple });
   var RECIPES = {
     "Indian Style Curry": {
@@ -14045,7 +14046,9 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     const checkFormNow = import_react.default.useCallback(async () => {
       setCheckingForm(true);
       try {
+        alert("Starting fetch from: " + FORM_CSV_URL);
         const rows = await fetchFormRows();
+        alert("Result: " + (rows === null ? "null" : Array.isArray(rows) ? rows.length + " rows found" : typeof rows));
         if (!rows) {
           setCheckingForm(false);
           return;

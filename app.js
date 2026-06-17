@@ -24,7 +24,30 @@ var LTBApp = (() => {
   });
   var React = window.React;
   var { useState, useEffect, useMemo, useCallback } = window.React;
-  var { Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw, ClipboardPaste, ArrowUpDown, Archive, Image: ImageIcon, AlertTriangle, FileText, Scale, Camera, Download, Upload } = window.LucideReact;
+  var Icon = ({ size = 24, children, ...props }) => React.createElement("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", ...props }, ...Array.isArray(children) ? children : [children]);
+  var _p = (d) => React.createElement("path", { d });
+  var _ci = (cx, cy, r) => React.createElement("circle", { cx, cy, r });
+  var _rect = (x, y, w, h, rx) => React.createElement("rect", { x, y, width: w, height: h, rx });
+  var _line = (x1, y1, x2, y2) => React.createElement("line", { x1, y1, x2, y2 });
+  var _poly = (points) => React.createElement("polyline", { points });
+  var Plus = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M12 5v14"), _p("M5 12h14"));
+  var Trash2 = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M3 6h18"), _p("M19 6l-1 14H6L5 6"), _p("M8 6V4h8v2"), _p("M10 11v6"), _p("M14 11v6"));
+  var Check = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _poly("20 6 9 17 4 12"));
+  var ChevronDown = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _poly("6 9 12 15 18 9"));
+  var ChevronUp = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _poly("18 15 12 9 6 15"));
+  var X = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M18 6 6 18"), _p("M6 6l12 12"));
+  var Pencil = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"));
+  var Copy = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _rect(8, 8, 13, 13, 2), _p("M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"));
+  var RotateCcw = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"), _p("M3 3v5h5"));
+  var ClipboardPaste = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M9 3h6v3H9z"), _p("M8 3H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-2"), _p("M8 13h8"), _p("M8 17h8"), _p("M8 9h8"));
+  var Archive = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _rect(2, 3, 20, 5, 0), _p("M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"), _p("M10 12h4"));
+  var ImageIcon = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _rect(3, 3, 18, 18, 2), _ci(8.5, 8.5, 1.5), _poly("21 15 16 10 5 21"));
+  var AlertTriangle = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"), _line(12, 9, 12, 13), _line(12, 17, 12.01, 17));
+  var FileText = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"), _poly("14 2 14 8 20 8"), _p("M16 13H8"), _p("M16 17H8"), _p("M10 9H8"));
+  var Scale = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M16 16h6"), _p("M2 16h6"), _line(12, 2, 12, 22), _p("M8 16 2 8l6-8"), _p("M16 16l6-8-6-8"));
+  var Camera = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"), _ci(12, 13, 4));
+  var Download = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("7 10 12 15 17 10"), _line(12, 15, 12, 3));
+  var Upload = ({ size = 24, ...r }) => React.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("17 8 12 3 7 8"), _line(12, 3, 12, 15));
   var ALL_DINNERS = [
     { name: "Indian Style Curry", variants: [
       { label: "Chicken, Small (~4-5)", price: 27, cost: 14.97 },

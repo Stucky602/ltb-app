@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a3a3a">
+<title>LTB — This Week's Menu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; background: #1a1a1a; }
+  .bar {
+    background: #1a3a3a;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #c9a84c;
+  }
+  .bar-title {
+    color: #c9a84c;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .bar-back {
+    color: #3fb8a0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  iframe {
+    display: block;
+    width: 100%;
+    height: calc(100vh - 45px);
+    border: none;
+  }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <a class="bar-back" href="order.html">‹ Back</a>
+    <span class="bar-title">This Week's Menu</span>
+    <span style="width:40px"></span>
+  </div>
+  <iframe
+    src="LTB_Weekly_Menu.pdf"
+    title="LTB Weekly Menu"
+    allowfullscreen
+  ></iframe>
+</body>
+</html>

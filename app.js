@@ -12899,6 +12899,8 @@
   var WEEK_KEY = "ltb-week";
   var PENDING_KEY = "ltb-pending-orders";
   var SEEN_ROWS_KEY = "ltb-seen-rows";
+  var REGULARS_KEY = "ltb-regulars";
+  var INVENTORY_KEY = "ltb-inventory";
   var FORM_CSV_URL = "https://ltb-proxy.strickland-kevinj.workers.dev/sheet";
   var I = (name, q, u, staple = false) => ({ name, q, u, staple });
   var RECIPES = {
@@ -13354,6 +13356,91 @@
   var uid = () => Math.random().toString(36).slice(2, 10);
   var currency = (n) => `$${(Number(n) || 0).toFixed(2)}`;
   var round2 = (n) => Math.round(n * 100) / 100;
+  var DISH_CUISINE = {
+    "Indian Style Curry": "Indian",
+    "Shrimp or Tofu with Asparagus in Black Bean Sauce": "Chinese",
+    "Texas Gulf Shrimp or Tofu and Chinese Broccoli": "Chinese",
+    "Cumin Mushroom Noodles": "Chinese",
+    "Thai Basil Chicken (Pad Krapow Gai)": "Thai",
+    "Stir Fried Long Beans with Ground Pork": "Chinese",
+    "Mapo Eggplant": "Chinese",
+    "Pasta with Red Sauce": "Italian",
+    "Bolognese": "Italian",
+    "Saffron Pork Ragu": "Italian",
+    "Tex-Mex Kit": "Tex-Mex",
+    "Brunswick Stew": "Southern",
+    "Gumbo": "Southern",
+    "Boeuf Bourguignon (Beef Stew)": "French",
+    "Chili": "American"
+  };
+  var dishCuisine = (name) => DISH_CUISINE[name] || "Other";
+  var normName = (s) => String(s || "").toLowerCase().trim().replace(/\s+/g, " ");
+  function nameMatchType(a, b) {
+    const na = normName(a), nb = normName(b);
+    if (!na || !nb) return null;
+    if (na === nb) return "exact";
+    const fa = na.split(" ")[0], fb = nb.split(" ")[0];
+    if (fa && fa === fb) return "partial";
+    if (na.includes(nb) || nb.includes(na)) return "partial";
+    return null;
+  }
+  var MIN_ORDERS_FOR_INSIGHT = 5;
+  function buildInsights(linkedOrders) {
+    const orders = (linkedOrders || []).filter((o) => o && Array.isArray(o.items));
+    if (orders.length < MIN_ORDERS_FOR_INSIGHT) return [];
+    const insights = [];
+    const cuisineCount = {};
+    const dishCount = {};
+    let totalDishLines = 0;
+    orders.forEach((o) => {
+      o.items.forEach((it) => {
+        if (!ALL_DINNERS.some((d) => d.name === it.name)) return;
+        const c = dishCuisine(it.name);
+        cuisineCount[c] = (cuisineCount[c] || 0) + 1;
+        dishCount[it.name] = (dishCount[it.name] || 0) + 1;
+        totalDishLines += 1;
+      });
+    });
+    if (totalDishLines >= 4) {
+      const sorted = Object.entries(cuisineCount).sort((a, b) => b[1] - a[1]);
+      if (sorted.length && sorted[0][1] >= 3 && sorted[0][1] / totalDishLines >= 0.5 && sorted[0][0] !== "Other") {
+        insights.push(`Tends to favor ${sorted[0][0]} dishes (${sorted[0][1]} of ${totalDishLines} dinner orders).`);
+      }
+    }
+    const favDish = Object.entries(dishCount).sort((a, b) => b[1] - a[1])[0];
+    if (favDish && favDish[1] >= 3) {
+      insights.push(`Repeat favorite: ${favDish[0]} (ordered ${favDish[1]} times).`);
+    }
+    const spiceNotes = [];
+    orders.forEach((o) => {
+      const blob = ((o.notes || "") + " " + (o.items || []).map((it) => it.note || "").join(" ")).toLowerCase();
+      const m = blob.match(/spice\s*(?:level\s*)?(\d)/);
+      if (m) spiceNotes.push(parseInt(m[1], 10));
+    });
+    if (spiceNotes.length >= 3) {
+      const avg = spiceNotes.reduce((a, b) => a + b, 0) / spiceNotes.length;
+      if (Math.max(...spiceNotes) - Math.min(...spiceNotes) <= 1) {
+        insights.push(`Consistent spice preference around level ${Math.round(avg)}.`);
+      }
+    }
+    const addonCount = {};
+    orders.forEach((o) => {
+      o.items.forEach((it) => {
+        if (ALL_DINNERS.some((d) => d.name === it.name)) return;
+        addonCount[it.name] = (addonCount[it.name] || 0) + 1;
+      });
+    });
+    const favAddon = Object.entries(addonCount).sort((a, b) => b[1] - a[1])[0];
+    if (favAddon && favAddon[1] >= 3) {
+      insights.push(`Regularly adds ${favAddon[0]} (${favAddon[1]} orders).`);
+    }
+    return insights;
+  }
+  function insightStamp(text) {
+    const d = /* @__PURE__ */ new Date();
+    const mo = d.toLocaleDateString(void 0, { month: "short" });
+    return `[Auto-insight \xB7 ${mo} ${d.getDate()}] ${text}`;
+  }
   function discountAmount(itemsTotal, discountType, discountValue) {
     if (!discountType || !discountValue) return 0;
     if (discountType === "percent") return round2(itemsTotal * (discountValue / 100));
@@ -13954,6 +14041,9 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     const [checkingForm, setCheckingForm] = (0, import_react.useState)(false);
     const [parsedNotes, setParsedNotes] = (0, import_react.useState)({});
     const [parsingNotes, setParsingNotes] = (0, import_react.useState)(null);
+    const [regulars, setRegulars] = (0, import_react.useState)([]);
+    const [inventory, setInventory] = (0, import_react.useState)({});
+    const [linkPrompt, setLinkPrompt] = (0, import_react.useState)(null);
     const [expandedOrder, setExpandedOrder] = (0, import_react.useState)(null);
     (0, import_react.useEffect)(() => {
       let mounted = true;
@@ -13967,7 +14057,18 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         if (!mounted) return;
         const migrated = loadedOrders.map((o) => ({
           ...o,
-          items: o.items || [],
+          // Item-level migration: form-imported orders previously stored
+          // `upcharge: 0` (a number) and `lbs: null`, which broke rendering.
+          // Normalize upcharge to either a proper {label, amount} object or
+          // undefined, and drop the stray lbs field.
+          items: (o.items || []).map((it) => {
+            const clean = { ...it };
+            if (clean.upcharge != null && typeof clean.upcharge !== "object") {
+              delete clean.upcharge;
+            }
+            if ("lbs" in clean) delete clean.lbs;
+            return clean;
+          }),
           paid: o.paid === void 0 ? o.status === "Delivered" : o.paid,
           archived: o.archived || false,
           discountType: o.discountType || null,
@@ -13987,6 +14088,10 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         }
         const savedPending = await loadJSON(PENDING_KEY, []);
         if (mounted) setPendingOrders(savedPending || []);
+        const savedRegulars = await loadJSON(REGULARS_KEY, []);
+        if (mounted) setRegulars(savedRegulars || []);
+        const savedInventory = await loadJSON(INVENTORY_KEY, {});
+        if (mounted) setInventory(savedInventory || {});
         setLoading(false);
         cleanupPhotos(migrated);
         pollFormOrders(migrated, savedPending || []);
@@ -14135,22 +14240,33 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       setTimeout(() => pollFormOrders(existingOrders, existingPending), 5 * 60 * 1e3);
     }, []);
     const acceptPending = (0, import_react.useCallback)((pending) => {
-      const total = orderTotal(pending.items, 0, 0, null, 0, [], false);
+      const orderId = uid();
+      let exactReg = null;
+      const partialRegs = [];
+      regulars.forEach((r) => {
+        const m = nameMatchType(r.name, pending.customer);
+        if (m === "exact") exactReg = r;
+        else if (m === "partial") partialRegs.push(r);
+      });
+      const discountType = exactReg && exactReg.discountPercent > 0 ? "percent" : null;
+      const discountValue = exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0;
+      const total = orderTotal(pending.items, 0, 0, discountType, discountValue, [], false);
       const order = {
-        id: uid(),
-        customer: pending.customer,
+        id: orderId,
+        customer: exactReg ? exactReg.name : pending.customer,
         items: pending.items,
         jarSwaps: 0,
         containerReturns: 0,
         notes: pending.notes || "",
-        discountType: null,
-        discountValue: 0,
+        discountType,
+        discountValue,
         customCharges: [],
         waiveSurcharge: false,
         total,
         status: "Ordered",
         paid: false,
         archived: false,
+        regularId: exactReg ? exactReg.id : null,
         createdAt: (/* @__PURE__ */ new Date()).toISOString()
       };
       setOrders((prev) => {
@@ -14158,9 +14274,14 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         saveJSON(ORDERS_KEY, next).then((res) => setError(saveError(res)));
         return next;
       });
+      if (exactReg) {
+        linkOrderToRegular(exactReg.id, orderId);
+      } else if (partialRegs.length > 0) {
+        setLinkPrompt({ order, candidates: partialRegs });
+      }
       dismissPending(pending.pendingId);
       setShowPendingIdx(null);
-    }, []);
+    }, [regulars, linkOrderToRegular]);
     const dismissPending = (0, import_react.useCallback)((pendingId) => {
       setPendingOrders((prev) => {
         const next = prev.filter((p) => p.pendingId !== pendingId);
@@ -14168,6 +14289,80 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         return next;
       });
       setShowPendingIdx(null);
+    }, []);
+    const persistRegulars = (0, import_react.useCallback)((next) => {
+      setRegulars(next);
+      saveJSON(REGULARS_KEY, next).then((res) => setError(saveError(res)));
+    }, []);
+    const addRegular = (0, import_react.useCallback)((profile) => {
+      const reg = {
+        id: uid(),
+        name: profile.name || "",
+        address: profile.address || "",
+        phone: profile.phone || "",
+        dietary: profile.dietary || "",
+        spice: profile.spice || "",
+        discountPercent: Number(profile.discountPercent) || 0,
+        notes: profile.notes || "",
+        linkedOrderIds: profile.linkedOrderIds || [],
+        lastInsightSig: "",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      setRegulars((prev) => {
+        const next = [...prev, reg];
+        saveJSON(REGULARS_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+      return reg.id;
+    }, []);
+    const updateRegular = (0, import_react.useCallback)((id, patch) => {
+      setRegulars((prev) => {
+        const next = prev.map((r) => r.id === id ? { ...r, ...patch } : r);
+        saveJSON(REGULARS_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+    }, []);
+    const deleteRegular = (0, import_react.useCallback)((id) => {
+      setRegulars((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        saveJSON(REGULARS_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+    }, []);
+    const linkOrderToRegular = (0, import_react.useCallback)((regularId, orderId) => {
+      setRegulars((prev) => {
+        const next = prev.map((r) => {
+          if (r.id !== regularId) return r;
+          const linkedOrderIds = r.linkedOrderIds.includes(orderId) ? r.linkedOrderIds : [...r.linkedOrderIds, orderId];
+          return { ...r, linkedOrderIds };
+        });
+        saveJSON(REGULARS_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+    }, []);
+    const unlinkOrderFromRegular = (0, import_react.useCallback)((regularId, orderId) => {
+      setRegulars((prev) => {
+        const next = prev.map(
+          (r) => r.id === regularId ? { ...r, linkedOrderIds: r.linkedOrderIds.filter((oid) => oid !== orderId) } : r
+        );
+        saveJSON(REGULARS_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+    }, []);
+    const adjustInventory = (0, import_react.useCallback)((key, delta) => {
+      setInventory((prev) => {
+        const current = Number(prev[key]) || 0;
+        const next = { ...prev, [key]: Math.max(0, current + delta) };
+        saveJSON(INVENTORY_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
+    }, []);
+    const setInventoryCount = (0, import_react.useCallback)((key, value) => {
+      setInventory((prev) => {
+        const next = { ...prev, [key]: Math.max(0, Number(value) || 0) };
+        saveJSON(INVENTORY_KEY, next).then((res) => setError(saveError(res)));
+        return next;
+      });
     }, []);
     const updateOrder = (0, import_react.useCallback)((id, patch) => {
       setOrders((prev) => {
@@ -14386,11 +14581,12 @@ This will replace your current orders.`
     if (loading) {
       return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loadingText }, "Loading orders..."));
     }
-    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.0-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.1-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
       ["orders", "Orders"],
       ["cook", "Cook"],
       ["shop", "Shop"],
       ["money", "Money"],
+      ["regulars", "Regulars"],
       ["week", "Week"]
     ].map(([key, label]) => /* @__PURE__ */ import_react.default.createElement(
       "button",
@@ -14416,7 +14612,28 @@ This will replace your current orders.`
       },
       error,
       /* @__PURE__ */ import_react.default.createElement("span", { style: styles.errorRetry }, "Tap to retry saving")
-    ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
+    ), showImportModal && /* @__PURE__ */ import_react.default.createElement(ImportModal, { onSubmit: submitImport, onCancel: () => setShowImportModal(false) }), linkPrompt && /* @__PURE__ */ import_react.default.createElement(
+      LinkRegularPrompt,
+      {
+        order: linkPrompt.order,
+        candidates: linkPrompt.candidates,
+        onLink: (regularId) => {
+          linkOrderToRegular(regularId, linkPrompt.order.id);
+          const reg = regulars.find((r) => r.id === regularId);
+          if (reg) {
+            const patch = { regularId };
+            if (reg.discountPercent > 0) {
+              patch.discountType = "percent";
+              patch.discountValue = reg.discountPercent;
+              patch.total = orderTotal(linkPrompt.order.items, linkPrompt.order.jarSwaps, linkPrompt.order.containerReturns, "percent", reg.discountPercent, linkPrompt.order.customCharges, linkPrompt.order.waiveSurcharge);
+            }
+            updateOrder(linkPrompt.order.id, patch);
+          }
+          setLinkPrompt(null);
+        },
+        onSkip: () => setLinkPrompt(null)
+      }
+    ), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.checkFormBtn,
@@ -14496,6 +14713,7 @@ This will replace your current orders.`
       {
         key: order.id,
         order,
+        regulars,
         expanded: expandedOrder === order.id,
         onToggle: () => setExpandedOrder(expandedOrder === order.id ? null : order.id),
         onUpdate: (patch) => updateOrder(order.id, patch),
@@ -14510,6 +14728,7 @@ This will replace your current orders.`
       {
         key: order.id,
         order,
+        regulars,
         expanded: expandedOrder === order.id,
         onToggle: () => setExpandedOrder(expandedOrder === order.id ? null : order.id),
         onUpdate: (patch) => updateOrder(order.id, patch),
@@ -14538,7 +14757,177 @@ This will replace your current orders.`
         activeCount: activeOrders.length,
         estCost: activeFinancials.cost
       }
-    ), view === "money" && /* @__PURE__ */ import_react.default.createElement(MoneyTab, { orders: orders || [], onUpdate: updateOrder }), view === "week" && /* @__PURE__ */ import_react.default.createElement(WeekTab, { selected: weekDishes, onToggle: toggleWeekDish })));
+    ), view === "money" && /* @__PURE__ */ import_react.default.createElement(MoneyTab, { orders: orders || [], onUpdate: updateOrder }), view === "regulars" && /* @__PURE__ */ import_react.default.createElement(
+      RegularsTab,
+      {
+        regulars,
+        orders: orders || [],
+        onAdd: addRegular,
+        onUpdate: updateRegular,
+        onDelete: deleteRegular,
+        onLink: linkOrderToRegular,
+        onUnlink: unlinkOrderFromRegular
+      }
+    ), view === "week" && /* @__PURE__ */ import_react.default.createElement(WeekTab, { selected: weekDishes, onToggle: toggleWeekDish })));
+  }
+  function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onSkip }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptTitle }, "This looks like a regular"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptBody }, "The order from ", /* @__PURE__ */ import_react.default.createElement("b", null, order.customer), " might match one of your regulars. Want to link it?"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptList }, candidates.map((r) => /* @__PURE__ */ import_react.default.createElement("button", { key: r.id, style: styles.linkPromptCandidate, onClick: () => onLink(r.id) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkPromptCandidateName }, r.name, " \u2605"), r.discountPercent > 0 && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkPromptCandidateMeta }, r.discountPercent, "% off applies")))), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.linkPromptSkip, onClick: onSkip }, "Not a regular / skip")));
+  }
+  function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLink, onUnlink }) {
+    const [mode, setMode] = (0, import_react.useState)("list");
+    const [activeId, setActiveId] = (0, import_react.useState)(null);
+    const activeRegular = regulars.find((r) => r.id === activeId) || null;
+    if (mode === "add") {
+      return /* @__PURE__ */ import_react.default.createElement(
+        RegularForm,
+        {
+          onSave: (profile) => {
+            onAdd(profile);
+            setMode("list");
+          },
+          onCancel: () => setMode("list")
+        }
+      );
+    }
+    if (mode === "profile" && activeRegular) {
+      return /* @__PURE__ */ import_react.default.createElement(
+        RegularProfile,
+        {
+          regular: activeRegular,
+          orders,
+          allRegulars: regulars,
+          onUpdate,
+          onDelete: (id) => {
+            onDelete(id);
+            setMode("list");
+            setActiveId(null);
+          },
+          onLink,
+          onUnlink,
+          onBack: () => {
+            setMode("list");
+            setActiveId(null);
+          }
+        }
+      );
+    }
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Regulars"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Your VIP customers. Tap one to see their profile, order history, and the patterns Claude spots over time. New form orders auto-link to a regular when the full name matches exactly.")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.addRegularBtn, onClick: () => setMode("add") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), " Add a regular"), regulars.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No regulars yet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Add your repeat customers to track their preferences and order history.")) : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularsList }, regulars.map((r) => {
+      const linkedCount = (r.linkedOrderIds || []).length;
+      return /* @__PURE__ */ import_react.default.createElement(
+        "button",
+        {
+          key: r.id,
+          style: styles.regularRow,
+          onClick: () => {
+            setActiveId(r.id);
+            setMode("profile");
+          }
+        },
+        /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularRowLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularRowName }, r.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.regularStar }, "\u2605")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularRowMeta }, linkedCount, " order", linkedCount !== 1 ? "s" : "", r.discountPercent > 0 ? ` \xB7 ${r.discountPercent}% off` : "")),
+        /* @__PURE__ */ import_react.default.createElement(ChevronDown, { size: 16, style: { transform: "rotate(-90deg)" } })
+      );
+    })));
+  }
+  function RegularForm({ regular, onSave, onCancel }) {
+    const [name, setName] = (0, import_react.useState)(regular?.name || "");
+    const [address, setAddress] = (0, import_react.useState)(regular?.address || "");
+    const [phone, setPhone] = (0, import_react.useState)(regular?.phone || "");
+    const [dietary, setDietary] = (0, import_react.useState)(regular?.dietary || "");
+    const [spice, setSpice] = (0, import_react.useState)(regular?.spice || "");
+    const [discountPercent, setDiscountPercent] = (0, import_react.useState)(regular?.discountPercent ? String(regular.discountPercent) : "");
+    const canSave = name.trim().length > 0;
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, regular ? "Edit profile" : "New regular")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularFormCard }, /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Name *"), /* @__PURE__ */ import_react.default.createElement("input", { style: styles.input, value: name, onChange: (e) => setName(e.target.value), placeholder: "Full name (helps form orders auto-link)" }), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Address"), /* @__PURE__ */ import_react.default.createElement("input", { style: styles.input, value: address, onChange: (e) => setAddress(e.target.value), placeholder: "For your delivery reference" }), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Phone"), /* @__PURE__ */ import_react.default.createElement("input", { style: styles.input, type: "tel", value: phone, onChange: (e) => setPhone(e.target.value), placeholder: "Phone number" }), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Dietary restrictions"), /* @__PURE__ */ import_react.default.createElement("input", { style: styles.input, value: dietary, onChange: (e) => setDietary(e.target.value), placeholder: "e.g. no peanuts, dairy-free" }), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Preferred spice level"), /* @__PURE__ */ import_react.default.createElement("input", { style: styles.input, value: spice, onChange: (e) => setSpice(e.target.value), placeholder: "e.g. level 3, mild" }), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Lifetime discount (%)"), /* @__PURE__ */ import_react.default.createElement("input", { style: styles.input, type: "number", inputMode: "decimal", value: discountPercent, onChange: (e) => setDiscountPercent(e.target.value), placeholder: "e.g. 20 for Mom, 5 for testers" }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularFormHint }, "Auto-applies to their orders. You can toggle it off per order."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularFormActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: onCancel }, "Cancel"), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.confirmYesGreen, opacity: canSave ? 1 : 0.5 },
+        disabled: !canSave,
+        onClick: () => onSave({ name: name.trim(), address, phone, dietary, spice, discountPercent })
+      },
+      regular ? "Save changes" : "Add regular"
+    ))));
+  }
+  function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelete, onLink, onUnlink, onBack }) {
+    const [editing, setEditing] = (0, import_react.useState)(false);
+    const [editingNotes, setEditingNotes] = (0, import_react.useState)(false);
+    const [notesDraft, setNotesDraft] = (0, import_react.useState)(regular.notes || "");
+    const [showLinkBrowser, setShowLinkBrowser] = (0, import_react.useState)(false);
+    const [linkSearch, setLinkSearch] = (0, import_react.useState)("");
+    const [confirmDelete, setConfirmDelete] = (0, import_react.useState)(false);
+    const linkedOrders = (0, import_react.useMemo)(
+      () => (regular.linkedOrderIds || []).map((oid) => orders.find((o) => o.id === oid)).filter(Boolean).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)),
+      [regular.linkedOrderIds, orders]
+    );
+    const totalOrders = linkedOrders.length;
+    const totalSpent = linkedOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const lastOrder = linkedOrders[0];
+    const insights = (0, import_react.useMemo)(() => buildInsights(linkedOrders), [linkedOrders]);
+    (0, import_react.useEffect)(() => {
+      if (insights.length === 0) return;
+      const sig = insights.join(" | ");
+      if (regular.lastInsightSig === sig) return;
+      const existingNotes = regular.notes || "";
+      const newLines = insights.filter((text) => !existingNotes.includes(text)).map((text) => insightStamp(text));
+      if (newLines.length > 0) {
+        const updatedNotes = existingNotes ? existingNotes + "\n" + newLines.join("\n") : newLines.join("\n");
+        onUpdate(regular.id, { notes: updatedNotes, lastInsightSig: sig });
+        setNotesDraft(updatedNotes);
+      } else {
+        onUpdate(regular.id, { lastInsightSig: sig });
+      }
+    }, [insights]);
+    const saveNotes = () => {
+      onUpdate(regular.id, { notes: notesDraft });
+      setEditing(false);
+    };
+    const linkableOrders = (0, import_react.useMemo)(() => {
+      const linkedSet = new Set(regular.linkedOrderIds || []);
+      const q = normName(linkSearch);
+      return orders.filter((o) => !linkedSet.has(o.id)).filter((o) => !q || normName(o.customer).includes(q)).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }, [orders, regular.linkedOrderIds, linkSearch]);
+    if (editing) {
+      return /* @__PURE__ */ import_react.default.createElement(
+        RegularForm,
+        {
+          regular,
+          onSave: (profile) => {
+            onUpdate(regular.id, {
+              name: profile.name,
+              address: profile.address,
+              phone: profile.phone,
+              dietary: profile.dietary,
+              spice: profile.spice,
+              discountPercent: Number(profile.discountPercent) || 0
+            });
+            setEditing(false);
+          },
+          onCancel: () => setEditing(false)
+        }
+      );
+    }
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileBackBtn, onClick: onBack }, "\u2039 All regulars"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileName }, regular.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.regularStar }, "\u2605")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSummaryGrid }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStat }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStatNum }, totalOrders), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStatLabel }, "orders")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStat }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStatNum }, currency(totalSpent)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStatLabel }, "total spent")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStat }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStatNum }, lastOrder ? formatDate(lastOrder.createdAt) : "\u2014"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileStatLabel }, "last order"))), regular.discountPercent > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileDiscountBadge }, regular.discountPercent, "% lifetime discount")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSectionTitle }, "Details"), regular.address ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileField }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.profileFieldKey }, "Address:"), " ", regular.address) : null, regular.phone ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileField }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.profileFieldKey }, "Phone:"), " ", regular.phone) : null, regular.dietary ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileField }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.profileFieldKey }, "Dietary:"), " ", regular.dietary) : null, regular.spice ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileField }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.profileFieldKey }, "Spice:"), " ", regular.spice) : null, !regular.address && !regular.phone && !regular.dietary && !regular.spice && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileFieldEmpty }, "No details added yet."), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileEditBtn, onClick: () => setEditing(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 13 }), " Edit details")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSectionTitle }, "Notes & insights"), editingNotes ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
+      "textarea",
+      {
+        style: { ...styles.textarea, minHeight: "90px" },
+        value: notesDraft,
+        onChange: (e) => setNotesDraft(e.target.value),
+        placeholder: "Free-form notes. Auto-insights from Claude appear here too, datestamped.",
+        autoFocus: true
+      }
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularFormActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => {
+      setNotesDraft(regular.notes || "");
+      setEditingNotes(false);
+    } }, "Cancel"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYesGreen, onClick: saveNotes }, "Save notes"))) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, notesDraft ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileNotes }, notesDraft.split("\n").map((line, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: line.startsWith("[Auto-insight") ? styles.profileInsightLine : styles.profileNoteLine }, line))) : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileFieldEmpty }, "No notes yet. Insights appear automatically after ", MIN_ORDERS_FOR_INSIGHT, " orders."), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileEditBtn, onClick: () => {
+      setNotesDraft(regular.notes || "");
+      setEditingNotes(true);
+    } }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 13 }), " Edit notes"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSectionTitle }, "Order history (", totalOrders, ")"), linkedOrders.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileFieldEmpty }, "No orders linked yet.") : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileHistoryList }, linkedOrders.map((o) => /* @__PURE__ */ import_react.default.createElement("div", { key: o.id, style: styles.profileHistoryRow }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileHistoryLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileHistoryDate }, o.createdAt ? formatDate(o.createdAt) : "undated"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileHistoryItems }, (o.items || []).map((it) => `${it.qty}\xD7 ${it.name}`).join(", ") || "No items")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileHistoryRight }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.profileHistoryTotal }, currency(o.total)), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileUnlinkBtn, onClick: () => onUnlink(regular.id, o.id) }, "unlink"))))), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileLinkBtn, onClick: () => setShowLinkBrowser(!showLinkBrowser) }, showLinkBrowser ? "Close" : "+ Link past orders"), showLinkBrowser && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkBrowser }, /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        style: styles.input,
+        placeholder: "Search orders by name...",
+        value: linkSearch,
+        onChange: (e) => setLinkSearch(e.target.value)
+      }
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkBrowserList }, linkableOrders.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileFieldEmpty }, "No matching orders to link.") : linkableOrders.slice(0, 30).map((o) => /* @__PURE__ */ import_react.default.createElement("button", { key: o.id, style: styles.linkBrowserRow, onClick: () => onLink(regular.id, o.id) }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkBrowserRowLeft }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkBrowserName }, o.customer), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkBrowserItems }, (o.items || []).map((it) => it.name).join(", ").slice(0, 50))), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkBrowserMeta }, o.createdAt ? formatDate(o.createdAt) : "", " \xB7 ", currency(o.total))))))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSection }, confirmDelete ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileDeleteConfirm }, /* @__PURE__ */ import_react.default.createElement("span", null, "Remove this regular? Their order history stays, just unlinked."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularFormActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmDelete(false) }, "Cancel"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmDeleteRed, onClick: () => onDelete(regular.id) }, "Remove"))) : /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileDeleteBtn, onClick: () => setConfirmDelete(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), " Remove regular")));
   }
   function WeekTab({ selected, onToggle }) {
     return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "This week's dinner lineup"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Check the dishes you're offering. The order picker, text parser, and shopping list follow this instantly. Existing orders aren't affected. The customer-facing PDF still comes from Claude \u2014 just tell it your picks (or send it a screenshot of this screen)."), selected.length === 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.parseError }, "No dishes selected \u2014 the Dinner section will be empty on new orders.")), ALL_DINNERS.map((dish) => {
@@ -14635,8 +15024,6 @@ This will replace your current orders.`
             price: matched.price,
             cost: matched.cost || 0,
             note: "",
-            upcharge: 0,
-            lbs: null,
             hasPhoto: false
           });
         } else {
@@ -15231,7 +15618,7 @@ This will replace your current orders.`
       );
     }))))), items.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewList }, items.map((it, idx) => {
       const open = expandedItem === idx;
-      const hasExtra = it.note || it.upcharge;
+      const hasExtra = it.note || it.upcharge && typeof it.upcharge === "object" && (it.upcharge.label || it.upcharge.amount);
       return /* @__PURE__ */ import_react.default.createElement("div", { key: `${it.category}-${it.name}-${it.variant}-${idx}`, style: styles.reviewItemCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewRow }, /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
@@ -15240,7 +15627,7 @@ This will replace your current orders.`
         },
         /* @__PURE__ */ import_react.default.createElement("span", { style: styles.reviewText }, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderItemVariant }, "(", it.variant, ")")),
         hasExtra && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.itemExtraDot })
-      ), /* @__PURE__ */ import_react.default.createElement(QtyControl, { value: it.qty, onChange: (q) => setQty(idx, q) })), !open && isPerLbItem(it.name) && (it.weight > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargePreview }, it.weight, " lb \xB7 ", currency(it.price)) : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "set weight \u2304")), !open && it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemNotePreview }, "\u201C", it.note, "\u201D"), !open && it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargePreview }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), ")"), !open && it.upcharge && !it.upcharge.amount && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "+ ", it.upcharge.label, " \u2014 set a price \u2304"), open && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemEditor }, isPerLbItem(it.name) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightDeferNote }, "Priced by weight (", currency(PER_LB_ITEMS[it.name].pricePerLb), "/lb + $1.50 bag). Set the actual weight from the order after you've weighed it."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Note for this item"), /* @__PURE__ */ import_react.default.createElement(
+      ), /* @__PURE__ */ import_react.default.createElement(QtyControl, { value: it.qty, onChange: (q) => setQty(idx, q) })), !open && isPerLbItem(it.name) && (it.weight > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargePreview }, it.weight, " lb \xB7 ", currency(it.price)) : /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "set weight \u2304")), !open && it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemNotePreview }, "\u201C", it.note, "\u201D"), !open && it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargePreview }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), ")") : null, !open && it.upcharge && typeof it.upcharge === "object" && it.upcharge.label && !it.upcharge.amount ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "+ ", it.upcharge.label, " \u2014 set a price \u2304") : null, open && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.itemEditor }, isPerLbItem(it.name) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weightDeferNote }, "Priced by weight (", currency(PER_LB_ITEMS[it.name].pricePerLb), "/lb + $1.50 bag). Set the actual weight from the order after you've weighed it."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Note for this item"), /* @__PURE__ */ import_react.default.createElement(
         "input",
         {
           style: styles.input,
@@ -15353,7 +15740,7 @@ This will replace your current orders.`
     return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceScroll, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceLogo }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceBrand }, "Lettuce, Turnip, The Beet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTagline }, "meal prep, delivered fresh"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceMeta }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceCustomer }, order.customer), dateStr && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceDate }, dateStr)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItems }, (order.items || []).map((it, idx) => {
       const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
       const lineTotal = (it.price + up) * it.qty;
-      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemPrice }, currency(lineTotal))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemVariant }, isPerLbItem(it.name) && it.weight ? `${it.weight} lb` : it.variant), it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)"), it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemNote }, "\u201C", it.note, "\u201D"));
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemPrice }, currency(lineTotal))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemVariant }, isPerLbItem(it.name) && it.weight ? `${it.weight} lb` : it.variant), it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)") : null, it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemNote }, "\u201C", it.note, "\u201D"));
     })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotals }, disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: { color: "#C0517A" } }, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", { style: { color: "#C0517A" } }, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0)))), !order.waiveSurcharge && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Order surcharge"), /* @__PURE__ */ import_react.default.createElement("span", null, currency(SURCHARGE))), order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Jar swap x", order.jarSwaps), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(order.jarSwaps * 2))), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Containers returned x", order.containerReturns), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(order.containerReturns)))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceGrandTotal }, /* @__PURE__ */ import_react.default.createElement("span", null, "Total"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceGrandValue }, currency(order.total))), order.notes && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceNotes }, order.notes), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceFooter }, "All prices all-in. Thanks for the order!")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.invoiceClose, onClick: onClose }, "Done"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceHint }, "Screenshot the card above to send it.")));
   }
   function WeightPhotoModal({ orderId, itemIdx, item, stepLabel, onApply, onClose }) {
@@ -15422,7 +15809,7 @@ This will replace your current orders.`
       stepLabel ? "Save & next" : "Save weight"
     )));
   }
-  function OrderCard({ order, expanded, onToggle, onUpdate, onDelete, onEdit }) {
+  function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit }) {
     const [confirmDelete, setConfirmDelete] = (0, import_react.useState)(false);
     const [copied, setCopied] = (0, import_react.useState)(false);
     const [editingNotes, setEditingNotes] = (0, import_react.useState)(false);
@@ -15452,6 +15839,27 @@ This will replace your current orders.`
     };
     const itemsTotal = (order.items || []).reduce((s, it) => s + it.price * it.qty, 0);
     const disc = discountAmount(itemsTotal, order.discountType, order.discountValue);
+    const matchedRegular = (0, import_react.useMemo)(() => {
+      if (!regulars || regulars.length === 0) return null;
+      if (order.regularId) {
+        const byId = regulars.find((r) => r.id === order.regularId);
+        if (byId) return byId;
+      }
+      return regulars.find((r) => nameMatchType(r.name, order.customer) === "exact") || null;
+    }, [regulars, order.regularId, order.customer]);
+    const isRegular = !!matchedRegular;
+    const regularDiscount = matchedRegular ? matchedRegular.discountPercent || 0 : 0;
+    const discountOn = order.discountType === "percent" && order.discountValue === regularDiscount && regularDiscount > 0;
+    const toggleRegularDiscount = (e) => {
+      e.stopPropagation();
+      if (discountOn) {
+        const total = orderTotal(order.items, order.jarSwaps, order.containerReturns, null, 0, order.customCharges, order.waiveSurcharge);
+        onUpdate({ discountType: null, discountValue: 0, total });
+      } else {
+        const total = orderTotal(order.items, order.jarSwaps, order.containerReturns, "percent", regularDiscount, order.customCharges, order.waiveSurcharge);
+        onUpdate({ discountType: "percent", discountValue: regularDiscount, total });
+      }
+    };
     const cycleStatus = (e) => {
       e.stopPropagation();
       const idx = STATUSES.indexOf(order.status);
@@ -15476,7 +15884,7 @@ This will replace your current orders.`
       onUpdate({ notes: notesDraft.trim() });
       setEditingNotes(false);
     };
-    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardHeader, onClick: onToggle, role: "button", tabIndex: 0 }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCustomer }, order.customer), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderMeta }, (order.items || []).reduce((s, it) => s + it.qty, 0), " item", (order.items || []).reduce((s, it) => s + it.qty, 0) !== 1 ? "s" : "", " ", "\xB7 ", currency(order.total), disc > 0 ? " \xB7 disc" : "", order.createdAt ? ` \xB7 ${formatDate(order.createdAt)}` : "")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardRight }, /* @__PURE__ */ import_react.default.createElement(
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardHeader, onClick: onToggle, role: "button", tabIndex: 0 }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCustomer }, order.customer, isRegular && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderRegularStar }, " \u2605")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderMeta }, (order.items || []).reduce((s, it) => s + it.qty, 0), " item", (order.items || []).reduce((s, it) => s + it.qty, 0) !== 1 ? "s" : "", " ", "\xB7 ", currency(order.total), disc > 0 ? " \xB7 disc" : "", order.createdAt ? ` \xB7 ${formatDate(order.createdAt)}` : "")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardRight }, /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: {
@@ -15498,7 +15906,7 @@ This will replace your current orders.`
       const pending = perLb && (it.weightPending || !(it.weight > 0));
       const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
       const lineTotal = (it.price + up) * it.qty;
-      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.orderItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderItemVariant }, "(", perLb && it.weight > 0 ? `${it.weight} lb` : it.variant, ")")), /* @__PURE__ */ import_react.default.createElement("span", null, pending ? /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingPrice }, "weigh after shopping") : currency(lineTotal))), it.upcharge && it.upcharge.amount > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemSub }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)"), it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemNote }, "\u201C", it.note, "\u201D"), perLb && /* @__PURE__ */ import_react.default.createElement(
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.orderItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderItemVariant }, "(", perLb && it.weight > 0 ? `${it.weight} lb` : it.variant, ")")), /* @__PURE__ */ import_react.default.createElement("span", null, pending ? /* @__PURE__ */ import_react.default.createElement("span", { style: styles.pendingPrice }, "weigh after shopping") : currency(lineTotal))), it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemSub }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)") : null, it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderItemNote }, "\u201C", it.note, "\u201D"), perLb && /* @__PURE__ */ import_react.default.createElement(
         "button",
         {
           style: styles.setWeightBtn,
@@ -15509,7 +15917,7 @@ This will replace your current orders.`
         it.weight > 0 ? "Update weight" : "Set weight",
         it.hasPhoto ? " \xB7 \u{1F4F7}" : ""
       ));
-    }), disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.orderItemLine, color: "#E8799A" } }, /* @__PURE__ */ import_react.default.createElement("span", null, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0))))), (order.jarSwaps > 0 || order.containerReturns > 0) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopSummary }, order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.jarSwaps, " jar swap", order.jarSwaps > 1 ? "s" : "", " (\u2212", currency(order.jarSwaps * 2), ")"), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.containerReturns, " container", order.containerReturns > 1 ? "s" : "", " returned (\u2212", currency(order.containerReturns * 1), ")")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesBlock }, editingNotes ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
+    }), disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.orderItemLine, color: "#E8799A" } }, /* @__PURE__ */ import_react.default.createElement("span", null, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0))))), (order.jarSwaps > 0 || order.containerReturns > 0) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopSummary }, order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.jarSwaps, " jar swap", order.jarSwaps > 1 ? "s" : "", " (\u2212", currency(order.jarSwaps * 2), ")"), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.containerReturns, " container", order.containerReturns > 1 ? "s" : "", " returned (\u2212", currency(order.containerReturns * 1), ")")), isRegular && regularDiscount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.regularDiscountToggle, onClick: toggleRegularDiscount }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.regularDiscountLabel }, "\u2605 ", matchedRegular.name, "'s ", regularDiscount, "% discount"), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.toggleSwitch, ...discountOn ? styles.toggleSwitchOn : {} } }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.toggleKnob, ...discountOn ? styles.toggleKnobOn : {} } }))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesBlock }, editingNotes ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "50px" },
@@ -16301,6 +16709,371 @@ This will replace your current orders.`
       cursor: "pointer",
       width: "100%"
     },
+    // ── Regulars: list, form, profile ──────────────────────────────────────────
+    addRegularBtn: {
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "8px",
+      background: "#c9a84c",
+      color: "#1a3a3a",
+      border: "none",
+      borderRadius: "10px",
+      padding: "13px",
+      fontSize: "14px",
+      fontWeight: 700,
+      cursor: "pointer",
+      marginBottom: "12px"
+    },
+    regularsList: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px"
+    },
+    regularRow: {
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      background: "#232a28",
+      border: "1px solid #2d3a36",
+      borderRadius: "10px",
+      padding: "14px",
+      cursor: "pointer",
+      color: "#e8e2d4",
+      textAlign: "left"
+    },
+    regularRowLeft: { flex: 1 },
+    regularRowName: { fontSize: "15px", fontWeight: 700, color: "#f2f2f0" },
+    regularRowMeta: { fontSize: "12px", color: "#9aa5a0", marginTop: "2px" },
+    regularStar: { color: "#c9a84c" },
+    regularFormCard: {
+      background: "#232a28",
+      border: "1px solid #2d3a36",
+      borderRadius: "12px",
+      padding: "14px"
+    },
+    regularFormHint: {
+      fontSize: "11px",
+      color: "#9aa5a0",
+      fontStyle: "italic",
+      marginTop: "4px",
+      marginBottom: "4px"
+    },
+    regularFormActions: {
+      display: "flex",
+      gap: "8px",
+      marginTop: "14px"
+    },
+    profileBackBtn: {
+      background: "transparent",
+      color: "#7abf7a",
+      border: "none",
+      fontSize: "14px",
+      fontWeight: 600,
+      cursor: "pointer",
+      padding: "4px 0",
+      marginBottom: "8px"
+    },
+    profileHeader: {
+      background: "linear-gradient(135deg, #1a3a3a, #232a28)",
+      border: "1px solid #2d6a6a",
+      borderRadius: "12px",
+      padding: "16px",
+      marginBottom: "12px"
+    },
+    profileName: {
+      fontSize: "20px",
+      fontWeight: 800,
+      color: "#f2f2f0",
+      marginBottom: "12px"
+    },
+    profileSummaryGrid: {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: "8px"
+    },
+    profileStat: {
+      flex: 1,
+      textAlign: "center",
+      background: "#1a1a1a55",
+      borderRadius: "8px",
+      padding: "8px 4px"
+    },
+    profileStatNum: { fontSize: "15px", fontWeight: 700, color: "#c9a84c" },
+    profileStatLabel: { fontSize: "10px", color: "#9aa5a0", textTransform: "uppercase", letterSpacing: "0.5px", marginTop: "2px" },
+    profileDiscountBadge: {
+      marginTop: "10px",
+      display: "inline-block",
+      background: "#c9a84c22",
+      color: "#c9a84c",
+      border: "1px solid #c9a84c55",
+      borderRadius: "6px",
+      padding: "4px 10px",
+      fontSize: "12px",
+      fontWeight: 600
+    },
+    profileSection: {
+      background: "#232a28",
+      border: "1px solid #2d3a36",
+      borderRadius: "12px",
+      padding: "14px",
+      marginBottom: "10px"
+    },
+    profileSectionTitle: {
+      fontSize: "12px",
+      fontWeight: 700,
+      color: "#c9a84c",
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      marginBottom: "8px"
+    },
+    profileField: { fontSize: "13px", color: "#d8d2c4", marginBottom: "4px", lineHeight: 1.4 },
+    profileFieldKey: { color: "#9aa5a0", fontWeight: 600 },
+    profileFieldEmpty: { fontSize: "13px", color: "#6a726c", fontStyle: "italic" },
+    profileEditBtn: {
+      marginTop: "8px",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "5px",
+      background: "transparent",
+      color: "#7abf7a",
+      border: "1px solid #37403c",
+      borderRadius: "7px",
+      padding: "6px 10px",
+      fontSize: "12px",
+      cursor: "pointer"
+    },
+    profileNotes: {
+      fontSize: "13px",
+      color: "#d8d2c4",
+      lineHeight: 1.5,
+      whiteSpace: "pre-wrap"
+    },
+    profileNoteLine: { marginBottom: "3px" },
+    profileInsightLine: {
+      marginBottom: "4px",
+      color: "#7abf7a",
+      fontSize: "12px",
+      fontStyle: "italic",
+      background: "#1a2e1a",
+      borderRadius: "5px",
+      padding: "4px 7px"
+    },
+    profileHistoryList: { display: "flex", flexDirection: "column", gap: "6px" },
+    profileHistoryRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+      borderBottom: "1px solid #2d3a36",
+      paddingBottom: "6px"
+    },
+    profileHistoryLeft: { flex: 1, paddingRight: "8px" },
+    profileHistoryDate: { fontSize: "12px", fontWeight: 600, color: "#d8d2c4" },
+    profileHistoryItems: { fontSize: "11px", color: "#9aa5a0", marginTop: "2px", lineHeight: 1.3 },
+    profileHistoryRight: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" },
+    profileHistoryTotal: { fontSize: "13px", fontWeight: 700, color: "#c9a84c" },
+    profileUnlinkBtn: {
+      background: "transparent",
+      color: "#8a928c",
+      border: "none",
+      fontSize: "11px",
+      cursor: "pointer",
+      textDecoration: "underline",
+      padding: 0
+    },
+    profileLinkBtn: {
+      marginTop: "10px",
+      width: "100%",
+      background: "#1f2937",
+      color: "#93b4d4",
+      border: "1px solid #3d5a7a",
+      borderRadius: "8px",
+      padding: "10px",
+      fontSize: "13px",
+      fontWeight: 600,
+      cursor: "pointer"
+    },
+    linkBrowser: { marginTop: "10px" },
+    linkBrowserList: { marginTop: "8px", display: "flex", flexDirection: "column", gap: "5px", maxHeight: "300px", overflowY: "auto" },
+    linkBrowserRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      background: "#1a1a1a",
+      border: "1px solid #2d3a36",
+      borderRadius: "7px",
+      padding: "9px 11px",
+      cursor: "pointer",
+      textAlign: "left"
+    },
+    linkBrowserRowLeft: { display: "flex", flexDirection: "column", flex: 1 },
+    linkBrowserName: { fontSize: "13px", fontWeight: 600, color: "#e8e2d4" },
+    linkBrowserItems: { fontSize: "10px", color: "#8a928c", marginTop: "1px" },
+    linkBrowserMeta: { fontSize: "10px", color: "#9aa5a0", textAlign: "right" },
+    profileDeleteBtn: {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "5px",
+      background: "transparent",
+      color: "#C0517A",
+      border: "1px solid #5a2a3a",
+      borderRadius: "7px",
+      padding: "8px 12px",
+      fontSize: "12px",
+      cursor: "pointer"
+    },
+    profileDeleteConfirm: {
+      fontSize: "13px",
+      color: "#d8d2c4",
+      lineHeight: 1.4
+    },
+    confirmDeleteRed: {
+      flex: 1,
+      background: "#8B2020",
+      color: "#fff",
+      border: "none",
+      borderRadius: "8px",
+      padding: "10px",
+      fontSize: "13px",
+      fontWeight: 700,
+      cursor: "pointer"
+    },
+    orderRegularStar: { color: "#c9a84c", fontSize: "15px" },
+    // ── Regular discount toggle on order card ──────────────────────────────────
+    regularDiscountToggle: {
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      background: "#1a2e1a",
+      border: "1px solid #3a6a3a",
+      borderRadius: "9px",
+      padding: "10px 12px",
+      cursor: "pointer",
+      marginBottom: "10px"
+    },
+    regularDiscountLabel: { fontSize: "13px", fontWeight: 600, color: "#c9a84c" },
+    toggleSwitch: {
+      width: "40px",
+      height: "22px",
+      borderRadius: "11px",
+      background: "#37403c",
+      position: "relative",
+      transition: "background 0.15s",
+      flexShrink: 0
+    },
+    toggleSwitchOn: { background: "#1D9E75" },
+    toggleKnob: {
+      position: "absolute",
+      top: "2px",
+      left: "2px",
+      width: "18px",
+      height: "18px",
+      borderRadius: "9px",
+      background: "#fff",
+      transition: "left 0.15s"
+    },
+    toggleKnobOn: { left: "20px" },
+    // ── Link regular prompt modal ──────────────────────────────────────────────
+    linkPromptCard: {
+      background: "#232a28",
+      border: "1px solid #2d6a6a",
+      borderRadius: "14px",
+      padding: "20px",
+      maxWidth: "340px",
+      width: "90%",
+      margin: "auto"
+    },
+    linkPromptTitle: { fontSize: "16px", fontWeight: 700, color: "#c9a84c", marginBottom: "8px" },
+    linkPromptBody: { fontSize: "13px", color: "#d8d2c4", lineHeight: 1.4, marginBottom: "14px" },
+    linkPromptList: { display: "flex", flexDirection: "column", gap: "8px", marginBottom: "12px" },
+    linkPromptCandidate: {
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "flex-start",
+      background: "#1a3a3a",
+      border: "1px solid #2d6a6a",
+      borderRadius: "9px",
+      padding: "11px 13px",
+      cursor: "pointer"
+    },
+    linkPromptCandidateName: { fontSize: "14px", fontWeight: 700, color: "#f2f2f0" },
+    linkPromptCandidateMeta: { fontSize: "11px", color: "#c9a84c", marginTop: "2px" },
+    linkPromptSkip: {
+      width: "100%",
+      background: "transparent",
+      color: "#9aa5a0",
+      border: "1px solid #37403c",
+      borderRadius: "8px",
+      padding: "10px",
+      fontSize: "13px",
+      cursor: "pointer"
+    },
+    // ── Inventory tracker (Shop tab) ───────────────────────────────────────────
+    inventorySection: {
+      background: "#232a28",
+      border: "1px solid #2d3a36",
+      borderRadius: "12px",
+      padding: "14px",
+      marginTop: "14px"
+    },
+    inventoryTitle: {
+      fontSize: "14px",
+      fontWeight: 700,
+      color: "#c9a84c",
+      marginBottom: "4px"
+    },
+    inventoryHint: {
+      fontSize: "11px",
+      color: "#9aa5a0",
+      fontStyle: "italic",
+      marginBottom: "12px",
+      lineHeight: 1.4
+    },
+    inventoryGroup: { marginBottom: "14px" },
+    inventoryGroupLabel: {
+      fontSize: "11px",
+      fontWeight: 700,
+      color: "#8a928c",
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      marginBottom: "6px"
+    },
+    inventoryRow: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      padding: "8px 0",
+      borderBottom: "1px solid #2d3a36"
+    },
+    inventoryName: { fontSize: "13px", color: "#e8e2d4", flex: 1 },
+    inventoryControls: { display: "flex", alignItems: "center", gap: "10px" },
+    inventoryBtn: {
+      width: "30px",
+      height: "30px",
+      borderRadius: "8px",
+      border: "1px solid #37403c",
+      background: "#1a1a1a",
+      color: "#e8e2d4",
+      fontSize: "18px",
+      fontWeight: 700,
+      cursor: "pointer",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      lineHeight: 1
+    },
+    inventoryCount: {
+      minWidth: "34px",
+      textAlign: "center",
+      fontSize: "16px",
+      fontWeight: 700,
+      color: "#f2f2f0"
+    },
+    inventoryCountYellow: { color: "#EF9F27" },
+    inventoryCountRed: { color: "#E8799A" },
     // Strikethrough applied to the button label text only (keeps the icon intact).
     struckText: {
       textDecoration: "line-through",

@@ -14281,7 +14281,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       }
       dismissPending(pending.pendingId);
       setShowPendingIdx(null);
-    }, [regulars, linkOrderToRegular]);
+    }, [regulars]);
     const dismissPending = (0, import_react.useCallback)((pendingId) => {
       setPendingOrders((prev) => {
         const next = prev.filter((p) => p.pendingId !== pendingId);

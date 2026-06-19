@@ -13247,11 +13247,11 @@
       factors: { "Small (~4 servings)": 1, "Large (~8 servings)": 2 },
       base: [
         I("Ground pork", 1, "lb"),
-        I("Fennel bulb", 1, ""),
+        I("Fennel seeds", 1, "tsp"),
         I("Onion", 1, ""),
         I("Garlic", 4, "cloves"),
         I("Crushed tomatoes", 1, "can"),
-        I("Dry sherry", 0.5, "cup"),
+        I("Dry sherry", 0.25, "cup"),
         I("Saffron", 1, "pinch", true),
         I("Pasta (ask customer for shape!)", 1, "lb")
       ]
@@ -14661,7 +14661,7 @@ This will replace your current orders.`
     if (loading) {
       return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loadingText }, "Loading orders..."));
     }
-    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.7-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.8-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
       ["orders", "Orders"],
       ["cook", "Cook"],
       ["shop", "Shop"],
@@ -16197,6 +16197,8 @@ This will replace your current orders.`
     const [input, setInput] = (0, import_react.useState)("");
     const [includeStaples, setIncludeStaples] = (0, import_react.useState)(false);
     const [confirmClear, setConfirmClear] = (0, import_react.useState)(false);
+    const [dishPickerOpen, setDishPickerOpen] = (0, import_react.useState)(false);
+    const [inventoryOpen, setInventoryOpen] = (0, import_react.useState)(false);
     const [pickerDish, setPickerDish] = (0, import_react.useState)(null);
     const [pickerVariant, setPickerVariant] = (0, import_react.useState)("");
     const [pickerCount, setPickerCount] = (0, import_react.useState)(1);
@@ -16261,7 +16263,10 @@ This will replace your current orders.`
       onChange(items.map((it) => ({ ...it, checked: false })));
     };
     const doneCount = items.filter((it) => it.checked).length;
-    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Test-run a single dish"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Pick any dish to get its ingredient list. This week's menu is highlighted."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.dishPickerGrid }, allPickerDishes.map((d) => {
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => {
+      setDishPickerOpen((o) => !o);
+      setPickerDish(null);
+    } }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.genTitle }, "Single Dish Ingredient List"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.collapseChevron }, dishPickerOpen ? "\u25B2" : "\u25BC")), dishPickerOpen && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Pick any dish to get its ingredient list. This week's menu is highlighted."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.dishPickerGrid }, allPickerDishes.map((d) => {
       const isThisWeek = (weekDishes || []).includes(d);
       const isSelected = pickerDish === d;
       return /* @__PURE__ */ import_react.default.createElement(
@@ -16298,7 +16303,7 @@ This will replace your current orders.`
         onChange: (e) => setPickerStaples(e.target.checked),
         style: styles.genCheckbox
       }
-    ), "Include pantry staples"), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.saveBtn, marginTop: "10px" }, onClick: addDishToList }, "Add ingredients to list"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ import_react.default.createElement(
+    ), "Include pantry staples"), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.saveBtn, marginTop: "10px" }, onClick: addDishToList }, "Add ingredients to list")))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ import_react.default.createElement(
       "input",
       {
         type: "checkbox",
@@ -16333,7 +16338,7 @@ This will replace your current orders.`
     )), items.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "Shopping list is empty"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Type items one at a time, or paste a whole ingredient list and each line becomes its own entry.")) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " in the cart"), doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: uncheckAll }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 13 }), "Uncheck all")), /* @__PURE__ */ import_react.default.createElement("div", null, items.map((it) => /* @__PURE__ */ import_react.default.createElement("div", { key: it.id, style: { ...styles.shopItem, ...it.checked ? styles.cookItemChecked : {} } }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.shopItemMain, onClick: () => toggle(it.id) }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.checkbox, ...it.checked ? styles.checkboxChecked : {} } }, it.checked && /* @__PURE__ */ import_react.default.createElement(Check, { size: 14, color: "#1a1a1a" })), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.shopItemText, ...it.checked ? styles.shopItemTextChecked : {} } }, it.text)), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.shopDeleteBtn, onClick: () => remove(it.id), "aria-label": `Remove ${it.text}` }, /* @__PURE__ */ import_react.default.createElement(X, { size: 15 }))))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.shopBulkRow }, doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: () => onChange(items.filter((it) => !it.checked)) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Remove checked (", doneCount, ")"), confirmClear ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.confirmText }, "Delete the whole list?"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYes, onClick: () => {
       onChange([]);
       setConfirmClear(false);
-    } }, "Clear"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Clear list"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryTitle }, "Sauce & Add-on Inventory"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryHint }, "Tap +/\u2212 to adjust stock. Auto-decrements when add-ons are ordered. 2oz frozen sauces warn yellow under 5, red under 2."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroup }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroupLabel }, "2oz frozen sauces"), [
+    } }, "Clear"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Clear list"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => setInventoryOpen((o) => !o) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryTitle }, "Sauce & Add-on Inventory"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.collapseChevron }, inventoryOpen ? "\u25B2" : "\u25BC")), inventoryOpen && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryHint }, "Tap +/\u2212 to adjust stock. Auto-decrements when add-ons are ordered. 2oz frozen sauces warn yellow under 5, red under 2."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroup }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroupLabel }, "2oz frozen sauces"), [
       { key: "chimichurri", label: "Chimichurri" },
       { key: "romesco", label: "Romesco" },
       { key: "chermoula", label: "Chermoula" },
@@ -16348,7 +16353,7 @@ This will replace your current orders.`
     ].map(({ key, label }) => {
       const count = Number(inventory?.[key]) || 0;
       return /* @__PURE__ */ import_react.default.createElement("div", { key, style: styles.inventoryRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryName }, label), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryControls }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, -1) }, "\u2212"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryCount }, count), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, 1) }, "+")));
-    }))));
+    })))));
   }
   function ProfitChart({ series }) {
     const W = 320, H = 160;
@@ -17337,6 +17342,23 @@ This will replace your current orders.`
       cursor: "pointer"
     },
     // ── Inventory tracker (Shop tab) ───────────────────────────────────────────
+    collapsibleHeader: {
+      width: "100%",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      background: "transparent",
+      border: "none",
+      cursor: "pointer",
+      padding: 0,
+      textAlign: "left"
+    },
+    collapseChevron: {
+      fontSize: "11px",
+      color: "#9aa5a0",
+      flexShrink: 0,
+      marginLeft: "8px"
+    },
     inventorySection: {
       background: "#232a28",
       border: "1px solid #2d3a36",

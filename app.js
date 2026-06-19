@@ -12903,6 +12903,11 @@
   var SEEN_ROWS_KEY = "ltb-seen-rows";
   var REGULARS_KEY = "ltb-regulars";
   var INVENTORY_KEY = "ltb-inventory";
+  var WORKER_BASE = "https://ltb-proxy.strickland-kevinj.workers.dev";
+  var PENDING_POLL_URL = WORKER_BASE + "/pending";
+  var CONFIG_PUBLISH_URL = WORKER_BASE + "/config";
+  var PUBLISH_TOKEN = "ltb-publish-2026";
+  var USE_LEGACY_CSV = false;
   var FORM_CSV_URL = "https://ltb-proxy.strickland-kevinj.workers.dev/sheet";
   var I = (name, q, u, staple = false) => ({ name, q, u, staple });
   var RECIPES = {
@@ -14144,7 +14149,11 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         if (mounted) setInventory(savedInventory || {});
         setLoading(false);
         cleanupPhotos(migrated);
-        pollFormOrders(migrated, savedPending || []);
+        if (USE_LEGACY_CSV) {
+          pollFormOrders(migrated, savedPending || []);
+        } else {
+          pollWorkerPending();
+        }
       })();
       return () => {
         mounted = false;
@@ -14309,6 +14318,94 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         await saveJSON(SEEN_ROWS_KEY, seen);
       }
       setTimeout(() => pollFormOrders(existingOrders, existingPending), 5 * 60 * 1e3);
+    }, []);
+    const workerPollRef = import_react.default.useRef(null);
+    const pollWorkerPending = import_react.default.useCallback(async (reschedule = true) => {
+      try {
+        const res = await fetch(PENDING_POLL_URL, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          const submissions = data && data.pending || [];
+          if (submissions.length > 0) {
+            const mapped = submissions.map((s) => ({
+              pendingId: s.id,
+              // use the Worker's submission id as our pending id
+              timestamp: s.submittedAt || (/* @__PURE__ */ new Date()).toISOString(),
+              customer: s.customer || "Unknown",
+              address: s.address || "",
+              phone: s.phone || "",
+              items: Array.isArray(s.items) ? s.items.map((it) => ({
+                name: it.name,
+                variant: it.variant,
+                qty: it.qty || 1,
+                price: it.price,
+                cost: it.cost || 0,
+                note: "",
+                hasPhoto: false
+              })) : [],
+              notes: s.notes || ""
+            }));
+            setPendingOrders((prev) => {
+              const have = new Set((prev || []).map((p) => p.pendingId));
+              const fresh = mapped.filter((m) => !have.has(m.pendingId));
+              if (fresh.length === 0) return prev;
+              const updated = [...prev || [], ...fresh];
+              saveJSON(PENDING_KEY, updated);
+              return updated;
+            });
+            const ids = submissions.map((s) => s.id);
+            fetch(WORKER_BASE + "/pending/clear", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids })
+            }).catch(() => {
+            });
+          }
+        }
+      } catch (e) {
+      }
+      if (reschedule) {
+        if (workerPollRef.current) clearTimeout(workerPollRef.current);
+        workerPollRef.current = setTimeout(() => pollWorkerPending(true), 2 * 60 * 1e3);
+      }
+    }, []);
+    const checkWorkerNow = import_react.default.useCallback(async () => {
+      setCheckingForm(true);
+      await pollWorkerPending(false);
+      setCheckingForm(false);
+    }, [pollWorkerPending]);
+    const publishWeek = import_react.default.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel) => {
+      const activeMenu = buildMenu(currentWeekDishes || []);
+      const toVariants = (item) => ({
+        name: item.name,
+        variants: (item.variants || []).map((v) => ({ label: v.label, price: v.price, cost: v.cost || 0 }))
+      });
+      const dishes = (activeMenu.dinner || []).map(toVariants);
+      const addons = [
+        ...activeMenu.breakfast || [],
+        ...activeMenu.fruit || [],
+        ...activeMenu.desserts || [],
+        ...activeMenu.addons || []
+      ].map(toVariants);
+      const bag = (activeMenu.bag || []).map(toVariants);
+      const payload = {
+        token: PUBLISH_TOKEN,
+        dishes,
+        addons,
+        bag,
+        menuPdfUrl: menuPdfUrl || "",
+        weekLabel: weekLabel || ""
+      };
+      const res = await fetch(CONFIG_PUBLISH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error("Publish failed (" + res.status + "): " + txt.slice(0, 120));
+      }
+      return res.json();
     }, []);
     const acceptPending = (0, import_react.useCallback)((pending) => {
       const orderId = uid();
@@ -14661,7 +14758,7 @@ This will replace your current orders.`
     if (loading) {
       return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loadingText }, "Loading orders..."));
     }
-    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.8-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.9-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
       ["orders", "Orders"],
       ["cook", "Cook"],
       ["shop", "Shop"],
@@ -14713,25 +14810,25 @@ This will replace your current orders.`
         },
         onSkip: () => setLinkPrompt(null)
       }
-    ), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), USE_LEGACY_CSV && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.checkFormBtn,
-        onClick: checkFormNow,
-        onContextMenu: (e) => {
+        onClick: USE_LEGACY_CSV ? checkFormNow : checkWorkerNow,
+        onContextMenu: USE_LEGACY_CSV ? (e) => {
           e.preventDefault();
           resetRecentSeenRows();
-        },
-        onTouchStart: (e) => {
+        } : void 0,
+        onTouchStart: USE_LEGACY_CSV ? (e) => {
           const t = setTimeout(() => resetRecentSeenRows(), 700);
           e.currentTarget._ltbLongPress = t;
-        },
-        onTouchEnd: (e) => {
+        } : void 0,
+        onTouchEnd: USE_LEGACY_CSV ? (e) => {
           clearTimeout(e.currentTarget._ltbLongPress);
-        },
-        onTouchMove: (e) => {
+        } : void 0,
+        onTouchMove: USE_LEGACY_CSV ? (e) => {
           clearTimeout(e.currentTarget._ltbLongPress);
-        },
+        } : void 0,
         disabled: checkingForm
       },
       /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 16, style: checkingForm ? styles.spinning : void 0 }),
@@ -14852,7 +14949,7 @@ This will replace your current orders.`
         onLink: linkOrderToRegular,
         onUnlink: unlinkOrderFromRegular
       }
-    ), view === "week" && /* @__PURE__ */ import_react.default.createElement(WeekTab, { selected: weekDishes, onToggle: toggleWeekDish })));
+    ), view === "week" && /* @__PURE__ */ import_react.default.createElement(WeekTab, { selected: weekDishes, onToggle: toggleWeekDish, onPublish: publishWeek })));
   }
   function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
     return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceOverlay, onClick: onSkip }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptTitle }, "This looks like a regular"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptBody }, "The order from ", /* @__PURE__ */ import_react.default.createElement("b", null, order.customer), " might match one of your regulars. Want to link it?"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkPromptList }, candidates.map((r) => /* @__PURE__ */ import_react.default.createElement("button", { key: r.id, style: styles.linkPromptCandidate, onClick: () => onLink(r.id) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkPromptCandidateName }, regularDisplayName(r), " \u2605"), r.discountPercent > 0 && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkPromptCandidateMeta }, r.discountPercent, "% off applies")))), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.linkPromptSkip, onClick: onSkip }, "Not a regular / skip")));
@@ -15036,8 +15133,23 @@ This will replace your current orders.`
       }
     ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkBrowserList }, linkableOrders.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileFieldEmpty }, "No matching orders to link.") : linkableOrders.slice(0, 30).map((o) => /* @__PURE__ */ import_react.default.createElement("button", { key: o.id, style: styles.linkBrowserRow, onClick: () => onLink(regular.id, o.id) }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.linkBrowserRowLeft }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkBrowserName }, o.customer), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkBrowserItems }, (o.items || []).map((it) => it.name).join(", ").slice(0, 50))), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.linkBrowserMeta }, o.createdAt ? formatDate(o.createdAt) : "", " \xB7 ", currency(o.total))))))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileSection }, confirmDelete ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.profileDeleteConfirm }, /* @__PURE__ */ import_react.default.createElement("span", null, "Remove this regular? Their order history stays, just unlinked."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.regularFormActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmDelete(false) }, "Cancel"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmDeleteRed, onClick: () => onDelete(regular.id) }, "Remove"))) : /* @__PURE__ */ import_react.default.createElement("button", { style: styles.profileDeleteBtn, onClick: () => setConfirmDelete(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), " Remove regular")));
   }
-  function WeekTab({ selected, onToggle }) {
+  function WeekTab({ selected, onToggle, onPublish }) {
     const [copied, setCopied] = (0, import_react.useState)(false);
+    const [publishing, setPublishing] = (0, import_react.useState)(false);
+    const [publishMsg, setPublishMsg] = (0, import_react.useState)(null);
+    const [pdfUrl, setPdfUrl] = (0, import_react.useState)("");
+    const [weekLabel, setWeekLabel] = (0, import_react.useState)("");
+    const doPublish = async () => {
+      setPublishing(true);
+      setPublishMsg(null);
+      try {
+        await onPublish(selected, pdfUrl.trim(), weekLabel.trim());
+        setPublishMsg({ ok: true, text: "Published! The order form now shows this week's menu." });
+      } catch (e) {
+        setPublishMsg({ ok: false, text: e && e.message || "Publish failed. Check your connection and try again." });
+      }
+      setPublishing(false);
+    };
     const generateDropdown = () => {
       if (selected.length === 0) return "";
       const lines = [];
@@ -15087,7 +15199,31 @@ This will replace your current orders.`
         /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemName }, dish.name), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemVariant }, dish.variants.length, " option", dish.variants.length !== 1 ? "s" : "", " \xB7 ", priceLabel)),
         /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.cookItemQty, color: isOn ? "#5DCAA5" : "#5F5E5A", fontSize: "11px", fontWeight: 700 } }, isOn ? "ON" : "OFF")
       );
-    }), selected.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Google Form dropdown options"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, 'Copy these and paste them into your Google Form question options for the week. Each dish gets a "No thanks" option first, then each size and price.'), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.saveBtn, marginTop: "8px", background: copied ? "#1D9E75" : void 0 }, onClick: copyDropdown }, copied ? "\u2713 Copied to clipboard!" : "Copy form options")));
+    }), selected.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Publish this week's menu"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Pushes the checked dishes and prices to your order form instantly. Customers see the new menu the moment you publish. Optionally add the menu PDF link and a week label that show on the form."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Week label (optional)"), /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        style: styles.input,
+        value: weekLabel,
+        onChange: (e) => setWeekLabel(e.target.value),
+        placeholder: "e.g. Week of June 22 \xB7 Delivery June 25"
+      }
+    ), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.miniLabel }, "Menu PDF link (optional)"), /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        style: styles.input,
+        value: pdfUrl,
+        onChange: (e) => setPdfUrl(e.target.value),
+        placeholder: "https://...workers.dev/LTB_Weekly_Menu.pdf"
+      }
+    ), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.saveBtn, marginTop: "10px", background: publishMsg?.ok ? "#1D9E75" : void 0 },
+        onClick: doPublish,
+        disabled: publishing
+      },
+      publishing ? "Publishing\u2026" : publishMsg?.ok ? "\u2713 Published!" : "Publish to order form"
+    ), publishMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: publishMsg.ok ? styles.publishOk : styles.publishErr }, publishMsg.text)), USE_LEGACY_CSV && selected.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Google Form dropdown options"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, 'Copy these and paste them into your Google Form question options for the week. Each dish gets a "No thanks" option first, then each size and price.'), /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.saveBtn, marginTop: "8px", background: copied ? "#1D9E75" : void 0 }, onClick: copyDropdown }, copied ? "\u2713 Copied to clipboard!" : "Copy form options")));
   }
   function StatsBar({ stats }) {
     return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statsBar }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, stats.active), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Active")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, currency(stats.booked)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "This week")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, ...stats.unpaid > 0 ? { color: "#EF9F27" } : {} } }, currency(stats.unpaid)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Unpaid")));
@@ -17342,6 +17478,26 @@ This will replace your current orders.`
       cursor: "pointer"
     },
     // ── Inventory tracker (Shop tab) ───────────────────────────────────────────
+    publishOk: {
+      marginTop: "8px",
+      fontSize: "12px",
+      color: "#7abf7a",
+      background: "#1a2e1a",
+      border: "1px solid #3a6a3a",
+      borderRadius: "8px",
+      padding: "8px 10px",
+      lineHeight: 1.4
+    },
+    publishErr: {
+      marginTop: "8px",
+      fontSize: "12px",
+      color: "#e0828a",
+      background: "#3a1a1f",
+      border: "1px solid #5a2a3a",
+      borderRadius: "8px",
+      padding: "8px 10px",
+      lineHeight: 1.4
+    },
     collapsibleHeader: {
       width: "100%",
       display: "flex",

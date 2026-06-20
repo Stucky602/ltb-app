@@ -14377,10 +14377,21 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     }, [pollWorkerPending]);
     const publishWeek = import_react.default.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel) => {
       const activeMenu = buildMenu(currentWeekDishes || []);
-      const toVariants = (item) => ({
-        name: item.name,
-        variants: (item.variants || []).map((v) => ({ label: v.label, price: v.price, cost: v.cost || 0 }))
-      });
+      const toVariants = (item) => {
+        const info = PER_LB_ITEMS[item.name];
+        if (info) {
+          return {
+            name: item.name,
+            perLb: true,
+            pricePerLb: info.pricePerLb,
+            variants: [{ label: "By weight", price: info.pricePerLb, cost: info.costPerLb }]
+          };
+        }
+        return {
+          name: item.name,
+          variants: (item.variants || []).map((v) => ({ label: v.label, price: v.price, cost: v.cost || 0 }))
+        };
+      };
       const dishes = (activeMenu.dinner || []).map(toVariants);
       const addons = [
         ...activeMenu.fruit || [],

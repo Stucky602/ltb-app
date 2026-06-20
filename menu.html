@@ -62,11 +62,15 @@
     return pool[name] || null;
   }
 
-  function priceRows(variants){
+  function priceRows(dish){
     var html = '<div class="prices">';
-    (variants||[]).forEach(function(v){
-      html += '<div class="price-row"><span class="price-label">'+esc(v.label)+'</span><span class="price-amt">'+money(v.price)+'</span></div>';
-    });
+    if (dish && dish.perLb) {
+      html += '<div class="price-row"><span class="price-label">By weight</span><span class="price-amt">'+money(dish.pricePerLb)+'/lb + $1.50 bag</span></div>';
+    } else {
+      ((dish && dish.variants)||[]).forEach(function(v){
+        html += '<div class="price-row"><span class="price-label">'+esc(v.label)+'</span><span class="price-amt">'+money(v.price)+'</span></div>';
+      });
+    }
     return html + '</div>';
   }
 
@@ -82,7 +86,7 @@
     if (copy.spice) html += '<div class="dish-spice">Spice: '+esc(copy.spice)+'</div>';
     if (copy.note) html += '<div class="dish-note">'+esc(copy.note)+'</div>';
     if (copy.bagCharge) html += '<div class="dish-meta">+ $1.50 per bag for seasoning and packaging</div>';
-    html += priceRows(dish.variants);
+    html += priceRows(dish);
     if (copy.contains) html += '<div class="contains">Contains: '+esc(copy.contains)+'</div>';
     return html + '</div>';
   }

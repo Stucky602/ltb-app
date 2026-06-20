@@ -33,6 +33,8 @@
   input::placeholder, textarea::placeholder { color: #5a625c; }
   textarea { min-height: 70px; resize: vertical; }
   .req { color: #e0828a; }
+  .rec { color: #7abf7a; font-size: 11px; font-weight: 400; }
+  .field-hint { font-size: 11px; color: #9aa5a0; font-style: italic; margin-top: 3px; margin-bottom: 2px; }
   .dish { border-bottom: 1px solid #2d3a36; padding: 12px 0; }
   .dish:last-child { border-bottom: none; }
   .dish-name { font-size: 15px; font-weight: 600; color: var(--cream); margin-bottom: 8px; }
@@ -118,7 +120,7 @@
             var qty = cart[key] || 0;
             html += '<div class="variant-row">' +
               '<div class="variant-info"><span class="variant-label">' + esc(v.label) + '</span> ' +
-              '<span class="variant-price">' + money(v.price) + '</span></div>' +
+              '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $1.50 bag' : money(v.price)) + '</span></div>' +
               '<div class="qty-control">' +
               '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">\u2212</button>' +
               '<span class="qty-num' + (qty === 0 ? ' zero' : '') + '" id="qty_' + key + '">' + qty + '</span>' +
@@ -134,9 +136,9 @@
       html += '<div class="section"><div class="section-title">Your Details</div>' +
         '<label class="field-label">Name <span class="req">*</span></label>' +
         '<input type="text" id="custName" placeholder="First and last name" autocomplete="name">' +
-        '<label class="field-label">Address <span class="req">*</span></label>' +
-        '<input type="text" id="custAddress" placeholder="Delivery address" autocomplete="street-address">' +
-        '<label class="field-label">Phone <span class="req">*</span></label>' +
+        '<label class="field-label">Address <span class="rec">(recommended)</span></label>' +
+        '<input type="text" id="custAddress" placeholder="Delivery address — highly recommended, especially first-timers" autocomplete="street-address"><div class="field-hint">How do I find you on delivery day?</div>' +
+        '<label class="field-label">Phone <span class="rec">(recommended)</span></label>' +
         '<input type="tel" id="custPhone" placeholder="Phone number" autocomplete="tel">' +
         '<label class="field-label">Notes (optional)</label>' +
         '<textarea id="custNotes" placeholder="Spice level, substitutions, delivery notes, anything else"></textarea>' +
@@ -187,8 +189,8 @@
       var items = gatherItems();
       var msgArea = document.getElementById("msgArea");
 
-      if (!name || !address || !phone) {
-        msgArea.innerHTML = '<div class="msg error">Please fill in your name, address, and phone.</div>';
+      if (!name) {
+        msgArea.innerHTML = '<div class="msg error">Please enter your name.</div>';
         return;
       }
       if (items.length === 0) {

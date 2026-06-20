@@ -76,6 +76,9 @@
     cursor:pointer; text-decoration:none; margin-bottom:13px; transition:opacity 0.15s, filter 0.15s;
   }
   .btn:active { opacity:0.85; }
+  .new-prompt { background:rgba(63,184,160,0.1); border:1px solid var(--teal-light); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.5; color:var(--cream); text-align:center; margin-bottom:16px; width:100%; }
+  .new-prompt b { color:var(--teal-light); }
+  .btn-main-menu { background:var(--teal-mid); color:var(--cream); }
   .btn-menu { background:var(--gold); color:var(--teal-dark); }
   .btn-order { background:var(--teal-light); color:#04342C; }
   .btn-inactive {
@@ -117,9 +120,18 @@
       Need something outside that window? Just reach out directly and we will work it out.
     </div>
 
+    <div class="new-prompt">
+      New here? <b>Check out the full menu first</b> to see everything we make and how it all works.
+    </div>
+
+    <!-- Full/main menu button: the evergreen catalog -->
+    <a class="btn btn-main-menu" id="mainMenuBtn" href="main-menu.html">
+      <span class="btn-icon">&#9733;</span> Full Menu &amp; How It Works
+    </a>
+
     <!-- Menu button: opens in panel on desktop, direct link on mobile -->
     <a class="btn btn-menu" id="menuBtn" href="menu.html">
-      <span class="btn-icon">&#9776;</span> View This Week's Menu
+      <span class="btn-icon">&#9776;</span> This Week's Menu
     </a>
 
     <!-- Order button: disabled Mon-Wed -->
@@ -197,7 +209,13 @@
       e.preventDefault();
       openInPanel(this.getAttribute('href'));
     }
-    // on mobile: let the default href action happen (opens PDF in browser)
+  });
+
+  document.getElementById('mainMenuBtn').addEventListener('click', function (e) {
+    if (isDesktop()) {
+      e.preventDefault();
+      openInPanel(this.getAttribute('href'));
+    }
   });
 
   var orderBtn = document.getElementById('orderBtn');

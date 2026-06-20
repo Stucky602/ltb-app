@@ -12862,7 +12862,7 @@
       { name: "NY Strip", perLb: true, pricePerLb: 23, costPerLb: 17.49, variants: [{ label: "price by weight", price: 24.5, cost: 17.49 }] },
       { name: "Filet Mignon", perLb: true, pricePerLb: 34, costPerLb: 24.99, variants: [{ label: "price by weight", price: 35.5, cost: 24.99 }] },
       { name: "Chicken Breast", perLb: true, pricePerLb: 9, costPerLb: 6, variants: [{ label: "price by weight", price: 10.5, cost: 6 }] },
-      { name: "Pork Tenderloin", perLb: true, pricePerLb: 15, costPerLb: 8, variants: [{ label: "price by weight", price: 20.25, cost: 10 }] },
+      { name: "Pork Tenderloin", perLb: true, pricePerLb: 15, costPerLb: 8, variants: [{ label: "price by weight", price: 16.5, cost: 8 }] },
       { name: "Whipped Lemon Garlic Herb Butter", variants: [{ label: "Per Container", price: 2, cost: 1 }] },
       { name: "Baby Gold Potatoes", variants: [{ label: "2 servings", price: 7, cost: 2.5 }] },
       { name: "Carrots", variants: [{ label: "2 servings", price: 6, cost: 1.83 }] }
@@ -14170,7 +14170,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       saveJSON(SHOPPING_KEY, next).then((res) => setError(saveError(res)));
     }, []);
     const INVENTORY_ADDON_MAP = {
-      "Queso": "queso",
+      "Queso": "queso_0",
+      // defaults to no-heat; adjust manually in inventory if a different spice level
       "Chili Oil": "chiliOil",
       "Chimichurri": "chimichurri",
       "Romesco": "romesco",
@@ -14382,7 +14383,6 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       });
       const dishes = (activeMenu.dinner || []).map(toVariants);
       const addons = [
-        ...activeMenu.breakfast || [],
         ...activeMenu.fruit || [],
         ...activeMenu.desserts || [],
         ...activeMenu.addons || []
@@ -14424,6 +14424,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         // Keep the actual name the customer ordered under, not the profile's
         // primary — so you can see which half of a couple placed it.
         customer: pending.customer,
+        address: pending.address || "",
+        phone: pending.phone || "",
         items: pending.items,
         jarSwaps: 0,
         containerReturns: 0,
@@ -15139,11 +15141,22 @@ This will replace your current orders.`
     const [publishMsg, setPublishMsg] = (0, import_react.useState)(null);
     const [pdfUrl, setPdfUrl] = (0, import_react.useState)("");
     const [weekLabel, setWeekLabel] = (0, import_react.useState)("");
+    const computeWeekLabel = () => {
+      const now = /* @__PURE__ */ new Date();
+      const day = now.getDay();
+      const daysToSun = day === 0 ? 7 : 7 - day;
+      const sun = new Date(now);
+      sun.setDate(now.getDate() + daysToSun);
+      const wed = new Date(sun);
+      wed.setDate(sun.getDate() + 3);
+      const fmt = (d) => d.toLocaleDateString(void 0, { month: "long", day: "numeric" });
+      return `Orders due Sunday ${fmt(sun)} \xB7 Delivery Wednesday ${fmt(wed)}`;
+    };
     const doPublish = async () => {
       setPublishing(true);
       setPublishMsg(null);
       try {
-        await onPublish(selected, pdfUrl.trim(), weekLabel.trim());
+        await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel());
         setPublishMsg({ ok: true, text: "Published! The order form now shows this week's menu." });
       } catch (e) {
         setPublishMsg({ ok: false, text: e && e.message || "Publish failed. Check your connection and try again." });
@@ -16069,7 +16082,9 @@ This will replace your current orders.`
       const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
       const lineTotal = (it.price + up) * it.qty;
       const itemUnweighed = isPerLbItem(it.name) && !(it.weight > 0);
-      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemPrice }, itemUnweighed ? "TBD" : currency(lineTotal))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemVariant }, isPerLbItem(it.name) && it.weight ? `${it.weight} lb` : it.variant), itemUnweighed && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemPending }, "weight not set \u2014 price pending"), it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)") : null, it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemNote }, "\u201C", it.note, "\u201D"));
+      const isLb = isPerLbItem(it.name) && it.weight > 0;
+      const lbBasePrice = isLb ? round2((it.price - 1.5) * it.qty) : null;
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceItemPrice }, itemUnweighed ? "TBD" : currency(lineTotal))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemVariant }, isLb ? `${it.weight} lb` : it.variant), isLb && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemExtra }, currency(lbBasePrice), " meat + $1.50 bag & seasonings"), itemUnweighed && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemPending }, "weight not set \u2014 price pending"), it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)") : null, it.note && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceItemNote }, '"', it.note, '"'));
     })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotals }, disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: { color: "#C0517A" } }, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", { style: { color: "#C0517A" } }, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0)))), !order.waiveSurcharge && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Order surcharge"), /* @__PURE__ */ import_react.default.createElement("span", null, currency(SURCHARGE))), order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Jar swap x", order.jarSwaps), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(order.jarSwaps * 2))), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react.default.createElement("span", null, "Containers returned x", order.containerReturns), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(order.containerReturns)))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceGrandTotal }, /* @__PURE__ */ import_react.default.createElement("span", null, "Total", hasUnweighed ? " (so far)" : ""), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.invoiceGrandValue }, currency(order.total))), hasUnweighed && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceTotalPendingNote }, "This total will go up once the ", unweighedItems.length, " weighed item", unweighedItems.length !== 1 ? "s are" : " is", " measured."), order.notes && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceNotes }, order.notes), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceFooter }, "All prices all-in. Thanks for the order!")), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.invoiceShareBtn, onClick: shareInvoice, disabled: sharing }, sharing ? "Preparing\u2026" : "Share invoice"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.invoiceClose, onClick: onClose }, "Done"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.invoiceHint }, "Share sends the card as an image, or screenshot it.")));
   }
   function WeightPhotoModal({ orderId, itemIdx, item, stepLabel, onApply, onClose }) {
@@ -16448,10 +16463,14 @@ This will replace your current orders.`
       const count = Number(inventory?.[key]) || 0;
       const countStyle = count < 2 ? styles.inventoryCountRed : count < 5 ? styles.inventoryCountYellow : styles.inventoryCount;
       return /* @__PURE__ */ import_react.default.createElement("div", { key, style: styles.inventoryRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryName }, label), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryControls }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, -1) }, "\u2212"), /* @__PURE__ */ import_react.default.createElement("span", { style: countStyle }, count), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, 1) }, "+")));
-    })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroup }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroupLabel }, "Jars"), [
-      { key: "queso", label: "Queso" },
-      { key: "chiliOil", label: "Chili Oil" }
+    })), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroup }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryGroupLabel }, "Jars"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryName }, "Queso")), [
+      { key: "queso_0", label: "No Heat (0)" },
+      { key: "queso_1", label: "Medium (1 hab.)" },
+      { key: "queso_2", label: "Hot (2 hab.)" }
     ].map(({ key, label }) => {
+      const count = Number(inventory?.[key]) || 0;
+      return /* @__PURE__ */ import_react.default.createElement("div", { key, style: { ...styles.inventoryRow, paddingLeft: "10px" } }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.inventoryName, fontSize: "12px", color: "#9aa5a0" } }, label), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryControls }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, -1) }, "\u2212"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryCount }, count), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, 1) }, "+")));
+    }), [{ key: "chiliOil", label: "Chili Oil" }].map(({ key, label }) => {
       const count = Number(inventory?.[key]) || 0;
       return /* @__PURE__ */ import_react.default.createElement("div", { key, style: styles.inventoryRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryName }, label), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryControls }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, -1) }, "\u2212"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryCount }, count), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, 1) }, "+")));
     })))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ import_react.default.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ import_react.default.createElement(

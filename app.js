@@ -14823,25 +14823,25 @@ This will replace your current orders.`
         },
         onSkip: () => setLinkPrompt(null)
       }
-    ), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), USE_LEGACY_CSV && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), /* @__PURE__ */ import_react.default.createElement(
+    ), /* @__PURE__ */ import_react.default.createElement("main", { style: styles.main }, view === "orders" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(StatsBar, { stats }), !formMode && !showPaste && !showAmend && !showCsv && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.topActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.newOrderBtn, onClick: () => setFormMode("new") }, /* @__PURE__ */ import_react.default.createElement(Plus, { size: 18 }), "New order"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.pasteBtn, onClick: () => setShowPaste(true) }, /* @__PURE__ */ import_react.default.createElement(ClipboardPaste, { size: 18 }), "Paste a text"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.amendBtn, onClick: () => setShowAmend(true) }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 16 }), "Amend via text"), USE_LEGACY_CSV && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.csvBtn, onClick: () => setShowCsv(true) }, /* @__PURE__ */ import_react.default.createElement(FileText, { size: 16 }), "Import from sheet"), USE_LEGACY_CSV && /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
         style: styles.checkFormBtn,
-        onClick: USE_LEGACY_CSV ? checkFormNow : checkWorkerNow,
-        onContextMenu: USE_LEGACY_CSV ? (e) => {
+        onClick: checkFormNow,
+        onContextMenu: (e) => {
           e.preventDefault();
           resetRecentSeenRows();
-        } : void 0,
-        onTouchStart: USE_LEGACY_CSV ? (e) => {
+        },
+        onTouchStart: (e) => {
           const t = setTimeout(() => resetRecentSeenRows(), 700);
           e.currentTarget._ltbLongPress = t;
-        } : void 0,
-        onTouchEnd: USE_LEGACY_CSV ? (e) => {
+        },
+        onTouchEnd: (e) => {
           clearTimeout(e.currentTarget._ltbLongPress);
-        } : void 0,
-        onTouchMove: USE_LEGACY_CSV ? (e) => {
+        },
+        onTouchMove: (e) => {
           clearTimeout(e.currentTarget._ltbLongPress);
-        } : void 0,
+        },
         disabled: checkingForm
       },
       /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 16, style: checkingForm ? styles.spinning : void 0 }),

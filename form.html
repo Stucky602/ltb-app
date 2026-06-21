@@ -42,6 +42,7 @@
   .variant-info { flex: 1; }
   .variant-label { font-size: 13px; color: var(--cream); }
   .variant-price { font-size: 13px; color: var(--gold); font-weight: 600; }
+  .variant-per-serving { display: block; font-size: 11px; color: var(--dim); font-style: italic; margin-top: 1px; }
   .qty-control { display: flex; align-items: center; gap: 12px; }
   .qty-btn {
     width: 30px; height: 30px; border-radius: 8px; border: 1px solid #37403c;
@@ -76,6 +77,25 @@
     var cart = {}; // key "dishIdx:variantIdx" -> qty
 
     function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
+    function parseServings(label) {
+      var m = label.match(/~(\d+)-(\d+)/);
+      if (m) return (parseInt(m[1]) + parseInt(m[2])) / 2;
+      m = label.match(/~(\d+)/);
+      if (m) return parseInt(m[1]);
+      return null;
+    }
+    function fmtLabel(label) {
+      if (/~\d/.test(label) && !/serving/.test(label)) {
+        return label.replace(/(~[\d]+-?[\d]*)/, '$1 servings');
+      }
+      return label;
+    }
+    function perServing(price, label) {
+      var s = parseServings(label);
+      if (!s || s <= 0) return '';
+      var pp = price / s;
+      return '~$' + pp.toFixed(2).replace(/\.00$/, '') + '/serving';
+    }
 
     function loadConfig() {
       fetch(WORKER + "/config")
@@ -119,8 +139,10 @@
             var key = gi + "_" + di + "_" + vi;
             var qty = cart[key] || 0;
             html += '<div class="variant-row">' +
-              '<div class="variant-info"><span class="variant-label">' + esc(v.label) + '</span> ' +
-              '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $1.50 bag' : money(v.price)) + '</span></div>' +
+              '<div class="variant-info"><span class="variant-label">' + esc(fmtLabel(v.label)) + '</span> ' +
+              '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $1.50 bag' : money(v.price)) + '</span>' +
+              (!dish.perLb && perServing(v.price, v.label) ? '<span class="variant-per-serving">' + perServing(v.price, v.label) + '</span>' : '') +
+              '</div>' +
               '<div class="qty-control">' +
               '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">\u2212</button>' +
               '<span class="qty-num' + (qty === 0 ? ' zero' : '') + '" id="qty_' + key + '">' + qty + '</span>' +

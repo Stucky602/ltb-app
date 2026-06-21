@@ -237,11 +237,11 @@
         if (!cfg || !Array.isArray(cfg.dishes) || cfg.dishes.length === 0) return;
         var names = cfg.dishes.map(function (d) { return d.name; }).filter(Boolean);
         if (names.length === 0) return;
-        var label = cfg.weekLabel ? '<b>' + cfg.weekLabel + '</b> — ' : '<b>This week</b> — ';
+        var label = cfg.weekLabel ? '<b>' + cfg.weekLabel + '</b>' : '<b>This week</b>';
         var list = names.join(', ');
         var teaser = document.createElement('div');
         teaser.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);font-size:13px;color:var(--teal-light);';
-        teaser.innerHTML = label + list + '.';
+        teaser.innerHTML = label + '<br><span style="opacity:0.75;font-size:12px;">Quick view of this week\'s dinners</span><br>' + list + '.';
         var blurb = document.getElementById('mainBlurb');
         if (blurb) blurb.appendChild(teaser);
       })

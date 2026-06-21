@@ -15358,7 +15358,10 @@ This will replace your current orders.`
     const computeWeekLabel = () => {
       const now = /* @__PURE__ */ new Date();
       const day = now.getDay();
-      const daysToSun = day === 0 ? 7 : 7 - day;
+      let daysToSun;
+      if (day === 0) daysToSun = 0;
+      else if (day <= 3) daysToSun = 7 - day;
+      else daysToSun = 7 - day;
       const sun = new Date(now);
       sun.setDate(now.getDate() + daysToSun);
       const wed = new Date(sun);

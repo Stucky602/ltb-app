@@ -16274,8 +16274,7 @@ This will replace your current orders.`
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: "LTB Invoice",
-            text: `Invoice for ${order.customer}`
+            title: "LTB Invoice"
           });
         } else {
           const url = URL.createObjectURL(blob);
@@ -16330,8 +16329,7 @@ This will replace your current orders.`
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: "LTB Reheat Instructions",
-            text: `Reheat instructions for ${order.customer}`
+            title: "LTB Reheat Instructions"
           });
         } else {
           const url = URL.createObjectURL(blob);
@@ -16864,7 +16862,7 @@ This will replace your current orders.`
     ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
-        style: { ...styles.saveBtn, marginTop: "6px" },
+        style: { ...styles.saveBtn, marginTop: "6px", width: "100%" },
         onClick: () => onSaveDishNote(refDish, noteText)
       },
       "Save notes"

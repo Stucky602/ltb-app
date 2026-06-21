@@ -115,7 +115,7 @@
     <div class="brand">Lettuce, Turnip, The Beet</div>
     <div class="week">meal prep, delivered fresh</div>
 
-    <div class="blurb">
+    <div class="blurb" id="mainBlurb">
       Orders are generally needed by <b>Sunday</b> to ensure delivery the following <b>Wednesday</b>.
       Need something outside that window? Just reach out directly and we will work it out.
     </div>
@@ -226,6 +226,28 @@
     }
     // on mobile: let the default href action happen
   });
+  // ── This-week teaser ─────────────────────────────────────────────────────
+  // Fetches the published week config and injects active dish names into the
+  // blurb so customers see what's cooking before they open the menu.
+  (function () {
+    var WORKER = 'https://ltb-proxy.strickland-kevinj.workers.dev';
+    fetch(WORKER + '/config')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (cfg) {
+        if (!cfg || !Array.isArray(cfg.dishes) || cfg.dishes.length === 0) return;
+        var names = cfg.dishes.map(function (d) { return d.name; }).filter(Boolean);
+        if (names.length === 0) return;
+        var label = cfg.weekLabel ? '<b>' + cfg.weekLabel + '</b> — ' : '<b>This week</b> — ';
+        var list = names.join(', ');
+        var teaser = document.createElement('div');
+        teaser.style.cssText = 'margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.08);font-size:13px;color:var(--teal-light);';
+        teaser.innerHTML = label + list + '.';
+        var blurb = document.getElementById('mainBlurb');
+        if (blurb) blurb.appendChild(teaser);
+      })
+      .catch(function () {}); // fail silently — teaser is a nice-to-have
+  })();
+
 </script>
 </body>
 </html>

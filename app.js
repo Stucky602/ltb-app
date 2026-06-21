@@ -12923,7 +12923,7 @@
   var PENDING_POLL_URL = WORKER_BASE + "/pending";
   var CONFIG_PUBLISH_URL = WORKER_BASE + "/config";
   var PUBLISH_TOKEN = "ltb-publish-2026";
-  var VAPID_PUBLIC_KEY = "";
+  var VAPID_PUBLIC_KEY = "BD96MjYlJ5dAdlTEzTMLi1hAlDmy-s2d6eO5B2aavlXFdueX9jSH4BOKJpDLE2MdOKvttlwOdSrs0tjFEio3EU8";
   var USE_LEGACY_CSV = false;
   var FORM_CSV_URL = "https://ltb-proxy.strickland-kevinj.workers.dev/sheet";
   var I = (name, q, u, staple = false) => ({ name, q, u, staple });

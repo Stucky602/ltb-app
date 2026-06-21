@@ -12863,9 +12863,21 @@
       { name: "Filet Mignon", perLb: true, pricePerLb: 34, costPerLb: 24.99, variants: [{ label: "price by weight", price: 35.5, cost: 24.99 }] },
       { name: "Chicken Breast", perLb: true, pricePerLb: 9, costPerLb: 6, variants: [{ label: "price by weight", price: 10.5, cost: 6 }] },
       { name: "Pork Tenderloin", perLb: true, pricePerLb: 15, costPerLb: 8, variants: [{ label: "price by weight", price: 16.5, cost: 8 }] },
-      { name: "Whipped Lemon Garlic Herb Butter", variants: [{ label: "Per Container", price: 2, cost: 1 }] },
-      { name: "Baby Gold Potatoes", variants: [{ label: "2 servings", price: 7, cost: 2.5 }] },
-      { name: "Carrots", variants: [{ label: "2 servings", price: 6, cost: 1.83 }] }
+      { name: "Baby Gold Potatoes", variants: [{ label: "~2 servings", price: 7, cost: 2.5 }] },
+      { name: "Carrots", variants: [{ label: "~2 servings", price: 6, cost: 1.83 }] },
+      { name: "Corn (off the cob)", variants: [{ label: "~2 servings", price: 7, cost: 2 }] },
+      { name: "Asparagus", variants: [
+        { label: "Whole (~2 servings)", price: 8, cost: 3 },
+        { label: "Bite-size (~2 servings)", price: 8, cost: 3 }
+      ] },
+      { name: "Parsnips", variants: [{ label: "~2 servings", price: 7, cost: 2 }] }
+    ],
+    sauces: [
+      { name: "Chimichurri", variants: [{ label: "Per Container", price: 3, cost: 0.4 }] },
+      { name: "Romesco", variants: [{ label: "Per Container", price: 4, cost: 0.8 }] },
+      { name: "Chermoula", variants: [{ label: "Per Container", price: 3, cost: 0.4 }] },
+      { name: "Miso Butter Sauce", variants: [{ label: "Per Container", price: 3, cost: 0.55 }] },
+      { name: "Whipped Lemon Garlic Herb Butter", variants: [{ label: "Per Container", price: 3, cost: 0.45 }] }
     ]
   };
   var PER_LB_ITEMS = {};
@@ -14176,7 +14188,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       "Chimichurri": "chimichurri",
       "Romesco": "romesco",
       "Chermoula": "chermoula",
-      "Miso Butter Sauce": "misoButter"
+      "Miso Butter Sauce": "misoButter",
+      "Whipped Lemon Garlic Herb Butter": "whippedButter"
     };
     const saveOrder = (0, import_react.useCallback)((order) => {
       setOrders((prev) => {
@@ -14399,11 +14412,13 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         ...activeMenu.addons || []
       ].map(toVariants);
       const bag = (activeMenu.bag || []).map(toVariants);
+      const sauces = (activeMenu.sauces || []).map(toVariants);
       const payload = {
         token: PUBLISH_TOKEN,
         dishes,
         addons,
         bag,
+        sauces,
         menuPdfUrl: menuPdfUrl || "",
         weekLabel: weekLabel || ""
       };
@@ -16469,7 +16484,8 @@ This will replace your current orders.`
       { key: "chimichurri", label: "Chimichurri" },
       { key: "romesco", label: "Romesco" },
       { key: "chermoula", label: "Chermoula" },
-      { key: "misoButter", label: "Miso Butter Sauce" }
+      { key: "misoButter", label: "Miso Butter Sauce" },
+      { key: "whippedButter", label: "Whipped Lemon Garlic Herb Butter" }
     ].map(({ key, label }) => {
       const count = Number(inventory?.[key]) || 0;
       const countStyle = count < 2 ? styles.inventoryCountRed : count < 5 ? styles.inventoryCountYellow : styles.inventoryCount;

@@ -16836,7 +16836,7 @@ This will replace your current orders.`
     ), /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
-        style: { ...styles.saveBtn, marginTop: 0, opacity: refDish ? 1 : 0.4 },
+        style: { ...styles.saveBtn, marginTop: 0, flexShrink: 0, opacity: refDish ? 1 : 0.4 },
         disabled: !refDish,
         onClick: () => {
           if (!refDish) return;
@@ -18660,6 +18660,7 @@ This will replace your current orders.`
     },
     refCardSelect: {
       flex: 1,
+      minWidth: 0,
       background: "#1f2624",
       border: "1px solid #2d6a6a",
       borderRadius: "8px",

@@ -12740,6 +12740,7 @@
   var Download = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("7 10 12 15 17 10"), _line(12, 15, 12, 3));
   var Upload = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"), _poly("17 8 12 3 7 8"), _line(12, 3, 12, 15));
   var Flame = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"));
+  var Bell = ({ size = 24, ...r }) => import_react.default.createElement(Icon, { size, ...r }, _p("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"), _p("M13.73 21a2 2 0 0 1-3.46 0"));
   var ALL_DINNERS = [
     { name: "Indian Style Curry", variants: [
       { label: "Chicken, Small (~4-5)", price: 27, cost: 14.97 },
@@ -14213,34 +14214,39 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         document.head.appendChild(s);
       }
     }, []);
+    const [notifPerm, setNotifPerm] = import_react.default.useState(
+      typeof Notification !== "undefined" ? Notification.permission : "unsupported"
+    );
     import_react.default.useEffect(() => {
       if (!VAPID_PUBLIC_KEY) return;
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
-      (async () => {
-        try {
-          const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-          let permission = Notification.permission;
-          if (permission === "default") {
-            permission = await Notification.requestPermission();
-          }
-          if (permission !== "granted") return;
-          let sub = await reg.pushManager.getSubscription();
-          if (!sub) {
-            sub = await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-            });
-          }
-          await fetch(WORKER_BASE + "/push/subscribe", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: PUBLISH_TOKEN, subscription: sub.toJSON() })
-          });
-        } catch (e) {
-          console.warn("Push notification setup failed:", e.message);
-        }
-      })();
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((e) => {
+        console.warn("SW registration failed:", e.message);
+      });
     }, []);
+    const enablePushNotifications = async () => {
+      if (!VAPID_PUBLIC_KEY || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      try {
+        const permission = await Notification.requestPermission();
+        setNotifPerm(permission);
+        if (permission !== "granted") return;
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+          });
+        }
+        await fetch(WORKER_BASE + "/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: PUBLISH_TOKEN, subscription: sub.toJSON() })
+        });
+      } catch (e) {
+        console.warn("Push setup failed:", e.message);
+      }
+    };
     const [orders, setOrders] = (0, import_react.useState)(null);
     const [cookChecks, setCookChecks] = (0, import_react.useState)({});
     const [deliverChecks, setDeliverChecks] = (0, import_react.useState)({});
@@ -14985,7 +14991,15 @@ This will replace your current orders.`
     if (loading) {
       return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loadingText }, "Loading orders..."));
     }
-    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.9-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.page }, /* @__PURE__ */ import_react.default.createElement("header", { style: styles.header }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerTop }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.logoMark }, "LTB"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerCenter }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.title }, "Order tracker"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.subtitle }, "Lettuce, Turnip, The Beet \xB7 v9.9-GH")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.headerActions }, VAPID_PUBLIC_KEY && notifPerm !== "granted" && notifPerm !== "unsupported" && /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.headerActionBtn, color: notifPerm === "denied" ? "#993556" : GOLD },
+        onClick: enablePushNotifications,
+        title: notifPerm === "denied" ? "Notifications blocked \u2014 enable in Settings" : "Enable order notifications"
+      },
+      /* @__PURE__ */ import_react.default.createElement(Bell, { size: 16 })
+    ), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: exportData, title: "Copy backup to clipboard" }, /* @__PURE__ */ import_react.default.createElement(Download, { size: 16 })), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.headerActionBtn, onClick: pasteImport, title: "Paste backup from clipboard" }, /* @__PURE__ */ import_react.default.createElement(Upload, { size: 16 })))), exportMsg && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.exportMsg }, exportMsg), /* @__PURE__ */ import_react.default.createElement("nav", { style: styles.tabs }, [
       ["orders", "Orders"],
       ["cook", "Cook"],
       ["shop", "Shop"],

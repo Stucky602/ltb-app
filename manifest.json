@@ -1,0 +1,24 @@
+{
+  "name": "Lettuce, Turnip, The Beet",
+  "short_name": "LTB",
+  "description": "Friends-only meal prep ordering",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a3a3a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/ltb-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/ltb-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -12863,14 +12863,14 @@
       { name: "Filet Mignon", perLb: true, pricePerLb: 34, costPerLb: 24.99, variants: [{ label: "price by weight", price: 35.5, cost: 24.99 }] },
       { name: "Chicken Breast", perLb: true, pricePerLb: 9, costPerLb: 6, variants: [{ label: "price by weight", price: 10.5, cost: 6 }] },
       { name: "Pork Tenderloin", perLb: true, pricePerLb: 15, costPerLb: 8, variants: [{ label: "price by weight", price: 16.5, cost: 8 }] },
-      { name: "Baby Gold Potatoes", variants: [{ label: "~2 servings", price: 7, cost: 2.5 }] },
       { name: "Carrots", variants: [{ label: "~2 servings", price: 6, cost: 1.83 }] },
+      { name: "Baby Gold Potatoes", variants: [{ label: "~2 servings", price: 7, cost: 2.5 }] },
       { name: "Corn (off the cob)", variants: [{ label: "~2 servings", price: 7, cost: 2 }] },
+      { name: "Parsnips", variants: [{ label: "~2 servings", price: 7, cost: 2 }] },
       { name: "Asparagus", variants: [
         { label: "Whole (~2 servings)", price: 8, cost: 3 },
         { label: "Bite-size (~2 servings)", price: 8, cost: 3 }
-      ] },
-      { name: "Parsnips", variants: [{ label: "~2 servings", price: 7, cost: 2 }] }
+      ] }
     ],
     sauces: [
       { name: "Chimichurri", variants: [{ label: "Per Container", price: 3, cost: 0.4 }] },

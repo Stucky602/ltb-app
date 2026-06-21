@@ -12912,6 +12912,7 @@
   var CHECKS_KEY = "ltb-cook-checks";
   var DELIVER_CHECKS_KEY = "ltb-deliver-checks";
   var DISH_NOTES_KEY = "ltb-dish-notes";
+  var WEEK_NOTES_KEY = "ltb-week-notes";
   var SHOPPING_KEY = "ltb-shopping";
   var WEEK_KEY = "ltb-week";
   var PENDING_KEY = "ltb-pending-orders";
@@ -12922,6 +12923,7 @@
   var PENDING_POLL_URL = WORKER_BASE + "/pending";
   var CONFIG_PUBLISH_URL = WORKER_BASE + "/config";
   var PUBLISH_TOKEN = "ltb-publish-2026";
+  var VAPID_PUBLIC_KEY = "";
   var USE_LEGACY_CSV = false;
   var FORM_CSV_URL = "https://ltb-proxy.strickland-kevinj.workers.dev/sheet";
   var I = (name, q, u, staple = false) => ({ name, q, u, staple });
@@ -13493,6 +13495,12 @@
   var uid = () => Math.random().toString(36).slice(2, 10);
   var currency = (n) => `$${(Number(n) || 0).toFixed(2)}`;
   var round2 = (n) => Math.round(n * 100) / 100;
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
   var DISH_CUISINE = {
     "Indian Style Curry": "Indian",
     "Shrimp or Tofu with Asparagus in Black Bean Sauce": "Chinese",
@@ -14204,6 +14212,34 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         s.textContent = "@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }";
         document.head.appendChild(s);
       }
+    }, []);
+    import_react.default.useEffect(() => {
+      if (!VAPID_PUBLIC_KEY) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      (async () => {
+        try {
+          const reg = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+          let permission = Notification.permission;
+          if (permission === "default") {
+            permission = await Notification.requestPermission();
+          }
+          if (permission !== "granted") return;
+          let sub = await reg.pushManager.getSubscription();
+          if (!sub) {
+            sub = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+          }
+          await fetch(WORKER_BASE + "/push/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: PUBLISH_TOKEN, subscription: sub.toJSON() })
+          });
+        } catch (e) {
+          console.warn("Push notification setup failed:", e.message);
+        }
+      })();
     }, []);
     const [orders, setOrders] = (0, import_react.useState)(null);
     const [cookChecks, setCookChecks] = (0, import_react.useState)({});
@@ -15058,6 +15094,7 @@ This will replace your current orders.`
         menu,
         initial: formMode === "new" ? null : formMode,
         recentCustomers,
+        regulars,
         onSave: saveOrder,
         onCancel: () => setFormMode(null)
       }
@@ -15986,7 +16023,7 @@ This will replace your current orders.`
       }
     )))), allDone && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewDone }, /* @__PURE__ */ import_react.default.createElement(Check, { size: 28, color: "#1D9E75" }), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.reviewDoneText }, "All sorted. You're good to save."), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.doneItemBtn, onClick: onClose }, "Back to order"))));
   }
-  function OrderForm({ menu, initial, recentCustomers, onSave, onCancel }) {
+  function OrderForm({ menu, initial, recentCustomers, regulars, onSave, onCancel }) {
     const isEdit = !!initial?.id;
     const [customer, setCustomer] = (0, import_react.useState)(initial?.customer || "");
     const [items, setItems] = (0, import_react.useState)(initial?.items || []);
@@ -16053,9 +16090,14 @@ This will replace your current orders.`
     const save = () => {
       if (!customer.trim() || items.length === 0) return;
       const cleanCharges = customCharges.map((ch) => ({ id: ch.id, label: (ch.label || "").trim(), amount: parseFloat(ch.amount) || 0 })).filter((ch) => ch.label && ch.amount);
+      const matchedReg = (regulars || []).find((r) => regularMatchType(r, customer.trim()) !== "none");
+      const address = initial?.address || matchedReg?.address || "";
+      const phone = initial?.phone || matchedReg?.phone || "";
       onSave({
         id: initial?.id || uid(),
         customer: customer.trim(),
+        address,
+        phone,
         items,
         jarSwaps,
         containerReturns,
@@ -16275,10 +16317,7 @@ This will replace your current orders.`
         }
         const file = new File([blob], `LTB-invoice-${order.customer || "order"}.png`, { type: "image/png" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: "LTB Invoice"
-          });
+          await navigator.share({ files: [file] });
         } else {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -16330,10 +16369,7 @@ This will replace your current orders.`
         }
         const file = new File([blob], `LTB-reheat-${order.customer || "order"}.png`, { type: "image/png" });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: "LTB Reheat Instructions"
-          });
+          await navigator.share({ files: [file] });
         } else {
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -16422,6 +16458,10 @@ This will replace your current orders.`
     const [copied, setCopied] = (0, import_react.useState)(false);
     const [editingNotes, setEditingNotes] = (0, import_react.useState)(false);
     const [notesDraft, setNotesDraft] = (0, import_react.useState)("");
+    const [editingContact, setEditingContact] = (0, import_react.useState)(false);
+    const [addressDraft, setAddressDraft] = (0, import_react.useState)("");
+    const [phoneDraft, setPhoneDraft] = (0, import_react.useState)("");
+    const [copyMsg, setCopyMsg] = (0, import_react.useState)(null);
     const [showInvoice, setShowInvoice] = (0, import_react.useState)(false);
     const [showReheat, setShowReheat] = (0, import_react.useState)(false);
     const hasReheatable = (0, import_react.useMemo)(() => buildReheatBlocks(order).length > 0, [order]);
@@ -16494,6 +16534,15 @@ This will replace your current orders.`
       onUpdate({ notes: notesDraft.trim() });
       setEditingNotes(false);
     };
+    const startContact = () => {
+      setAddressDraft(order.address || "");
+      setPhoneDraft(order.phone || "");
+      setEditingContact(true);
+    };
+    const saveContact = () => {
+      onUpdate({ address: addressDraft.trim(), phone: phoneDraft.trim() });
+      setEditingContact(false);
+    };
     return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCard }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardHeader, onClick: onToggle, role: "button", tabIndex: 0 }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardLeft }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCustomer }, order.customer, isRegular && /* @__PURE__ */ import_react.default.createElement("span", { style: styles.orderRegularStar }, " \u2605")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderMeta }, (order.items || []).reduce((s, it) => s + it.qty, 0), " item", (order.items || []).reduce((s, it) => s + it.qty, 0) !== 1 ? "s" : "", " ", "\xB7 ", currency(order.total), disc > 0 ? " \xB7 disc" : "", order.createdAt ? ` \xB7 ${formatDate(order.createdAt)}` : "")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderCardRight }, /* @__PURE__ */ import_react.default.createElement(
       "button",
       {
@@ -16527,7 +16576,30 @@ This will replace your current orders.`
         it.weight > 0 ? "Update weight" : "Set weight",
         it.hasPhoto ? " \xB7 \u{1F4F7}" : ""
       ));
-    }), disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.orderItemLine, color: "#E8799A" } }, /* @__PURE__ */ import_react.default.createElement("span", null, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0))))), (order.jarSwaps > 0 || order.containerReturns > 0) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopSummary }, order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.jarSwaps, " jar swap", order.jarSwaps > 1 ? "s" : "", " (\u2212", currency(order.jarSwaps * 2), ")"), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.containerReturns, " container", order.containerReturns > 1 ? "s" : "", " returned (\u2212", currency(order.containerReturns * 1), ")")), isRegular && regularDiscount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.regularDiscountToggle, onClick: toggleRegularDiscount }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.regularDiscountLabel }, "\u2605 ", regularDisplayName(matchedRegular), "'s ", regularDiscount, "% discount"), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.toggleSwitch, ...discountOn ? styles.toggleSwitchOn : {} } }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.toggleKnob, ...discountOn ? styles.toggleKnobOn : {} } }))), (order.address || order.phone) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderContactBlock }, order.address && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderContactRow }, "\u{1F4CD} ", order.address), order.phone && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderContactRow }, "\u{1F4DE} ", order.phone)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesBlock }, editingNotes ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
+    }), disc > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.orderItemLine, color: "#E8799A" } }, /* @__PURE__ */ import_react.default.createElement("span", null, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react.default.createElement("span", null, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react.default.createElement("div", { key: ch.id, style: styles.orderItemLine }, /* @__PURE__ */ import_react.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react.default.createElement("span", null, currency(Number(ch.amount) || 0))))), (order.jarSwaps > 0 || order.containerReturns > 0) && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.loopSummary }, order.jarSwaps > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.jarSwaps, " jar swap", order.jarSwaps > 1 ? "s" : "", " (\u2212", currency(order.jarSwaps * 2), ")"), order.containerReturns > 0 && /* @__PURE__ */ import_react.default.createElement("span", null, order.containerReturns, " container", order.containerReturns > 1 ? "s" : "", " returned (\u2212", currency(order.containerReturns * 1), ")")), isRegular && regularDiscount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.regularDiscountToggle, onClick: toggleRegularDiscount }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.regularDiscountLabel }, "\u2605 ", regularDisplayName(matchedRegular), "'s ", regularDiscount, "% discount"), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.toggleSwitch, ...discountOn ? styles.toggleSwitchOn : {} } }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.toggleKnob, ...discountOn ? styles.toggleKnobOn : {} } }))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesBlock }, editingContact ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        style: { ...styles.textarea, minHeight: "unset", padding: "8px 10px", marginBottom: "6px" },
+        value: addressDraft,
+        onChange: (e) => setAddressDraft(e.target.value),
+        placeholder: "Address\u2026",
+        autoFocus: true
+      }
+    ), /* @__PURE__ */ import_react.default.createElement(
+      "input",
+      {
+        style: { ...styles.textarea, minHeight: "unset", padding: "8px 10px", marginBottom: "6px" },
+        value: phoneDraft,
+        onChange: (e) => setPhoneDraft(e.target.value),
+        placeholder: "Phone\u2026"
+      }
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesEditActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYesGreen, onClick: saveContact }, "Save"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setEditingContact(false) }, "Cancel"))) : order.address || order.phone ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderContactBlock, onClick: startContact, role: "button", tabIndex: 0 }, order.address && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderContactRow }, "\u{1F4CD} ", order.address), order.phone && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.orderContactRow }, "\u{1F4DE} ", order.phone), order.address && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.contactBtnRow, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.contactActionBtn, onClick: () => {
+      navigator.clipboard.writeText(order.address);
+      setCopyMsg("Address copied!");
+      setTimeout(() => setCopyMsg(null), 2500);
+    } }, "Copy address"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.contactActionBtn, onClick: () => {
+      window.open("https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(order.address), "_blank");
+    } }, "Open in Maps")), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.notesEditHint }, "tap to edit"), copyMsg && /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.notesEditHint, color: TEAL_LIGHT } }, copyMsg)) : /* @__PURE__ */ import_react.default.createElement("button", { style: styles.addNoteBtn, onClick: startContact }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 13 }), "Add address / phone")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesBlock }, editingNotes ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
       "textarea",
       {
         style: { ...styles.textarea, minHeight: "50px" },
@@ -16932,6 +17004,27 @@ This will replace your current orders.`
     const [storage, setStorage] = (0, import_react.useState)(null);
     const [search, setSearch] = (0, import_react.useState)("");
     const [showChart, setShowChart] = (0, import_react.useState)(false);
+    const [weekNotes, setWeekNotes] = (0, import_react.useState)({});
+    const [weekNotesDraft, setWeekNotesDraft] = (0, import_react.useState)("");
+    const [editingWeekNote, setEditingWeekNote] = (0, import_react.useState)(false);
+    const currentWeekKey = (0, import_react.useMemo)(() => {
+      if (!orders.length) return null;
+      const sorted2 = [...orders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      return groupKeyFor(sorted2[0], "week");
+    }, [orders]);
+    (0, import_react.useEffect)(() => {
+      loadJSON(WEEK_NOTES_KEY, {}).then((n) => setWeekNotes(n || {}));
+    }, []);
+    const saveWeekNote = () => {
+      const next = { ...weekNotes, [currentWeekKey]: weekNotesDraft.trim() };
+      setWeekNotes(next);
+      saveJSON(WEEK_NOTES_KEY, next);
+      setEditingWeekNote(false);
+    };
+    const startWeekNote = () => {
+      setWeekNotesDraft(weekNotes[currentWeekKey] || "");
+      setEditingWeekNote(true);
+    };
     (0, import_react.useEffect)(() => {
       let live = true;
       photoStorageBytes().then((s) => {
@@ -17009,7 +17102,16 @@ This will replace your current orders.`
     if (orders.length === 0) {
       return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "No history yet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Every order you save shows up here \u2014 including archived past weeks."));
     }
-    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatsBar }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, currency(totals.booked)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, unpaidOnly ? "Unpaid total" : "Revenue")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.profit), totals.costComplete ? "" : "*"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Est. profit")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.collected)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Collected")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, ...totals.outstanding > 0 ? { color: "#EF9F27" } : {} } }, currency(totals.outstanding)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Outstanding"))), !totals.costComplete && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyFootnote }, "* some items predate cost tracking, so profit is partial"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.sortRow }, [
+    return /* @__PURE__ */ import_react.default.createElement("div", null, currentWeekKey && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weekNotesBlock }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weekNotesTitle }, "Week notes"), editingWeekNote ? /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement(
+      "textarea",
+      {
+        style: { ...styles.refCardNotes, minHeight: "80px" },
+        value: weekNotesDraft,
+        onChange: (e) => setWeekNotesDraft(e.target.value),
+        placeholder: "Jot anything worth remembering about this week \u2014 what ran out, what to double, timing notes\u2026",
+        autoFocus: true
+      }
+    ), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.notesEditActions }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYesGreen, onClick: saveWeekNote }, "Save"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setEditingWeekNote(false) }, "Cancel"))) : weekNotes[currentWeekKey] ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.weekNotesBody, onClick: startWeekNote, role: "button", tabIndex: 0 }, weekNotes[currentWeekKey], /* @__PURE__ */ import_react.default.createElement("span", { style: styles.notesEditHint }, " \u2014 tap to edit")) : /* @__PURE__ */ import_react.default.createElement("button", { style: styles.addNoteBtn, onClick: startWeekNote }, /* @__PURE__ */ import_react.default.createElement(Pencil, { size: 13 }), "Add week notes")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatsBar }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statValue }, currency(totals.booked)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, unpaidOnly ? "Unpaid total" : "Revenue")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.profit), totals.costComplete ? "" : "*"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Est. profit")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, color: "#1D9E75" } }, currency(totals.collected)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Collected")), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyStatTile }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.statValue, ...totals.outstanding > 0 ? { color: "#EF9F27" } : {} } }, currency(totals.outstanding)), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.statLabel }, "Outstanding"))), !totals.costComplete && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.moneyFootnote }, "* some items predate cost tracking, so profit is partial"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.sortRow }, [
       ["date", "Date"],
       ["total", "Amount"],
       ["name", "Customer"]
@@ -17418,12 +17520,49 @@ This will replace your current orders.`
       marginBottom: "10px",
       display: "flex",
       flexDirection: "column",
-      gap: "4px"
+      gap: "4px",
+      cursor: "pointer"
     },
     orderContactRow: {
       fontSize: "13px",
       color: "#9aa5a0",
       lineHeight: 1.4
+    },
+    contactBtnRow: {
+      display: "flex",
+      gap: "6px",
+      marginTop: "6px"
+    },
+    contactActionBtn: {
+      fontSize: "11px",
+      fontWeight: 600,
+      color: TEAL_LIGHT,
+      background: "rgba(63,184,160,0.1)",
+      border: "1px solid rgba(63,184,160,0.3)",
+      borderRadius: "6px",
+      padding: "4px 10px",
+      cursor: "pointer"
+    },
+    weekNotesBlock: {
+      background: "#1f2624",
+      border: "1px solid #2d6a6a",
+      borderRadius: "12px",
+      padding: "14px",
+      marginBottom: "14px"
+    },
+    weekNotesTitle: {
+      fontSize: "11px",
+      fontWeight: 700,
+      color: GOLD,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      marginBottom: "8px"
+    },
+    weekNotesBody: {
+      fontSize: "13px",
+      color: "#cfd6d2",
+      lineHeight: 1.5,
+      cursor: "pointer"
     },
     pendingCardName: {
       fontWeight: 700,

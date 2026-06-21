@@ -12910,6 +12910,8 @@
   var SURCHARGE = 2;
   var ORDERS_KEY = "ltb-orders";
   var CHECKS_KEY = "ltb-cook-checks";
+  var DELIVER_CHECKS_KEY = "ltb-deliver-checks";
+  var DISH_NOTES_KEY = "ltb-dish-notes";
   var SHOPPING_KEY = "ltb-shopping";
   var WEEK_KEY = "ltb-week";
   var PENDING_KEY = "ltb-pending-orders";
@@ -14205,6 +14207,9 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     }, []);
     const [orders, setOrders] = (0, import_react.useState)(null);
     const [cookChecks, setCookChecks] = (0, import_react.useState)({});
+    const [deliverChecks, setDeliverChecks] = (0, import_react.useState)({});
+    const [cookSubView, setCookSubView] = (0, import_react.useState)("cook");
+    const [dishNotes, setDishNotes] = (0, import_react.useState)({});
     const [shopping, setShopping] = (0, import_react.useState)([]);
     const [weekDishes, setWeekDishes] = (0, import_react.useState)(DEFAULT_WEEK);
     const [loading, setLoading] = (0, import_react.useState)(true);
@@ -14226,11 +14231,13 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     (0, import_react.useEffect)(() => {
       let mounted = true;
       (async () => {
-        const [loadedOrders, loadedChecks, loadedShopping, loadedWeek] = await Promise.all([
+        const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes] = await Promise.all([
           loadJSON(ORDERS_KEY, []),
           loadJSON(CHECKS_KEY, {}),
           loadJSON(SHOPPING_KEY, []),
-          loadJSON(WEEK_KEY, null)
+          loadJSON(WEEK_KEY, null),
+          loadJSON(DELIVER_CHECKS_KEY, {}),
+          loadJSON(DISH_NOTES_KEY, {})
         ]);
         if (!mounted) return;
         const migrated = loadedOrders.map((o) => ({
@@ -14259,6 +14266,8 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         }));
         setOrders(migrated);
         setCookChecks(loadedChecks || {});
+        setDeliverChecks(loadedDeliverChecks || {});
+        setDishNotes(loadedDishNotes || {});
         setShopping(loadedShopping || []);
         if (loadedWeek && Array.isArray(loadedWeek.selected)) {
           const valid = loadedWeek.selected.filter((n) => ALL_DINNERS.some((d) => d.name === n));
@@ -14860,6 +14869,21 @@ This will replace your current orders.`
         (a, b) => catOrder.indexOf(a.category) - catOrder.indexOf(b.category) || a.name.localeCompare(b.name)
       );
     }, [activeOrders]);
+    const deliverList = (0, import_react.useMemo)(() => {
+      const catOrder = Object.keys(CATEGORY_LABELS);
+      return activeOrders.map((o) => {
+        const items = (o.items || []).map((it, i) => ({
+          key: `${o.id}::${i}`,
+          category: it.category,
+          name: it.name,
+          variant: it.variant,
+          qty: it.qty
+        })).sort(
+          (a, b) => catOrder.indexOf(a.category) - catOrder.indexOf(b.category) || a.name.localeCompare(b.name)
+        );
+        return { orderId: o.id, customer: o.customer || "Unnamed", items };
+      }).filter((grp) => grp.items.length > 0).sort((a, b) => a.customer.localeCompare(b.customer));
+    }, [activeOrders]);
     const toggleCheck = (0, import_react.useCallback)((key) => {
       setCookChecks((prev) => {
         const next = { ...prev, [key]: !prev[key] };
@@ -14874,6 +14898,29 @@ This will replace your current orders.`
     const resetChecks = (0, import_react.useCallback)(() => {
       setCookChecks({});
       saveJSON(CHECKS_KEY, {});
+    }, []);
+    const toggleDeliverCheck = (0, import_react.useCallback)((key) => {
+      setDeliverChecks((prev) => {
+        const next = { ...prev, [key]: !prev[key] };
+        const validKeys = /* @__PURE__ */ new Set();
+        deliverList.forEach((grp) => grp.items.forEach((it) => validKeys.add(it.key)));
+        Object.keys(next).forEach((k) => {
+          if (!validKeys.has(k)) delete next[k];
+        });
+        saveJSON(DELIVER_CHECKS_KEY, next);
+        return next;
+      });
+    }, [deliverList]);
+    const resetDeliverChecks = (0, import_react.useCallback)(() => {
+      setDeliverChecks({});
+      saveJSON(DELIVER_CHECKS_KEY, {});
+    }, []);
+    const saveDishNote = (0, import_react.useCallback)((dishName, text) => {
+      setDishNotes((prev) => {
+        const next = { ...prev, [dishName]: text };
+        saveJSON(DISH_NOTES_KEY, next);
+        return next;
+      });
     }, []);
     const menu = (0, import_react.useMemo)(() => buildMenu(weekDishes), [weekDishes]);
     const toggleWeekDish = (0, import_react.useCallback)((name) => {
@@ -15059,7 +15106,21 @@ This will replace your current orders.`
           setExpandedOrder(null);
         }
       }
-    ))), /* @__PURE__ */ import_react.default.createElement(ArchiveDeliveredButton, { count: deliveredOrders.length, onArchive: archiveDelivered }))), view === "cook" && /* @__PURE__ */ import_react.default.createElement(
+    ))), /* @__PURE__ */ import_react.default.createElement(ArchiveDeliveredButton, { count: deliveredOrders.length, onArchive: archiveDelivered }))), view === "cook" && /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookSubToggle }, /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.cookSubBtn, ...cookSubView === "cook" ? styles.cookSubBtnActive : {} },
+        onClick: () => setCookSubView("cook")
+      },
+      "Cook"
+    ), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.cookSubBtn, ...cookSubView === "deliver" ? styles.cookSubBtnActive : {} },
+        onClick: () => setCookSubView("deliver")
+      },
+      "Deliver"
+    )), cookSubView === "cook" ? /* @__PURE__ */ import_react.default.createElement(
       CookingList,
       {
         items: cookingList,
@@ -15069,7 +15130,16 @@ This will replace your current orders.`
         onToggle: toggleCheck,
         onReset: resetChecks
       }
-    ), view === "shop" && /* @__PURE__ */ import_react.default.createElement(
+    ) : /* @__PURE__ */ import_react.default.createElement(
+      DeliverList,
+      {
+        groups: deliverList,
+        orderCount: activeOrders.length,
+        checks: deliverChecks,
+        onToggle: toggleDeliverCheck,
+        onReset: resetDeliverChecks
+      }
+    )), view === "shop" && /* @__PURE__ */ import_react.default.createElement(
       ShoppingList,
       {
         items: shopping,
@@ -15080,7 +15150,9 @@ This will replace your current orders.`
         weekDishes,
         inventory,
         onAdjustInventory: adjustInventory,
-        onSetInventory: setInventoryCount
+        onSetInventory: setInventoryCount,
+        dishNotes,
+        onSaveDishNote: saveDishNote
       }
     ), view === "money" && /* @__PURE__ */ import_react.default.createElement(MoneyTab, { orders: orders || [], onUpdate: updateOrder }), view === "regulars" && /* @__PURE__ */ import_react.default.createElement(
       RegularsTab,
@@ -16546,12 +16618,41 @@ This will replace your current orders.`
       );
     }))));
   }
-  function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory }) {
+  function DeliverList({ groups, orderCount, checks, onToggle, onReset }) {
+    if (groups.length === 0) {
+      return /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "Nothing to deliver yet"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Active orders will roll up by customer here."));
+    }
+    const allItems = groups.flatMap((g) => g.items);
+    const doneCount = allItems.filter((it) => checks[it.key]).length;
+    return /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", allItems.length, " packed \xB7 ", orderCount, " active order", orderCount !== 1 ? "s" : ""), doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: onReset }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 13 }), "Reset")), groups.map((grp) => {
+      const grpDone = grp.items.filter((it) => checks[it.key]).length;
+      const allDone = grpDone === grp.items.length;
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: grp.orderId, style: styles.cookCategory }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.cookCategoryTitle, ...allDone ? styles.deliverCustDone : {} } }, grp.customer, " \xB7 ", grpDone, "/", grp.items.length), grp.items.map((it) => {
+        const isChecked = !!checks[it.key];
+        return /* @__PURE__ */ import_react.default.createElement(
+          "button",
+          {
+            key: it.key,
+            style: { ...styles.cookItem, ...isChecked ? styles.cookItemChecked : {} },
+            onClick: () => onToggle(it.key)
+          },
+          /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.checkbox, ...isChecked ? styles.checkboxChecked : {} } }, isChecked && /* @__PURE__ */ import_react.default.createElement(Check, { size: 14, color: "#1a1a1a" })),
+          /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemName }, it.name), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemVariant }, it.variant)),
+          /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookItemQty }, "\xD7", it.qty)
+        );
+      }));
+    }));
+  }
+  function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory, dishNotes, onSaveDishNote }) {
     const [input, setInput] = (0, import_react.useState)("");
     const [includeStaples, setIncludeStaples] = (0, import_react.useState)(false);
     const [confirmClear, setConfirmClear] = (0, import_react.useState)(false);
     const [dishPickerOpen, setDishPickerOpen] = (0, import_react.useState)(false);
     const [inventoryOpen, setInventoryOpen] = (0, import_react.useState)(false);
+    const [refCardOpen, setRefCardOpen] = (0, import_react.useState)(false);
+    const [refDish, setRefDish] = (0, import_react.useState)("");
+    const [refData, setRefData] = (0, import_react.useState)(null);
+    const [noteText, setNoteText] = (0, import_react.useState)("");
     const [pickerDish, setPickerDish] = (0, import_react.useState)(null);
     const [pickerVariant, setPickerVariant] = (0, import_react.useState)("");
     const [pickerCount, setPickerCount] = (0, import_react.useState)(1);
@@ -16711,7 +16812,63 @@ This will replace your current orders.`
     )), items.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyTitle }, "Shopping list is empty"), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.emptyBody }, "Type items one at a time, or paste a whole ingredient list and each line becomes its own entry.")) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " in the cart"), doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: uncheckAll }, /* @__PURE__ */ import_react.default.createElement(RotateCcw, { size: 13 }), "Uncheck all")), /* @__PURE__ */ import_react.default.createElement("div", null, items.map((it) => /* @__PURE__ */ import_react.default.createElement("div", { key: it.id, style: { ...styles.shopItem, ...it.checked ? styles.cookItemChecked : {} } }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.shopItemMain, onClick: () => toggle(it.id) }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.checkbox, ...it.checked ? styles.checkboxChecked : {} } }, it.checked && /* @__PURE__ */ import_react.default.createElement(Check, { size: 14, color: "#1a1a1a" })), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.shopItemText, ...it.checked ? styles.shopItemTextChecked : {} } }, it.text)), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.shopDeleteBtn, onClick: () => remove(it.id), "aria-label": `Remove ${it.text}` }, /* @__PURE__ */ import_react.default.createElement(X, { size: 15 }))))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.shopBulkRow }, doneCount > 0 && /* @__PURE__ */ import_react.default.createElement("button", { style: styles.resetBtn, onClick: () => onChange(items.filter((it) => !it.checked)) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Remove checked (", doneCount, ")"), confirmClear ? /* @__PURE__ */ import_react.default.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.confirmText }, "Delete the whole list?"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmYes, onClick: () => {
       onChange([]);
       setConfirmClear(false);
-    } }, "Clear"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Clear list"))));
+    } }, "Clear"), /* @__PURE__ */ import_react.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react.default.createElement(Trash2, { size: 13 }), "Clear list"))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => setRefCardOpen((o) => !o) }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.inventoryTitle }, "Dish Reference Card"), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.collapseChevron }, refCardOpen ? "\u25B2" : "\u25BC")), refCardOpen && /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.inventoryHint }, "Full ingredient breakdown, margins, and cook notes for any dish."), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardPickerRow }, /* @__PURE__ */ import_react.default.createElement(
+      "select",
+      {
+        style: styles.refCardSelect,
+        value: refDish,
+        onChange: (e) => {
+          setRefDish(e.target.value);
+          setRefData(null);
+        }
+      },
+      /* @__PURE__ */ import_react.default.createElement("option", { value: "" }, "Select a dish\u2026"),
+      (() => {
+        const thisWeek = new Set(weekDishes || []);
+        const withRecipe = Object.keys(RECIPES);
+        const thisWeekDishes = withRecipe.filter((d) => thisWeek.has(d)).sort();
+        const otherDishes = withRecipe.filter((d) => !thisWeek.has(d)).sort();
+        return [
+          thisWeekDishes.length > 0 && /* @__PURE__ */ import_react.default.createElement("optgroup", { key: "week", label: "This week" }, thisWeekDishes.map((d) => /* @__PURE__ */ import_react.default.createElement("option", { key: d, value: d }, d))),
+          otherDishes.length > 0 && /* @__PURE__ */ import_react.default.createElement("optgroup", { key: "other", label: "Other dishes" }, otherDishes.map((d) => /* @__PURE__ */ import_react.default.createElement("option", { key: d, value: d }, d)))
+        ].filter(Boolean);
+      })()
+    ), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.saveBtn, marginTop: 0, opacity: refDish ? 1 : 0.4 },
+        disabled: !refDish,
+        onClick: () => {
+          if (!refDish) return;
+          const recipe = RECIPES[refDish];
+          const menuDish = ALL_DINNERS.find((d) => d.name === refDish);
+          const variants = menuDish?.variants || [];
+          setNoteText((dishNotes || {})[refDish] || "");
+          setRefData({ recipe, variants });
+        }
+      },
+      "Load"
+    )), refData && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardBody }, refData.variants.length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardSectionTitle }, "Margins by variant"), refData.variants.map((v) => {
+      const margin = v.price - v.cost;
+      const pct = v.price > 0 ? Math.round(margin / v.price * 100) : 0;
+      const color = pct >= 55 ? "#5a8f6a" : pct >= 40 ? GOLD : "#993556";
+      return /* @__PURE__ */ import_react.default.createElement("div", { key: v.label, style: styles.refCardRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.refCardVariantLabel }, v.label), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.refCardPrice }, currency(v.price)), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.refCardCost }, "cost ", currency(v.cost)), /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.refCardMargin, color } }, currency(margin), " \xB7 ", pct, "%"));
+    })), refData.recipe && /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardSectionTitle }, "Base ingredients (1\xD7 batch)"), refData.recipe.base.map((ing, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.refCardIngRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: { ...styles.refCardIngName, ...ing.staple ? styles.refCardIngStaple : {} } }, ing.name, ing.staple ? " \u2726" : ""), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.refCardIngQty }, ing.q, " ", ing.u))), refData.recipe.extras && Object.keys(refData.recipe.extras).length > 0 && /* @__PURE__ */ import_react.default.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ import_react.default.createElement("div", { style: { ...styles.refCardSectionTitle, fontSize: "11px", opacity: 0.7 } }, "Variant extras"), Object.entries(refData.recipe.extras).map(([vLabel, ings]) => /* @__PURE__ */ import_react.default.createElement("div", { key: vLabel, style: { marginBottom: "6px" } }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardExtrasLabel }, vLabel), ings.map((ing, i) => /* @__PURE__ */ import_react.default.createElement("div", { key: i, style: styles.refCardIngRow }, /* @__PURE__ */ import_react.default.createElement("span", { style: styles.refCardIngName }, ing.name), /* @__PURE__ */ import_react.default.createElement("span", { style: styles.refCardIngQty }, ing.q, " ", ing.u))))))), /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardSection }, /* @__PURE__ */ import_react.default.createElement("div", { style: styles.refCardSectionTitle }, "Cook notes"), /* @__PURE__ */ import_react.default.createElement(
+      "textarea",
+      {
+        style: styles.refCardNotes,
+        placeholder: "Add notes about this dish \u2014 technique reminders, timing, substitutions, anything you want to remember\u2026",
+        value: noteText,
+        onChange: (e) => setNoteText(e.target.value)
+      }
+    ), /* @__PURE__ */ import_react.default.createElement(
+      "button",
+      {
+        style: { ...styles.saveBtn, marginTop: "6px" },
+        onClick: () => onSaveDishNote(refDish, noteText)
+      },
+      "Save notes"
+    ))))));
   }
   function ProfitChart({ series }) {
     const W = 320, H = 160;
@@ -18466,6 +18623,142 @@ This will replace your current orders.`
       cursor: "not-allowed"
     },
     // Cooking list
+    cookSubToggle: {
+      display: "flex",
+      gap: "6px",
+      marginBottom: "16px",
+      background: "#1f2624",
+      border: "1px solid #2d6a6a",
+      borderRadius: "10px",
+      padding: "4px"
+    },
+    cookSubBtn: {
+      flex: 1,
+      fontSize: "13px",
+      fontWeight: 700,
+      color: "#9aa5a0",
+      background: "transparent",
+      border: "none",
+      borderRadius: "7px",
+      padding: "9px",
+      cursor: "pointer"
+    },
+    cookSubBtnActive: {
+      background: TEAL_MID,
+      color: "#fff"
+    },
+    deliverCustDone: {
+      color: "#5a8f6a",
+      textDecoration: "line-through"
+    },
+    // ── Dish Reference Card ───────────────────────────────────────────────────
+    refCardPickerRow: {
+      display: "flex",
+      gap: "8px",
+      alignItems: "center",
+      marginBottom: "10px"
+    },
+    refCardSelect: {
+      flex: 1,
+      background: "#1f2624",
+      border: "1px solid #2d6a6a",
+      borderRadius: "8px",
+      color: "#e8e2d4",
+      fontSize: "14px",
+      padding: "10px 12px"
+    },
+    refCardBody: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "14px"
+    },
+    refCardSection: {
+      background: "#1a2320",
+      border: "1px solid #2d3a36",
+      borderRadius: "10px",
+      padding: "12px 14px"
+    },
+    refCardSectionTitle: {
+      fontSize: "11px",
+      fontWeight: 700,
+      color: GOLD,
+      textTransform: "uppercase",
+      letterSpacing: "0.5px",
+      marginBottom: "8px"
+    },
+    refCardRow: {
+      display: "flex",
+      alignItems: "baseline",
+      gap: "8px",
+      paddingBottom: "6px",
+      borderBottom: "1px solid #2a3330",
+      marginBottom: "6px",
+      flexWrap: "wrap"
+    },
+    refCardVariantLabel: {
+      flex: 1,
+      fontSize: "13px",
+      color: "#e8e2d4",
+      minWidth: "120px"
+    },
+    refCardPrice: {
+      fontSize: "13px",
+      fontWeight: 700,
+      color: "#e8e2d4"
+    },
+    refCardCost: {
+      fontSize: "12px",
+      color: "#9aa5a0"
+    },
+    refCardMargin: {
+      fontSize: "12px",
+      fontWeight: 700,
+      marginLeft: "auto"
+    },
+    refCardIngRow: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      gap: "8px",
+      paddingBottom: "4px",
+      borderBottom: "1px solid #232a28",
+      marginBottom: "4px"
+    },
+    refCardIngName: {
+      fontSize: "13px",
+      color: "#e8e2d4",
+      flex: 1
+    },
+    refCardIngStaple: {
+      color: "#9aa5a0",
+      fontStyle: "italic"
+    },
+    refCardIngQty: {
+      fontSize: "12px",
+      color: "#9aa5a0",
+      textAlign: "right",
+      whiteSpace: "nowrap"
+    },
+    refCardExtrasLabel: {
+      fontSize: "11px",
+      color: TEAL_LIGHT,
+      fontWeight: 600,
+      marginBottom: "3px",
+      marginTop: "2px"
+    },
+    refCardNotes: {
+      width: "100%",
+      background: "#1f2624",
+      border: "1px solid #2d6a6a",
+      borderRadius: "8px",
+      color: "#e8e2d4",
+      fontSize: "13px",
+      padding: "10px 12px",
+      minHeight: "100px",
+      resize: "vertical",
+      lineHeight: 1.5,
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    },
     cookHeader: {
       display: "flex",
       alignItems: "center",

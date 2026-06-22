@@ -14766,7 +14766,9 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
         orders: orders || [],
         shopping,
-        weekDishes
+        weekDishes,
+        regulars,
+        inventory
       };
       const json = JSON.stringify(payload, null, 2);
       try {
@@ -14788,7 +14790,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         }
       }
       setTimeout(() => setExportMsg(null), 4e3);
-    }, [orders, shopping, weekDishes]);
+    }, [orders, shopping, weekDishes, regulars, inventory]);
     const importData = (0, import_react.useCallback)(async (e) => {
       let json;
       if (typeof e === "string") {
@@ -14826,6 +14828,14 @@ This will replace your current orders.`
           setWeekDishes(payload.weekDishes);
           await saveJSON(WEEK_KEY, { selected: payload.weekDishes });
         }
+        if (Array.isArray(payload.regulars)) {
+          setRegulars(payload.regulars);
+          await saveJSON(REGULARS_KEY, payload.regulars);
+        }
+        if (payload.inventory && typeof payload.inventory === "object") {
+          setInventory(payload.inventory);
+          await saveJSON(INVENTORY_KEY, payload.inventory);
+        }
         setExportMsg(`Imported ${payload.orders.length} orders successfully.`);
         setTimeout(() => setExportMsg(null), 4e3);
         setError(null);
@@ -14857,6 +14867,14 @@ This will replace your current orders.`
         if (Array.isArray(payload.weekDishes)) {
           setWeekDishes(payload.weekDishes);
           await saveJSON(WEEK_KEY, { selected: payload.weekDishes });
+        }
+        if (Array.isArray(payload.regulars)) {
+          setRegulars(payload.regulars);
+          await saveJSON(REGULARS_KEY, payload.regulars);
+        }
+        if (payload.inventory && typeof payload.inventory === "object") {
+          setInventory(payload.inventory);
+          await saveJSON(INVENTORY_KEY, payload.inventory);
         }
         setExportMsg(`Imported ${payload.orders.length} orders successfully.`);
         setTimeout(() => setExportMsg(null), 4e3);

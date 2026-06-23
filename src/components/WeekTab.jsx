@@ -160,20 +160,6 @@ export function WeekTab({ selected, onToggle, onPublish }) {
             Customers see the new menu the moment you publish. Optionally add the
             menu PDF link and a week label that show on the form.
           </div>
-          <label style={styles.miniLabel}>Week label (optional)</label>
-          <input
-            style={styles.input}
-            value={weekLabel}
-            onChange={e => setWeekLabel(e.target.value)}
-            placeholder="e.g. Week of June 22 · Delivery June 25"
-          />
-          <label style={styles.miniLabel}>Menu PDF link (optional)</label>
-          <input
-            style={styles.input}
-            value={pdfUrl}
-            onChange={e => setPdfUrl(e.target.value)}
-            placeholder="https://...workers.dev/LTB_Weekly_Menu.pdf"
-          />
           <button
             style={{ ...styles.saveBtn, marginTop: '10px', background: publishMsg?.ok ? '#1D9E75' : undefined }}
             onClick={doPublish}

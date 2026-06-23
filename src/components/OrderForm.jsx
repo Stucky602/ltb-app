@@ -298,12 +298,62 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
                         Priced by weight ({currency(PER_LB_ITEMS[it.name].pricePerLb)}/lb + $1.50 bag). Set the actual weight from the order after you've weighed it.
                       </div>
                     )}
+                    {(it.name === 'Indian Style Curry' || it.name === 'Thai Basil Chicken (Pad Krapow Gai)') && (() => {
+                      const spiceMatch = (it.note || '').match(/Spice:\s*(\d)/);
+                      const currentSpice = spiceMatch ? parseInt(spiceMatch[1]) : null;
+                      const setSpice = (level) => {
+                        const base = (it.note || '').replace(/Spice:\s*\d\s*\.?\s*/g, '').trim();
+                        setItemNote(idx, `Spice: ${level}${base ? '. ' + base : ''}`);
+                      };
+                      return (
+                        <div>
+                          <label style={styles.miniLabel}>Spice level (1–5)</label>
+                          <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                            {[1,2,3,4,5].map(level => (
+                              <button
+                                key={level}
+                                style={{
+                                  ...styles.discountTypeBtn,
+                                  ...(currentSpice === level ? styles.discountTypeBtnActive : {}),
+                                  flex: 1,
+                                }}
+                                onClick={() => setSpice(level)}
+                              >{level}</button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {(['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'].includes(it.name) && !it.variant.includes('Polenta')) && (() => {
+                      const pastaMatch = (it.note || '').match(/Pasta:\s*([^.]+)/);
+                      const currentPasta = pastaMatch ? pastaMatch[1].trim() : '';
+                      const setPasta = (val) => {
+                        const base = (it.note || '').replace(/Pasta:\s*[^.]+\.?\s*/g, '').trim();
+                        setItemNote(idx, val.trim() ? `Pasta: ${val.trim()}${base ? '. ' + base : ''}` : base);
+                      };
+                      return (
+                        <div>
+                          <label style={styles.miniLabel}>Pasta shape</label>
+                          <input
+                            style={{ ...styles.input, marginBottom: '8px' }}
+                            placeholder="e.g. rigatoni, pappardelle"
+                            value={currentPasta}
+                            onChange={e => setPasta(e.target.value)}
+                          />
+                        </div>
+                      );
+                    })()}
                     <label style={styles.miniLabel}>Note for this item</label>
                     <input
                       style={styles.input}
                       placeholder="e.g. chili oil on the side"
-                      value={it.note || ''}
-                      onChange={e => setItemNote(idx, e.target.value)}
+                      value={(it.note || '').replace(/^(Spice:\s*\d\.?\s*|Pasta:\s*[^.]+\.?\s*)*/g, '').trim()}
+                      onChange={e => {
+                        const spicePart = (it.note || '').match(/Spice:\s*\d/)?.[0] || '';
+                        const pastaPart = (it.note || '').match(/Pasta:\s*[^.]+/)?.[0] || '';
+                        const prefix = [spicePart, pastaPart].filter(Boolean).join('. ');
+                        setItemNote(idx, prefix ? `${prefix}. ${e.target.value}`.trim().replace(/\. $/, '') : e.target.value);
+                      }}
                     />
                     <label style={styles.miniLabel}>Upcharge (optional)</label>
                     <div style={styles.upchargeRow}>

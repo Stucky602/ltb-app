@@ -135,88 +135,6 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
 
   return (
     <div>
-      {/* ── Single-dish ingredient list picker ───────────────────────────── */}
-      <div style={styles.genCard}>
-        <button style={styles.collapsibleHeader} onClick={() => { setDishPickerOpen(o => !o); setPickerDish(null); }}>
-          <span style={styles.genTitle}>Single Dish Ingredient List</span>
-          <span style={styles.collapseChevron}>{dishPickerOpen ? '▲' : '▼'}</span>
-        </button>
-        {dishPickerOpen && <>
-        <div style={styles.genHint}>
-          Pick any dish to get its ingredient list. This week's menu is highlighted.
-        </div>
-
-        {/* Dish grid */}
-        <div style={styles.dishPickerGrid}>
-          {allPickerDishes.map(d => {
-            const isThisWeek = (weekDishes || []).includes(d);
-            const isSelected = pickerDish === d;
-            return (
-              <button
-                key={d}
-                style={{
-                  ...styles.dishPickerChip,
-                  ...(isSelected ? styles.dishPickerChipSelected : {}),
-                  ...(isThisWeek && !isSelected ? styles.dishPickerChipWeek : {}),
-                }}
-                onClick={() => selectPickerDish(d)}
-              >
-                {isThisWeek && <span style={styles.dishPickerDot}>●</span>}
-                {d}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Variant + count selectors */}
-        {pickerDish && RECIPES[pickerDish] && (
-          <div style={styles.dishPickerControls}>
-            <div style={styles.miniLabel}>Size</div>
-            <div style={styles.dishPickerVariants}>
-              {Object.entries(RECIPES[pickerDish].factors)
-                .sort((a, b) => a[1] - b[1])
-                .map(([v]) => (
-                  <button
-                    key={v}
-                    style={{
-                      ...styles.dishPickerVariantBtn,
-                      ...(pickerVariant === v ? styles.dishPickerVariantBtnOn : {}),
-                    }}
-                    onClick={() => setPickerVariant(v)}
-                  >
-                    {v}
-                    <span style={styles.dishPickerServing}> · {servingLabel(v)}</span>
-                  </button>
-                ))}
-            </div>
-
-            <div style={styles.dishPickerCountRow}>
-              <div style={styles.miniLabel}>Batches</div>
-              <div style={styles.dishPickerCounter}>
-                <button style={styles.inventoryBtn} onClick={() => setPickerCount(c => Math.max(1, c - 1))}>−</button>
-                <span style={styles.inventoryCount}>{pickerCount}</span>
-                <button style={styles.inventoryBtn} onClick={() => setPickerCount(c => c + 1)}>+</button>
-              </div>
-            </div>
-
-            <label style={{ ...styles.genToggleRow, marginTop: '8px' }}>
-              <input
-                type="checkbox"
-                checked={pickerStaples}
-                onChange={e => setPickerStaples(e.target.checked)}
-                style={styles.genCheckbox}
-              />
-              Include pantry staples
-            </label>
-
-            <button style={{ ...styles.saveBtn, marginTop: '10px' }} onClick={addDishToList}>
-              Add ingredients to list
-            </button>
-          </div>
-        )}
-        </>}
-      </div>
-
       {/* ── Sauce & Add-on Inventory Tracker ──────────────────────────────── */}
       <div style={styles.inventorySection}>
         <button style={styles.collapsibleHeader} onClick={() => setInventoryOpen(o => !o)}>
@@ -299,6 +217,88 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
             );
           })}
         </div>
+        </>}
+      </div>
+
+      {/* ── Single-dish ingredient list picker ───────────────────────────── */}
+      <div style={styles.genCard}>
+        <button style={styles.collapsibleHeader} onClick={() => { setDishPickerOpen(o => !o); setPickerDish(null); }}>
+          <span style={styles.genTitle}>Single Dish Ingredient List</span>
+          <span style={styles.collapseChevron}>{dishPickerOpen ? '▲' : '▼'}</span>
+        </button>
+        {dishPickerOpen && <>
+        <div style={styles.genHint}>
+          Pick any dish to get its ingredient list. This week's menu is highlighted.
+        </div>
+
+        {/* Dish grid */}
+        <div style={styles.dishPickerGrid}>
+          {allPickerDishes.map(d => {
+            const isThisWeek = (weekDishes || []).includes(d);
+            const isSelected = pickerDish === d;
+            return (
+              <button
+                key={d}
+                style={{
+                  ...styles.dishPickerChip,
+                  ...(isSelected ? styles.dishPickerChipSelected : {}),
+                  ...(isThisWeek && !isSelected ? styles.dishPickerChipWeek : {}),
+                }}
+                onClick={() => selectPickerDish(d)}
+              >
+                {isThisWeek && <span style={styles.dishPickerDot}>●</span>}
+                {d}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Variant + count selectors */}
+        {pickerDish && RECIPES[pickerDish] && (
+          <div style={styles.dishPickerControls}>
+            <div style={styles.miniLabel}>Size</div>
+            <div style={styles.dishPickerVariants}>
+              {Object.entries(RECIPES[pickerDish].factors)
+                .sort((a, b) => a[1] - b[1])
+                .map(([v]) => (
+                  <button
+                    key={v}
+                    style={{
+                      ...styles.dishPickerVariantBtn,
+                      ...(pickerVariant === v ? styles.dishPickerVariantBtnOn : {}),
+                    }}
+                    onClick={() => setPickerVariant(v)}
+                  >
+                    {v}
+                    <span style={styles.dishPickerServing}> · {servingLabel(v)}</span>
+                  </button>
+                ))}
+            </div>
+
+            <div style={styles.dishPickerCountRow}>
+              <div style={styles.miniLabel}>Batches</div>
+              <div style={styles.dishPickerCounter}>
+                <button style={styles.inventoryBtn} onClick={() => setPickerCount(c => Math.max(1, c - 1))}>−</button>
+                <span style={styles.inventoryCount}>{pickerCount}</span>
+                <button style={styles.inventoryBtn} onClick={() => setPickerCount(c => c + 1)}>+</button>
+              </div>
+            </div>
+
+            <label style={{ ...styles.genToggleRow, marginTop: '8px' }}>
+              <input
+                type="checkbox"
+                checked={pickerStaples}
+                onChange={e => setPickerStaples(e.target.checked)}
+                style={styles.genCheckbox}
+              />
+              Include pantry staples
+            </label>
+
+            <button style={{ ...styles.saveBtn, marginTop: '10px' }} onClick={addDishToList}>
+              Add ingredients to list
+            </button>
+          </div>
+        )}
         </>}
       </div>
 

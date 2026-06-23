@@ -59,7 +59,7 @@ export const RECIPES = {
   'Cumin Mushroom Noodles': {
     factors: {
       'Small (~3-4)': 0.5, 'Large (~6-8)': 1,
-      'Small (~3-4) + Asian Greens': 0.5, 'Large (~6-8) + Asian Greens': 1,
+      'Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Large (~6-8) + Asian Greens (1 lb)': 1,
     },
     base: [
       I('Mushrooms', 3, 'lb'),
@@ -74,12 +74,15 @@ export const RECIPES = {
       I('House chili oil', 1, 'cup', true),
     ],
     extras: {
-      'Small (~3-4) + Asian Greens': [{ ...I('Asian greens', 1, 'lb'), fixed: true }],
-      'Large (~6-8) + Asian Greens': [{ ...I('Asian greens', 1, 'lb'), fixed: true }],
+      'Small (~3-4) + Asian Greens (1/2 lb)': [{ ...I('Asian greens', 0.5, 'lb'), fixed: true }],
+      'Large (~6-8) + Asian Greens (1 lb)': [{ ...I('Asian greens', 1, 'lb'), fixed: true }],
     },
   },
   'Bolognese': {
-    factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
+    factors: {
+      'Small (split order, ~4)': 0.5, 'Large (~8)': 1,
+      'Small (split order, ~4) + Egg Pappardelle': 0.5, 'Large (~8) + Egg Pappardelle': 1,
+    },
     base: [
       I('Ground pork', 1, 'lb'),
       I('Ground lamb', 1, 'lb'),
@@ -94,6 +97,10 @@ export const RECIPES = {
       I('Pasta (ask customer for shape!)', 2, 'lb'),
       I('Nutmeg', 1, 'pinch', true),
     ],
+    extras: {
+      'Small (split order, ~4) + Egg Pappardelle': [I('Egg pappardelle', 2, 'packs')],
+      'Large (~8) + Egg Pappardelle': [I('Egg pappardelle', 3, 'packs')],
+    },
   },
   'Shrimp or Tofu with Asparagus in Black Bean Sauce': {
     factors: {
@@ -127,10 +134,10 @@ export const RECIPES = {
       I('Rice (included with order)', 1, 'batch', true),
     ],
   },
-  'Pasta with Red Sauce': {
+  'Pasta with Homegrown Tomato Sauce': {
     factors: { 'Base (~4)': 1, 'With Beef or Turkey': 1, 'With Mushrooms': 1, 'With Both': 1 },
     base: [
-      I('Canned tomatoes', 1, '28oz can'),
+      I('Homegrown tomatoes', 2, 'lb'),
       I('Garlic', 5, 'cloves'),
       I('Pasta', 1, 'lb'),
       I('Good olive oil', 1, 'glug', true),
@@ -336,7 +343,10 @@ export const RECIPES = {
     base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)],
   },
   'Saffron Pork Ragu': {
-    factors: { 'Small (~4 servings)': 1, 'Large (~8 servings)': 2 },
+    factors: {
+      'Small (~4 servings)': 1, 'Large (~8 servings)': 2,
+      'Small (~4 servings) + Polenta': 1, 'Large (~8 servings) + Polenta': 2,
+    },
     base: [
       I('Ground pork', 1, 'lb'),
       I('Fennel seeds', 1, 'tsp'),
@@ -347,6 +357,10 @@ export const RECIPES = {
       I('Saffron', 1, 'pinch', true),
       I('Pasta (ask customer for shape!)', 1, 'lb'),
     ],
+    extras: {
+      'Small (~4 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+      'Large (~8 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+    },
   },
   'Mapo Eggplant': {
     factors: { 'Small (~5-6 servings)': 1, 'Large (~10-12 servings)': 2 },
@@ -378,16 +392,24 @@ export const RECIPES = {
     ],
   },
   'Stir Fried Long Beans with Ground Pork': {
-    factors: { 'Small (~4)': 0.5, 'Large (~8)': 1 },
+    factors: {
+      'Small (~4), Ground Pork': 0.5, 'Large (~8), Ground Pork': 1,
+      'Small (~4), Tofu': 0.5, 'Large (~8), Tofu': 1,
+    },
     base: [
       I('Long beans', 1.5, 'lb'),
-      I('Ground pork', 1, 'lb'),
       I('Doubanjiang', 2, 'tbsp'),
       I('Garlic', 6, 'cloves'),
       I('Scallions', 1, 'bunch'),
       I('Soy sauce', 2, 'tbsp', true),
       I('Rice (included with order)', 1, 'batch', true),
     ],
+    extras: {
+      'Small (~4), Ground Pork': [I('Ground pork', 1, 'lb')],
+      'Large (~8), Ground Pork': [I('Ground pork', 1, 'lb')],
+      'Small (~4), Tofu': [I('Tofu', 1, 'block')],
+      'Large (~8), Tofu': [I('Tofu', 1, 'block')],
+    },
   },
   'Leblanc Inspired Japanese Curry': {
     factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
@@ -533,7 +555,7 @@ export const DINNER_REHEAT_BUCKET = {
   'Leblanc Inspired Japanese Curry': 'stovetop',
   // Pasta / noodle dishes — cook fresh, warm the sauce
   'Bolognese': 'pasta',
-  'Pasta with Red Sauce': 'pasta',
+  'Pasta with Homegrown Tomato Sauce': 'pasta',
   'Saffron Pork Ragu': 'pasta',
   'Cumin Mushroom Noodles': 'pasta',
   // Tex-Mex Kit — components, assemble at home
@@ -552,7 +574,7 @@ export const RICE_DISHES = new Set([
   'Leblanc Inspired Japanese Curry',
 ]);
 // Dishes that include uncooked pasta/noodles.
-export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Red Sauce', 'Saffron Pork Ragu']);
+export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Homegrown Tomato Sauce', 'Saffron Pork Ragu']);
 export const NOODLE_DISHES = new Set(['Cumin Mushroom Noodles']);
 // Bagged dishes whose reheat ends with "mix with cooked pasta" instead of "plate"
 export const BAGGED_PASTA_DISHES = new Set(['Pappardelle with Vegetables and Mint']);

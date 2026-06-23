@@ -6,45 +6,22 @@
 // ALL dinner dishes Kevin can make (the master menu). The Week tab picks which
 // are active; everything else below is always available.
 export const ALL_DINNERS = [
-  { name: 'Indian Style Curry', variants: [
-    { label: 'Chicken, Small (~4-5)', price: 27, cost: 14.97 },
-    { label: 'Shrimp, Small (~4-5)', price: 36, cost: 23.97 },
-    { label: 'Chickpea, Small (~4-5)', price: 22, cost: 9.97 },
-    { label: 'Chicken, Large (~8-10)', price: 50, cost: 23.94 },
-    { label: 'Shrimp, Large (~8-10)', price: 70, cost: 32.94 },
-    { label: 'Chickpea, Large (~8-10)', price: 40, cost: 18.94 },
+  // ── American / Southern / Tex-Mex ─────────────────────────────────────────
+  { name: 'Boeuf Bourguignon (Beef Stew)', variants: [
+    { label: '~6 servings', price: 100, cost: 45.08 },
+    { label: 'With 1 lb mushrooms', price: 112, cost: 51.08 },
   ]},
-  { name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce', variants: [
-    { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 21.99 },
-    { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 42.98 },
-    { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 10.6 },
-    { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 20.2 },
+  { name: 'Brunswick Stew', variants: [
+    { label: 'Small (~4)', price: 35, cost: 15.55 },
+    { label: 'Large (~8)', price: 65, cost: 31.1 },
   ]},
-  { name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli', variants: [
-    { label: 'Shrimp, Small Batch (~4)', price: 40, cost: 19.56 },
-    { label: 'Shrimp, Large Batch (~8)', price: 75, cost: 38.12 },
-    { label: 'Tofu, Small Batch (~4)', price: 25, cost: 8.17 },
-    { label: 'Tofu, Large Batch (~8)', price: 45, cost: 15.34 },
+  { name: 'Chili', variants: [
+    { label: 'Small (split order, ~3-4)', price: 45, cost: 18.53 },
+    { label: 'Large (~6-8)', price: 80, cost: 37.06 },
   ]},
-  { name: 'Cumin Mushroom Noodles', variants: [
-    { label: 'Small (~3-4)', price: 40, cost: 18.35 },
-    { label: 'Large (~6-8)', price: 75, cost: 35.7 },
-    { label: 'Small (~3-4) + Asian Greens', price: 45, cost: 20.35 },
-    { label: 'Large (~6-8) + Asian Greens', price: 80, cost: 37.7 },
-  ]},
-  { name: 'Thai Basil Chicken (Pad Krapow Gai)', variants: [
-    { label: 'Small (~3-4)', price: 30, cost: 13.35 },
-    { label: 'Large (~7-8)', price: 55, cost: 25.7 },
-  ]},
-  { name: 'Pasta with Red Sauce', variants: [
-    { label: 'Base (~4)', price: 15, cost: 7.24 },
-    { label: 'With Beef or Turkey', price: 30, cost: 14.24 },
-    { label: 'With Mushrooms', price: 21, cost: 10.24 },
-    { label: 'With Both', price: 36, cost: 17.24 },
-  ]},
-  { name: 'Bolognese', variants: [
-    { label: 'Small (split order, ~4)', price: 35, cost: 16.79 },
-    { label: 'Large (~8)', price: 60, cost: 32.57 },
+  { name: 'Gumbo', variants: [
+    { label: 'Small (split order, ~3-6)', price: 40, cost: 15.31 },
+    { label: 'Large (~8-12)', price: 75, cost: 30.63 },
   ]},
   { name: 'Tex-Mex Kit', variants: [
     { label: 'Pulled Pork, Small (~5-6)', price: 42, cost: 19.21 },
@@ -52,41 +29,74 @@ export const ALL_DINNERS = [
     { label: 'Pulled Beef, Small (~5-6)', price: 60, cost: 28.05 },
     { label: 'Pulled Beef, Large (~9-10)', price: 115, cost: 55.1 },
   ]},
-  { name: 'Brunswick Stew', variants: [
-    { label: 'Small (~4)', price: 35, cost: 15.55 },
-    { label: 'Large (~8)', price: 65, cost: 31.1 },
-  ]},
-  { name: 'Boeuf Bourguignon (Beef Stew)', variants: [
-    { label: '~6 servings', price: 100, cost: 45.08 },
-    { label: 'With 1 lb mushrooms', price: 112, cost: 51.08 },
-  ]},
-  { name: 'Chili', variants: [
-    { label: 'Small (split order, ~3-4)', price: 45, cost: 18.53 },
-    { label: 'Large (~6-8)', price: 80, cost: 37.06 },
-  ]},
-  { name: 'Saffron Pork Ragu', variants: [
-    { label: 'Small (~4 servings)', price: 40, cost: 16.48 },
-    { label: 'Large (~8 servings)', price: 75, cost: 32.96 },
-  ]},
-  { name: 'Mapo Eggplant', variants: [
-    { label: 'Small (~5-6 servings)', price: 35, cost: 13.63 },
-    { label: 'Large (~10-12 servings)', price: 65, cost: 27.26 },
-  ]},
-  { name: 'Gumbo', variants: [
-    { label: 'Small (split order, ~3-4)', price: 40, cost: 15.31 },
-    { label: 'Large (~7-8)', price: 65, cost: 30.63 },
-  ]},
-  { name: 'Stir Fried Long Beans with Ground Pork', variants: [
-    { label: 'Small (~4)', price: 30, cost: 11.58 },
-    { label: 'Large (~8)', price: 55, cost: 23.16 },
+  // ── Curry ──────────────────────────────────────────────────────────────────
+  { name: 'Indian Style Curry', variants: [
+    { label: 'Chickpea, Small (~4-5)', price: 22, cost: 9.97 },
+    { label: 'Chicken, Small (~4-5)', price: 27, cost: 14.97 },
+    { label: 'Shrimp, Small (~4-5)', price: 40, cost: 23.97 },
+    { label: 'Chickpea, Large (~8-10)', price: 40, cost: 18.94 },
+    { label: 'Chicken, Large (~8-10)', price: 50, cost: 23.94 },
+    { label: 'Shrimp, Large (~8-10)', price: 75, cost: 32.94 },
   ]},
   { name: 'Leblanc Inspired Japanese Curry', variants: [
     { label: 'Small (split order, ~4)', price: 40, cost: 17.33 },
     { label: 'Large (~8)', price: 75, cost: 34.65 },
   ]},
+  // ── East Asian ─────────────────────────────────────────────────────────────
+  { name: 'Cumin Mushroom Noodles', variants: [
+    { label: 'Small (~3-4)', price: 40, cost: 18.35 },
+    { label: 'Large (~6-8)', price: 75, cost: 35.7 },
+    { label: 'Small (~3-4) + Asian Greens (1/2 lb)', price: 45, cost: 20.35 },
+    { label: 'Large (~6-8) + Asian Greens (1 lb)', price: 80, cost: 37.7 },
+  ]},
+  { name: 'Mapo Eggplant', variants: [
+    { label: 'Small (~5-6 servings)', price: 35, cost: 13.63 },
+    { label: 'Large (~10-12 servings)', price: 65, cost: 27.26 },
+  ]},
+  { name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce', variants: [
+    { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 21.99 },
+    { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 42.98 },
+    { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 10.6 },
+    { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 20.2 },
+  ]},
+  { name: 'Stir Fried Long Beans with Ground Pork', variants: [
+    { label: 'Small (~4), Ground Pork', price: 30, cost: 11.58 },
+    { label: 'Large (~8), Ground Pork', price: 55, cost: 23.16 },
+    { label: 'Small (~4), Tofu', price: 30, cost: 11.58 },
+    { label: 'Large (~8), Tofu', price: 55, cost: 23.16 },
+  ]},
+  { name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli', variants: [
+    { label: 'Shrimp, Small Batch (~4)', price: 40, cost: 19.56 },
+    { label: 'Shrimp, Large Batch (~8)', price: 75, cost: 38.12 },
+    { label: 'Tofu, Small Batch (~4)', price: 25, cost: 8.17 },
+    { label: 'Tofu, Large Batch (~8)', price: 45, cost: 15.34 },
+  ]},
+  { name: 'Thai Basil Chicken (Pad Krapow Gai)', variants: [
+    { label: 'Small (~3-4)', price: 30, cost: 13.35 },
+    { label: 'Large (~7-8)', price: 55, cost: 25.7 },
+  ]},
+  // ── Italian ────────────────────────────────────────────────────────────────
+  { name: 'Bolognese', variants: [
+    { label: 'Small (split order, ~4)', price: 40, cost: 16.79 },
+    { label: 'Large (~8)', price: 70, cost: 32.57 },
+    { label: 'Small (split order, ~4) + Egg Pappardelle', price: 50, cost: 26.79 },
+    { label: 'Large (~8) + Egg Pappardelle', price: 85, cost: 42.57 },
+  ]},
+  { name: 'Pasta with Homegrown Tomato Sauce', variants: [
+    { label: 'Base (~4)', price: 20, cost: 7.24 },
+    { label: 'With Beef or Turkey', price: 35, cost: 14.24 },
+    { label: 'With Mushrooms', price: 26, cost: 10.24 },
+    { label: 'With Both', price: 41, cost: 17.24 },
+  ]},
   { name: 'Pappardelle with Vegetables and Mint', variants: [
-    { label: 'Small (split order, ~3-4)', price: 30, cost: 14.30 },
-    { label: 'Large (~6-7)', price: 55, cost: 28.60 },
+    { label: 'Small (~2-3)', price: 30, cost: 14.30 },
+    { label: 'Large (~5-6)', price: 55, cost: 28.60 },
+  ]},
+  { name: 'Saffron Pork Ragu', variants: [
+    { label: 'Small (~4 servings)', price: 40, cost: 16.48 },
+    { label: 'Large (~8 servings)', price: 75, cost: 32.96 },
+    { label: 'Small (~4 servings) + Polenta', price: 48, cost: 21.48 },
+    { label: 'Large (~8 servings) + Polenta', price: 90, cost: 42.96 },
   ]},
 ];
 

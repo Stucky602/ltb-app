@@ -7280,45 +7280,22 @@
 
   // src/menu.js
   var ALL_DINNERS = [
-    { name: "Indian Style Curry", variants: [
-      { label: "Chicken, Small (~4-5)", price: 27, cost: 14.97 },
-      { label: "Shrimp, Small (~4-5)", price: 36, cost: 23.97 },
-      { label: "Chickpea, Small (~4-5)", price: 22, cost: 9.97 },
-      { label: "Chicken, Large (~8-10)", price: 50, cost: 23.94 },
-      { label: "Shrimp, Large (~8-10)", price: 70, cost: 32.94 },
-      { label: "Chickpea, Large (~8-10)", price: 40, cost: 18.94 }
+    // ── American / Southern / Tex-Mex ─────────────────────────────────────────
+    { name: "Boeuf Bourguignon (Beef Stew)", variants: [
+      { label: "~6 servings", price: 100, cost: 45.08 },
+      { label: "With 1 lb mushrooms", price: 112, cost: 51.08 }
     ] },
-    { name: "Shrimp or Tofu with Asparagus in Black Bean Sauce", variants: [
-      { label: "Shrimp, Small Batch (~3-4)", price: 40, cost: 21.99 },
-      { label: "Shrimp, Large Batch (~7-8)", price: 75, cost: 42.98 },
-      { label: "Tofu, Small Batch (~3-4)", price: 25, cost: 10.6 },
-      { label: "Tofu, Large Batch (~7-8)", price: 45, cost: 20.2 }
+    { name: "Brunswick Stew", variants: [
+      { label: "Small (~4)", price: 35, cost: 15.55 },
+      { label: "Large (~8)", price: 65, cost: 31.1 }
     ] },
-    { name: "Texas Gulf Shrimp or Tofu and Chinese Broccoli", variants: [
-      { label: "Shrimp, Small Batch (~4)", price: 40, cost: 19.56 },
-      { label: "Shrimp, Large Batch (~8)", price: 75, cost: 38.12 },
-      { label: "Tofu, Small Batch (~4)", price: 25, cost: 8.17 },
-      { label: "Tofu, Large Batch (~8)", price: 45, cost: 15.34 }
+    { name: "Chili", variants: [
+      { label: "Small (split order, ~3-4)", price: 45, cost: 18.53 },
+      { label: "Large (~6-8)", price: 80, cost: 37.06 }
     ] },
-    { name: "Cumin Mushroom Noodles", variants: [
-      { label: "Small (~3-4)", price: 40, cost: 18.35 },
-      { label: "Large (~6-8)", price: 75, cost: 35.7 },
-      { label: "Small (~3-4) + Asian Greens", price: 45, cost: 20.35 },
-      { label: "Large (~6-8) + Asian Greens", price: 80, cost: 37.7 }
-    ] },
-    { name: "Thai Basil Chicken (Pad Krapow Gai)", variants: [
-      { label: "Small (~3-4)", price: 30, cost: 13.35 },
-      { label: "Large (~7-8)", price: 55, cost: 25.7 }
-    ] },
-    { name: "Pasta with Red Sauce", variants: [
-      { label: "Base (~4)", price: 15, cost: 7.24 },
-      { label: "With Beef or Turkey", price: 30, cost: 14.24 },
-      { label: "With Mushrooms", price: 21, cost: 10.24 },
-      { label: "With Both", price: 36, cost: 17.24 }
-    ] },
-    { name: "Bolognese", variants: [
-      { label: "Small (split order, ~4)", price: 35, cost: 16.79 },
-      { label: "Large (~8)", price: 60, cost: 32.57 }
+    { name: "Gumbo", variants: [
+      { label: "Small (split order, ~3-6)", price: 40, cost: 15.31 },
+      { label: "Large (~8-12)", price: 75, cost: 30.63 }
     ] },
     { name: "Tex-Mex Kit", variants: [
       { label: "Pulled Pork, Small (~5-6)", price: 42, cost: 19.21 },
@@ -7326,33 +7303,74 @@
       { label: "Pulled Beef, Small (~5-6)", price: 60, cost: 28.05 },
       { label: "Pulled Beef, Large (~9-10)", price: 115, cost: 55.1 }
     ] },
-    { name: "Brunswick Stew", variants: [
-      { label: "Small (~4)", price: 35, cost: 15.55 },
-      { label: "Large (~8)", price: 65, cost: 31.1 }
+    // ── Curry ──────────────────────────────────────────────────────────────────
+    { name: "Indian Style Curry", variants: [
+      { label: "Chickpea, Small (~4-5)", price: 22, cost: 9.97 },
+      { label: "Chicken, Small (~4-5)", price: 27, cost: 14.97 },
+      { label: "Shrimp, Small (~4-5)", price: 40, cost: 23.97 },
+      { label: "Chickpea, Large (~8-10)", price: 40, cost: 18.94 },
+      { label: "Chicken, Large (~8-10)", price: 50, cost: 23.94 },
+      { label: "Shrimp, Large (~8-10)", price: 75, cost: 32.94 }
     ] },
-    { name: "Boeuf Bourguignon (Beef Stew)", variants: [
-      { label: "~6 servings", price: 100, cost: 45.08 },
-      { label: "With 1 lb mushrooms", price: 112, cost: 51.08 }
+    { name: "Leblanc Inspired Japanese Curry", variants: [
+      { label: "Small (split order, ~4)", price: 40, cost: 17.33 },
+      { label: "Large (~8)", price: 75, cost: 34.65 }
     ] },
-    { name: "Chili", variants: [
-      { label: "Small (split order, ~3-4)", price: 45, cost: 18.53 },
-      { label: "Large (~6-8)", price: 80, cost: 37.06 }
-    ] },
-    { name: "Saffron Pork Ragu", variants: [
-      { label: "Small (~4 servings)", price: 40, cost: 16.48 },
-      { label: "Large (~8 servings)", price: 75, cost: 32.96 }
+    // ── East Asian ─────────────────────────────────────────────────────────────
+    { name: "Cumin Mushroom Noodles", variants: [
+      { label: "Small (~3-4)", price: 40, cost: 18.35 },
+      { label: "Large (~6-8)", price: 75, cost: 35.7 },
+      { label: "Small (~3-4) + Asian Greens (1/2 lb)", price: 45, cost: 20.35 },
+      { label: "Large (~6-8) + Asian Greens (1 lb)", price: 80, cost: 37.7 }
     ] },
     { name: "Mapo Eggplant", variants: [
       { label: "Small (~5-6 servings)", price: 35, cost: 13.63 },
       { label: "Large (~10-12 servings)", price: 65, cost: 27.26 }
     ] },
-    { name: "Gumbo", variants: [
-      { label: "Small (split order, ~3-4)", price: 40, cost: 15.31 },
-      { label: "Large (~7-8)", price: 65, cost: 30.63 }
+    { name: "Shrimp or Tofu with Asparagus in Black Bean Sauce", variants: [
+      { label: "Shrimp, Small Batch (~3-4)", price: 40, cost: 21.99 },
+      { label: "Shrimp, Large Batch (~7-8)", price: 75, cost: 42.98 },
+      { label: "Tofu, Small Batch (~3-4)", price: 25, cost: 10.6 },
+      { label: "Tofu, Large Batch (~7-8)", price: 45, cost: 20.2 }
     ] },
     { name: "Stir Fried Long Beans with Ground Pork", variants: [
-      { label: "Small (~4)", price: 30, cost: 11.58 },
-      { label: "Large (~8)", price: 55, cost: 23.16 }
+      { label: "Small (~4), Ground Pork", price: 30, cost: 11.58 },
+      { label: "Large (~8), Ground Pork", price: 55, cost: 23.16 },
+      { label: "Small (~4), Tofu", price: 30, cost: 11.58 },
+      { label: "Large (~8), Tofu", price: 55, cost: 23.16 }
+    ] },
+    { name: "Texas Gulf Shrimp or Tofu and Chinese Broccoli", variants: [
+      { label: "Shrimp, Small Batch (~4)", price: 40, cost: 19.56 },
+      { label: "Shrimp, Large Batch (~8)", price: 75, cost: 38.12 },
+      { label: "Tofu, Small Batch (~4)", price: 25, cost: 8.17 },
+      { label: "Tofu, Large Batch (~8)", price: 45, cost: 15.34 }
+    ] },
+    { name: "Thai Basil Chicken (Pad Krapow Gai)", variants: [
+      { label: "Small (~3-4)", price: 30, cost: 13.35 },
+      { label: "Large (~7-8)", price: 55, cost: 25.7 }
+    ] },
+    // ── Italian ────────────────────────────────────────────────────────────────
+    { name: "Bolognese", variants: [
+      { label: "Small (split order, ~4)", price: 40, cost: 16.79 },
+      { label: "Large (~8)", price: 70, cost: 32.57 },
+      { label: "Small (split order, ~4) + Egg Pappardelle", price: 50, cost: 26.79 },
+      { label: "Large (~8) + Egg Pappardelle", price: 85, cost: 42.57 }
+    ] },
+    { name: "Pasta with Homegrown Tomato Sauce", variants: [
+      { label: "Base (~4)", price: 20, cost: 7.24 },
+      { label: "With Beef or Turkey", price: 35, cost: 14.24 },
+      { label: "With Mushrooms", price: 26, cost: 10.24 },
+      { label: "With Both", price: 41, cost: 17.24 }
+    ] },
+    { name: "Pappardelle with Vegetables and Mint", variants: [
+      { label: "Small (~2-3)", price: 30, cost: 14.3 },
+      { label: "Large (~5-6)", price: 55, cost: 28.6 }
+    ] },
+    { name: "Saffron Pork Ragu", variants: [
+      { label: "Small (~4 servings)", price: 40, cost: 16.48 },
+      { label: "Large (~8 servings)", price: 75, cost: 32.96 },
+      { label: "Small (~4 servings) + Polenta", price: 48, cost: 21.48 },
+      { label: "Large (~8 servings) + Polenta", price: 90, cost: 42.96 }
     ] }
   ];
   var DEFAULT_WEEK = ["Shrimp or Tofu with Asparagus in Black Bean Sauce", "Thai Basil Chicken (Pad Krapow Gai)", "Saffron Pork Ragu", "Mapo Eggplant", "Gumbo"];
@@ -7506,8 +7524,8 @@
       factors: {
         "Small (~3-4)": 0.5,
         "Large (~6-8)": 1,
-        "Small (~3-4) + Asian Greens": 0.5,
-        "Large (~6-8) + Asian Greens": 1
+        "Small (~3-4) + Asian Greens (1/2 lb)": 0.5,
+        "Large (~6-8) + Asian Greens (1 lb)": 1
       },
       base: [
         I("Mushrooms", 3, "lb"),
@@ -7522,12 +7540,17 @@
         I("House chili oil", 1, "cup", true)
       ],
       extras: {
-        "Small (~3-4) + Asian Greens": [{ ...I("Asian greens", 1, "lb"), fixed: true }],
-        "Large (~6-8) + Asian Greens": [{ ...I("Asian greens", 1, "lb"), fixed: true }]
+        "Small (~3-4) + Asian Greens (1/2 lb)": [{ ...I("Asian greens", 0.5, "lb"), fixed: true }],
+        "Large (~6-8) + Asian Greens (1 lb)": [{ ...I("Asian greens", 1, "lb"), fixed: true }]
       }
     },
     "Bolognese": {
-      factors: { "Small (split order, ~4)": 0.5, "Large (~8)": 1 },
+      factors: {
+        "Small (split order, ~4)": 0.5,
+        "Large (~8)": 1,
+        "Small (split order, ~4) + Egg Pappardelle": 0.5,
+        "Large (~8) + Egg Pappardelle": 1
+      },
       base: [
         I("Ground pork", 1, "lb"),
         I("Ground lamb", 1, "lb"),
@@ -7541,7 +7564,11 @@
         I("Garlic", 4, "cloves"),
         I("Pasta (ask customer for shape!)", 2, "lb"),
         I("Nutmeg", 1, "pinch", true)
-      ]
+      ],
+      extras: {
+        "Small (split order, ~4) + Egg Pappardelle": [I("Egg pappardelle", 2, "packs")],
+        "Large (~8) + Egg Pappardelle": [I("Egg pappardelle", 3, "packs")]
+      }
     },
     "Shrimp or Tofu with Asparagus in Black Bean Sauce": {
       factors: {
@@ -7577,10 +7604,10 @@
         I("Rice (included with order)", 1, "batch", true)
       ]
     },
-    "Pasta with Red Sauce": {
+    "Pasta with Homegrown Tomato Sauce": {
       factors: { "Base (~4)": 1, "With Beef or Turkey": 1, "With Mushrooms": 1, "With Both": 1 },
       base: [
-        I("Canned tomatoes", 1, "28oz can"),
+        I("Homegrown tomatoes", 2, "lb"),
         I("Garlic", 5, "cloves"),
         I("Pasta", 1, "lb"),
         I("Good olive oil", 1, "glug", true)
@@ -7788,7 +7815,12 @@
       base: [I("Pork tenderloin", 1.25, "lb"), I("Sous vide bag + seasonings", 1, "", true)]
     },
     "Saffron Pork Ragu": {
-      factors: { "Small (~4 servings)": 1, "Large (~8 servings)": 2 },
+      factors: {
+        "Small (~4 servings)": 1,
+        "Large (~8 servings)": 2,
+        "Small (~4 servings) + Polenta": 1,
+        "Large (~8 servings) + Polenta": 2
+      },
       base: [
         I("Ground pork", 1, "lb"),
         I("Fennel seeds", 1, "tsp"),
@@ -7798,7 +7830,11 @@
         I("Dry sherry", 0.25, "cup"),
         I("Saffron", 1, "pinch", true),
         I("Pasta (ask customer for shape!)", 1, "lb")
-      ]
+      ],
+      extras: {
+        "Small (~4 servings) + Polenta": [I("Polenta + butter + parmesan (bagged)", 1, "batch")],
+        "Large (~8 servings) + Polenta": [I("Polenta + butter + parmesan (bagged)", 1, "batch")]
+      }
     },
     "Mapo Eggplant": {
       factors: { "Small (~5-6 servings)": 1, "Large (~10-12 servings)": 2 },
@@ -7824,21 +7860,66 @@
         I("Celery", 3, "stalks"),
         I("Garlic", 4, "cloves"),
         I("Flour", 1, "cup"),
-        I("Okra", 0.5, "lb"),
+        I("Fil\xE9 powder", 1, "tbsp", true),
         I("Cajun spices", 1, "blend", true),
         I("Rice (included with order)", 1, "batch", true)
       ]
     },
     "Stir Fried Long Beans with Ground Pork": {
-      factors: { "Small (~4)": 0.5, "Large (~8)": 1 },
+      factors: {
+        "Small (~4), Ground Pork": 0.5,
+        "Large (~8), Ground Pork": 1,
+        "Small (~4), Tofu": 0.5,
+        "Large (~8), Tofu": 1
+      },
       base: [
         I("Long beans", 1.5, "lb"),
-        I("Ground pork", 1, "lb"),
         I("Doubanjiang", 2, "tbsp"),
         I("Garlic", 6, "cloves"),
         I("Scallions", 1, "bunch"),
         I("Soy sauce", 2, "tbsp", true),
         I("Rice (included with order)", 1, "batch", true)
+      ],
+      extras: {
+        "Small (~4), Ground Pork": [I("Ground pork", 1, "lb")],
+        "Large (~8), Ground Pork": [I("Ground pork", 1, "lb")],
+        "Small (~4), Tofu": [I("Tofu", 1, "block")],
+        "Large (~8), Tofu": [I("Tofu", 1, "block")]
+      }
+    },
+    "Leblanc Inspired Japanese Curry": {
+      factors: { "Small (split order, ~4)": 0.5, "Large (~8)": 1 },
+      base: [
+        I("Wagyu london broil", 1.25, "lb"),
+        I("Kabocha squash", 1, "lb"),
+        I("Carrots", 1, "lb"),
+        I("Onion", 1, ""),
+        I("Apple", 1, ""),
+        I("Ginger", 1, "knob"),
+        I("Red wine", 1, "cup"),
+        I("Beef stock", 4, "cups"),
+        I("100% dark chocolate", 1, "square"),
+        I("Espresso", 1, "shot"),
+        I("Curry spice blend", 1, "batch", true),
+        I("Honey + fish sauce + butter", 1, "batch", true),
+        I("Bay leaf", 1, "", true),
+        I("Rice (included with order)", 1, "batch", true)
+      ]
+    },
+    "Pappardelle with Vegetables and Mint": {
+      factors: { "Small (split order, ~3-4)": 0.5, "Large (~6-7)": 1 },
+      base: [
+        I("Egg pappardelle", 2, "packs"),
+        I("Fennel bulb", 1, ""),
+        I("Bulb onions", 1, "bunch"),
+        I("Asparagus", 0.5, "lb"),
+        I("Petite peas", 8, "oz"),
+        I("Fresh mint", 2, "sprigs"),
+        I("Good parmesan", 1, "cup"),
+        I("Heavy cream", 0.5, "cup"),
+        I("White wine", 1, "cup"),
+        I("Lemon", 1, ""),
+        I("Xanthan gum + lecithin powder", 1, "batch", true)
       ]
     }
   };
@@ -7906,6 +7987,7 @@
     "Texas Gulf Shrimp or Tofu and Chinese Broccoli": "bagged",
     "Thai Basil Chicken (Pad Krapow Gai)": "bagged",
     "Stir Fried Long Beans with Ground Pork": "bagged",
+    "Pappardelle with Vegetables and Mint": "bagged",
     // Stovetop in a container — warm gently, splash of water if thick
     "Mapo Eggplant": "stovetop",
     "Gumbo": "stovetop",
@@ -7913,9 +7995,10 @@
     "Chili": "stovetop",
     "Boeuf Bourguignon (Beef Stew)": "stovetop",
     "Indian Style Curry": "stovetop",
+    "Leblanc Inspired Japanese Curry": "stovetop",
     // Pasta / noodle dishes — cook fresh, warm the sauce
     "Bolognese": "pasta",
-    "Pasta with Red Sauce": "pasta",
+    "Pasta with Homegrown Tomato Sauce": "pasta",
     "Saffron Pork Ragu": "pasta",
     "Cumin Mushroom Noodles": "pasta",
     // Tex-Mex Kit — components, assemble at home
@@ -7928,10 +8011,13 @@
     "Stir Fried Long Beans with Ground Pork",
     "Mapo Eggplant",
     "Gumbo",
-    "Indian Style Curry"
+    "Indian Style Curry",
+    "Leblanc Inspired Japanese Curry"
   ]);
-  var PASTA_DISHES = /* @__PURE__ */ new Set(["Bolognese", "Pasta with Red Sauce", "Saffron Pork Ragu"]);
+  var PASTA_DISHES = /* @__PURE__ */ new Set(["Bolognese", "Pasta with Homegrown Tomato Sauce", "Saffron Pork Ragu"]);
   var NOODLE_DISHES = /* @__PURE__ */ new Set(["Cumin Mushroom Noodles"]);
+  var BAGGED_PASTA_DISHES = /* @__PURE__ */ new Set(["Pappardelle with Vegetables and Mint"]);
+  var STEW_VEG_DISHES = /* @__PURE__ */ new Set(["Boeuf Bourguignon (Beef Stew)", "Leblanc Inspired Japanese Curry"]);
   function buildReheatBlocks(order) {
     const items = order.items || [];
     const blocks = [];
@@ -7939,6 +8025,7 @@
     const proteins = [];
     const veg = [];
     let hasQueso = false;
+    let hasPolenta = false;
     const seen = /* @__PURE__ */ new Set();
     items.forEach((it) => {
       const name = it.name;
@@ -7958,6 +8045,7 @@
         seen.add(name);
         return;
       }
+      if (name === "Saffron Pork Ragu" && it.variant && it.variant.includes("Polenta")) hasPolenta = true;
       const b = DINNER_REHEAT_BUCKET[name];
       if (b && byBucket[b]) {
         byBucket[b].push(name);
@@ -7968,14 +8056,33 @@
     const listHasPasta = (names) => names.some((n) => PASTA_DISHES.has(n));
     const listHasNoodle = (names) => names.some((n) => NOODLE_DISHES.has(n));
     if (byBucket.bagged.length) {
-      let body = "Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and plate. Microwave or stovetop work too if you prefer. See the main menu for additional details.";
-      if (listHasRice(byBucket.bagged)) body += " Cook the included rice fresh.";
-      blocks.push({ title: "Reheat in the bag", dishes: byBucket.bagged, body });
+      const regularBagged = byBucket.bagged.filter((n) => !BAGGED_PASTA_DISHES.has(n));
+      const baggedPasta = byBucket.bagged.filter((n) => BAGGED_PASTA_DISHES.has(n));
+      if (regularBagged.length) {
+        let body = "Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and plate. Microwave or stovetop work too if you prefer. See the main menu for additional details.";
+        if (listHasRice(regularBagged)) body += " Cook the included rice fresh.";
+        blocks.push({ title: "Reheat in the bag", dishes: regularBagged, body });
+      }
+      if (baggedPasta.length) {
+        blocks.push({
+          title: "Reheat in the bag (pasta)",
+          dishes: baggedPasta,
+          body: "Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and mix with cooked pasta."
+        });
+      }
     }
     if (byBucket.stovetop.length) {
       let body = "Comes in a container. Warm gently on the stove over medium-low until heated through. If it looks a little thick, add a splash of water to loosen it.";
       if (listHasRice(byBucket.stovetop)) body += " Cook the included rice fresh.";
       blocks.push({ title: "Reheat on the stovetop", dishes: byBucket.stovetop, body });
+      const stewVegDishes = byBucket.stovetop.filter((n) => STEW_VEG_DISHES.has(n));
+      if (stewVegDishes.length) {
+        blocks.push({
+          title: "Reheat the vegetable bag",
+          dishes: stewVegDishes,
+          body: "Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold into the main dish right before serving to keep the vegetables at peak doneness."
+        });
+      }
     }
     if (byBucket.pasta.length) {
       const hasP = listHasPasta(byBucket.pasta);
@@ -7984,11 +8091,18 @@
       let body = `Cook the included ${carb} fresh. Warm the sauce gently on the stove, adding a splash of pasta water to loosen if needed, then toss together.`;
       blocks.push({ title: "Cook fresh, warm the sauce", dishes: byBucket.pasta, body });
     }
+    if (hasPolenta) {
+      blocks.push({
+        title: "Reheat the polenta bag",
+        dishes: ["Saffron Pork Ragu"],
+        body: "Bring a pot of water to a gentle simmer and place the sealed polenta bag in until heated through, then cut open and plate alongside the ragu."
+      });
+    }
     if (byBucket.kit.length) {
       blocks.push({
         title: "Assemble at home",
         dishes: byBucket.kit,
-        body: "Components travel separately with assembly notes. Warm the protein gently before building."
+        body: "Components travel separately with assembly notes. Warm the protein gently before building. The beans travel in a separate bag \u2014 warm them on the stovetop or in the microwave."
       });
     }
     if (proteins.length) {
@@ -8152,6 +8266,19 @@
     const d = /* @__PURE__ */ new Date();
     const mo = d.toLocaleDateString(void 0, { month: "short" });
     return `[Auto-insight \xB7 ${mo} ${d.getDate()}] ${text}`;
+  }
+  var _html2canvasPromise = null;
+  function loadHtml2Canvas() {
+    if (window.html2canvas) return Promise.resolve(window.html2canvas);
+    if (_html2canvasPromise) return _html2canvasPromise;
+    _html2canvasPromise = new Promise((resolve) => {
+      const s = document.createElement("script");
+      s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      s.onload = () => resolve(window.html2canvas || null);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+    return _html2canvasPromise;
   }
   function discountAmount(itemsTotal, discountType, discountValue) {
     if (!discountType || !discountValue) return 0;
@@ -12218,23 +12345,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.cookItemText }, /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.cookItemName }, dish.name), /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.cookItemVariant }, dish.variants.length, " option", dish.variants.length !== 1 ? "s" : "", " \xB7 ", priceLabel)),
         /* @__PURE__ */ import_react4.default.createElement("div", { style: { ...styles.cookItemQty, color: isOn ? "#5DCAA5" : "#5F5E5A", fontSize: "11px", fontWeight: 700 } }, isOn ? "ON" : "OFF")
       );
-    }), selected.length > 0 && /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.genTitle }, "Publish this week's menu"), /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.genHint }, "Pushes the checked dishes and prices to your order form instantly. Customers see the new menu the moment you publish. Optionally add the menu PDF link and a week label that show on the form."), /* @__PURE__ */ import_react4.default.createElement("label", { style: styles.miniLabel }, "Week label (optional)"), /* @__PURE__ */ import_react4.default.createElement(
-      "input",
-      {
-        style: styles.input,
-        value: weekLabel,
-        onChange: (e) => setWeekLabel(e.target.value),
-        placeholder: "e.g. Week of June 22 \xB7 Delivery June 25"
-      }
-    ), /* @__PURE__ */ import_react4.default.createElement("label", { style: styles.miniLabel }, "Menu PDF link (optional)"), /* @__PURE__ */ import_react4.default.createElement(
-      "input",
-      {
-        style: styles.input,
-        value: pdfUrl,
-        onChange: (e) => setPdfUrl(e.target.value),
-        placeholder: "https://...workers.dev/LTB_Weekly_Menu.pdf"
-      }
-    ), /* @__PURE__ */ import_react4.default.createElement(
+    }), selected.length > 0 && /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.genTitle }, "Publish this week's menu"), /* @__PURE__ */ import_react4.default.createElement("div", { style: styles.genHint }, "Pushes the checked dishes and prices to your order form instantly. Customers see the new menu the moment you publish. Optionally add the menu PDF link and a week label that show on the form."), /* @__PURE__ */ import_react4.default.createElement(
       "button",
       {
         style: { ...styles.saveBtn, marginTop: "10px", background: publishMsg?.ok ? "#1D9E75" : void 0 },
@@ -12459,6 +12570,50 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
 
   // src/components/OrderForm.jsx
   var import_react6 = __toESM(require_react());
+  function SpicePicker({ note, onSetNote }) {
+    const match = note.match(/Spice:\s*(\d)/);
+    const current = match ? parseInt(match[1]) : null;
+    const setSpice = (level) => {
+      const base = note.replace(/Spice:\s*\d\.?\s*/g, "").trim();
+      onSetNote("Spice: " + level + (base ? ". " + base : ""));
+    };
+    return /* @__PURE__ */ import_react6.default.createElement("div", null, /* @__PURE__ */ import_react6.default.createElement("label", { style: { fontSize: "11px", color: "#9aa5a0", display: "block", marginBottom: "4px" } }, "Spice level (1\u20135)"), /* @__PURE__ */ import_react6.default.createElement("div", { style: { display: "flex", gap: "6px", marginBottom: "8px" } }, [1, 2, 3, 4, 5].map((level) => /* @__PURE__ */ import_react6.default.createElement(
+      "button",
+      {
+        key: level,
+        style: {
+          flex: 1,
+          padding: "6px 0",
+          borderRadius: "6px",
+          border: "none",
+          cursor: "pointer",
+          background: current === level ? "#1D9E75" : "#2a2f2d",
+          color: current === level ? "#1a1a1a" : "#c8cfc9",
+          fontWeight: 700,
+          fontSize: "14px"
+        },
+        onClick: () => setSpice(level)
+      },
+      level
+    ))));
+  }
+  function PastaPicker({ note, onSetNote }) {
+    const match = note.match(/Pasta:\s*([^.]+)/);
+    const current = match ? match[1].trim() : "";
+    const setPasta = (val) => {
+      const base = note.replace(/Pasta:\s*[^.]+\.?\s*/g, "").trim();
+      onSetNote(val.trim() ? "Pasta: " + val.trim() + (base ? ". " + base : "") : base);
+    };
+    return /* @__PURE__ */ import_react6.default.createElement("div", null, /* @__PURE__ */ import_react6.default.createElement("label", { style: { fontSize: "11px", color: "#9aa5a0", display: "block", marginBottom: "4px" } }, "Pasta shape"), /* @__PURE__ */ import_react6.default.createElement(
+      "input",
+      {
+        style: { width: "100%", padding: "8px 10px", borderRadius: "8px", border: "1px solid #3a4040", background: "#1e2422", color: "#e8ede9", fontSize: "14px", marginBottom: "8px", boxSizing: "border-box" },
+        placeholder: "e.g. rigatoni, pappardelle",
+        value: current,
+        onChange: (e) => setPasta(e.target.value)
+      }
+    ));
+  }
   function OrderForm({ menu, initial, recentCustomers, regulars, onSave, onCancel }) {
     const isEdit = !!initial?.id;
     const [customer, setCustomer] = (0, import_react6.useState)(initial?.customer || "");
@@ -12617,7 +12772,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         },
         /* @__PURE__ */ import_react6.default.createElement("span", { style: styles.reviewText }, it.qty, "\xD7 ", it.name, " ", /* @__PURE__ */ import_react6.default.createElement("span", { style: styles.orderItemVariant }, "(", it.variant, ")")),
         hasExtra && /* @__PURE__ */ import_react6.default.createElement("span", { style: styles.itemExtraDot })
-      ), /* @__PURE__ */ import_react6.default.createElement(QtyControl, { value: it.qty, onChange: (q) => setQty(idx, q) })), !open && isPerLbItem2(it.name) && (it.weight > 0 ? /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargePreview }, it.weight, " lb \xB7 ", currency(it.price)) : /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "set weight \u2304")), !open && it.note && /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemNotePreview }, "\u201C", it.note, "\u201D"), !open && it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargePreview }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), ")") : null, !open && it.upcharge && typeof it.upcharge === "object" && it.upcharge.label && !it.upcharge.amount ? /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "+ ", it.upcharge.label, " \u2014 set a price \u2304") : null, open && /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemEditor }, isPerLbItem2(it.name) && /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.weightDeferNote }, "Priced by weight (", currency(PER_LB_ITEMS[it.name].pricePerLb), "/lb + $1.50 bag). Set the actual weight from the order after you've weighed it."), /* @__PURE__ */ import_react6.default.createElement("label", { style: styles.miniLabel }, "Note for this item"), /* @__PURE__ */ import_react6.default.createElement(
+      ), /* @__PURE__ */ import_react6.default.createElement(QtyControl, { value: it.qty, onChange: (q) => setQty(idx, q) })), !open && isPerLbItem2(it.name) && (it.weight > 0 ? /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargePreview }, it.weight, " lb \xB7 ", currency(it.price)) : /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "set weight \u2304")), !open && it.note && /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemNotePreview }, "\u201C", it.note, "\u201D"), !open && it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargePreview }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), ")") : null, !open && it.upcharge && typeof it.upcharge === "object" && it.upcharge.label && !it.upcharge.amount ? /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemUpchargeNeedsPrice }, "+ ", it.upcharge.label, " \u2014 set a price \u2304") : null, open && /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.itemEditor }, isPerLbItem2(it.name) && /* @__PURE__ */ import_react6.default.createElement("div", { style: styles.weightDeferNote }, "Priced by weight (", currency(PER_LB_ITEMS[it.name].pricePerLb), "/lb + $1.50 bag). Set the actual weight from the order after you've weighed it."), (it.name === "Indian Style Curry" || it.name === "Thai Basil Chicken (Pad Krapow Gai)") && /* @__PURE__ */ import_react6.default.createElement(SpicePicker, { note: it.note || "", onSetNote: (n) => setItemNote(idx, n) }), ["Saffron Pork Ragu", "Bolognese", "Pasta with Homegrown Tomato Sauce"].includes(it.name) && !it.variant.includes("Polenta") && /* @__PURE__ */ import_react6.default.createElement(PastaPicker, { note: it.note || "", onSetNote: (n) => setItemNote(idx, n) }), /* @__PURE__ */ import_react6.default.createElement("label", { style: styles.miniLabel }, "Note for this item"), /* @__PURE__ */ import_react6.default.createElement(
         "input",
         {
           style: styles.input,
@@ -12727,6 +12882,171 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
 
   // src/components/Modals.jsx
   var import_react7 = __toESM(require_react());
+  function InvoiceModal({ order, onClose }) {
+    const disc = discountAmount(itemsBaseTotal(order.items), order.discountType, order.discountValue);
+    const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" }) : "";
+    const unweighedItems = (order.items || []).filter((it) => isPerLbItem2(it.name) && !(it.weight > 0));
+    const hasUnweighed = unweighedItems.length > 0;
+    const [sharing, setSharing] = (0, import_react7.useState)(false);
+    const cardRef = import_react7.default.useRef(null);
+    const shareInvoice = async () => {
+      setSharing(true);
+      try {
+        const html2canvas = await loadHtml2Canvas();
+        if (!html2canvas || !cardRef.current) {
+          setSharing(false);
+          alert("Could not prepare the image. You can screenshot the card instead.");
+          return;
+        }
+        const canvas = await html2canvas(cardRef.current, {
+          backgroundColor: "#1a1a1a",
+          scale: 2,
+          logging: false,
+          useCORS: true
+        });
+        const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+        if (!blob) {
+          setSharing(false);
+          return;
+        }
+        const file = new File([blob], `LTB-invoice-${order.customer || "order"}.png`, { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch (e) {
+        if (e && e.name !== "AbortError") {
+          alert("Sharing failed: " + (e.message || "unknown error") + ". You can screenshot instead.");
+        }
+      }
+      setSharing(false);
+    };
+    return /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceScroll, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceCard, ref: cardRef }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceHeader }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceLogo }, "LTB"), /* @__PURE__ */ import_react7.default.createElement("div", null, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceBrand }, "Lettuce, Turnip, The Beet"), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTagline }, "meal prep, delivered fresh"))), hasUnweighed && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceNotFinalBanner }, "NOT FINAL \u2014 total will increase once protein weights are added"), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceMeta }, /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceCustomer }, order.customer), dateStr && /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceDate }, dateStr)), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItems }, (order.items || []).map((it, idx) => {
+      const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
+      const lineTotal = (it.price + up) * it.qty;
+      const itemUnweighed = isPerLbItem2(it.name) && !(it.weight > 0);
+      const isLb = isPerLbItem2(it.name) && it.weight > 0;
+      const lbBasePrice = isLb ? round2((it.price - 1.5) * it.qty) : null;
+      return /* @__PURE__ */ import_react7.default.createElement("div", { key: idx, style: styles.invoiceItemBlock }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItemLine }, /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceItemName }, it.qty, "\xD7 ", it.name), /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceItemPrice }, itemUnweighed ? "TBD" : currency(lineTotal))), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItemVariant }, isLb ? `${it.weight} lb` : it.variant), isLb && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItemExtra }, currency(lbBasePrice), " meat + $1.50 bag & seasonings"), itemUnweighed && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItemPending }, "weight not set \u2014 price pending"), it.upcharge && typeof it.upcharge === "object" && it.upcharge.amount > 0 ? /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItemExtra }, "+ ", it.upcharge.label, " (", currency(it.upcharge.amount), " ea)") : null, it.note && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceItemNote }, '"', it.note, '"'));
+    })), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTotals }, disc > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "#C0517A" } }, "Discount", order.discountType === "percent" ? ` (${order.discountValue}%)` : ""), /* @__PURE__ */ import_react7.default.createElement("span", { style: { color: "#C0517A" } }, "\u2212", currency(disc))), (order.customCharges || []).map((ch) => /* @__PURE__ */ import_react7.default.createElement("div", { key: ch.id, style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react7.default.createElement("span", null, ch.label), /* @__PURE__ */ import_react7.default.createElement("span", null, currency(Number(ch.amount) || 0)))), !order.waiveSurcharge && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Order surcharge"), /* @__PURE__ */ import_react7.default.createElement("span", null, currency(SURCHARGE))), order.jarSwaps > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Jar swap x", order.jarSwaps), /* @__PURE__ */ import_react7.default.createElement("span", null, "\u2212", currency(order.jarSwaps * 2))), order.containerReturns > 0 && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTotalRow }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Containers returned x", order.containerReturns), /* @__PURE__ */ import_react7.default.createElement("span", null, "\u2212", currency(order.containerReturns)))), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceGrandTotal }, /* @__PURE__ */ import_react7.default.createElement("span", null, "Total", hasUnweighed ? " (so far)" : ""), /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceGrandValue }, currency(order.total))), hasUnweighed && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceTotalPendingNote }, "This total will go up once the ", unweighedItems.length, " weighed item", unweighedItems.length !== 1 ? "s are" : " is", " measured."), order.notes && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceNotes }, order.notes), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceFooter }, "All prices all-in. Thanks for the order!")), /* @__PURE__ */ import_react7.default.createElement("button", { style: styles.invoiceShareBtn, onClick: shareInvoice, disabled: sharing }, sharing ? "Preparing\u2026" : "Share invoice"), /* @__PURE__ */ import_react7.default.createElement("button", { style: styles.invoiceClose, onClick: onClose }, "Done"), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceHint }, "Share sends the card as an image, or screenshot it.")));
+  }
+  function ReheatModal({ order, onClose }) {
+    const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleDateString(void 0, { month: "long", day: "numeric", year: "numeric" }) : "";
+    const blocks = (0, import_react7.useMemo)(() => buildReheatBlocks(order), [order]);
+    const [sharing, setSharing] = (0, import_react7.useState)(false);
+    const cardRef = import_react7.default.useRef(null);
+    const shareReheat = async () => {
+      setSharing(true);
+      try {
+        const html2canvas = await loadHtml2Canvas();
+        if (!html2canvas || !cardRef.current) {
+          setSharing(false);
+          alert("Could not prepare the image. You can screenshot the card instead.");
+          return;
+        }
+        const canvas = await html2canvas(cardRef.current, {
+          backgroundColor: "#1a1a1a",
+          scale: 2,
+          logging: false,
+          useCORS: true
+        });
+        const blob = await new Promise((res) => canvas.toBlob(res, "image/png"));
+        if (!blob) {
+          setSharing(false);
+          return;
+        }
+        const file = new File([blob], `LTB-reheat-${order.customer || "order"}.png`, { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file] });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } catch (e) {
+        if (e && e.name !== "AbortError") {
+          alert("Sharing failed: " + (e.message || "unknown error") + ". You can screenshot instead.");
+        }
+      }
+      setSharing(false);
+    };
+    return /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceScroll, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceCard, ref: cardRef }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceHeader }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceLogo }, "LTB"), /* @__PURE__ */ import_react7.default.createElement("div", null, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceBrand }, "Lettuce, Turnip, The Beet"), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.reheatSubhead }, "Reheat Instructions"))), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceMeta }, /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceCustomer }, order.customer), dateStr && /* @__PURE__ */ import_react7.default.createElement("span", { style: styles.invoiceDate }, dateStr)), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceDivider }), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.reheatBlocks }, blocks.map((b, idx) => /* @__PURE__ */ import_react7.default.createElement("div", { key: idx, style: styles.reheatBlock }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.reheatDishes }, b.dishes.join(", ")), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.reheatBody }, b.body)))), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceFooter }, "Cooked ahead, finished by you. Enjoy!")), /* @__PURE__ */ import_react7.default.createElement("button", { style: styles.invoiceShareBtn, onClick: shareReheat, disabled: sharing }, sharing ? "Preparing\u2026" : "Share instructions"), /* @__PURE__ */ import_react7.default.createElement("button", { style: styles.invoiceClose, onClick: onClose }, "Done"), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceHint }, "Share sends the card as an image, or screenshot it.")));
+  }
+  function WeightPhotoModal({ orderId, itemIdx, item, stepLabel, onApply, onClose }) {
+    const [weight, setWeight] = (0, import_react7.useState)(item.weight > 0 ? String(item.weight) : "");
+    const [photoBase64, setPhotoBase64] = (0, import_react7.useState)(null);
+    const [existingPhoto, setExistingPhoto] = (0, import_react7.useState)(null);
+    const [busy, setBusy] = (0, import_react7.useState)(false);
+    const [err, setErr] = (0, import_react7.useState)("");
+    (0, import_react7.useEffect)(() => {
+      let live = true;
+      if (item.hasPhoto) {
+        loadPhoto(orderId, itemIdx).then((d) => {
+          if (live && d) setExistingPhoto(d);
+        });
+      }
+      return () => {
+        live = false;
+      };
+    }, [orderId, itemIdx]);
+    const info = PER_LB_ITEMS[item.name] || { pricePerLb: 0, costPerLb: 0 };
+    const w = parseFloat(weight);
+    const livePrice = w > 0 ? round2(info.pricePerLb * w + 1.5) : null;
+    const onPickPhoto = async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      setErr("");
+      setBusy(true);
+      try {
+        const b64 = await fileToJpegBase64(file, 900, 0.6);
+        setPhotoBase64(b64);
+      } catch (e2) {
+        setErr("Could not read that image. Try another.");
+      } finally {
+        setBusy(false);
+      }
+    };
+    const submit = async () => {
+      if (!(w > 0)) return;
+      setBusy(true);
+      await onApply(itemIdx, Math.round(w * 100) / 100, photoBase64);
+      setBusy(false);
+      if (!stepLabel) onClose();
+    };
+    const shownPhoto = photoBase64 ? `data:image/jpeg;base64,${photoBase64}` : existingPhoto ? `data:image/jpeg;base64,${existingPhoto}` : null;
+    return /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.weightModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ import_react7.default.createElement("div", null, /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.reviewModalTitle }, item.name), stepLabel && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.weightStepLabel }, stepLabel)), /* @__PURE__ */ import_react7.default.createElement("button", { style: styles.iconBtn, onClick: onClose, "aria-label": "Close" }, /* @__PURE__ */ import_react7.default.createElement(X, { size: 18 }))), item.note && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.weightIntentNote }, "Customer asked: ", item.note), /* @__PURE__ */ import_react7.default.createElement("label", { style: styles.miniLabel }, "Actual weight (lb) \u2014 ", currency(info.pricePerLb), "/lb + $1.50 bag"), /* @__PURE__ */ import_react7.default.createElement(
+      "input",
+      {
+        style: styles.input,
+        type: "number",
+        inputMode: "decimal",
+        placeholder: "e.g. 0.5",
+        value: weight,
+        onChange: (e) => setWeight(e.target.value),
+        autoFocus: true
+      }
+    ), livePrice !== null && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.weightPriceHint }, "= ", currency(livePrice), " each"), /* @__PURE__ */ import_react7.default.createElement("label", { style: { ...styles.miniLabel, marginTop: "14px" } }, "Proof photo (optional) \u2014 item on the scale"), shownPhoto ? /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.photoPreviewWrap }, /* @__PURE__ */ import_react7.default.createElement("img", { src: shownPhoto, alt: "scale", style: styles.photoPreview }), /* @__PURE__ */ import_react7.default.createElement("button", { style: styles.photoRemoveBtn, onClick: () => {
+      setPhotoBase64(null);
+      setExistingPhoto(null);
+    } }, /* @__PURE__ */ import_react7.default.createElement(X, { size: 13 }), " Remove")) : /* @__PURE__ */ import_react7.default.createElement("label", { style: styles.photoUploadBtn }, /* @__PURE__ */ import_react7.default.createElement(ImageIcon, { size: 15 }), busy ? "Working\u2026" : "Add scale photo", /* @__PURE__ */ import_react7.default.createElement("input", { type: "file", accept: "image/*", onChange: onPickPhoto, style: { display: "none" } })), err && /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.parseError }, err), /* @__PURE__ */ import_react7.default.createElement("div", { style: styles.weightModalHint }, "Photos are compressed, saved to this order, and auto-deleted after a month."), /* @__PURE__ */ import_react7.default.createElement(
+      "button",
+      {
+        style: { ...styles.saveBtn, marginTop: "14px", ...w > 0 && !busy ? {} : styles.saveBtnDisabled },
+        onClick: submit,
+        disabled: !(w > 0) || busy
+      },
+      stepLabel ? "Save & next" : "Save weight"
+    )));
+  }
 
   // src/components/OrderCard.jsx
   var import_react8 = __toESM(require_react());
@@ -13073,47 +13393,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       onChange(items.map((it) => ({ ...it, checked: false })));
     };
     const doneCount = items.filter((it) => it.checked).length;
-    return /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => {
-      setDishPickerOpen((o) => !o);
-      setPickerDish(null);
-    } }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.genTitle }, "Single Dish Ingredient List"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.collapseChevron }, dishPickerOpen ? "\u25B2" : "\u25BC")), dishPickerOpen && /* @__PURE__ */ import_react10.default.createElement(import_react10.default.Fragment, null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genHint }, "Pick any dish to get its ingredient list. This week's menu is highlighted."), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerGrid }, allPickerDishes.map((d) => {
-      const isThisWeek = (weekDishes || []).includes(d);
-      const isSelected = pickerDish === d;
-      return /* @__PURE__ */ import_react10.default.createElement(
-        "button",
-        {
-          key: d,
-          style: {
-            ...styles.dishPickerChip,
-            ...isSelected ? styles.dishPickerChipSelected : {},
-            ...isThisWeek && !isSelected ? styles.dishPickerChipWeek : {}
-          },
-          onClick: () => selectPickerDish(d)
-        },
-        isThisWeek && /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.dishPickerDot }, "\u25CF"),
-        d
-      );
-    })), pickerDish && RECIPES[pickerDish] && /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerControls }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.miniLabel }, "Size"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerVariants }, Object.entries(RECIPES[pickerDish].factors).sort((a, b) => a[1] - b[1]).map(([v]) => /* @__PURE__ */ import_react10.default.createElement(
-      "button",
-      {
-        key: v,
-        style: {
-          ...styles.dishPickerVariantBtn,
-          ...pickerVariant === v ? styles.dishPickerVariantBtnOn : {}
-        },
-        onClick: () => setPickerVariant(v)
-      },
-      v,
-      /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.dishPickerServing }, " \xB7 ", servingLabel(v))
-    ))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerCountRow }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.miniLabel }, "Batches"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerCounter }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.inventoryBtn, onClick: () => setPickerCount((c) => Math.max(1, c - 1)) }, "\u2212"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryCount }, pickerCount), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.inventoryBtn, onClick: () => setPickerCount((c) => c + 1) }, "+"))), /* @__PURE__ */ import_react10.default.createElement("label", { style: { ...styles.genToggleRow, marginTop: "8px" } }, /* @__PURE__ */ import_react10.default.createElement(
-      "input",
-      {
-        type: "checkbox",
-        checked: pickerStaples,
-        onChange: (e) => setPickerStaples(e.target.checked),
-        style: styles.genCheckbox
-      }
-    ), "Include pantry staples"), /* @__PURE__ */ import_react10.default.createElement("button", { style: { ...styles.saveBtn, marginTop: "10px" }, onClick: addDishToList }, "Add ingredients to list")))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => setInventoryOpen((o) => !o) }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryTitle }, "Sauce & Add-on Inventory"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.collapseChevron }, inventoryOpen ? "\u25B2" : "\u25BC")), inventoryOpen && /* @__PURE__ */ import_react10.default.createElement(import_react10.default.Fragment, null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryHint }, "Tap +/\u2212 to adjust stock. Auto-decrements when add-ons are ordered. 2oz frozen sauces warn yellow under 5, red under 2."), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryGroup }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryGroupLabel }, "2oz frozen sauces"), [
+    return /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => setInventoryOpen((o) => !o) }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryTitle }, "Sauce & Add-on Inventory"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.collapseChevron }, inventoryOpen ? "\u25B2" : "\u25BC")), inventoryOpen && /* @__PURE__ */ import_react10.default.createElement(import_react10.default.Fragment, null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryHint }, "Tap +/\u2212 to adjust stock. Auto-decrements when add-ons are ordered. 2oz frozen sauces warn yellow under 5, red under 2."), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryGroup }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryGroupLabel }, "2oz frozen sauces"), [
       { key: "chimichurri", label: "Chimichurri" },
       { key: "romesco", label: "Romesco" },
       { key: "chermoula", label: "Chermoula" },
@@ -13133,42 +13413,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
     }), [{ key: "chiliOil", label: "Chili Oil" }].map(({ key, label }) => {
       const count = Number(inventory?.[key]) || 0;
       return /* @__PURE__ */ import_react10.default.createElement("div", { key, style: styles.inventoryRow }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryName }, label), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryControls }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, -1) }, "\u2212"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryCount }, count), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.inventoryBtn, onClick: () => onAdjustInventory(key, 1) }, "+")));
-    })))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ import_react10.default.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ import_react10.default.createElement(
-      "input",
-      {
-        type: "checkbox",
-        checked: includeStaples,
-        onChange: (e) => setIncludeStaples(e.target.checked),
-        style: styles.genCheckbox
-      }
-    ), "Include pantry staples (soy, spices, oils, etc.)"), /* @__PURE__ */ import_react10.default.createElement(
-      "button",
-      {
-        style: { ...styles.saveBtn, marginTop: "8px", ...activeCount === 0 ? styles.saveBtnDisabled : {} },
-        onClick: () => onGenerate(includeStaples),
-        disabled: activeCount === 0
-      },
-      activeCount === 0 ? "No active orders yet" : `Generate from ${activeCount} active order${activeCount !== 1 ? "s" : ""}`
-    )), estCost > 0 && /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.shopCostBar }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.shopCostLabel }, "Est. ingredient spend for active orders"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.shopCostValue }, "~", currency(estCost))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.shopInputRow }, /* @__PURE__ */ import_react10.default.createElement(
-      "textarea",
-      {
-        style: { ...styles.textarea, minHeight: "44px", flex: 1 },
-        placeholder: "Add an item \u2014 or paste a whole list, one item per line",
-        value: input,
-        onChange: (e) => setInput(e.target.value)
-      }
-    ), /* @__PURE__ */ import_react10.default.createElement(
-      "button",
-      {
-        style: { ...styles.shopAddBtn, ...!input.trim() ? styles.saveBtnDisabled : {} },
-        onClick: addItems,
-        disabled: !input.trim()
-      },
-      /* @__PURE__ */ import_react10.default.createElement(Plus, { size: 18 })
-    )), items.length === 0 ? /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.emptyTitle }, "Shopping list is empty"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.emptyBody }, "Type items one at a time, or paste a whole ingredient list and each line becomes its own entry.")) : /* @__PURE__ */ import_react10.default.createElement(import_react10.default.Fragment, null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " in the cart"), doneCount > 0 && /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.resetBtn, onClick: uncheckAll }, /* @__PURE__ */ import_react10.default.createElement(RotateCcw, { size: 13 }), "Uncheck all")), /* @__PURE__ */ import_react10.default.createElement("div", null, items.map((it) => /* @__PURE__ */ import_react10.default.createElement("div", { key: it.id, style: { ...styles.shopItem, ...it.checked ? styles.cookItemChecked : {} } }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.shopItemMain, onClick: () => toggle(it.id) }, /* @__PURE__ */ import_react10.default.createElement("div", { style: { ...styles.checkbox, ...it.checked ? styles.checkboxChecked : {} } }, it.checked && /* @__PURE__ */ import_react10.default.createElement(Check, { size: 14, color: "#1a1a1a" })), /* @__PURE__ */ import_react10.default.createElement("span", { style: { ...styles.shopItemText, ...it.checked ? styles.shopItemTextChecked : {} } }, it.text)), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.shopDeleteBtn, onClick: () => remove(it.id), "aria-label": `Remove ${it.text}` }, /* @__PURE__ */ import_react10.default.createElement(X, { size: 15 }))))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.shopBulkRow }, doneCount > 0 && /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.resetBtn, onClick: () => onChange(items.filter((it) => !it.checked)) }, /* @__PURE__ */ import_react10.default.createElement(Trash2, { size: 13 }), "Remove checked (", doneCount, ")"), confirmClear ? /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.confirmText }, "Delete the whole list?"), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.confirmYes, onClick: () => {
-      onChange([]);
-      setConfirmClear(false);
-    } }, "Clear"), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react10.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react10.default.createElement(Trash2, { size: 13 }), "Clear list"))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => setRefCardOpen((o) => !o) }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryTitle }, "Dish Reference Card"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.collapseChevron }, refCardOpen ? "\u25B2" : "\u25BC")), refCardOpen && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryHint }, "Full ingredient breakdown, margins, and cook notes for any dish."), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.refCardPickerRow }, /* @__PURE__ */ import_react10.default.createElement(
+    })))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventorySection }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => setRefCardOpen((o) => !o) }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryTitle }, "Dish Reference Card"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.collapseChevron }, refCardOpen ? "\u25B2" : "\u25BC")), refCardOpen && /* @__PURE__ */ import_react10.default.createElement("div", null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.inventoryHint }, "Full ingredient breakdown, margins, and cook notes for any dish."), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.refCardPickerRow }, /* @__PURE__ */ import_react10.default.createElement(
       "select",
       {
         style: styles.refCardSelect,
@@ -13224,7 +13469,82 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         onClick: () => onSaveDishNote(refDish, noteText)
       },
       "Save notes"
-    ))))));
+    ))))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.collapsibleHeader, onClick: () => {
+      setDishPickerOpen((o) => !o);
+      setPickerDish(null);
+    } }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.genTitle }, "Single Dish Ingredient List"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.collapseChevron }, dishPickerOpen ? "\u25B2" : "\u25BC")), dishPickerOpen && /* @__PURE__ */ import_react10.default.createElement(import_react10.default.Fragment, null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genHint }, "Pick any dish to get its ingredient list. This week's menu is highlighted."), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerGrid }, allPickerDishes.map((d) => {
+      const isThisWeek = (weekDishes || []).includes(d);
+      const isSelected = pickerDish === d;
+      return /* @__PURE__ */ import_react10.default.createElement(
+        "button",
+        {
+          key: d,
+          style: {
+            ...styles.dishPickerChip,
+            ...isSelected ? styles.dishPickerChipSelected : {},
+            ...isThisWeek && !isSelected ? styles.dishPickerChipWeek : {}
+          },
+          onClick: () => selectPickerDish(d)
+        },
+        isThisWeek && /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.dishPickerDot }, "\u25CF"),
+        d
+      );
+    })), pickerDish && RECIPES[pickerDish] && /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerControls }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.miniLabel }, "Size"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerVariants }, Object.entries(RECIPES[pickerDish].factors).sort((a, b) => a[1] - b[1]).map(([v]) => /* @__PURE__ */ import_react10.default.createElement(
+      "button",
+      {
+        key: v,
+        style: {
+          ...styles.dishPickerVariantBtn,
+          ...pickerVariant === v ? styles.dishPickerVariantBtnOn : {}
+        },
+        onClick: () => setPickerVariant(v)
+      },
+      v,
+      /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.dishPickerServing }, " \xB7 ", servingLabel(v))
+    ))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerCountRow }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.miniLabel }, "Batches"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.dishPickerCounter }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.inventoryBtn, onClick: () => setPickerCount((c) => Math.max(1, c - 1)) }, "\u2212"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.inventoryCount }, pickerCount), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.inventoryBtn, onClick: () => setPickerCount((c) => c + 1) }, "+"))), /* @__PURE__ */ import_react10.default.createElement("label", { style: { ...styles.genToggleRow, marginTop: "8px" } }, /* @__PURE__ */ import_react10.default.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: pickerStaples,
+        onChange: (e) => setPickerStaples(e.target.checked),
+        style: styles.genCheckbox
+      }
+    ), "Include pantry staples"), /* @__PURE__ */ import_react10.default.createElement("button", { style: { ...styles.saveBtn, marginTop: "10px" }, onClick: addDishToList }, "Add ingredients to list")))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genCard }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genTitle }, "Build list from this week's orders"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.genHint }, "Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change \u2014 your manual items and checkmarks stay put."), /* @__PURE__ */ import_react10.default.createElement("label", { style: styles.genToggleRow }, /* @__PURE__ */ import_react10.default.createElement(
+      "input",
+      {
+        type: "checkbox",
+        checked: includeStaples,
+        onChange: (e) => setIncludeStaples(e.target.checked),
+        style: styles.genCheckbox
+      }
+    ), "Include pantry staples (soy, spices, oils, etc.)"), /* @__PURE__ */ import_react10.default.createElement(
+      "button",
+      {
+        style: { ...styles.saveBtn, marginTop: "8px", ...activeCount === 0 ? styles.saveBtnDisabled : {} },
+        onClick: () => onGenerate(includeStaples),
+        disabled: activeCount === 0
+      },
+      activeCount === 0 ? "No active orders yet" : `Generate from ${activeCount} active order${activeCount !== 1 ? "s" : ""}`
+    )), estCost > 0 && /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.shopCostBar }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.shopCostLabel }, "Est. ingredient spend for active orders"), /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.shopCostValue }, "~", currency(estCost))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.shopInputRow }, /* @__PURE__ */ import_react10.default.createElement(
+      "textarea",
+      {
+        style: { ...styles.textarea, minHeight: "44px", flex: 1 },
+        placeholder: "Add an item \u2014 or paste a whole list, one item per line",
+        value: input,
+        onChange: (e) => setInput(e.target.value)
+      }
+    ), /* @__PURE__ */ import_react10.default.createElement(
+      "button",
+      {
+        style: { ...styles.shopAddBtn, ...!input.trim() ? styles.saveBtnDisabled : {} },
+        onClick: addItems,
+        disabled: !input.trim()
+      },
+      /* @__PURE__ */ import_react10.default.createElement(Plus, { size: 18 })
+    )), items.length === 0 ? /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.emptyTitle }, "Shopping list is empty"), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.emptyBody }, "Type items one at a time, or paste a whole ingredient list and each line becomes its own entry.")) : /* @__PURE__ */ import_react10.default.createElement(import_react10.default.Fragment, null, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.cookHeader }, /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.cookSummary }, doneCount, "/", items.length, " in the cart"), doneCount > 0 && /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.resetBtn, onClick: uncheckAll }, /* @__PURE__ */ import_react10.default.createElement(RotateCcw, { size: 13 }), "Uncheck all")), /* @__PURE__ */ import_react10.default.createElement("div", null, items.map((it) => /* @__PURE__ */ import_react10.default.createElement("div", { key: it.id, style: { ...styles.shopItem, ...it.checked ? styles.cookItemChecked : {} } }, /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.shopItemMain, onClick: () => toggle(it.id) }, /* @__PURE__ */ import_react10.default.createElement("div", { style: { ...styles.checkbox, ...it.checked ? styles.checkboxChecked : {} } }, it.checked && /* @__PURE__ */ import_react10.default.createElement(Check, { size: 14, color: "#1a1a1a" })), /* @__PURE__ */ import_react10.default.createElement("span", { style: { ...styles.shopItemText, ...it.checked ? styles.shopItemTextChecked : {} } }, it.text)), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.shopDeleteBtn, onClick: () => remove(it.id), "aria-label": `Remove ${it.text}` }, /* @__PURE__ */ import_react10.default.createElement(X, { size: 15 }))))), /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.shopBulkRow }, doneCount > 0 && /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.resetBtn, onClick: () => onChange(items.filter((it) => !it.checked)) }, /* @__PURE__ */ import_react10.default.createElement(Trash2, { size: 13 }), "Remove checked (", doneCount, ")"), confirmClear ? /* @__PURE__ */ import_react10.default.createElement("div", { style: styles.confirmRow }, /* @__PURE__ */ import_react10.default.createElement("span", { style: styles.confirmText }, "Delete the whole list?"), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.confirmYes, onClick: () => {
+      onChange([]);
+      setConfirmClear(false);
+    } }, "Clear"), /* @__PURE__ */ import_react10.default.createElement("button", { style: styles.confirmNo, onClick: () => setConfirmClear(false) }, "Cancel")) : /* @__PURE__ */ import_react10.default.createElement("button", { style: { ...styles.resetBtn, color: "#993556" }, onClick: () => setConfirmClear(true) }, /* @__PURE__ */ import_react10.default.createElement(Trash2, { size: 13 }), "Clear list"))));
   }
 
   // src/components/MoneyTab.jsx
@@ -13870,16 +14190,16 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
         };
       };
       const dishes = (activeMenu.dinner || []).map(toVariants);
-      const addons = [
-        ...activeMenu.fruit || [],
-        ...activeMenu.desserts || [],
-        ...activeMenu.addons || []
-      ].map(toVariants);
+      const fruit = (activeMenu.fruit || []).map(toVariants);
+      const desserts = (activeMenu.desserts || []).map(toVariants);
+      const addons = (activeMenu.addons || []).map(toVariants);
       const bag = (activeMenu.bag || []).map(toVariants);
       const sauces = (activeMenu.sauces || []).map(toVariants);
       const payload = {
         token: PUBLISH_TOKEN,
         dishes,
+        fruit,
+        desserts,
         addons,
         bag,
         sauces,

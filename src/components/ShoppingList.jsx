@@ -220,6 +220,141 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
         </>}
       </div>
 
+      {/* ── Dish Reference Card ──────────────────────────────────────────── */}
+      <div style={styles.inventorySection}>
+        <button style={styles.collapsibleHeader} onClick={() => setRefCardOpen(o => !o)}>
+          <span style={styles.inventoryTitle}>Dish Reference Card</span>
+          <span style={styles.collapseChevron}>{refCardOpen ? '▲' : '▼'}</span>
+        </button>
+        {refCardOpen && (
+          <div>
+            <div style={styles.inventoryHint}>
+              Full ingredient breakdown, margins, and cook notes for any dish.
+            </div>
+            <div style={styles.refCardPickerRow}>
+              <select
+                style={styles.refCardSelect}
+                value={refDish}
+                onChange={e => { setRefDish(e.target.value); setRefData(null); }}
+              >
+                <option value="">Select a dish…</option>
+                {(() => {
+                  const thisWeek = new Set(weekDishes || []);
+                  const withRecipe = Object.keys(RECIPES);
+                  const thisWeekDishes = withRecipe.filter(d => thisWeek.has(d)).sort();
+                  const otherDishes = withRecipe.filter(d => !thisWeek.has(d)).sort();
+                  return [
+                    thisWeekDishes.length > 0 && (
+                      <optgroup key="week" label="This week">
+                        {thisWeekDishes.map(d => <option key={d} value={d}>{d}</option>)}
+                      </optgroup>
+                    ),
+                    otherDishes.length > 0 && (
+                      <optgroup key="other" label="Other dishes">
+                        {otherDishes.map(d => <option key={d} value={d}>{d}</option>)}
+                      </optgroup>
+                    ),
+                  ].filter(Boolean);
+                })()}
+              </select>
+              <button
+                style={{ ...styles.saveBtn, marginTop: 0, flexShrink: 0, opacity: refDish ? 1 : 0.4 }}
+                disabled={!refDish}
+                onClick={() => {
+                  if (!refDish) return;
+                  const recipe = RECIPES[refDish];
+                  const menuDish = ALL_DINNERS.find(d => d.name === refDish);
+                  const variants = menuDish?.variants || [];
+                  setNoteText((dishNotes || {})[refDish] || '');
+                  setRefData({ recipe, variants });
+                }}
+              >
+                Load
+              </button>
+            </div>
+
+            {refData && (
+              <div style={styles.refCardBody}>
+                {/* ── Margins table ── */}
+                {refData.variants.length > 0 && (
+                  <div style={styles.refCardSection}>
+                    <div style={styles.refCardSectionTitle}>Margins by variant</div>
+                    {refData.variants.map(v => {
+                      const margin = v.price - v.cost;
+                      const pct = v.price > 0 ? Math.round((margin / v.price) * 100) : 0;
+                      const color = pct >= 55 ? '#5a8f6a' : pct >= 40 ? GOLD : '#993556';
+                      return (
+                        <div key={v.label} style={styles.refCardRow}>
+                          <span style={styles.refCardVariantLabel}>{v.label}</span>
+                          <span style={styles.refCardPrice}>{currency(v.price)}</span>
+                          <span style={styles.refCardCost}>cost {currency(v.cost)}</span>
+                          <span style={{ ...styles.refCardMargin, color }}>
+                            {currency(margin)} · {pct}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* ── Ingredient list (base recipe, factor=1) ── */}
+                {refData.recipe && (
+                  <div style={styles.refCardSection}>
+                    <div style={styles.refCardSectionTitle}>Base ingredients (1× batch)</div>
+                    {refData.recipe.base.map((ing, i) => (
+                      <div key={i} style={styles.refCardIngRow}>
+                        <span style={{ ...styles.refCardIngName, ...(ing.staple ? styles.refCardIngStaple : {}) }}>
+                          {ing.name}{ing.staple ? ' ✦' : ''}
+                        </span>
+                        <span style={styles.refCardIngQty}>
+                          {ing.q} {ing.u}
+                        </span>
+                      </div>
+                    ))}
+                    {refData.recipe.extras && Object.keys(refData.recipe.extras).length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ ...styles.refCardSectionTitle, fontSize: '11px', opacity: 0.7 }}>Variant extras</div>
+                        {Object.entries(refData.recipe.extras).map(([vLabel, ings]) => (
+                          <div key={vLabel} style={{ marginBottom: '6px' }}>
+                            <div style={styles.refCardExtrasLabel}>{vLabel}</div>
+                            {ings.map((ing, i) => (
+                              <div key={i} style={styles.refCardIngRow}>
+                                <span style={styles.refCardIngName}>{ing.name}</span>
+                                <span style={styles.refCardIngQty}>{ing.q} {ing.u}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Cook notes ── */}
+                <div style={styles.refCardSection}>
+                  <div style={styles.refCardSectionTitle}>Cook notes</div>
+                  <textarea
+                    style={styles.refCardNotes}
+                    placeholder="Add notes about this dish — technique reminders, timing, substitutions, anything you want to remember…"
+                    value={noteText}
+                    onChange={e => setNoteText(e.target.value)}
+                  />
+                  <button
+                    style={{ ...styles.saveBtn, marginTop: '6px', width: '100%' }}
+                    onClick={() => onSaveDishNote(refDish, noteText)}
+                  >
+                    Save notes
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
       {/* ── Single-dish ingredient list picker ───────────────────────────── */}
       <div style={styles.genCard}>
         <button style={styles.collapsibleHeader} onClick={() => { setDishPickerOpen(o => !o); setPickerDish(null); }}>
@@ -405,138 +540,3 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
         </>
       )}
 
-      {/* ── Dish Reference Card ──────────────────────────────────────────── */}
-      <div style={styles.inventorySection}>
-        <button style={styles.collapsibleHeader} onClick={() => setRefCardOpen(o => !o)}>
-          <span style={styles.inventoryTitle}>Dish Reference Card</span>
-          <span style={styles.collapseChevron}>{refCardOpen ? '▲' : '▼'}</span>
-        </button>
-        {refCardOpen && (
-          <div>
-            <div style={styles.inventoryHint}>
-              Full ingredient breakdown, margins, and cook notes for any dish.
-            </div>
-            <div style={styles.refCardPickerRow}>
-              <select
-                style={styles.refCardSelect}
-                value={refDish}
-                onChange={e => { setRefDish(e.target.value); setRefData(null); }}
-              >
-                <option value="">Select a dish…</option>
-                {(() => {
-                  const thisWeek = new Set(weekDishes || []);
-                  const withRecipe = Object.keys(RECIPES);
-                  const thisWeekDishes = withRecipe.filter(d => thisWeek.has(d)).sort();
-                  const otherDishes = withRecipe.filter(d => !thisWeek.has(d)).sort();
-                  return [
-                    thisWeekDishes.length > 0 && (
-                      <optgroup key="week" label="This week">
-                        {thisWeekDishes.map(d => <option key={d} value={d}>{d}</option>)}
-                      </optgroup>
-                    ),
-                    otherDishes.length > 0 && (
-                      <optgroup key="other" label="Other dishes">
-                        {otherDishes.map(d => <option key={d} value={d}>{d}</option>)}
-                      </optgroup>
-                    ),
-                  ].filter(Boolean);
-                })()}
-              </select>
-              <button
-                style={{ ...styles.saveBtn, marginTop: 0, flexShrink: 0, opacity: refDish ? 1 : 0.4 }}
-                disabled={!refDish}
-                onClick={() => {
-                  if (!refDish) return;
-                  const recipe = RECIPES[refDish];
-                  const menuDish = ALL_DINNERS.find(d => d.name === refDish);
-                  const variants = menuDish?.variants || [];
-                  setNoteText((dishNotes || {})[refDish] || '');
-                  setRefData({ recipe, variants });
-                }}
-              >
-                Load
-              </button>
-            </div>
-
-            {refData && (
-              <div style={styles.refCardBody}>
-                {/* ── Margins table ── */}
-                {refData.variants.length > 0 && (
-                  <div style={styles.refCardSection}>
-                    <div style={styles.refCardSectionTitle}>Margins by variant</div>
-                    {refData.variants.map(v => {
-                      const margin = v.price - v.cost;
-                      const pct = v.price > 0 ? Math.round((margin / v.price) * 100) : 0;
-                      const color = pct >= 55 ? '#5a8f6a' : pct >= 40 ? GOLD : '#993556';
-                      return (
-                        <div key={v.label} style={styles.refCardRow}>
-                          <span style={styles.refCardVariantLabel}>{v.label}</span>
-                          <span style={styles.refCardPrice}>{currency(v.price)}</span>
-                          <span style={styles.refCardCost}>cost {currency(v.cost)}</span>
-                          <span style={{ ...styles.refCardMargin, color }}>
-                            {currency(margin)} · {pct}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* ── Ingredient list (base recipe, factor=1) ── */}
-                {refData.recipe && (
-                  <div style={styles.refCardSection}>
-                    <div style={styles.refCardSectionTitle}>Base ingredients (1× batch)</div>
-                    {refData.recipe.base.map((ing, i) => (
-                      <div key={i} style={styles.refCardIngRow}>
-                        <span style={{ ...styles.refCardIngName, ...(ing.staple ? styles.refCardIngStaple : {}) }}>
-                          {ing.name}{ing.staple ? ' ✦' : ''}
-                        </span>
-                        <span style={styles.refCardIngQty}>
-                          {ing.q} {ing.u}
-                        </span>
-                      </div>
-                    ))}
-                    {refData.recipe.extras && Object.keys(refData.recipe.extras).length > 0 && (
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ ...styles.refCardSectionTitle, fontSize: '11px', opacity: 0.7 }}>Variant extras</div>
-                        {Object.entries(refData.recipe.extras).map(([vLabel, ings]) => (
-                          <div key={vLabel} style={{ marginBottom: '6px' }}>
-                            <div style={styles.refCardExtrasLabel}>{vLabel}</div>
-                            {ings.map((ing, i) => (
-                              <div key={i} style={styles.refCardIngRow}>
-                                <span style={styles.refCardIngName}>{ing.name}</span>
-                                <span style={styles.refCardIngQty}>{ing.q} {ing.u}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Cook notes ── */}
-                <div style={styles.refCardSection}>
-                  <div style={styles.refCardSectionTitle}>Cook notes</div>
-                  <textarea
-                    style={styles.refCardNotes}
-                    placeholder="Add notes about this dish — technique reminders, timing, substitutions, anything you want to remember…"
-                    value={noteText}
-                    onChange={e => setNoteText(e.target.value)}
-                  />
-                  <button
-                    style={{ ...styles.saveBtn, marginTop: '6px', width: '100%' }}
-                    onClick={() => onSaveDishNote(refDish, noteText)}
-                  >
-                    Save notes
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-    </div>
-  );
-}

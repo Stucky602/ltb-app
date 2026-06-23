@@ -578,6 +578,8 @@ export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Homegrown Tomato S
 export const NOODLE_DISHES = new Set(['Cumin Mushroom Noodles']);
 // Bagged dishes whose reheat ends with "mix with cooked pasta" instead of "plate"
 export const BAGGED_PASTA_DISHES = new Set(['Pappardelle with Vegetables and Mint']);
+// Stovetop dishes that come with a separate sous vide veg bag to fold in before serving
+export const STEW_VEG_DISHES = new Set(['Boeuf Bourguignon (Beef Stew)', 'Leblanc Inspired Japanese Curry']);
 
 // Build the grouped reheat blocks for an order. Returns an array of
 // { title, dishes: [names], body: '...' } ready to render.
@@ -590,6 +592,7 @@ export function buildReheatBlocks(order) {
   const proteins = [];
   const veg = [];
   let hasQueso = false;
+  let hasPolenta = false;
 
   const seen = new Set();
   items.forEach(it => {
@@ -598,6 +601,7 @@ export function buildReheatBlocks(order) {
     if (isPerLbItem(name)) { proteins.push(name); seen.add(name); return; }
     if (SOUS_VIDE_VEG.includes(name)) { veg.push(name); seen.add(name); return; }
     if (name === 'Queso') { hasQueso = true; seen.add(name); return; }
+    if (name === 'Saffron Pork Ragu' && it.variant && it.variant.includes('Polenta')) hasPolenta = true;
     const b = DINNER_REHEAT_BUCKET[name];
     if (b && byBucket[b]) { byBucket[b].push(name); seen.add(name); }
   });
@@ -632,6 +636,16 @@ export function buildReheatBlocks(order) {
     let body = 'Comes in a container. Warm gently on the stove over medium-low until heated through. If it looks a little thick, add a splash of water to loosen it.';
     if (listHasRice(byBucket.stovetop)) body += ' Cook the included rice fresh.';
     blocks.push({ title: 'Reheat on the stovetop', dishes: byBucket.stovetop, body });
+
+    // Dishes that come with a separate sous vide veg bag
+    const stewVegDishes = byBucket.stovetop.filter(n => STEW_VEG_DISHES.has(n));
+    if (stewVegDishes.length) {
+      blocks.push({
+        title: 'Reheat the vegetable bag',
+        dishes: stewVegDishes,
+        body: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold into the main dish right before serving to keep the vegetables at peak doneness.',
+      });
+    }
   }
 
   // ── Pasta / noodle dishes ──────────────────────────────────────────────
@@ -643,12 +657,21 @@ export function buildReheatBlocks(order) {
     blocks.push({ title: 'Cook fresh, warm the sauce', dishes: byBucket.pasta, body });
   }
 
+  // ── Polenta bag (Saffron Pork Ragu polenta variants) ──────────────────
+  if (hasPolenta) {
+    blocks.push({
+      title: 'Reheat the polenta bag',
+      dishes: ['Saffron Pork Ragu'],
+      body: 'Bring a pot of water to a gentle simmer and place the sealed polenta bag in until heated through, then cut open and plate alongside the ragu.',
+    });
+  }
+
   // ── Tex-Mex Kit ────────────────────────────────────────────────────────
   if (byBucket.kit.length) {
     blocks.push({
       title: 'Assemble at home',
       dishes: byBucket.kit,
-      body: 'Components travel separately with assembly notes. Warm the protein gently before building.',
+      body: 'Components travel separately with assembly notes. Warm the protein gently before building. The beans travel in a separate bag — warm them on the stovetop or in the microwave.',
     });
   }
 

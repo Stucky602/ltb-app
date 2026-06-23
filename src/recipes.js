@@ -372,7 +372,7 @@ export const RECIPES = {
       I('Celery', 3, 'stalks'),
       I('Garlic', 4, 'cloves'),
       I('Flour', 1, 'cup'),
-      I('Okra', 0.5, 'lb'),
+      I('Filé powder', 1, 'tbsp', true),
       I('Cajun spices', 1, 'blend', true),
       I('Rice (included with order)', 1, 'batch', true),
     ],
@@ -387,6 +387,41 @@ export const RECIPES = {
       I('Scallions', 1, 'bunch'),
       I('Soy sauce', 2, 'tbsp', true),
       I('Rice (included with order)', 1, 'batch', true),
+    ],
+  },
+  'Leblanc Inspired Japanese Curry': {
+    factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
+    base: [
+      I('Wagyu london broil', 1.25, 'lb'),
+      I('Kabocha squash', 1, 'lb'),
+      I('Carrots', 1, 'lb'),
+      I('Onion', 1, ''),
+      I('Apple', 1, ''),
+      I('Ginger', 1, 'knob'),
+      I('Red wine', 1, 'cup'),
+      I('Beef stock', 4, 'cups'),
+      I('100% dark chocolate', 1, 'square'),
+      I('Espresso', 1, 'shot'),
+      I('Curry spice blend', 1, 'batch', true),
+      I('Honey + fish sauce + butter', 1, 'batch', true),
+      I('Bay leaf', 1, '', true),
+      I('Rice (included with order)', 1, 'batch', true),
+    ],
+  },
+  'Pappardelle with Vegetables and Mint': {
+    factors: { 'Small (split order, ~3-4)': 0.5, 'Large (~6-7)': 1 },
+    base: [
+      I('Egg pappardelle', 2, 'packs'),
+      I('Fennel bulb', 1, ''),
+      I('Bulb onions', 1, 'bunch'),
+      I('Asparagus', 0.5, 'lb'),
+      I('Petite peas', 8, 'oz'),
+      I('Fresh mint', 2, 'sprigs'),
+      I('Good parmesan', 1, 'cup'),
+      I('Heavy cream', 0.5, 'cup'),
+      I('White wine', 1, 'cup'),
+      I('Lemon', 1, ''),
+      I('Xanthan gum + lecithin powder', 1, 'batch', true),
     ],
   },
 };
@@ -487,6 +522,7 @@ export const DINNER_REHEAT_BUCKET = {
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli': 'bagged',
   'Thai Basil Chicken (Pad Krapow Gai)': 'bagged',
   'Stir Fried Long Beans with Ground Pork': 'bagged',
+  'Pappardelle with Vegetables and Mint': 'bagged',
   // Stovetop in a container — warm gently, splash of water if thick
   'Mapo Eggplant': 'stovetop',
   'Gumbo': 'stovetop',
@@ -494,6 +530,7 @@ export const DINNER_REHEAT_BUCKET = {
   'Chili': 'stovetop',
   'Boeuf Bourguignon (Beef Stew)': 'stovetop',
   'Indian Style Curry': 'stovetop',
+  'Leblanc Inspired Japanese Curry': 'stovetop',
   // Pasta / noodle dishes — cook fresh, warm the sauce
   'Bolognese': 'pasta',
   'Pasta with Red Sauce': 'pasta',
@@ -512,10 +549,13 @@ export const RICE_DISHES = new Set([
   'Mapo Eggplant',
   'Gumbo',
   'Indian Style Curry',
+  'Leblanc Inspired Japanese Curry',
 ]);
 // Dishes that include uncooked pasta/noodles.
 export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Red Sauce', 'Saffron Pork Ragu']);
 export const NOODLE_DISHES = new Set(['Cumin Mushroom Noodles']);
+// Bagged dishes whose reheat ends with "mix with cooked pasta" instead of "plate"
+export const BAGGED_PASTA_DISHES = new Set(['Pappardelle with Vegetables and Mint']);
 
 // Build the grouped reheat blocks for an order. Returns an array of
 // { title, dishes: [names], body: '...' } ready to render.
@@ -547,9 +587,22 @@ export function buildReheatBlocks(order) {
 
   // ── Bagged dishes ──────────────────────────────────────────────────────
   if (byBucket.bagged.length) {
-    let body = 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and plate. Microwave or stovetop work too if you prefer. See the main menu for additional details.';
-    if (listHasRice(byBucket.bagged)) body += ' Cook the included rice fresh.';
-    blocks.push({ title: 'Reheat in the bag', dishes: byBucket.bagged, body });
+    const regularBagged = byBucket.bagged.filter(n => !BAGGED_PASTA_DISHES.has(n));
+    const baggedPasta = byBucket.bagged.filter(n => BAGGED_PASTA_DISHES.has(n));
+
+    if (regularBagged.length) {
+      let body = 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and plate. Microwave or stovetop work too if you prefer. See the main menu for additional details.';
+      if (listHasRice(regularBagged)) body += ' Cook the included rice fresh.';
+      blocks.push({ title: 'Reheat in the bag', dishes: regularBagged, body });
+    }
+
+    if (baggedPasta.length) {
+      blocks.push({
+        title: 'Reheat in the bag (pasta)',
+        dishes: baggedPasta,
+        body: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and mix with cooked pasta.',
+      });
+    }
   }
 
   // ── Stovetop in a container ────────────────────────────────────────────

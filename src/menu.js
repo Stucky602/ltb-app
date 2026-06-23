@@ -80,6 +80,14 @@ export const ALL_DINNERS = [
     { label: 'Small (~4)', price: 30, cost: 11.58 },
     { label: 'Large (~8)', price: 55, cost: 23.16 },
   ]},
+  { name: 'Leblanc Inspired Japanese Curry', variants: [
+    { label: 'Small (split order, ~4)', price: 40, cost: 17.33 },
+    { label: 'Large (~8)', price: 75, cost: 34.65 },
+  ]},
+  { name: 'Pappardelle with Vegetables and Mint', variants: [
+    { label: 'Small (split order, ~3-4)', price: 30, cost: 14.30 },
+    { label: 'Large (~6-7)', price: 55, cost: 28.60 },
+  ]},
 ];
 
 // Default weekly selection (used until a selection is saved from the Week tab)

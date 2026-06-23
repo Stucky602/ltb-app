@@ -472,17 +472,15 @@ export default function LTBOrderTracker() {
     const dishes = (activeMenu.dinner || []).map(toVariants);
     // Note: breakfast (waffles) excluded from published config intentionally.
     // Waffles are available by request via order notes only — not listed publicly.
-    const addons = [
-      ...(activeMenu.fruit || []),
-      ...(activeMenu.desserts || []),
-      ...(activeMenu.addons || []),
-    ].map(toVariants);
+    const fruit = (activeMenu.fruit || []).map(toVariants);
+    const desserts = (activeMenu.desserts || []).map(toVariants);
+    const addons = (activeMenu.addons || []).map(toVariants);
     const bag = (activeMenu.bag || []).map(toVariants);
     const sauces = (activeMenu.sauces || []).map(toVariants);
 
     const payload = {
       token: PUBLISH_TOKEN,
-      dishes, addons, bag, sauces,
+      dishes, fruit, desserts, addons, bag, sauces,
       menuPdfUrl: menuPdfUrl || '',
       weekLabel: weekLabel || '',
     };

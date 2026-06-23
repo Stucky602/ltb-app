@@ -352,9 +352,6 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
         )}
       </div>
 
-    </div>
-  );
-}
       {/* ── Single-dish ingredient list picker ───────────────────────────── */}
       <div style={styles.genCard}>
         <button style={styles.collapsibleHeader} onClick={() => { setDishPickerOpen(o => !o); setPickerDish(null); }}>
@@ -540,3 +537,7 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
         </>
       )}
 
+
+    </div>
+  );
+}

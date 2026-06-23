@@ -32,6 +32,7 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { InvoiceModal, ReheatModal, WeightPhotoModal } from './Modals.jsx';
 
 export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit }) {
   const [confirmDelete, setConfirmDelete] = useState(false);

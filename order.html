@@ -32,13 +32,14 @@
   @media (min-width:900px) {
     .layout { flex-direction:row; height:100vh; overflow:hidden; }
     .sidebar {
-      width:360px; min-width:320px; max-width:360px; flex-shrink:0;
+      width:300px; min-width:280px; max-width:300px; flex-shrink:0;
       height:100vh; overflow-y:auto; border-right:1px solid var(--teal-mid);
-      padding:48px 32px 48px; margin:0; align-items:flex-start;
+      padding:36px 24px 36px; margin:0; align-items:flex-start;
       background:linear-gradient(180deg, var(--teal-dark) 0%, #161616 100%);
     }
-    .sidebar .logo { width:80px; height:80px; margin:0 0 16px 0; }
-    .sidebar .brand { font-size:19px; text-align:left; }
+    .save-toggle, .save-panel { display:none; }
+    .sidebar .logo { width:70px; height:70px; margin:0 0 12px 0; }
+    .sidebar .brand { font-size:17px; text-align:left; }
     .sidebar .week { text-align:left; margin-bottom:28px; }
     .sidebar .blurb { text-align:left; }
     .main-panel {

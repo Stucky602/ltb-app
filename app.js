@@ -12361,6 +12361,9 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
   function StatsBar({ stats }) {
     return /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statsBar }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statValue }, stats.active), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statLabel }, "Active")), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statValue }, currency(stats.booked)), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statLabel }, "This week")), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statTile }, /* @__PURE__ */ import_react5.default.createElement("div", { style: { ...styles.statValue, ...stats.unpaid > 0 ? { color: "#EF9F27" } : {} } }, currency(stats.unpaid)), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.statLabel }, "Unpaid")));
   }
+  function QtyControl({ value, onChange, min = 0 }) {
+    return /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.qtyControl, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react5.default.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(Math.max(min, value - 1)), "aria-label": "Decrease" }, "\u2212"), /* @__PURE__ */ import_react5.default.createElement("span", { style: styles.qtyValue }, value), /* @__PURE__ */ import_react5.default.createElement("button", { style: styles.qtyBtn, onClick: () => onChange(value + 1), "aria-label": "Increase" }, "+"));
+  }
   function PasteOrderCard({ menu, onParsed, onCancel }) {
     const [text, setText] = (0, import_react5.useState)("");
     const [imageFile, setImageFile] = (0, import_react5.useState)(null);
@@ -12566,6 +12569,159 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
       setResults(null);
       setText("");
     } }, "Start over")));
+  }
+  function ReviewModal({ reasons, items, onApplyNote, onApplyUpcharge, onApplyWeight, onAddCustomCharge, onResolve, onClose }) {
+    const [idx, setIdx] = (0, import_react5.useState)(0);
+    const [resolved, setResolved] = (0, import_react5.useState)({});
+    const total = reasons.length;
+    const allDone = Object.keys(resolved).length >= total;
+    const matchItem = (reason2) => {
+      const lower = reason2.toLowerCase();
+      let best = -1;
+      items.forEach((it, i) => {
+        if (lower.includes(it.name.toLowerCase())) best = i;
+      });
+      return best;
+    };
+    const reason = reasons[idx];
+    const itemIdx = reason ? matchItem(reason) : -1;
+    const item = itemIdx >= 0 ? items[itemIdx] : null;
+    const [noteInput, setNoteInput] = (0, import_react5.useState)("");
+    const [upLabel, setUpLabel] = (0, import_react5.useState)("");
+    const [upAmount, setUpAmount] = (0, import_react5.useState)("");
+    const [weightInput, setWeightInput] = (0, import_react5.useState)("");
+    const [chargeLabel, setChargeLabel] = (0, import_react5.useState)("");
+    const [chargeAmount, setChargeAmount] = (0, import_react5.useState)("");
+    (0, import_react5.useEffect)(() => {
+      setNoteInput(item?.note || "");
+      setUpLabel(item?.upcharge?.label || "");
+      setUpAmount(item?.upcharge?.amount ? String(item.upcharge.amount) : "");
+      setWeightInput(item?.weight ? String(item.weight) : "");
+      setChargeLabel("");
+      setChargeAmount("");
+    }, [idx]);
+    const markResolved = () => {
+      setResolved((prev) => ({ ...prev, [idx]: true }));
+      onResolve(idx);
+      const next = reasons.findIndex((_, i) => i !== idx && !resolved[i]);
+      if (next >= 0) setIdx(next);
+    };
+    const isWeightReason = /weight/i.test(reason || "");
+    const isUpchargeReason = /price for|upcharge/i.test(reason || "");
+    const isMatchReason = /match|menu/i.test(reason || "");
+    return /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.invoiceOverlay, onClick: onClose }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewModalCard, onClick: (e) => e.stopPropagation() }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewModalHeader }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewModalTitle }, "Let's sort this out"), /* @__PURE__ */ import_react5.default.createElement("button", { style: styles.iconBtn, onClick: onClose, "aria-label": "Close" }, /* @__PURE__ */ import_react5.default.createElement(X, { size: 18 }))), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewProgress }, Object.keys(resolved).length, " of ", total, " handled"), !allDone && reason && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewStep }, /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewReasonBox }, reason), item && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewItemContext }, "On: ", /* @__PURE__ */ import_react5.default.createElement("strong", null, item.qty, "\xD7 ", item.name), " (", item.variant, ")"), isWeightReason && item && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewField }, /* @__PURE__ */ import_react5.default.createElement("label", { style: styles.miniLabel }, "How many pounds? (", currency(PER_LB_ITEMS[item.name]?.pricePerLb || 0), "/lb + $1.50 bag)"), /* @__PURE__ */ import_react5.default.createElement(
+      "input",
+      {
+        style: styles.input,
+        type: "number",
+        inputMode: "decimal",
+        placeholder: "e.g. 0.5",
+        value: weightInput,
+        onChange: (e) => setWeightInput(e.target.value),
+        autoFocus: true
+      }
+    ), /* @__PURE__ */ import_react5.default.createElement(
+      "button",
+      {
+        style: { ...styles.doneItemBtn, marginTop: "8px", alignSelf: "flex-start", ...parseFloat(weightInput) > 0 ? {} : styles.saveBtnDisabled },
+        disabled: !(parseFloat(weightInput) > 0),
+        onClick: () => {
+          onApplyWeight(itemIdx, weightInput);
+          markResolved();
+        }
+      },
+      "Set weight & price"
+    )), isUpchargeReason && item && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewField }, /* @__PURE__ */ import_react5.default.createElement("label", { style: styles.miniLabel }, "What should this cost?"), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ import_react5.default.createElement(
+      "input",
+      {
+        style: { ...styles.input, flex: 2, marginTop: 0 },
+        placeholder: "label",
+        value: upLabel,
+        onChange: (e) => setUpLabel(e.target.value)
+      }
+    ), /* @__PURE__ */ import_react5.default.createElement(
+      "input",
+      {
+        style: { ...styles.input, flex: 1, marginTop: 0 },
+        type: "number",
+        inputMode: "decimal",
+        placeholder: "$",
+        value: upAmount,
+        onChange: (e) => setUpAmount(e.target.value),
+        autoFocus: true
+      }
+    )), /* @__PURE__ */ import_react5.default.createElement(
+      "button",
+      {
+        style: { ...styles.doneItemBtn, marginTop: "8px", alignSelf: "flex-start", ...parseFloat(upAmount) > 0 ? {} : styles.saveBtnDisabled },
+        disabled: !(parseFloat(upAmount) > 0),
+        onClick: () => {
+          onApplyUpcharge(itemIdx, upLabel || "Upcharge", upAmount);
+          markResolved();
+        }
+      },
+      "Set upcharge"
+    )), !isWeightReason && !isUpchargeReason && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewField }, item && /* @__PURE__ */ import_react5.default.createElement(import_react5.default.Fragment, null, /* @__PURE__ */ import_react5.default.createElement("label", { style: styles.miniLabel }, "Add a note to this item"), /* @__PURE__ */ import_react5.default.createElement(
+      "input",
+      {
+        style: styles.input,
+        placeholder: "e.g. chili oil on the side",
+        value: noteInput,
+        onChange: (e) => setNoteInput(e.target.value)
+      }
+    ), /* @__PURE__ */ import_react5.default.createElement(
+      "button",
+      {
+        style: { ...styles.reviewActionBtn, ...noteInput.trim() ? {} : styles.saveBtnDisabled },
+        disabled: !noteInput.trim(),
+        onClick: () => {
+          onApplyNote(itemIdx, noteInput.trim());
+          markResolved();
+        }
+      },
+      "Add note & resolve"
+    ), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewOr }, "or")), /* @__PURE__ */ import_react5.default.createElement("label", { style: styles.miniLabel }, "Add a custom charge for this request"), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.upchargeRow }, /* @__PURE__ */ import_react5.default.createElement(
+      "input",
+      {
+        style: { ...styles.input, flex: 2, marginTop: 0 },
+        placeholder: "what for?",
+        value: chargeLabel,
+        onChange: (e) => setChargeLabel(e.target.value)
+      }
+    ), /* @__PURE__ */ import_react5.default.createElement(
+      "input",
+      {
+        style: { ...styles.input, flex: 1, marginTop: 0 },
+        type: "number",
+        inputMode: "decimal",
+        placeholder: "$",
+        value: chargeAmount,
+        onChange: (e) => setChargeAmount(e.target.value)
+      }
+    )), /* @__PURE__ */ import_react5.default.createElement(
+      "button",
+      {
+        style: { ...styles.reviewActionBtn, ...chargeLabel.trim() && parseFloat(chargeAmount) > 0 ? {} : styles.saveBtnDisabled },
+        disabled: !(chargeLabel.trim() && parseFloat(chargeAmount) > 0),
+        onClick: () => {
+          onAddCustomCharge(chargeLabel.trim(), parseFloat(chargeAmount));
+          markResolved();
+        }
+      },
+      "Add charge & resolve"
+    )), /* @__PURE__ */ import_react5.default.createElement("button", { style: styles.reviewSkipBtn, onClick: markResolved }, "Nothing needed, mark handled"), total > 1 && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewNav }, reasons.map((_, i) => /* @__PURE__ */ import_react5.default.createElement(
+      "button",
+      {
+        key: i,
+        style: {
+          ...styles.reviewDot,
+          ...i === idx ? styles.reviewDotActive : {},
+          ...resolved[i] ? styles.reviewDotDone : {}
+        },
+        onClick: () => setIdx(i),
+        "aria-label": `Item ${i + 1}`
+      }
+    )))), allDone && /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewDone }, /* @__PURE__ */ import_react5.default.createElement(Check, { size: 28, color: "#1D9E75" }), /* @__PURE__ */ import_react5.default.createElement("div", { style: styles.reviewDoneText }, "All sorted. You're good to save."), /* @__PURE__ */ import_react5.default.createElement("button", { style: styles.doneItemBtn, onClick: onClose }, "Back to order"))));
   }
 
   // src/components/OrderForm.jsx

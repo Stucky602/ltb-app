@@ -32,6 +32,7 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { QtyControl, ReviewModal } from './OrderInputs.jsx';
 
 // ─── Spice level picker (1–5) ───────────────────────────────────────────────
 function SpicePicker({ note, onSetNote }) {

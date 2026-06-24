@@ -13822,6 +13822,31 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
   }
 
   // src/App.jsx
+  var ErrorBoundary = class extends import_react12.default.Component {
+    constructor(props) {
+      super(props);
+      this.state = { error: null };
+    }
+    componentDidCatch(error) {
+      this.setState({ error });
+    }
+    static getDerivedStateFromError(error) {
+      return { error };
+    }
+    render() {
+      if (this.state.error) {
+        return /* @__PURE__ */ import_react12.default.createElement("div", { style: { padding: "20px", color: "#e8ede9", fontFamily: "monospace", fontSize: "13px" } }, /* @__PURE__ */ import_react12.default.createElement("div", { style: { color: "#EF9F27", fontWeight: 700, marginBottom: "8px" } }, "Something went wrong"), /* @__PURE__ */ import_react12.default.createElement("div", { style: { color: "#E8799A", marginBottom: "12px" } }, String(this.state.error)), /* @__PURE__ */ import_react12.default.createElement(
+          "button",
+          {
+            style: { background: "#1D9E75", color: "#1a1a1a", border: "none", borderRadius: "8px", padding: "8px 16px", fontWeight: 700, cursor: "pointer" },
+            onClick: () => this.setState({ error: null })
+          },
+          "Dismiss"
+        ));
+      }
+      return this.props.children;
+    }
+  };
   function LTBOrderTracker() {
     import_react12.default.useEffect(() => {
       if (!document.getElementById("ltb-spin-style")) {
@@ -14737,7 +14762,7 @@ This will replace your current orders.`
         onImport: importOrders,
         onCancel: () => setShowCsv(false)
       }
-    ), formMode && /* @__PURE__ */ import_react12.default.createElement(
+    ), formMode && /* @__PURE__ */ import_react12.default.createElement(ErrorBoundary, null, /* @__PURE__ */ import_react12.default.createElement(
       OrderForm,
       {
         menu,
@@ -14747,7 +14772,7 @@ This will replace your current orders.`
         onSave: saveOrder,
         onCancel: () => setFormMode(null)
       }
-    ), activeOrders.length === 0 && !formMode && !showPaste && pendingOrders.length === 0 && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, "Paste a text" to auto-read an order, or "Import from sheet" to pull in Google Form orders.')), pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingSection }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingSectionHeader }, /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingBadge }, pendingOrders.length), /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingSectionTitle }, "Pending form order", pendingOrders.length !== 1 ? "s" : "")), pendingOrders.map((p, idx) => showPendingIdx === idx ? /* @__PURE__ */ import_react12.default.createElement("div", { key: p.pendingId, style: styles.pendingCard }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingCardHeader }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingCardName }, p.customer), /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingCardTime }, p.timestamp), (p.address || p.phone) && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingContactRow }, p.address && /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingContact }, "\u{1F4CD} ", p.address), p.phone && /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingContact }, "\u{1F4DE} ", p.phone))), /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingItemList }, p.items.map((it, i) => /* @__PURE__ */ import_react12.default.createElement("div", { key: i, style: styles.pendingItem }, /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingItemName }, it.name), it.variant && /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingItemVariant }, " \u2014 ", it.variant), /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingItemPrice }, " $", it.price.toFixed(2)))), p.notes && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingNotesSection }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingNotes }, "Notes: ", p.notes), parsedNotes[p.pendingId] ? /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.parsedNotesCard }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.parsedNotesTitle }, "AI interpretation"), parsedNotes[p.pendingId].summary && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.parsedNotesSummary }, parsedNotes[p.pendingId].summary), ["spice", "substitutions", "extras", "delivery", "other"].map(
+    )), activeOrders.length === 0 && !formMode && !showPaste && pendingOrders.length === 0 && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.emptyState }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.emptyTitle }, "No active orders"), /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.emptyBody }, 'Tap "New order" to build one, "Paste a text" to auto-read an order, or "Import from sheet" to pull in Google Form orders.')), pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingSection }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingSectionHeader }, /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingBadge }, pendingOrders.length), /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingSectionTitle }, "Pending form order", pendingOrders.length !== 1 ? "s" : "")), pendingOrders.map((p, idx) => showPendingIdx === idx ? /* @__PURE__ */ import_react12.default.createElement("div", { key: p.pendingId, style: styles.pendingCard }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingCardHeader }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingCardName }, p.customer), /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingCardTime }, p.timestamp), (p.address || p.phone) && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingContactRow }, p.address && /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingContact }, "\u{1F4CD} ", p.address), p.phone && /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingContact }, "\u{1F4DE} ", p.phone))), /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingItemList }, p.items.map((it, i) => /* @__PURE__ */ import_react12.default.createElement("div", { key: i, style: styles.pendingItem }, /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingItemName }, it.name), it.variant && /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingItemVariant }, " \u2014 ", it.variant), /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.pendingItemPrice }, " $", it.price.toFixed(2)))), p.notes && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingNotesSection }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.pendingNotes }, "Notes: ", p.notes), parsedNotes[p.pendingId] ? /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.parsedNotesCard }, /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.parsedNotesTitle }, "AI interpretation"), parsedNotes[p.pendingId].summary && /* @__PURE__ */ import_react12.default.createElement("div", { style: styles.parsedNotesSummary }, parsedNotes[p.pendingId].summary), ["spice", "substitutions", "extras", "delivery", "other"].map(
       (k) => parsedNotes[p.pendingId][k] ? /* @__PURE__ */ import_react12.default.createElement("div", { key: k, style: styles.parsedNotesItem }, /* @__PURE__ */ import_react12.default.createElement("span", { style: styles.parsedNotesKey }, k, ":"), " ", parsedNotes[p.pendingId][k]) : null
     )) : /* @__PURE__ */ import_react12.default.createElement(
       "button",

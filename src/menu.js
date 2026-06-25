@@ -31,12 +31,12 @@ export const ALL_DINNERS = [
   ]},
   // ── Curry ──────────────────────────────────────────────────────────────────
   { name: 'Indian Style Curry', variants: [
-    { label: 'Chickpea, Small (~4-5)', price: 22, cost: 9.97 },
-    { label: 'Chicken, Small (~4-5)', price: 27, cost: 14.97 },
-    { label: 'Shrimp, Small (~4-5)', price: 40, cost: 23.97 },
-    { label: 'Chickpea, Large (~8-10)', price: 40, cost: 18.94 },
-    { label: 'Chicken, Large (~8-10)', price: 50, cost: 23.94 },
-    { label: 'Shrimp, Large (~8-10)', price: 75, cost: 32.94 },
+    { label: 'Chickpea, Small (~4-5)', price: 22, cost: 10.79 },
+    { label: 'Chicken, Small (~4-5)', price: 27, cost: 16.21 },
+    { label: 'Shrimp, Small (~4-5)', price: 40, cost: 25.95 },
+    { label: 'Chickpea, Large (~8-10)', price: 40, cost: 21.59 },
+    { label: 'Chicken, Large (~8-10)', price: 50, cost: 32.41 },
+    { label: 'Shrimp, Large (~8-10)', price: 75, cost: 51.9 },
   ]},
   { name: 'Leblanc Inspired Japanese Curry', variants: [
     { label: 'Small (split order, ~4)', price: 40, cost: 18.76 },

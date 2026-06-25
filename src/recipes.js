@@ -28,10 +28,10 @@ export const RECIPES = {
       I('Rice (included with order)', 1, 'batch', true),
     ],
     extras: {
-      'Chicken, Small (~4-5)': [I('Chicken thighs', 1, 'lb')],
-      'Chicken, Large (~8-10)': [I('Chicken thighs', 1, 'lb')],
-      'Shrimp, Small (~4-5)': [I('Shrimp', 1, 'lb')],
-      'Shrimp, Large (~8-10)': [I('Shrimp', 1, 'lb')],
+      'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb')],
+      'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb')],
+      'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb')],
+      'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb')],
     },
   },
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli': {

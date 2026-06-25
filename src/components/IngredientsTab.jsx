@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Plus, Trash2, Pencil, X, RotateCcw, ArrowUpDown } from '../icons.jsx';
+import { Plus, Trash2, Pencil, X, RotateCcw, ArrowUpDown, Camera } from '../icons.jsx';
 import {
   INGREDIENT_SEED, CATEGORY_ORDER, CATEGORY_LABELS_ING,
 } from '../ingredients.js';
@@ -34,7 +34,7 @@ function pctLabel(baseline, current) {
   return `${sign}${pct.toFixed(0)}%`;
 }
 
-export function IngredientsTab({ ingredients, onChange }) {
+export function IngredientsTab({ ingredients, onChange, onScanReceipt }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // id being edited
   const [editVal, setEditVal] = useState('');
@@ -114,6 +114,11 @@ export function IngredientsTab({ ingredients, onChange }) {
 
   return (
     <div style={S.wrap}>
+      {onScanReceipt && (
+        <button style={S.scanBtn} onClick={onScanReceipt}>
+          <Camera size={16} /> Scan receipt to update costs
+        </button>
+      )}
       <div style={S.topBar}>
         <div style={S.searchBox}>
           <input
@@ -251,6 +256,7 @@ export function IngredientsTab({ ingredients, onChange }) {
 
 const S = {
   wrap: { padding: '12px 12px 40px' },
+  scanBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', background: '#2d6a6a', color: '#e8e2d4', border: 'none', borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: 12 },
   topBar: { display: 'flex', gap: 8, marginBottom: 12 },
   searchBox: { flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 10, padding: '9px 12px' },
   searchInput: { flex: 1, background: 'transparent', border: 'none', color: '#e8e2d4', fontSize: 14, outline: 'none' },

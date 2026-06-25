@@ -342,20 +342,21 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
                   <div style={styles.itemUpchargeNeedsPrice}>+ {it.upcharge.label} — set a price ⌄</div>
                 ) : null}
 
+                {/* Spice level selector — always visible for applicable dishes */}
+                {(it.name === 'Indian Style Curry' || it.name === 'Thai Basil Chicken (Pad Krapow Gai)') && (
+                  <SpicePicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
+                )}
+                {/* Pasta shape input — always visible for applicable dishes */}
+                {(['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'].includes(it.name) && !it.variant.includes('Polenta')) && (
+                  <PastaPicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
+                )}
+
                 {open && (
                   <div style={styles.itemEditor}>
                     {isPerLbItem(it.name) && (
                       <div style={styles.weightDeferNote}>
                         Priced by weight ({currency(PER_LB_ITEMS[it.name].pricePerLb)}/lb + $1.50 bag). Set the actual weight from the order after you've weighed it.
                       </div>
-                    )}
-                    {/* Spice level selector */}
-                    {(it.name === 'Indian Style Curry' || it.name === 'Thai Basil Chicken (Pad Krapow Gai)') && (
-                      <SpicePicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
-                    )}
-                    {/* Pasta shape input */}
-                    {(['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'].includes(it.name) && !it.variant.includes('Polenta')) && (
-                      <PastaPicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
                     )}
                     <label style={styles.miniLabel}>Note for this item</label>
                     <input

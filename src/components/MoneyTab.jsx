@@ -32,9 +32,9 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { WeeklySummaryModal } from './WeeklySummary.jsx';
 
 export function ProfitChart({ series }) {
-  // series: [{ label, stamp, profit, revenue }] sorted chronologically
   const W = 320, H = 160;
   const padL = 8, padR = 8, padT = 14, padB = 26;
   const plotW = W - padL - padR;
@@ -45,7 +45,6 @@ export function ProfitChart({ series }) {
   const minP = Math.min(...profits, 0);
   const range = maxP - minP || 1;
 
-  // y for a given profit value
   const yFor = (p) => padT + plotH - ((p - minP) / range) * plotH;
   const zeroY = yFor(0);
 
@@ -53,10 +52,8 @@ export function ProfitChart({ series }) {
   const slotW = plotW / n;
   const barW = Math.min(slotW * 0.6, 34);
 
-  // Show at most ~6 x-labels to avoid crowding
   const labelStep = Math.ceil(n / 6);
 
-  // Build the trend line points (center of each bar at profit height)
   const linePts = series.map((s, i) => {
     const cx = padL + slotW * i + slotW / 2;
     return `${cx},${yFor(s.profit)}`;
@@ -72,9 +69,7 @@ export function ProfitChart({ series }) {
         <span style={styles.chartSubtitle}>avg {currency(avgProfit)}/period</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={styles.chartSvg} preserveAspectRatio="xMidYMid meet">
-        {/* zero baseline */}
         <line x1={padL} y1={zeroY} x2={W - padR} y2={zeroY} stroke="#37403c" strokeWidth="1" strokeDasharray="3,3" />
-        {/* bars */}
         {series.map((s, i) => {
           const cx = padL + slotW * i + slotW / 2;
           const y = yFor(s.profit);
@@ -93,14 +88,11 @@ export function ProfitChart({ series }) {
             />
           );
         })}
-        {/* trend line */}
         {n >= 2 && <polyline points={linePts} fill="none" stroke="#5DCAA5" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-        {/* points */}
         {series.map((s, i) => {
           const cx = padL + slotW * i + slotW / 2;
           return <circle key={i} cx={cx} cy={yFor(s.profit)} r="2.5" fill="#5DCAA5" />;
         })}
-        {/* x labels */}
         {series.map((s, i) => {
           if (i % labelStep !== 0 && i !== n - 1) return null;
           const cx = padL + slotW * i + slotW / 2;
@@ -118,7 +110,6 @@ export function ProfitChart({ series }) {
   );
 }
 
-// Compress a group label for the x-axis (e.g. "Week of Jun 16" -> "Jun 16")
 export function shortLabel(label) {
   if (!label) return '';
   return label.replace(/^Week of /, '').replace(/^Week /, 'W').slice(0, 9);
@@ -134,11 +125,11 @@ export function MoneyTab({ orders, onUpdate }) {
   const [storage, setStorage] = useState(null);
   const [search, setSearch] = useState('');
   const [showChart, setShowChart] = useState(false);
+  const [showRecap, setShowRecap] = useState(false);
   const [weekNotes, setWeekNotes] = useState({});
   const [weekNotesDraft, setWeekNotesDraft] = useState('');
   const [editingWeekNote, setEditingWeekNote] = useState(false);
 
-  // Current week label derived from the most recent order's week group
   const currentWeekKey = useMemo(() => {
     if (!orders.length) return null;
     const sorted = [...orders].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -161,7 +152,6 @@ export function MoneyTab({ orders, onUpdate }) {
     setEditingWeekNote(true);
   };
 
-  // Measure photo storage when the tab opens (and after orders change)
   useEffect(() => {
     let live = true;
     photoStorageBytes().then(s => { if (live) setStorage(s); });
@@ -206,7 +196,6 @@ export function MoneyTab({ orders, onUpdate }) {
     return arr;
   }, [filtered, sortField, sortDir]);
 
-  // Build groups (or one anonymous group when ungrouped)
   const groups = useMemo(() => {
     if (groupMode === 'none') return [{ label: null, stamp: 0, orders: sorted }];
     const map = new Map();
@@ -218,8 +207,6 @@ export function MoneyTab({ orders, onUpdate }) {
     return Array.from(map.values()).sort((a, b) => b.stamp - a.stamp);
   }, [sorted, groupMode]);
 
-  // Profit-over-time series for the chart. Always bucketed by the current group
-  // mode (week/month/year); falls back to weekly when ungrouped. Chronological.
   const profitSeries = useMemo(() => {
     const mode = groupMode === 'none' ? 'week' : groupMode;
     const map = new Map();
@@ -285,6 +272,7 @@ export function MoneyTab({ orders, onUpdate }) {
           )}
         </div>
       )}
+
       <div style={styles.moneyStatsBar}>
         <div style={styles.moneyStatTile}>
           <div style={styles.statValue}>{currency(totals.booked)}</div>
@@ -307,6 +295,7 @@ export function MoneyTab({ orders, onUpdate }) {
           <div style={styles.statLabel}>Outstanding</div>
         </div>
       </div>
+
       {!totals.costComplete && (
         <div style={styles.moneyFootnote}>* some items predate cost tracking, so profit is partial</div>
       )}
@@ -373,9 +362,16 @@ export function MoneyTab({ orders, onUpdate }) {
             {showChart ? 'Hide graph' : 'Graph'}
           </button>
         )}
+        <button
+          style={{ ...styles.chartToggleBtn, ...(showRecap ? styles.chartToggleBtnActive : {}) }}
+          onClick={() => setShowRecap(true)}
+        >
+          Recap
+        </button>
       </div>
 
       {showChart && profitSeries.length >= 2 && <ProfitChart series={profitSeries} />}
+      {showRecap && <WeeklySummaryModal orders={orders} onClose={() => setShowRecap(false)} />}
 
       {groups.map(group => {
         let gRev = 0, gCost = 0, gCollected = 0;
@@ -475,9 +471,8 @@ export function MoneyTab({ orders, onUpdate }) {
   );
 }
 
-// Lazy-loads and shows the saved scale photos for one order's per-lb items
 export function OrderPhotos({ orderId, photoItems }) {
-  const [photos, setPhotos] = useState({}); // itemIdx -> base64 | 'none'
+  const [photos, setPhotos] = useState({});
 
   useEffect(() => {
     let live = true;
@@ -508,4 +503,3 @@ export function OrderPhotos({ orderId, photoItems }) {
     </div>
   );
 }
-

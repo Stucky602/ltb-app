@@ -32,7 +32,7 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
-import { costDishVariant, driftBorder } from '../dishCosting.js';
+import { costDishVariant, driftBorder, trueRawCost, MARGIN_BUFFER } from '../dishCosting.js';
 
 export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory, dishNotes, onSaveDishNote, liveCostMap, baseCostMap, costHistory }) {
   const [input, setInput] = useState('');
@@ -293,6 +293,10 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
                       const bdr = driftBorder(drift);
                       const baseMargin = v.price - v.cost;
                       const basePct = v.price > 0 ? Math.round((baseMargin / v.price) * 100) : 0;
+                      // True raw (un-buffered) cost: the operating cost is buffered
+                      // (×1.0825 baked into the anchor); divide it back out to show
+                      // Kevin his actual spend alongside the cushioned figure.
+                      const rawCost = trueRawCost(liveCost);
                       return (
                         <div
                           key={v.label}
@@ -314,6 +318,11 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
                           <span style={{ ...styles.refCardMargin, color }}>
                             {currency(margin)} · {pct}%
                           </span>
+                          {rawCost != null && (
+                            <span style={{ flexBasis: '100%', fontSize: 10, color: '#7a857f', textAlign: 'right', marginTop: 2 }}>
+                              true cost ~{currency(rawCost)} (buffer ×{MARGIN_BUFFER})
+                            </span>
+                          )}
                           {Math.abs(liveCost - v.cost) > 0.005 && (
                             <span style={{ flexBasis: '100%', fontSize: 10, color: '#9aa5a0', textAlign: 'right', marginTop: 2 }}>
                               baseline {currency(v.cost)} · {basePct}%

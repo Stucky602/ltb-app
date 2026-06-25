@@ -332,6 +332,21 @@ export function dishDrift(dishName, variants, liveCostMap, baseCostMap) {
 function round2(n) { return Math.round(n * 100) / 100; }
 function round1(n) { return Math.round(n * 10) / 10; }
 
+// ── Margin buffer ───────────────────────────────────────────────────────────
+// Historically Kevin multiplied every dish's cost by 1.0825, believing it was
+// sales tax. The receipts proved his ingredients are almost all tax-EXEMPT at
+// purchase, so this is functioning as a MARGIN CUSHION, not tax recovery. It is
+// already baked into the menu.js `cost` anchors (the operating/buffered number).
+// To recover the TRUE raw (un-buffered) cost for display, divide a buffered
+// figure by this. One constant, one place — retune here if ever needed.
+// NOTE: do NOT multiply by this in the costing engine; the buffer already lives
+// in the menu.js cost fields. This constant exists for the dual raw/buffered
+// DISPLAY only.
+export const MARGIN_BUFFER = 1.0825;
+export function trueRawCost(bufferedCost) {
+  return (typeof bufferedCost === 'number') ? round2(bufferedCost / MARGIN_BUFFER) : null;
+}
+
 // Build baseline cost map straight from the seed (id -> baseline).
 export function baselineCostMap() {
   const m = {};

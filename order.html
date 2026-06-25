@@ -222,12 +222,14 @@
 
   var orderBtn = document.getElementById('orderBtn');
   orderBtn.addEventListener('click', function (e) {
-    if (isDesktop() && this.getAttribute('href')) {
-      e.preventDefault();
-      openInPanel(this.getAttribute('href'));
-    }
-    // on mobile: let the default href action happen
+    // form.html always navigates directly (never in panel) to avoid nesting order.html inside itself
+    // default href behavior on both mobile and desktop
   });
+
+  // If this page is ever loaded inside an iframe (e.g. after form submit redirects here), break out
+  if (window.top !== window.self) {
+    window.top.location.href = window.location.href;
+  }
 </script>
 </body>
 </html>

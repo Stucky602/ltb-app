@@ -20,6 +20,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from './config.js';
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
+const COST_HISTORY_KEY = 'ltb_cost_history_v1';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
@@ -46,6 +47,7 @@ import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
+import { baselineCostMap, liveCostMapFrom } from './dishCosting.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -109,6 +111,7 @@ export default function LTBOrderTracker() {
   const [showCsv, setShowCsv] = useState(false);
   const [pendingOrders, setPendingOrders] = useState([]);
   const [ingredientsDb, setIngredientsDb] = useState([]);
+  const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
   const [showPendingIdx, setShowPendingIdx] = useState(null);
   const [checkingForm, setCheckingForm] = useState(false);
   const [parsedNotes, setParsedNotes] = useState({});
@@ -173,13 +176,28 @@ export default function LTBOrderTracker() {
       if (mounted) setInventory(savedInventory || {});
 
       const savedIngredients = await loadJSON(INGREDIENTS_KEY, null);
+      let ingForHistory = null;
       if (savedIngredients && Array.isArray(savedIngredients) && savedIngredients.length) {
         if (mounted) setIngredientsDb(savedIngredients);
+        ingForHistory = savedIngredients;
       } else {
         // First run: seed from the canonical baseline. current = baseline at seed time.
         const seeded = INGREDIENT_SEED.map(i => ({ ...i, current: i.baseline }));
         if (mounted) setIngredientsDb(seeded);
         saveJSON(INGREDIENTS_KEY, seeded);
+        ingForHistory = seeded;
+      }
+
+      // Cost history (lightweight time-series). Seed an initial snapshot on first run
+      // so trends have a starting anchor; afterward append on each cost edit.
+      const savedHistory = await loadJSON(COST_HISTORY_KEY, null);
+      if (savedHistory && Array.isArray(savedHistory) && savedHistory.length) {
+        if (mounted) setCostHistory(savedHistory);
+      } else {
+        const t = Date.now();
+        const snapshot = (ingForHistory || []).map(i => ({ t, id: i.id, cost: i.current }));
+        if (mounted) setCostHistory(snapshot);
+        saveJSON(COST_HISTORY_KEY, snapshot);
       }
 
       setLoading(false);
@@ -623,7 +641,30 @@ export default function LTBOrderTracker() {
   }, []);
 
   const updateIngredients = useCallback((next) => {
-    setIngredientsDb(next);
+    // Diff against current state to log only changed costs into history.
+    setIngredientsDb(prev => {
+      const prevById = {};
+      (prev || []).forEach(i => { prevById[i.id] = i.current; });
+      const t = Date.now();
+      const points = [];
+      (next || []).forEach(i => {
+        const before = prevById[i.id];
+        // log when a new ingredient appears or its current cost moved
+        if (before === undefined || Math.abs((before || 0) - (i.current || 0)) > 0.0001) {
+          points.push({ t, id: i.id, cost: i.current });
+        }
+      });
+      if (points.length) {
+        setCostHistory(h => {
+          const merged = [...(h || []), ...points];
+          // cap history to keep storage small (~last 4000 points)
+          const capped = merged.length > 4000 ? merged.slice(merged.length - 4000) : merged;
+          saveJSON(COST_HISTORY_KEY, capped).then(res => setError(saveError(res)));
+          return capped;
+        });
+      }
+      return next;
+    });
     saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
   }, []);
 
@@ -885,6 +926,11 @@ export default function LTBOrderTracker() {
   }, []);
 
   const menu = useMemo(() => buildMenu(weekDishes), [weekDishes]);
+
+  // Cost maps for live dish costing (Option B). baseline is static from the seed;
+  // live reflects the current edited ingredient costs.
+  const baseCostMap = useMemo(() => baselineCostMap(), []);
+  const liveCostMap = useMemo(() => liveCostMapFrom(ingredientsDb), [ingredientsDb]);
 
   const toggleWeekDish = useCallback((name) => {
     setWeekDishes(prev => {
@@ -1289,6 +1335,9 @@ export default function LTBOrderTracker() {
             onSetInventory={setInventoryCount}
             dishNotes={dishNotes}
             onSaveDishNote={saveDishNote}
+            liveCostMap={liveCostMap}
+            baseCostMap={baseCostMap}
+            costHistory={costHistory}
           />
         )}
 
@@ -1309,7 +1358,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'week' && (
-          <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} />
+          <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
         )}
 
         {view === 'ingredients' && (

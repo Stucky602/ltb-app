@@ -3,6 +3,8 @@
 // To re-baseline from scratch, clear the storage key and reload.
 
 // Each ingredient: { id, name, unit (purchase unit), baseline ($ per purchase unit), category }
+// Optional `fixed: true` marks ingredients that never drift (packaging, homegrown
+// produce) — they still count toward raw cost but are excluded from margin drift.
 export const INGREDIENT_SEED = [
   { id: 'garlic', name: 'Garlic', unit: 'head', baseline: 0.5, category: 'produce' },
   { id: 'ginger', name: 'Ginger', unit: 'lb', baseline: 4.0, category: 'produce' },
@@ -50,6 +52,7 @@ export const INGREDIENT_SEED = [
   { id: 'pork_butt', name: 'Pork butt roast (bone-in)', unit: 'lb', baseline: 2.75, category: 'protein' },
   { id: 'wagyu_london_broil', name: 'Wagyu london broil', unit: 'lb', baseline: 12.0, category: 'protein' },
   { id: 'shrimp', name: 'Shrimp', unit: 'lb', baseline: 14.0, category: 'protein' },
+  { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },
   { id: 'anchovies', name: 'Anchovies', unit: 'tin', baseline: 1.5, category: 'pantry' },
   { id: 'boudin', name: 'Boudin', unit: 'package', baseline: 3.89, category: 'protein' },
@@ -58,7 +61,7 @@ export const INGREDIENT_SEED = [
   { id: 'evaporated_milk', name: 'Evaporated milk', unit: 'cup', baseline: 1.53, category: 'dairy' },
   { id: 'heavy_cream', name: 'Heavy cream', unit: 'cup', baseline: 3.0, category: 'dairy' },
   { id: 'eggs', name: 'Eggs', unit: 'each', baseline: 0.25, category: 'dairy' },
-  { id: 'parm', name: 'Parmesan (good)', unit: 'cup', baseline: 5.0, category: 'dairy' },
+  { id: 'parm', name: 'Parmesan (good)', unit: 'lb', baseline: 23.0, category: 'dairy' },
   { id: 'oaxaca', name: 'Oaxaca cheese', unit: 'lb', baseline: 8.12, category: 'dairy' },
   { id: 'colby_jack', name: 'Colby jack', unit: 'lb', baseline: 5.41, category: 'dairy' },
   { id: 'flour', name: 'Flour', unit: 'lb', baseline: 0.75, category: 'pantry' },
@@ -89,10 +92,11 @@ export const INGREDIENT_SEED = [
   { id: 'tomato_can', name: 'Canned tomato (28oz)', unit: 'can', baseline: 3.54, category: 'pantry' },
   { id: 'peeled_tomatoes', name: 'Peeled tomatoes (14oz)', unit: 'can', baseline: 1.08, category: 'pantry' },
   { id: 'fresh_tomatoes', name: 'Fresh tomatoes', unit: 'lb', baseline: 4.0, category: 'produce' },
+  { id: 'homegrown_tomatoes', name: 'Homegrown tomatoes', unit: '28oz can-equiv', baseline: 10.0, category: 'produce', fixed: true },
   { id: 'tomato_paste', name: 'Tomato paste', unit: 'can', baseline: 1.0, category: 'pantry' },
   { id: 'canola_oil', name: 'Canola oil', unit: 'cup', baseline: 0.74, category: 'pantry' },
   { id: 'vegetable_oil', name: 'Vegetable oil', unit: 'cup', baseline: 0.58, category: 'pantry' },
-  { id: 'olive_oil', name: 'Olive oil', unit: 'batch-use', baseline: 1.2, category: 'pantry' },
+  { id: 'olive_oil', name: 'Olive oil', unit: 'oz', baseline: 1.27, category: 'pantry' },
   { id: 'oil_generic', name: 'Cooking oil', unit: 'cup', baseline: 0.7, category: 'pantry' },
   { id: 'toasted_sesame', name: 'Toasted sesame oil', unit: 'tbs', baseline: 0.12, category: 'pantry' },
   { id: 'chili_oil', name: 'Chili oil (house)', unit: 'cup', baseline: 2.3, category: 'pantry' },
@@ -129,6 +133,7 @@ export const INGREDIENT_SEED = [
   { id: 'chili_flakes', name: 'Chili flakes', unit: 'tbs', baseline: 0.166, category: 'spice' },
   { id: 'spices_generic', name: 'Spice blend (generic)', unit: 'batch-use', baseline: 1.0, category: 'spice' },
   { id: 'cornstarch', name: 'Cornstarch', unit: 'batch-use', baseline: 0.1, category: 'pantry' },
+  { id: 'wrap', name: 'Packaging (wrap/jar)', unit: 'each', baseline: 1.0, category: 'pantry', fixed: true },
   { id: 'sodium_citrate', name: 'Sodium citrate', unit: 'g', baseline: 0.025, category: 'pantry' },
   { id: 'herb_generic', name: 'Herb (thyme/lavender)', unit: 'batch', baseline: 1.0, category: 'produce' },
   { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, category: 'pantry' },

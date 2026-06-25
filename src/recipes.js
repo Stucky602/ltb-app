@@ -137,7 +137,7 @@ export const RECIPES = {
   'Pasta with Homegrown Tomato Sauce': {
     factors: { 'Base (~4)': 1, 'With Beef or Turkey': 1, 'With Mushrooms': 1, 'With Both': 1 },
     base: [
-      I('Homegrown tomatoes', 2, 'lb'),
+      I('Homegrown tomatoes', 1, '28oz can'),
       I('Garlic', 5, 'cloves'),
       I('Pasta', 1, 'lb'),
       I('Good olive oil', 1, 'glug', true),
@@ -150,8 +150,8 @@ export const RECIPES = {
   },
   'Tex-Mex Kit': {
     factors: {
-      'Pulled Pork, Small (~5-6)': 1, 'Pulled Pork, Large (~9-10)': 2,
-      'Pulled Beef, Small (~5-6)': 1, 'Pulled Beef, Large (~9-10)': 2,
+      'Pulled Pork, Small (~5-6)': 0.5, 'Pulled Pork, Large (~9-10)': 1,
+      'Pulled Beef, Small (~5-6)': 0.5, 'Pulled Beef, Large (~9-10)': 1,
     },
     base: [
       I('Beans (for refried)', 1, 'lb'),
@@ -377,7 +377,7 @@ export const RECIPES = {
     ],
   },
   'Gumbo': {
-    factors: { 'Small (split order, ~3-4)': 0.5, 'Large (~7-8)': 1 },
+    factors: { 'Small (split order, ~3-6)': 0.5, 'Large (~8-12)': 1 },
     base: [
       I('Chicken thighs', 2, 'lb'),
       I('Boudin', 1, 'lb'),
@@ -431,7 +431,7 @@ export const RECIPES = {
     ],
   },
   'Pappardelle with Vegetables and Mint': {
-    factors: { 'Small (split order, ~3-4)': 0.5, 'Large (~6-7)': 1 },
+    factors: { 'Small (~2-3)': 0.5, 'Large (~5-6)': 1 },
     base: [
       I('Egg pappardelle', 2, 'packs'),
       I('Fennel bulb', 1, ''),

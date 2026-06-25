@@ -19,6 +19,7 @@ import {
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from './config.js';
+const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
@@ -43,6 +44,8 @@ import { OrderCard } from './components/OrderCard.jsx';
 import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/CookTabs.jsx';
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
+import { IngredientsTab } from './components/IngredientsTab.jsx';
+import { INGREDIENT_SEED } from './ingredients.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -105,6 +108,7 @@ export default function LTBOrderTracker() {
   const [showAmend, setShowAmend] = useState(false);
   const [showCsv, setShowCsv] = useState(false);
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [ingredientsDb, setIngredientsDb] = useState([]);
   const [showPendingIdx, setShowPendingIdx] = useState(null);
   const [checkingForm, setCheckingForm] = useState(false);
   const [parsedNotes, setParsedNotes] = useState({});
@@ -167,6 +171,16 @@ export default function LTBOrderTracker() {
       if (mounted) setRegulars(migratedRegulars);
       const savedInventory = await loadJSON(INVENTORY_KEY, {});
       if (mounted) setInventory(savedInventory || {});
+
+      const savedIngredients = await loadJSON(INGREDIENTS_KEY, null);
+      if (savedIngredients && Array.isArray(savedIngredients) && savedIngredients.length) {
+        if (mounted) setIngredientsDb(savedIngredients);
+      } else {
+        // First run: seed from the canonical baseline. current = baseline at seed time.
+        const seeded = INGREDIENT_SEED.map(i => ({ ...i, current: i.baseline }));
+        if (mounted) setIngredientsDb(seeded);
+        saveJSON(INGREDIENTS_KEY, seeded);
+      }
 
       setLoading(false);
       cleanupPhotos(migrated);
@@ -606,6 +620,11 @@ export default function LTBOrderTracker() {
       saveJSON(INVENTORY_KEY, next).then(res => setError(saveError(res)));
       return next;
     });
+  }, []);
+
+  const updateIngredients = useCallback((next) => {
+    setIngredientsDb(next);
+    saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
   }, []);
 
   const updateOrder = useCallback((id, patch) => {
@@ -1294,11 +1313,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'ingredients' && (
-          <div style={{ padding: '24px 16px', color: '#9aa5a0', textAlign: 'center', fontSize: '14px', lineHeight: 1.6 }}>
-            <div style={{ fontSize: '28px', marginBottom: '12px' }}>🥕</div>
-            <div style={{ color: '#c9a84c', fontWeight: 700, fontSize: '16px', marginBottom: '8px' }}>Ingredient Database</div>
-            <div>Coming soon — track ingredient costs and reconcile against receipts.</div>
-          </div>
+          <IngredientsTab ingredients={ingredientsDb} onChange={updateIngredients} />
         )}
       </main>
     </div>

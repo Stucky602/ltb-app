@@ -361,7 +361,7 @@ export default function LTBOrderTracker() {
             phone: s.phone || '',
             items: Array.isArray(s.items) ? s.items.map(it => ({
               name: it.name, variant: it.variant, qty: it.qty || 1,
-              price: it.price, cost: it.cost || 0, note: it.note || '', hasPhoto: false,
+              price: it.price, cost: it.cost || 0, note: '', hasPhoto: false,
             })) : [],
             notes: s.notes || '',
           }));
@@ -928,24 +928,39 @@ export default function LTBOrderTracker() {
           </div>
         </div>
         {exportMsg && <div style={styles.exportMsg}>{exportMsg}</div>}
-        <nav style={styles.tabs}>
-          {[
-            ['orders', 'Orders'],
-            ['cook', 'Cook'],
-            ['shop', 'Shop'],
-            ['money', 'Money'],
-            ['regulars', 'Regulars'],
-            ['week', 'Week'],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              style={{ ...styles.tab, ...(view === key ? styles.tabActive : {}) }}
-              onClick={() => setView(key)}
-            >
-              {label}
-              {key === 'orders' && stats.active > 0 && <span style={styles.tabBadge}>{stats.active}</span>}
-            </button>
-          ))}
+        <nav style={{ borderBottom: '1px solid #2d3a36' }}>
+          <div style={{ display: 'flex' }}>
+            {[
+              ['orders', 'Orders'],
+              ['cook', 'Cook'],
+              ['shop', 'Shop'],
+              ['ingredients', 'Ingredients'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                style={{ ...styles.tab, ...(view === key ? styles.tabActive : {}), flex: 1 }}
+                onClick={() => setView(key)}
+              >
+                {label}
+                {key === 'orders' && stats.active > 0 && <span style={styles.tabBadge}>{stats.active}</span>}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: 'flex', borderTop: '1px solid #2d3a36' }}>
+            {[
+              ['money', 'Money'],
+              ['regulars', 'Regulars'],
+              ['week', 'Week'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                style={{ ...styles.tab, ...(view === key ? styles.tabActive : {}), flex: 1, borderBottom: 'none' }}
+                onClick={() => setView(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </nav>
       </header>
 
@@ -1276,6 +1291,14 @@ export default function LTBOrderTracker() {
 
         {view === 'week' && (
           <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} />
+        )}
+
+        {view === 'ingredients' && (
+          <div style={{ padding: '24px 16px', color: '#9aa5a0', textAlign: 'center', fontSize: '14px', lineHeight: 1.6 }}>
+            <div style={{ fontSize: '28px', marginBottom: '12px' }}>🥕</div>
+            <div style={{ color: '#c9a84c', fontWeight: 700, fontSize: '16px', marginBottom: '8px' }}>Ingredient Database</div>
+            <div>Coming soon — track ingredient costs and reconcile against receipts.</div>
+          </div>
         )}
       </main>
     </div>

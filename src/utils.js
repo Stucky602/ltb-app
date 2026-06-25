@@ -656,6 +656,111 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
   return validateParsedOrder(parsed, menu);
 }
 
+// Phase 3 — receipt line-item extraction. Mirrors parseOrderText's proxy-call
+// shape exactly, but hits /parse-receipt and returns the raw extracted JSON
+// (store, receipt_date, lines[]). The MODEL ONLY EXTRACTS — all matching and
+// costing happen later in app code (receiptMatch.js). Prompt is intentionally
+// strict: extract only, null anything not literally printed, never guess.
+const RECEIPT_EXTRACTION_PROMPT = `You are a receipt line-item extractor. Your ONLY job is to read a photographed grocery receipt and return its line items as strict JSON. You do not interpret, match, categorize, or price anything. You transcribe what is literally printed.
+
+The image may be rotated, upside down, wrinkled, or faded. Read it regardless of orientation.
+
+These receipts come from three store layouts:
+- H-E-B: "<line#> <NAME> <flag> <price>", e.g. "2 FRESH CARROTS 2#  FW  1.59". Flags: T (taxed), F (food/exempt), FW (food + weighed). Has a "Sale Subtotal", "Sales Tax", "Total Sale".
+- H-E-B GO: same family. Weighed items may print NO weight, only the total (e.g. "PREMIUM BANANAS  FW  0.61"). Store-brand names are often truncated mid-word (e.g. "CLABBER GIRL BAKING POWDE", "EZ TIGER SOURDOUGH ROUND"). Transcribe the truncation exactly; do not complete the word.
+- H-Mart: "<NAME> <price> <flag>" with the price on the RIGHT and the flag after it, no line numbers (e.g. "KING OYSTER MUSHRM  4.64  F"). The same item can appear on multiple lines. Tax may show as "TAX 0.00".
+
+Return ONLY a JSON object. No prose, no explanation, no markdown code fences. The object has exactly these keys:
+
+{
+  "store": <string|null>,
+  "receipt_date": <string|null>,
+  "lines": [
+    {
+      "raw_text": <string>,
+      "item_name": <string>,
+      "quantity": <number|null>,
+      "unit": <string|null>,
+      "line_total": <number|null>,
+      "unit_price_printed": <number|null>,
+      "tax_flag": <string|null>,
+      "weighed": <boolean>
+    }
+  ]
+}
+
+Field rules:
+- store: best guess "H-E-B", "H-E-B GO", "H-Mart", or null if unclear.
+- receipt_date: the PURCHASE/transaction date printed on the receipt, normalized to "YYYY-MM-DD". Use the transaction date, NOT an "expires on" date or any future date. null if not legibly present.
+- item_name: the product name as printed, verbatim. Do NOT expand, correct, or normalize. Keep truncations and store-brand abbreviations.
+- quantity / unit: ONLY if literally printed on the line (e.g. "2#" -> quantity 2, unit "lb"; "#" means lb). null otherwise. NEVER infer or guess.
+- line_total: the dollar total charged for the line. null only if genuinely unreadable.
+- unit_price_printed: a per-unit price ONLY if one is literally printed on the line. null otherwise. NEVER compute it yourself.
+- tax_flag: "T", "F", or "FW" exactly as printed. null if no flag printed.
+- weighed: true if the line is a weighed item (flag contains "W", or the line shows "#"/"lb"/a weight). false otherwise.
+
+HARD RULES:
+- Extract ONLY item lines. Exclude subtotals, tax lines, totals, payment/card info, store address, phone, survey text, barcodes, "items purchased", return policy.
+- NEVER guess a quantity, weight, or unit price that is not printed. A weighed item with no printed weight has quantity=null, unit=null, weighed=true.
+- Transcribe item names verbatim, including truncations. Do not "fix" them.
+- Do not map items to ingredients. Transcribe everything that is an item line, including beer, paper goods, etc.
+- If the whole receipt is unreadable, return {"store": null, "receipt_date": null, "lines": []}.
+- Output the JSON object and nothing else.`;
+
+export async function extractReceipt(imageBase64) {
+  const content = [
+    { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+    { type: 'text', text: RECEIPT_EXTRACTION_PROMPT },
+  ];
+
+  let response;
+  try {
+    response = await fetch(WORKER_BASE + '/parse-receipt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content }],
+      }),
+    });
+  } catch (e) {
+    throw new Error(`[network layer] ${e && e.message ? e.message : 'request failed'}`);
+  }
+  const raw = await response.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    throw new Error(`Non-JSON response (HTTP ${response.status}): ${raw.slice(0, 180)}`);
+  }
+  if (data.error) {
+    const errType = data.error.type || '';
+    const detail = typeof data.error === 'string' ? data.error : (data.error.message || JSON.stringify(data.error));
+    if (response.status === 402 || errType === 'credit_balance_too_low') {
+      throw new Error('OUT_OF_CREDITS');
+    }
+    throw new Error(`HTTP ${response.status} — ${String(detail).slice(0, 120)} — raw: ${raw.slice(0, 180)}`);
+  }
+  if (!response.ok) {
+    throw new Error(`API ${response.status}: ${raw.slice(0, 180)}`);
+  }
+  const text = (data.content || []).map(b => (b.type === 'text' ? b.text : '')).join('');
+  if (!text.trim()) {
+    throw new Error(`Empty response from receipt parser — HTTP ${response.status}, raw: ${raw.slice(0, 120)}`);
+  }
+  const clean = text.replace(/```json|```/g, '').trim();
+  const jsonMatch = clean.match(/\{[\s\S]*\}/);
+  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+
+  // shape guard: always return the expected skeleton
+  return {
+    store: parsed.store || null,
+    receipt_date: parsed.receipt_date || null,
+    lines: Array.isArray(parsed.lines) ? parsed.lines : [],
+  };
+}
+
 // Shared validation: turn a raw parsed order object into clean items + flags.
 // Used by both the new-order parser and the amend-order parser.
 export function validateParsedOrder(parsed, menu) {

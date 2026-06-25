@@ -21,6 +21,7 @@ import {
 } from './config.js';
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 const COST_HISTORY_KEY = 'ltb_cost_history_v1';
+const RECEIPT_ALIASES_KEY = 'ltb_receipt_aliases_v1';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
@@ -46,6 +47,7 @@ import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/C
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
+import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
 import { baselineCostMap, liveCostMapFrom } from './dishCosting.js';
 
@@ -112,6 +114,8 @@ export default function LTBOrderTracker() {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [ingredientsDb, setIngredientsDb] = useState([]);
   const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
+  const [receiptAliases, setReceiptAliases] = useState({}); // normReceiptStr -> { ingredientId?, action?, pricing? }
+  const [showReceiptScan, setShowReceiptScan] = useState(false);
   const [showPendingIdx, setShowPendingIdx] = useState(null);
   const [checkingForm, setCheckingForm] = useState(false);
   const [parsedNotes, setParsedNotes] = useState({});
@@ -198,6 +202,13 @@ export default function LTBOrderTracker() {
         const snapshot = (ingForHistory || []).map(i => ({ t, id: i.id, cost: i.current }));
         if (mounted) setCostHistory(snapshot);
         saveJSON(COST_HISTORY_KEY, snapshot);
+      }
+
+      // Receipt aliases (Phase 3): learned receipt-string -> ingredient mappings,
+      // always-ignore items, and flat-price flags. Empty map on first run.
+      const savedAliases = await loadJSON(RECEIPT_ALIASES_KEY, null);
+      if (mounted && savedAliases && typeof savedAliases === 'object') {
+        setReceiptAliases(savedAliases);
       }
 
       setLoading(false);
@@ -666,6 +677,61 @@ export default function LTBOrderTracker() {
       return next;
     });
     saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
+  }, []);
+
+  // Phase 3 — receipt commit. Twin of updateIngredients, but stamps cost-history
+  // points with the receipt's PURCHASE date (not the scan moment). `updates` is
+  // [{ id, cost }] for accepted lines only. `purchaseDate` is an ISO 'YYYY-MM-DD'
+  // string or null (fallback: now). Never touches baseline.
+  const commitReceiptCosts = useCallback((updates, purchaseDate, newIngredients) => {
+    if ((!updates || !updates.length) && (!newIngredients || !newIngredients.length)) return;
+    const stamp = (() => {
+      if (purchaseDate) {
+        const ms = Date.parse(purchaseDate);
+        if (!isNaN(ms)) return ms;
+      }
+      return Date.now();
+    })();
+    const byId = {};
+    (updates || []).forEach(u => { byId[u.id] = u.cost; });
+    setIngredientsDb(prev => {
+      // first, append any inline-created ingredients (so cost updates resolve)
+      const created = (newIngredients || []).filter(ni => !(prev || []).some(i => i.id === ni.id));
+      const base = [...(prev || []), ...created];
+      const next = base.map(i => (byId[i.id] != null ? { ...i, current: byId[i.id] } : i));
+      const prevById = {};
+      base.forEach(i => { prevById[i.id] = i.current; });
+      const t = stamp;
+      const points = [];
+      // log created ingredients' initial cost + any moved currents
+      created.forEach(ni => { points.push({ t, id: ni.id, cost: ni.current }); });
+      Object.keys(byId).forEach(id => {
+        const before = prevById[id];
+        const after = byId[id];
+        if (before === undefined || Math.abs((before || 0) - (after || 0)) > 0.0001) {
+          // avoid double-logging a just-created ingredient whose cost equals its seed
+          if (!created.some(c => c.id === id && Math.abs((c.current || 0) - (after || 0)) < 0.0001)) {
+            points.push({ t, id, cost: after });
+          }
+        }
+      });
+      if (points.length) {
+        setCostHistory(h => {
+          const merged = [...(h || []), ...points].sort((a, b) => a.t - b.t);
+          const capped = merged.length > 4000 ? merged.slice(merged.length - 4000) : merged;
+          saveJSON(COST_HISTORY_KEY, capped).then(res => setError(saveError(res)));
+          return capped;
+        });
+      }
+      saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
+  // Persist learned receipt aliases (merge + save).
+  const saveReceiptAliases = useCallback((nextAliases) => {
+    setReceiptAliases(nextAliases);
+    saveJSON(RECEIPT_ALIASES_KEY, nextAliases).then(res => setError(saveError(res)));
   }, []);
 
   const updateOrder = useCallback((id, patch) => {
@@ -1362,9 +1428,19 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'ingredients' && (
-          <IngredientsTab ingredients={ingredientsDb} onChange={updateIngredients} />
+          <IngredientsTab ingredients={ingredientsDb} onChange={updateIngredients} onScanReceipt={() => setShowReceiptScan(true)} />
         )}
       </main>
+
+      {showReceiptScan && (
+        <ReceiptScan
+          ingredients={ingredientsDb}
+          aliases={receiptAliases}
+          onSaveAliases={saveReceiptAliases}
+          onCommit={commitReceiptCosts}
+          onClose={() => setShowReceiptScan(false)}
+        />
+      )}
     </div>
   );
 }

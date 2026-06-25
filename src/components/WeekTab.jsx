@@ -32,8 +32,9 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { costDishVariant, driftBorder } from '../dishCosting.js';
 
-export function WeekTab({ selected, onToggle, onPublish }) {
+export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap }) {
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState(null);
@@ -130,10 +131,24 @@ export function WeekTab({ selected, onToggle, onPublish }) {
         const lo = Math.min(...prices);
         const hi = Math.max(...prices);
         const priceLabel = lo === hi ? currency(lo) : `${currency(lo)}–${currency(hi)}`;
+        // Worst-variant drift (version A): the most-pricier variant drives the border,
+        // so a red edge flags "something in here got more expensive — take a look."
+        let worst = null;
+        if (liveCostMap && baseCostMap) {
+          dish.variants.forEach(v => {
+            const r = costDishVariant(dish.name, v.label, v.cost, liveCostMap, baseCostMap);
+            if (r && !r.unknown && (worst === null || r.pctDrift > worst)) worst = r.pctDrift;
+          });
+        }
+        const bdr = (isOn && worst !== null) ? driftBorder(worst) : null;
         return (
           <button
             key={dish.name}
-            style={{ ...styles.cookItem, ...(isOn ? {} : { opacity: 0.55 }) }}
+            style={{
+              ...styles.cookItem,
+              ...(isOn ? {} : { opacity: 0.55 }),
+              ...(bdr ? { borderColor: bdr.borderColor, borderWidth: bdr.borderWidth, borderStyle: 'solid' } : {}),
+            }}
             onClick={() => onToggle(dish.name)}
           >
             <div style={{ ...styles.checkbox, ...(isOn ? styles.checkboxChecked : {}) }}>
@@ -143,6 +158,11 @@ export function WeekTab({ selected, onToggle, onPublish }) {
               <div style={styles.cookItemName}>{dish.name}</div>
               <div style={styles.cookItemVariant}>
                 {dish.variants.length} option{dish.variants.length !== 1 ? 's' : ''} · {priceLabel}
+                {isOn && worst !== null && Math.abs(worst) >= 2 && (
+                  <span style={{ color: worst > 0 ? '#e0828a' : '#5DCAA5', fontWeight: 700 }}>
+                    {' · '}{worst > 0 ? '↑' : '↓'}{Math.abs(worst).toFixed(0)}% vs base
+                  </span>
+                )}
               </div>
             </div>
             <div style={{ ...styles.cookItemQty, color: isOn ? '#5DCAA5' : '#5F5E5A', fontSize: '11px', fontWeight: 700 }}>

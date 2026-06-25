@@ -32,8 +32,9 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { costDishVariant, driftBorder } from '../dishCosting.js';
 
-export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory, dishNotes, onSaveDishNote }) {
+export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory, dishNotes, onSaveDishNote, liveCostMap, baseCostMap, costHistory }) {
   const [input, setInput] = useState('');
   const [includeStaples, setIncludeStaples] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -275,25 +276,68 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
 
             {refData && (
               <div style={styles.refCardBody}>
-                {/* ── Margins table ── */}
+                {/* ── Margins table (live cost vs baseline) ── */}
                 {refData.variants.length > 0 && (
                   <div style={styles.refCardSection}>
                     <div style={styles.refCardSectionTitle}>Margins by variant</div>
                     {refData.variants.map(v => {
-                      const margin = v.price - v.cost;
+                      // Live (Option-B) cost: menu cost moved by current ingredient drift.
+                      const live = (liveCostMap && baseCostMap)
+                        ? costDishVariant(refDish, v.label, v.cost, liveCostMap, baseCostMap)
+                        : null;
+                      const liveCost = (live && live.adjustedCost != null) ? live.adjustedCost : v.cost;
+                      const margin = v.price - liveCost;
                       const pct = v.price > 0 ? Math.round((margin / v.price) * 100) : 0;
                       const color = pct >= 55 ? '#5a8f6a' : pct >= 40 ? GOLD : '#993556';
+                      const drift = live ? live.pctDrift : 0;
+                      const bdr = driftBorder(drift);
+                      const baseMargin = v.price - v.cost;
+                      const basePct = v.price > 0 ? Math.round((baseMargin / v.price) * 100) : 0;
                       return (
-                        <div key={v.label} style={styles.refCardRow}>
+                        <div
+                          key={v.label}
+                          style={{
+                            ...styles.refCardRow,
+                            ...(bdr.borderWidth ? { borderLeft: `3px solid ${bdr.borderColor}`, paddingLeft: 8 } : {}),
+                          }}
+                        >
                           <span style={styles.refCardVariantLabel}>{v.label}</span>
                           <span style={styles.refCardPrice}>{currency(v.price)}</span>
-                          <span style={styles.refCardCost}>cost {currency(v.cost)}</span>
+                          <span style={styles.refCardCost}>
+                            cost {currency(liveCost)}
+                            {Math.abs(drift) >= 2 && (
+                              <span style={{ color: drift > 0 ? '#e0828a' : '#5DCAA5', fontWeight: 700 }}>
+                                {' '}{drift > 0 ? '↑' : '↓'}{Math.abs(drift).toFixed(0)}%
+                              </span>
+                            )}
+                          </span>
                           <span style={{ ...styles.refCardMargin, color }}>
                             {currency(margin)} · {pct}%
                           </span>
+                          {Math.abs(liveCost - v.cost) > 0.005 && (
+                            <span style={{ flexBasis: '100%', fontSize: 10, color: '#9aa5a0', textAlign: 'right', marginTop: 2 }}>
+                              baseline {currency(v.cost)} · {basePct}%
+                            </span>
+                          )}
                         </div>
                       );
                     })}
+                    <button
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        width: '100%', marginTop: 8, padding: '9px 12px',
+                        background: 'transparent', border: '1px dashed #37403c',
+                        color: '#6b7570', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                        cursor: 'not-allowed',
+                      }}
+                      disabled
+                      title="Margin trend graph — available once a few weeks of cost history accumulate"
+                    >
+                      📈 Graph cost over time · coming soon
+                      {Array.isArray(costHistory) && costHistory.length > 0 && (
+                        <span style={{ opacity: 0.7 }}> ({costHistory.length} pts logged)</span>
+                      )}
+                    </button>
                   </div>
                 )}
 

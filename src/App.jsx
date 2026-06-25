@@ -361,7 +361,7 @@ export default function LTBOrderTracker() {
             phone: s.phone || '',
             items: Array.isArray(s.items) ? s.items.map(it => ({
               name: it.name, variant: it.variant, qty: it.qty || 1,
-              price: it.price, cost: it.cost || 0, note: '', hasPhoto: false,
+              price: it.price, cost: it.cost || 0, note: it.note || '', hasPhoto: false,
             })) : [],
             notes: s.notes || '',
           }));

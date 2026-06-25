@@ -45,7 +45,6 @@ import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 
 export default function LTBOrderTracker() {
-  // Inject spin keyframe for the check-form button loading indicator
   React.useEffect(() => {
     if (!document.getElementById('ltb-spin-style')) {
       const s = document.createElement('style');
@@ -55,12 +54,10 @@ export default function LTBOrderTracker() {
     }
   }, []);
 
-  // ── Service worker + push notification registration ───────────────────
   const [notifPerm, setNotifPerm] = React.useState(
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   );
 
-  // Register the SW on load — no permission needed for this step.
   React.useEffect(() => {
     if (!VAPID_PUBLIC_KEY) return;
     if (!('serviceWorker' in navigator)) return;
@@ -69,7 +66,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // Called when the user taps the bell button — requires a user gesture on iOS.
   const enablePushNotifications = async () => {
     if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
     try {
@@ -93,31 +89,31 @@ export default function LTBOrderTracker() {
       console.warn('Push setup failed:', e.message);
     }
   };
+
   const [orders, setOrders] = useState(null);
   const [cookChecks, setCookChecks] = useState({});
   const [deliverChecks, setDeliverChecks] = useState({});
-  const [cookSubView, setCookSubView] = useState('cook'); // 'cook' | 'deliver'
-  const [dishNotes, setDishNotes] = useState({});         // { [dishName]: string }
+  const [cookSubView, setCookSubView] = useState('cook');
+  const [dishNotes, setDishNotes] = useState({});
   const [shopping, setShopping] = useState([]);
   const [weekDishes, setWeekDishes] = useState(DEFAULT_WEEK);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [view, setView] = useState('orders'); // 'orders' | 'cook' | 'shop' | 'money'
-  const [formMode, setFormMode] = useState(null); // null | 'new' | order/draft object
+  const [view, setView] = useState('orders');
+  const [formMode, setFormMode] = useState(null);
   const [showPaste, setShowPaste] = useState(false);
   const [showAmend, setShowAmend] = useState(false);
   const [showCsv, setShowCsv] = useState(false);
-  const [pendingOrders, setPendingOrders] = useState([]); // form submissions awaiting review
-  const [showPendingIdx, setShowPendingIdx] = useState(null); // which pending order is open
-  const [checkingForm, setCheckingForm] = useState(false); // true while manual form poll is running
-  const [parsedNotes, setParsedNotes] = useState({}); // pendingId -> parsed notes object
-  const [parsingNotes, setParsingNotes] = useState(null); // pendingId currently being parsed
-  const [regulars, setRegulars] = useState([]); // VIP customer profiles
-  const [inventory, setInventory] = useState({}); // sauce/add-on stock counts
-  const [linkPrompt, setLinkPrompt] = useState(null); // {order, candidates} when confirming a regular link
+  const [pendingOrders, setPendingOrders] = useState([]);
+  const [showPendingIdx, setShowPendingIdx] = useState(null);
+  const [checkingForm, setCheckingForm] = useState(false);
+  const [parsedNotes, setParsedNotes] = useState({});
+  const [parsingNotes, setParsingNotes] = useState(null);
+  const [regulars, setRegulars] = useState([]);
+  const [inventory, setInventory] = useState({});
+  const [linkPrompt, setLinkPrompt] = useState(null);
   const [expandedOrder, setExpandedOrder] = useState(null);
 
-  // ── Initial load ──────────────────────────────────────────────────────
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -130,13 +126,8 @@ export default function LTBOrderTracker() {
         loadJSON(DISH_NOTES_KEY, {}),
       ]);
       if (!mounted) return;
-      // Migrations for older saved orders
       const migrated = loadedOrders.map(o => ({
         ...o,
-        // Item-level migration: form-imported orders previously stored
-        // `upcharge: 0` (a number) and `lbs: null`, which broke rendering.
-        // Normalize upcharge to either a proper {label, amount} object or
-        // undefined, and drop the stray lbs field.
         items: (o.items || []).map(it => {
           const clean = { ...it };
           if (clean.upcharge != null && typeof clean.upcharge !== 'object') {
@@ -161,17 +152,13 @@ export default function LTBOrderTracker() {
       setDishNotes(loadedDishNotes || {});
       setShopping(loadedShopping || []);
       if (loadedWeek && Array.isArray(loadedWeek.selected)) {
-        // Keep only dishes that still exist in the catalog
         const valid = loadedWeek.selected.filter(n => ALL_DINNERS.some(d => d.name === n));
         setWeekDishes(valid.length > 0 ? valid : DEFAULT_WEEK);
       }
-      // Load any pending form orders from localStorage
       const savedPending = await loadJSON(PENDING_KEY, []);
       if (mounted) setPendingOrders(savedPending || []);
 
-      // Load regulars and inventory
       const savedRegulars = await loadJSON(REGULARS_KEY, []);
-      // Migrate legacy single-name profiles to the names[] model for couples.
       const migratedRegulars = (savedRegulars || []).map(r => {
         if (Array.isArray(r.names) && r.names.length) return r;
         const names = r.name ? [String(r.name).trim()] : [];
@@ -182,9 +169,7 @@ export default function LTBOrderTracker() {
       if (mounted) setInventory(savedInventory || {});
 
       setLoading(false);
-      // Prune proof photos that are orphaned, archived, or older than the TTL
       cleanupPhotos(migrated);
-      // Start the order intake poll. New path = Worker /pending; legacy = CSV.
       if (USE_LEGACY_CSV) {
         pollFormOrders(migrated, savedPending || []);
       } else {
@@ -194,8 +179,6 @@ export default function LTBOrderTracker() {
     return () => { mounted = false; };
   }, []);
 
-  // ── Persistence ───────────────────────────────────────────────────────
-  // Returns the saveJSON result so callers (like import) can await + verify.
   const persistOrders = useCallback(async (next) => {
     setOrders(next);
     const res = await saveJSON(ORDERS_KEY, next);
@@ -208,10 +191,8 @@ export default function LTBOrderTracker() {
     saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
   }, []);
 
-  // ── Order operations ──────────────────────────────────────────────────
-  // Map from menu item name to inventory key for auto-decrement on order save.
   const INVENTORY_ADDON_MAP = {
-    'Queso': 'queso_0', // defaults to no-heat; adjust manually in inventory if a different spice level
+    'Queso': 'queso_0',
     'Chili Oil': 'chiliOil',
     'Chimichurri': 'chimichurri',
     'Romesco': 'romesco',
@@ -227,8 +208,6 @@ export default function LTBOrderTracker() {
         ? (prev || []).map(o => (o.id === order.id ? order : o))
         : [order, ...(prev || [])];
       saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
-
-      // Auto-decrement inventory for tracked add-ons on NEW orders only
       if (!exists) {
         (order.items || []).forEach(it => {
           const invKey = INVENTORY_ADDON_MAP[it.name];
@@ -242,14 +221,11 @@ export default function LTBOrderTracker() {
           }
         });
       }
-
       return next;
     });
     setFormMode(null);
   }, []);
 
-  // Bulk-add orders parsed from a Google Sheet / CSV paste. Each gets a fresh id,
-  // computed total, and default status so it lands as a normal new order.
   const importOrders = useCallback((parsedOrders) => {
     const newOrders = parsedOrders.map(p => {
       const items = p.items || [];
@@ -282,8 +258,6 @@ export default function LTBOrderTracker() {
     setTimeout(() => setExportMsg(null), 4000);
   }, []);
 
-
-  // Manual "Check for new orders" button handler
   const checkFormNow = React.useCallback(async () => {
     setCheckingForm(true);
     try {
@@ -322,48 +296,35 @@ export default function LTBOrderTracker() {
     setCheckingForm(false);
   }, []);
 
-  // Long-press "Check for new orders" to reset seen rows from the past 7 days,
-  // so recent orders get re-queued as pending without dredging up old history.
   const resetRecentSeenRows = React.useCallback(async () => {
     const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
     const seen = seenRaw || {};
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days ago in ms
-
-    // Google Sheets timestamps are in the format "M/D/YYYY H:MM:SS" or similar.
-    // Parse them and remove any that fall within the past 7 days.
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
     let removed = 0;
     const updated = {};
     Object.entries(seen).forEach(([ts, val]) => {
       const parsed = new Date(ts);
       if (!isNaN(parsed.getTime()) && parsed.getTime() >= cutoff) {
-        // Recent — remove from seen so it gets re-queued
         removed++;
       } else {
-        // Old or unparseable — keep
         updated[ts] = val;
       }
     });
-
     await saveJSON(SEEN_ROWS_KEY, updated);
     alert('Reset ' + removed + ' recent order' + (removed !== 1 ? 's' : '') + ' from seen history. Tap "Check for new orders" to re-import them.');
   }, []);
 
-  // ── Form polling: fetch the published CSV, find new rows, queue as pending ──
-  // Uses a ref to avoid stale closure issues with state.
   const pollFormOrders = React.useCallback(async (existingOrders, existingPending) => {
     const rows = await fetchFormRows();
-    if (!rows) return; // network failure — silently skip
-
-    // Load seen row timestamps from localStorage
+    if (!rows) return;
     const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
     const seen = seenRaw || {};
-
     const newPending = [];
     rows.forEach(row => {
       const ts = row['Timestamp'] || row['timestamp'] || '';
-      if (!ts || seen[ts]) return; // already processed
+      if (!ts || seen[ts]) return;
       const { customer, items, notes } = parseFormRow(row);
-      if (items.length === 0 && !notes) return; // blank row
+      if (items.length === 0 && !notes) return;
       newPending.push({
         pendingId: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2),
         timestamp: ts,
@@ -373,26 +334,17 @@ export default function LTBOrderTracker() {
       });
       seen[ts] = true;
     });
-
     if (newPending.length > 0) {
       const updated = [...existingPending, ...newPending];
       setPendingOrders(updated);
       await saveJSON(PENDING_KEY, updated);
       await saveJSON(SEEN_ROWS_KEY, seen);
     } else {
-      // Still save seen map if it changed (even if no new pending)
       await saveJSON(SEEN_ROWS_KEY, seen);
     }
-
-    // Schedule next poll in 5 minutes
     setTimeout(() => pollFormOrders(existingOrders, existingPending), 5 * 60 * 1000);
   }, []);
 
-  // ── Worker pending poll (NEW intake path) ──────────────────────────────────
-  // Pulls submissions from the Worker /pending endpoint, adds any not already
-  // in our queue (tracked by submission id), then clears them from the Worker
-  // so they aren't pulled again. Self-reschedules every 2 minutes via a ref to
-  // avoid a circular callback dependency.
   const workerPollRef = React.useRef(null);
   const pollWorkerPending = React.useCallback(async (reschedule = true) => {
     try {
@@ -402,7 +354,7 @@ export default function LTBOrderTracker() {
         const submissions = (data && data.pending) || [];
         if (submissions.length > 0) {
           const mapped = submissions.map(s => ({
-            pendingId: s.id, // use the Worker's submission id as our pending id
+            pendingId: s.id,
             timestamp: s.submittedAt || new Date().toISOString(),
             customer: s.customer || 'Unknown',
             address: s.address || '',
@@ -421,7 +373,6 @@ export default function LTBOrderTracker() {
             saveJSON(PENDING_KEY, updated);
             return updated;
           });
-          // Clear pulled submissions from the Worker so they aren't re-fetched
           const ids = submissions.map(s => s.id);
           fetch(WORKER_BASE + '/pending/clear', {
             method: 'POST',
@@ -430,32 +381,24 @@ export default function LTBOrderTracker() {
           }).catch(() => {});
         }
       }
-    } catch (e) {
-      // network hiccup — just try again next cycle
-    }
+    } catch (e) {}
     if (reschedule) {
       if (workerPollRef.current) clearTimeout(workerPollRef.current);
       workerPollRef.current = setTimeout(() => pollWorkerPending(true), 2 * 60 * 1000);
     }
   }, []);
 
-  // Manual "check now" for the Worker pending queue (used by the button)
   const checkWorkerNow = React.useCallback(async () => {
     setCheckingForm(true);
-    await pollWorkerPending(false); // don't disturb the scheduled cycle
+    await pollWorkerPending(false);
     setCheckingForm(false);
   }, [pollWorkerPending]);
 
-  // ── Publish the week: push active menu config to the Worker ────────────────
-  // Builds the config the custom form reads (dinners, add-ons, desserts, etc.),
-  // then POSTs it to /config with the publish token.
   const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel) => {
     const activeMenu = buildMenu(currentWeekDishes || []);
     const toVariants = (item) => {
       const info = PER_LB_ITEMS[item.name];
       if (info) {
-        // Per-lb items: publish pricePerLb only (no $1.50 baked in).
-        // The form and menu page display "$X/lb + $1.50 bag" from the perLb flag.
         return {
           name: item.name,
           perLb: true,
@@ -468,16 +411,12 @@ export default function LTBOrderTracker() {
         variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })),
       };
     };
-    // Customers can order this week's dinners plus all always-available items.
     const dishes = (activeMenu.dinner || []).map(toVariants);
-    // Note: breakfast (waffles) excluded from published config intentionally.
-    // Waffles are available by request via order notes only — not listed publicly.
     const fruit = (activeMenu.fruit || []).map(toVariants);
     const desserts = (activeMenu.desserts || []).map(toVariants);
     const addons = (activeMenu.addons || []).map(toVariants);
     const bag = (activeMenu.bag || []).map(toVariants);
     const sauces = (activeMenu.sauces || []).map(toVariants);
-
     const payload = {
       token: PUBLISH_TOKEN,
       dishes, fruit, desserts, addons, bag, sauces,
@@ -496,14 +435,26 @@ export default function LTBOrderTracker() {
     return res.json();
   }, []);
 
-  // Accept a pending order — convert to a real order and add to active.
-  // Auto-links to a regular on exact full-name match (and pre-applies their
-  // lifetime discount); on a partial match, queues a prompt to confirm.
+  // ── Auto-fill regular contact info from incoming order ─────────────────────
+  // Called after linking an order to a regular. If the regular has no address
+  // or phone and the order does, fills in the blank fields and shows a banner.
+  const autoFillRegularContact = useCallback((reg, order) => {
+    const infoPatch = {};
+    if (!reg.address && order.address) infoPatch.address = order.address;
+    if (!reg.phone && order.phone) infoPatch.phone = order.phone;
+    if (Object.keys(infoPatch).length > 0) {
+      updateRegular(reg.id, infoPatch);
+      const fields = [infoPatch.address && 'address', infoPatch.phone && 'phone']
+        .filter(Boolean).join(' and ');
+      const name = (reg.names && reg.names[0]) || reg.name || 'Regular';
+      setExportMsg(`${name}'s ${fields} saved to Regulars.`);
+      setTimeout(() => setExportMsg(null), 4000);
+    }
+  }, []);
+
   const acceptPending = useCallback((pending) => {
     const orderId = uid();
 
-    // Look for a matching regular — checks ALL names on each profile, so either
-    // person in a couple links to the same shared profile.
     let exactReg = null;
     const partialRegs = [];
     regulars.forEach(r => {
@@ -512,15 +463,12 @@ export default function LTBOrderTracker() {
       else if (m === 'partial') partialRegs.push(r);
     });
 
-    // If exact match has a lifetime discount, pre-apply it (toggle defaults on)
     const discountType = exactReg && exactReg.discountPercent > 0 ? 'percent' : null;
     const discountValue = exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0;
     const total = orderTotal(pending.items, 0, 0, discountType, discountValue, [], false);
 
     const order = {
       id: orderId,
-      // Keep the actual name the customer ordered under, not the profile's
-      // primary — so you can see which half of a couple placed it.
       customer: pending.customer,
       address: pending.address || '',
       phone: pending.phone || '',
@@ -545,26 +493,22 @@ export default function LTBOrderTracker() {
       return next;
     });
 
-    // Auto-decrement inventory for any tracked add-ons in this order
     (order.items || []).forEach(it => {
       const invKey = INVENTORY_ADDON_MAP[it.name];
       if (invKey) adjustInventory(invKey, -(it.qty || 1));
     });
 
-    // Auto-link silently on exact match
     if (exactReg) {
       linkOrderToRegular(exactReg.id, orderId);
+      autoFillRegularContact(exactReg, order);
     } else if (partialRegs.length > 0) {
-      // Queue a prompt to confirm a partial match
       setLinkPrompt({ order, candidates: partialRegs });
     }
 
     dismissPending(pending.pendingId);
     setShowPendingIdx(null);
-  }, [regulars]);
+  }, [regulars, autoFillRegularContact]);
 
-
-  // Reject a pending order — remove from queue without adding to orders
   const dismissPending = useCallback((pendingId) => {
     setPendingOrders(prev => {
       const next = prev.filter(p => p.pendingId !== pendingId);
@@ -574,21 +518,19 @@ export default function LTBOrderTracker() {
     setShowPendingIdx(null);
   }, []);
 
-  // ── Regulars management ────────────────────────────────────────────────────
   const persistRegulars = useCallback((next) => {
     setRegulars(next);
     saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
   }, []);
 
   const addRegular = useCallback((profile) => {
-    // Normalize incoming names into a clean array (supports couples/groups).
     const names = (Array.isArray(profile.names) ? profile.names : [profile.name])
       .map(n => String(n || '').trim())
       .filter(Boolean);
     const reg = {
       id: uid(),
       names,
-      name: names[0] || '', // legacy primary, kept for backward compatibility
+      name: names[0] || '',
       address: profile.address || '',
       phone: profile.phone || '',
       dietary: profile.dietary || '',
@@ -623,7 +565,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // Link an order to a regular (by id), and refresh that regular's insights.
   const linkOrderToRegular = useCallback((regularId, orderId) => {
     setRegulars(prev => {
       const next = prev.map(r => {
@@ -650,7 +591,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // ── Inventory management ───────────────────────────────────────────────────
   const adjustInventory = useCallback((key, delta) => {
     setInventory(prev => {
       const current = Number(prev[key]) || 0;
@@ -668,7 +608,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-
   const updateOrder = useCallback((id, patch) => {
     setOrders(prev => {
       const next = (prev || []).map(o => (o.id === id ? { ...o, ...patch } : o));
@@ -680,7 +619,6 @@ export default function LTBOrderTracker() {
   const deleteOrder = useCallback((id) => {
     setOrders(prev => {
       const target = (prev || []).find(o => o.id === id);
-      // Clean up any saved scale photos for this order
       if (target) (target.items || []).forEach((it, i) => { if (it.hasPhoto) deletePhoto(id, i); });
       const next = (prev || []).filter(o => o.id !== id);
       saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
@@ -688,14 +626,12 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // Archiving keeps the order for the Money tab but removes it from weekly views
   const archiveDelivered = useCallback(() => {
     persistOrders((orders || []).map(o =>
       o.status === 'Delivered' && !o.archived ? { ...o, archived: true } : o
     ));
   }, [orders, persistOrders]);
 
-  // ── Export / Import ───────────────────────────────────────────────────
   const [exportMsg, setExportMsg] = useState(null);
 
   const exportData = useCallback(async () => {
@@ -713,7 +649,6 @@ export default function LTBOrderTracker() {
       await navigator.clipboard.writeText(json);
       setExportMsg('Copied! Paste into Notes or anywhere to save.');
     } catch {
-      // clipboard API also sometimes needs a user gesture context — try the old way
       try {
         const ta = document.createElement('textarea');
         ta.value = json;
@@ -732,7 +667,6 @@ export default function LTBOrderTracker() {
   }, [orders, shopping, weekDishes, regulars, inventory]);
 
   const importData = useCallback(async (e) => {
-    // Called with either a file input event or a raw JSON string (from paste import)
     let json;
     if (typeof e === 'string') {
       json = e;
@@ -758,7 +692,7 @@ export default function LTBOrderTracker() {
       );
       if (!ok) return;
       const res = await persistOrders(payload.orders);
-      if (!res.ok) return; // persistOrders set the specific error already
+      if (!res.ok) return;
       if (Array.isArray(payload.shopping)) {
         setShopping(payload.shopping);
         await saveJSON(SHOPPING_KEY, payload.shopping);
@@ -799,10 +733,7 @@ export default function LTBOrderTracker() {
         return;
       }
       const res = await persistOrders(payload.orders);
-      if (!res.ok) {
-        // Save failed — tell the user honestly; persistOrders already set the error
-        return;
-      }
+      if (!res.ok) return;
       if (Array.isArray(payload.shopping)) {
         setShopping(payload.shopping);
         await saveJSON(SHOPPING_KEY, payload.shopping);
@@ -827,21 +758,16 @@ export default function LTBOrderTracker() {
     }
   }, [persistOrders]);
 
-  // ── Derived data ──────────────────────────────────────────────────────
   const currentOrders = useMemo(() => (orders || []).filter(o => !o.archived), [orders]);
   const activeOrders = useMemo(() => currentOrders.filter(o => o.status !== 'Delivered'), [currentOrders]);
   const deliveredOrders = useMemo(() => currentOrders.filter(o => o.status === 'Delivered'), [currentOrders]);
 
-  // Stats bar covers the current (non-archived) week; Money tab covers all time
   const stats = useMemo(() => {
     const booked = currentOrders.reduce((s, o) => s + o.total, 0);
     const unpaid = currentOrders.filter(o => !o.paid).reduce((s, o) => s + o.total, 0);
     return { active: activeOrders.length, booked: round2(booked), unpaid: round2(unpaid) };
   }, [currentOrders, activeOrders]);
 
-  // Revenue + estimated ingredient cost tied up in active (not-yet-delivered) orders.
-  // Gives a quick gut check while cooking and shopping. weightPending proteins
-  // contribute $0 until weighed, which is correct (not bought yet).
   const activeFinancials = useMemo(() => {
     let revenue = 0;
     let cost = 0;
@@ -883,9 +809,6 @@ export default function LTBOrderTracker() {
     );
   }, [activeOrders]);
 
-  // Same active-order items as the cook list, but grouped by customer order so
-  // each bag can be packed and checked off independently. Keys are stable per
-  // order+item so checking one customer's dish never affects another's.
   const deliverList = useMemo(() => {
     const catOrder = Object.keys(CATEGORY_LABELS);
     return activeOrders.map(o => {
@@ -942,7 +865,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // The menu in effect this week — drives the picker, AI parser, and new orders
   const menu = useMemo(() => buildMenu(weekDishes), [weekDishes]);
 
   const toggleWeekDish = useCallback((name) => {
@@ -953,7 +875,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // Regenerate auto items from active orders; manual items and checked states survive
   const generateShopping = useCallback((includeStaples) => {
     const lines = generateShoppingItems(activeOrders, includeStaples);
     setShopping(prev => {
@@ -1054,7 +975,6 @@ export default function LTBOrderTracker() {
           candidates={linkPrompt.candidates}
           onLink={(regularId) => {
             linkOrderToRegular(regularId, linkPrompt.order.id);
-            // Also stamp the regularId onto the order and apply discount if any
             const reg = regulars.find(r => r.id === regularId);
             if (reg) {
               const patch = { regularId };
@@ -1064,6 +984,8 @@ export default function LTBOrderTracker() {
                 patch.total = orderTotal(linkPrompt.order.items, linkPrompt.order.jarSwaps, linkPrompt.order.containerReturns, 'percent', reg.discountPercent, linkPrompt.order.customCharges, linkPrompt.order.waiveSurcharge);
               }
               updateOrder(linkPrompt.order.id, patch);
+              // Auto-fill blank address/phone on partial-match confirm
+              autoFillRegularContact(reg, linkPrompt.order);
             }
             setLinkPrompt(null);
           }}
@@ -1082,12 +1004,6 @@ export default function LTBOrderTracker() {
                   <Plus size={18} />
                   New order
                 </button>
-                {/* AI text parsing is disabled in the GitHub/localStorage build.
-                    Anthropic's API can't be called directly from a public static
-                    site (no sandbox auth, CORS blocked). The full parser code is
-                    left intact below — to re-enable, restore the onClick handlers
-                    and remove the strikethrough/disabled styling, then point the
-                    fetch calls at a server-side proxy (see setup notes). */}
                 <button style={styles.pasteBtn} onClick={() => setShowPaste(true)}>
                   <ClipboardPaste size={18} />
                   Paste a text
@@ -1165,7 +1081,6 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
-            {/* ── Pending form orders queue ── */}
             {pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && (
               <div style={styles.pendingSection}>
                 <div style={styles.pendingSectionHeader}>
@@ -1366,5 +1281,3 @@ export default function LTBOrderTracker() {
     </div>
   );
 }
-
-// ─── Prompt to link a form order to a regular on a partial name match ───────

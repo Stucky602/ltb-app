@@ -833,13 +833,15 @@ export const styles = {
   // ── Kitchen conflict checker (Week tab) ────────────────────────────────────
   conflictBtn: {
     flex: 1,
+    boxSizing: 'border-box',
     background: '#3a1a1f',
     color: '#e0828a',
     border: '1px solid #5a2a3a',
     borderRadius: '8px',
-    padding: '12px',
+    padding: '11px 12px',
     fontSize: '14px',
     fontWeight: 700,
+    lineHeight: 1.2,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',

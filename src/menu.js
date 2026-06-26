@@ -20,8 +20,8 @@ export const ALL_DINNERS = [
     { label: 'Large (~6-8)', price: 80, cost: 37.06 },
   ]},
   { name: 'Gumbo', variants: [
-    { label: 'Small (split order, ~3-6)', price: 40, cost: 16.57 },
-    { label: 'Large (~8-12)', price: 75, cost: 33.16 },
+    { label: 'Small (split order, ~3-6)', price: 50, cost: 23.33 },
+    { label: 'Large (~8-12)', price: 90, cost: 46.66 },
   ]},
   { name: 'Tex-Mex Kit', variants: [
     { label: 'Pulled Pork, Small (~5-6)', price: 42, cost: 19.21 },

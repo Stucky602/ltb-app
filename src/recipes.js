@@ -380,7 +380,7 @@ export const RECIPES = {
     factors: { 'Small (split order, ~3-6)': 0.5, 'Large (~8-12)': 1 },
     base: [
       I('Chicken thighs', 2, 'lb'),
-      I('Boudin', 1, 'lb'),
+      I('Texas Gulf Shrimp', 2, 'lb'),
       I('Onion', 1, ''),
       I('Green bell pepper', 1, ''),
       I('Celery', 3, 'stalks'),
@@ -391,10 +391,10 @@ export const RECIPES = {
       I('Rice (included with order)', 1, 'batch', true),
     ],
   },
-  'Stir Fried Long Beans with Ground Pork': {
+  'Stir Fried Long Beans with Ground Pork or Tofu': {
     factors: {
-      'Small (~4), Ground Pork': 0.5, 'Large (~8), Ground Pork': 1,
-      'Small (~4), Tofu': 0.5, 'Large (~8), Tofu': 1,
+      'Ground Pork, Small (~4)': 0.5, 'Ground Pork, Large (~8)': 1,
+      'Tofu, Small (~4)': 0.5, 'Tofu, Large (~8)': 1,
     },
     base: [
       I('Long beans', 1.5, 'lb'),
@@ -405,10 +405,10 @@ export const RECIPES = {
       I('Rice (included with order)', 1, 'batch', true),
     ],
     extras: {
-      'Small (~4), Ground Pork': [I('Ground pork', 1, 'lb')],
-      'Large (~8), Ground Pork': [I('Ground pork', 1, 'lb')],
-      'Small (~4), Tofu': [I('Tofu', 1, 'block')],
-      'Large (~8), Tofu': [I('Tofu', 1, 'block')],
+      'Ground Pork, Small (~4)': [I('Ground pork', 1, 'lb')],
+      'Ground Pork, Large (~8)': [I('Ground pork', 1, 'lb')],
+      'Tofu, Small (~4)': [I('Tofu', 1, 'block')],
+      'Tofu, Large (~8)': [I('Tofu', 1, 'block')],
     },
   },
   'Leblanc Inspired Japanese Curry': {
@@ -543,7 +543,7 @@ export const DINNER_REHEAT_BUCKET = {
   'Shrimp or Tofu with Asparagus in Black Bean Sauce': 'bagged',
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli': 'bagged',
   'Thai Basil Chicken (Pad Krapow Gai)': 'bagged',
-  'Stir Fried Long Beans with Ground Pork': 'bagged',
+  'Stir Fried Long Beans with Ground Pork or Tofu': 'bagged',
   'Pappardelle with Vegetables and Mint': 'bagged',
   // Stovetop in a container — warm gently, splash of water if thick
   'Mapo Eggplant': 'stovetop',
@@ -567,7 +567,7 @@ export const RICE_DISHES = new Set([
   'Shrimp or Tofu with Asparagus in Black Bean Sauce',
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
   'Thai Basil Chicken (Pad Krapow Gai)',
-  'Stir Fried Long Beans with Ground Pork',
+  'Stir Fried Long Beans with Ground Pork or Tofu',
   'Mapo Eggplant',
   'Gumbo',
   'Indian Style Curry',

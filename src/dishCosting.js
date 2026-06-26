@@ -106,8 +106,8 @@ export const LINE_MAP = {
   'Bone-in pork butt':      { id: 'pork_butt', conv: q => q },
   'Wagyu london broil':     { id: 'wagyu_london_broil', conv: q => q },
   'Shrimp':                 { id: 'shrimp', conv: q => q },
+  'Texas Gulf Shrimp':      { id: 'shrimp', conv: q => q },
   'Salt pork':              { id: 'salt_pork', conv: q => q },
-  'Boudin':                 { id: 'boudin', conv: q => q*2.5 },
   'Anchovies':              { id: 'anchovies', conv: q => q },
   'Tofu':                   { id: 'tofu', conv: () => 1 },
 

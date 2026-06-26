@@ -24,7 +24,7 @@ export const styles = {
   header: {
     background: TEAL_DARK,
     borderBottom: `2px solid ${GOLD}`,
-    padding: '16px 16px 0',
+    padding: '10px 16px 0',
     position: 'sticky',
     top: 0,
     zIndex: 10,
@@ -33,7 +33,7 @@ export const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
-    marginBottom: '14px',
+    marginBottom: '8px',
   },
   headerCenter: {
     flex: 1,
@@ -116,7 +116,7 @@ export const styles = {
     color: '#9aa5a0',
     fontSize: '13px',
     fontWeight: 600,
-    padding: '10px 4px',
+    padding: '7px 4px',
     borderBottom: '2px solid transparent',
     cursor: 'pointer',
     display: 'flex',

@@ -44,10 +44,10 @@ export const ALL_DINNERS = [
   ]},
   // ── East Asian ─────────────────────────────────────────────────────────────
   { name: 'Cumin Mushroom Noodles', variants: [
-    { label: 'Small (~3-4)', price: 40, cost: 19.86 },
-    { label: 'Large (~6-8)', price: 75, cost: 38.65 },
-    { label: 'Small (~3-4) + Asian Greens (1/2 lb)', price: 45, cost: 22.03 },
-    { label: 'Large (~6-8) + Asian Greens (1 lb)', price: 80, cost: 40.81 },
+    { label: 'Small (~3-4)', price: 45, cost: 19.86 },
+    { label: 'Large (~6-8)', price: 80, cost: 38.65 },
+    { label: 'Small (~3-4) + Asian Greens (1/2 lb)', price: 50, cost: 22.03 },
+    { label: 'Large (~6-8) + Asian Greens (1 lb)', price: 85, cost: 40.81 },
   ]},
   { name: 'Mapo Eggplant', variants: [
     { label: 'Small (~5-6 servings)', price: 35, cost: 14.75 },
@@ -59,11 +59,11 @@ export const ALL_DINNERS = [
     { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 10.6 },
     { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 20.2 },
   ]},
-  { name: 'Stir Fried Long Beans with Ground Pork', variants: [
-    { label: 'Small (~4), Ground Pork', price: 30, cost: 12.54 },
-    { label: 'Large (~8), Ground Pork', price: 55, cost: 25.07 },
-    { label: 'Small (~4), Tofu', price: 30, cost: 12.54 },
-    { label: 'Large (~8), Tofu', price: 55, cost: 25.07 },
+  { name: 'Stir Fried Long Beans with Ground Pork or Tofu', variants: [
+    { label: 'Ground Pork, Small (~4)', price: 30, cost: 12.54 },
+    { label: 'Ground Pork, Large (~8)', price: 55, cost: 25.07 },
+    { label: 'Tofu, Small (~4)', price: 30, cost: 12.54 },
+    { label: 'Tofu, Large (~8)', price: 55, cost: 25.07 },
   ]},
   { name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli', variants: [
     { label: 'Shrimp, Small Batch (~4)', price: 40, cost: 19.56 },
@@ -72,8 +72,8 @@ export const ALL_DINNERS = [
     { label: 'Tofu, Large Batch (~8)', price: 45, cost: 15.34 },
   ]},
   { name: 'Thai Basil Chicken (Pad Krapow Gai)', variants: [
-    { label: 'Small (~3-4)', price: 30, cost: 14.45 },
-    { label: 'Large (~7-8)', price: 55, cost: 27.82 },
+    { label: 'Small (~3-4)', price: 35, cost: 14.45 },
+    { label: 'Large (~7-8)', price: 60, cost: 27.82 },
   ]},
   // ── Italian ────────────────────────────────────────────────────────────────
   { name: 'Bolognese', variants: [
@@ -89,8 +89,8 @@ export const ALL_DINNERS = [
     { label: 'With Both', price: 41, cost: 17.24 },
   ]},
   { name: 'Pappardelle with Vegetables and Mint', variants: [
-    { label: 'Small (~2-3)', price: 30, cost: 15.48 },
-    { label: 'Large (~5-6)', price: 55, cost: 30.96 },
+    { label: 'Small (~2-3)', price: 35, cost: 15.48 },
+    { label: 'Large (~5-6)', price: 65, cost: 30.96 },
   ]},
   { name: 'Saffron Pork Ragu', variants: [
     { label: 'Small (~4 servings)', price: 40, cost: 17.84 },

@@ -693,7 +693,7 @@ Field rules:
 - store: best guess "H-E-B", "H-E-B GO", "H-Mart", or null if unclear.
 - receipt_date: the PURCHASE/transaction date printed on the receipt, normalized to "YYYY-MM-DD". Use the transaction date, NOT an "expires on" date or any future date. null if not legibly present.
 - item_name: the product name as printed, verbatim. Do NOT expand, correct, or normalize. Keep truncations and store-brand abbreviations.
-- quantity / unit: ONLY if literally printed on the line (e.g. "2#" -> quantity 2, unit "lb"; "#" means lb). null otherwise. NEVER infer or guess.
+- quantity / unit: ONLY if literally printed on the line. quantity is the number; unit is the printed unit token. Examples: "2#" -> quantity 2, unit "lb" ("#" means lb); "1 GAL" -> quantity 1, unit "gal"; "16 OZ" -> quantity 16, unit "oz"; "0.5 GAL" -> quantity 0.5, unit "gal". Transcribe the unit token as printed (gal, lb, oz, qt, pt, fl oz, g, kg, ml, l). Both null if no quantity/unit is printed. NEVER infer or guess.
 - line_total: the dollar total charged for the line. null only if genuinely unreadable.
 - unit_price_printed: a per-unit price ONLY if one is literally printed on the line. null otherwise. NEVER compute it yourself.
 - tax_flag: "T", "F", or "FW" exactly as printed. null if no flag printed.

@@ -33,6 +33,7 @@ import {
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { costDishVariant, driftBorder } from '../dishCosting.js';
+import { ConflictModal } from './ConflictModal.jsx';
 
 export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap }) {
   const [copied, setCopied] = useState(false);
@@ -40,6 +41,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   const [publishMsg, setPublishMsg] = useState(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [weekLabel, setWeekLabel] = useState('');
+  const [showConflicts, setShowConflicts] = useState(false);
 
   // Compute the next Sunday (order due date) and following Wednesday (delivery).
   const computeWeekLabel = () => {
@@ -180,13 +182,22 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
             Customers see the new menu the moment you publish. Optionally add the
             menu PDF link and a week label that show on the form.
           </div>
-          <button
-            style={{ ...styles.saveBtn, marginTop: '10px', background: publishMsg?.ok ? '#1D9E75' : undefined }}
-            onClick={doPublish}
-            disabled={publishing}
-          >
-            {publishing ? 'Publishing…' : publishMsg?.ok ? '✓ Published!' : 'Publish to order form'}
-          </button>
+          <div style={styles.conflictBtnRow}>
+            <button
+              style={{ ...styles.saveBtn, marginTop: 0, flex: 1, background: publishMsg?.ok ? '#1D9E75' : undefined }}
+              onClick={doPublish}
+              disabled={publishing}
+            >
+              {publishing ? 'Publishing…' : publishMsg?.ok ? '✓ Published!' : 'Publish to order form'}
+            </button>
+            <button
+              style={styles.conflictBtn}
+              onClick={() => setShowConflicts(true)}
+              aria-label="Check kitchen conflicts"
+            >
+              <AlertTriangle size={15} /> Check conflicts
+            </button>
+          </div>
           {publishMsg && (
             <div style={publishMsg.ok ? styles.publishOk : styles.publishErr}>{publishMsg.text}</div>
           )}
@@ -204,6 +215,10 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
             {copied ? '✓ Copied to clipboard!' : 'Copy form options'}
           </button>
         </div>
+      )}
+
+      {showConflicts && (
+        <ConflictModal selected={selected} onClose={() => setShowConflicts(false)} />
       )}
     </div>
   );

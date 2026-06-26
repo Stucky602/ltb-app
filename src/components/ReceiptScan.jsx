@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -86,7 +86,13 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       else if (line.weighed && line.quantity != null && line.line_total != null) { perUnit = round(line.line_total / line.quantity); basis = 'total_div_weight'; accept = true; }
       else if (r.needsPrice || (line.weighed && line.quantity == null)) { status = 'needsPrice'; }
       else if (line.line_total != null) { perUnit = line.line_total; basis = 'line_total'; accept = false; }
-      return { ...r, status, ingredientId, ingredient: ing, perUnit, basis, accept, acceptedPerUnit: accept ? perUnit : null };
+      // auto-convert receipt unit → ingredient costing unit (e.g. per gal → per cup)
+      let conversion = null;
+      if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
+        const conv = convertPerUnit(perUnit, normalizeUnit(line.unit), ing ? ing.unit : null, ingredientId);
+        if (conv) { perUnit = conv.perUnit; conversion = { fromUnit: conv.fromUnit, toUnit: conv.toUnit, factor: conv.factor, basis }; basis = 'converted'; }
+      }
+      return { ...r, status, ingredientId, ingredient: ing, perUnit, basis, conversion, accept, acceptedPerUnit: accept ? perUnit : null };
     }));
     if (writeAlias) {
       const key = normalizeIngredientName(rows[idx].line.item_name);
@@ -321,6 +327,11 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker }) {
         <span style={S.arrow}>→</span>
         <span style={S.newCost}>{implied != null ? currency(implied) : '—'}{ing ? `/${ing.unit}` : ''}</span>
       </div>
+      {r.conversion && (
+        <div style={S.convNote}>
+          Converted from receipt price per {r.conversion.fromUnit} ({r.conversion.factor % 1 === 0 ? `${r.conversion.factor} ${r.conversion.toUnit}s per ${r.conversion.fromUnit}` : `${round(r.conversion.factor)}× ${r.conversion.toUnit}`}).
+        </div>
+      )}
       {mismatchRisk && (
         <div style={S.warn}>
           Receipt gives a line total ({currency(r.line.line_total)}), not a per-{ing ? ing.unit : 'unit'} price. Confirm this equals one {ing ? ing.unit : 'unit'}, or edit below.
@@ -512,6 +523,7 @@ const S = {
   arrow: { color: '#6b7a74' },
   newCost: { fontSize: 14, color: TEAL_LIGHT, fontWeight: 700 },
   warn: { fontSize: 11.5, color: '#e8c87a', background: 'rgba(232,200,122,0.08)', borderRadius: 6, padding: '6px 8px', marginTop: 6, lineHeight: 1.4 },
+  convNote: { fontSize: 11, color: '#8fb9ad', marginTop: 5, lineHeight: 1.4, fontStyle: 'italic' },
   hint: { fontSize: 12, color: '#9aa5a0', marginTop: 4, lineHeight: 1.4 },
   priceRow: { display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 },
   dollar: { color: '#9aa5a0', fontSize: 14 },

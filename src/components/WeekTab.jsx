@@ -119,8 +119,6 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
         <div style={styles.genHint}>
           Check the dishes you're offering. The order picker, text parser, and shopping
           list follow this instantly. Existing orders aren't affected.
-          The customer-facing PDF still comes from Claude — just tell it your picks
-          (or send it a screenshot of this screen).
         </div>
         {selected.length === 0 && (
           <div style={styles.parseError}>No dishes selected — the Dinner section will be empty on new orders.</div>

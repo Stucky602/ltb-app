@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
-import { CATEGORY_ORDER, CATEGORY_LABELS_ING } from '../ingredients.js';
+import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
 import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
@@ -152,6 +152,21 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
         }
       }
     });
+    // Price links: some ingredients always share a cost (e.g. Guittard low/high %).
+    // When a receipt updates either side, mirror the same cost onto its partner(s)
+    // so the two never drift apart, whichever one the receipt happened to name.
+    const updatedIds = new Set(updates.map(u => u.id));
+    const linkExtras = [];
+    updates.forEach(u => {
+      INGREDIENT_SEED.forEach(seed => {
+        // u.id is the source -> push to anything linking to it
+        if (seed.priceLink === u.id && !updatedIds.has(seed.id)) linkExtras.push({ id: seed.id, cost: u.cost });
+        // u.id links to a source -> also set the source to match
+        const self = INGREDIENT_SEED.find(s => s.id === u.id);
+        if (self && self.priceLink === seed.id && !updatedIds.has(seed.id)) linkExtras.push({ id: seed.id, cost: u.cost });
+      });
+    });
+    linkExtras.forEach(e => { if (!updatedIds.has(e.id)) { updates.push(e); updatedIds.add(e.id); } });
     // persist aliases (staged edits this session)
     onSaveAliases(localAliases);
     // commit costs stamped with purchase date (App handler handles new-ingredient ids via current map)

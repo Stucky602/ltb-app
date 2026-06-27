@@ -137,7 +137,7 @@ export const LINE_MAP = {
   'Mix of spicy peppers':   { id: 'chilis', conv: () => 0.2 },
   'Dark chocolate':         { id: 'chocolate_100', conv: (q,u)=> u==='oz'? q*2 : q },
   '100% dark chocolate':    { id: 'chocolate_100', conv: q => q },
-  'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: (q,u)=> u==='g'? q/145 : q },
+  'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: (q,u)=> q },
   'Valrhona chocolate':     { id: 'valrhona', conv: (q,u)=> u==='g'? q/290 : q },
   'Peanut butter':          { id: 'peanut_butter', conv: (q,u)=> u==='cup'? q*1 : q },
   'Saffron':                { id: 'saffron', conv: q => q },
@@ -351,7 +351,7 @@ export function trueRawCost(bufferedCost) {
 export function baselineCostMap() {
   const m = {};
   INGREDIENT_SEED.forEach(i => { m[i.id] = i.baseline; });
-  return m;
+  return applyPriceLinks(m);
 }
 
 // Build a live cost map from the in-app ingredient DB array
@@ -359,5 +359,16 @@ export function baselineCostMap() {
 export function liveCostMapFrom(ingredientsDb) {
   const m = {};
   (ingredientsDb || []).forEach(i => { m[i.id] = (typeof i.current === 'number' ? i.current : i.baseline); });
+  return applyPriceLinks(m);
+}
+
+// Some ingredients always share a price with another (e.g. Guittard low/high %
+// are the same product cost). `priceLink` on the seed names the source id; the
+// linked ingredient mirrors it so a receipt or manual edit to either keeps both
+// in sync (source wins). Pure post-pass over a built cost map.
+export function applyPriceLinks(m) {
+  INGREDIENT_SEED.forEach(i => {
+    if (i.priceLink && m[i.priceLink] != null) m[i.id] = m[i.priceLink];
+  });
   return m;
 }

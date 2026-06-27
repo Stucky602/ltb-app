@@ -54,14 +54,22 @@ export function normalizeUnit(raw) {
     floz: 'fl_oz', fluidounce: 'fl_oz',
     l: 'liter', liter: 'liter', litre: 'liter', ml: 'ml',
     cup: 'cup', c: 'cup', tbsp: 'tbsp', tbs: 'tbs', tsp: 'tsp', tsp_: 'tsp',
+    package: 'package', pkg: 'package', pk: 'package', pack: 'package', bar: 'package', bag: 'package',
+    box: 'box', bx: 'box', carton: 'box',
   };
   return map[u] || null;
 }
 
 // Butter is the one fixed-pack special case: Kevin always buys 1 lb = 4 sticks,
 // so a per-lb butter price converts to per-stick by /4. Keyed by ingredient id.
+// Same mechanism for other always-same-package buys: Guittard (283g bar) and
+// kosher salt (Morton 1.36kg box). `fromUnit` is what the receipt prices in;
+// `perBase` is how many costing-units are in one purchased pack.
 const PACK_OVERRIDE = {
-  butter: { fromUnit: 'lb', perBase: 4 },  // 1 lb butter = 4 sticks
+  butter: { fromUnit: 'lb', perBase: 4 },          // 1 lb butter = 4 sticks
+  guittard_low: { fromUnit: 'package', perBase: 283 },  // 1 package = 283 g
+  guittard_high: { fromUnit: 'package', perBase: 283 },
+  kosher_salt: { fromUnit: 'box', perBase: 90.7 },  // Morton 1.36kg box ≈ 90.7 tbsp (15g/tbsp)
 };
 
 // Convert a per-unit price FROM the receipt unit INTO the ingredient's costing

@@ -665,14 +665,22 @@ const RECEIPT_EXTRACTION_PROMPT = `You are a receipt line-item extractor. Your O
 
 The image may be rotated, upside down, wrinkled, or faded. Read it regardless of orientation.
 
-These receipts come from three store layouts:
-- H-E-B: "<line#> <NAME> <flag> <price>", e.g. "2 FRESH CARROTS 2#  FW  1.59". Flags: T (taxed), F (food/exempt), FW (food + weighed). Has a "Sale Subtotal", "Sales Tax", "Total Sale".
-- H-E-B GO: same family. Weighed items may print NO weight, only the total (e.g. "PREMIUM BANANAS  FW  0.61"). Store-brand names are often truncated mid-word (e.g. "CLABBER GIRL BAKING POWDE", "EZ TIGER SOURDOUGH ROUND"). Transcribe the truncation exactly; do not complete the word.
-- H-Mart: "<NAME> <price> <flag>" with the price on the RIGHT and the flag after it, no line numbers (e.g. "KING OYSTER MUSHRM  4.64  F"). The same item can appear on multiple lines. Tax may show as "TAX 0.00".
-  H-Mart mixes two line types and you MUST tell them apart per line:
-  (a) BY THE POUND (weighed): the line (or the line right below it) shows a weight-times-rate pattern, e.g. "0.85 lb @ $5.49/lb", "1.20 LB @ 3.99", "NET WT 0.75 LB", or any "<weight> @ <rate>". For these: weighed=true, quantity=<the weight number>, unit="lb", unit_price_printed=<the per-lb rate>, line_total=<the charged total>.
-  (b) BY THE PACK (fixed price): the line is just "<NAME> <price> <flag>" with NO weight and NO "@" rate (e.g. "KING OYSTER MUSHRM  4.64  F"). For these: weighed=false, quantity=null, unit=null, unit_price_printed=null, line_total=<price>.
-  Decide per line from what is actually printed. Do NOT assume every H-Mart food line is weighed. If there is no weight and no "@" rate on or under the line, it is a pack (weighed=false).
+These receipts come from three store layouts. Items often span TWO printed lines — combine them into ONE line object:
+
+- H-E-B: a line number + NAME on one line, and the quantity/price detail on the NEXT line, e.g.:
+    "1 KITCH BASICS UNSLTD BEEF"
+    "    2 Ea. @ 1/ 2.98 F   5.96"
+  This is ONE item: name "KITCH BASICS UNSLTD BEEF", it's 2 each at $2.98, line_total 5.96, flag F. Put quantity=2, unit="ea", unit_price_printed=2.98 when an "N Ea. @ ... <price>" detail line is present. A weighed item shows "2#" or a weight; flags: T (taxed), F (food/exempt), FW (food + weighed). When the NAME line already carries the flag and total with no separate detail line (e.g. "7 ANISE FENNEL  FW  3.98"), that's the whole item. Has a "Sale Subtotal", "Sales Tax", "Total Sale".
+- H-E-B GO: same family. Weighed items may print NO weight, only the total (e.g. "PREMIUM BANANAS  FW  0.61"). Store-brand names are often truncated mid-word (e.g. "CLABBER GIRL BAKING POWDE", "GHIRARDELLI 100% COCOA UN"). Transcribe the truncation exactly; do not complete the word.
+- H-Mart: no line numbers; the item NAME and total are on one line with the flag on the right (e.g. "GARLIC PK 5PC  2.99  F"). A WEIGHED item prints a weight-times-rate line DIRECTLY ABOVE the name, and the name line is prefixed "WT", e.g.:
+    "2.95 lb @ 0.69 /lb"
+    "WT    YELLOW ONION    2.04 F"
+  This is ONE item: name "YELLOW ONION", weighed=true, quantity=2.95, unit="lb", unit_price_printed=0.69, line_total=2.04. The same item can appear on multiple lines (each its own object). Tax may show as "TAX 0.00".
+
+  Per-line type detection (H-Mart AND H-E-B):
+  (a) BY THE POUND (weighed): a weight-times-rate pattern is present ("2.95 lb @ 0.69 /lb", a "WT" prefix, "2#", "NET WT 0.75 LB"). weighed=true, quantity=<weight>, unit="lb", unit_price_printed=<per-lb rate>, line_total=<charged total>.
+  (b) BY A PACK/COUNT: the name shows a pack marker like "PK 5PC", "5 PACK", "8 CT", or it's just "<NAME> <price> <flag>" with NO weight and NO "@" rate. weighed=false. If a pack count is printed (e.g. "5PC" = 5 pieces), put that number in quantity and unit="pack"; otherwise quantity=null, unit=null. unit_price_printed=null, line_total=<price>.
+  Decide PER LINE from what is actually printed. Do NOT assume a whole store is one type. No weight and no "@" rate means it is a pack/count line (weighed=false).
 
 Return ONLY a JSON object. No prose, no explanation, no markdown code fences. The object has exactly these keys:
 
@@ -724,7 +732,7 @@ export async function extractReceipt(imageBase64) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
+        max_tokens: 4000,
         messages: [{ role: 'user', content }],
       }),
     });
@@ -755,7 +763,24 @@ export async function extractReceipt(imageBase64) {
   }
   const clean = text.replace(/```json|```/g, '').trim();
   const jsonMatch = clean.match(/\{[\s\S]*\}/);
-  const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : clean);
+  } catch (e) {
+    // The model's JSON came back malformed — almost always because a long
+    // receipt hit the token ceiling and the "lines" array was cut off mid-object
+    // (the classic "Expected ']'"). Salvage what we can: keep every COMPLETE
+    // line object that streamed before the cut, then close the array/object so
+    // the user still gets most of the receipt instead of a hard failure.
+    const salvaged = salvageReceiptJson(clean);
+    if (salvaged) {
+      parsed = salvaged;
+    } else if (data.stop_reason === 'max_tokens') {
+      throw new Error('That receipt has too many items to read in one pass. Try cropping to fewer items per photo, or scan it in two halves.');
+    } else {
+      throw new Error(`Could not read that receipt (the scan came back garbled). Try a flatter, sharper photo with even lighting.`);
+    }
+  }
 
   // shape guard: always return the expected skeleton
   return {
@@ -763,6 +788,50 @@ export async function extractReceipt(imageBase64) {
     receipt_date: parsed.receipt_date || null,
     lines: Array.isArray(parsed.lines) ? parsed.lines : [],
   };
+}
+
+// Recover a usable receipt object from JSON that was truncated mid-array (the
+// model hit its token ceiling). Strategy: pull store/receipt_date if present,
+// then walk the "lines" array keeping only complete {...} objects, stopping at
+// the first one that doesn't fully close. Returns a valid object or null if
+// nothing salvageable.
+export function salvageReceiptJson(clean) {
+  try {
+    const store = (clean.match(/"store"\s*:\s*"([^"]*)"/) || [])[1] || null;
+    const date = (clean.match(/"receipt_date"\s*:\s*"([^"]*)"/) || [])[1] || null;
+    const linesStart = clean.indexOf('"lines"');
+    if (linesStart === -1) return null;
+    const bracket = clean.indexOf('[', linesStart);
+    if (bracket === -1) return null;
+
+    const objs = [];
+    let depth = 0, start = -1, inStr = false, esc = false;
+    for (let i = bracket + 1; i < clean.length; i++) {
+      const ch = clean[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') { inStr = true; continue; }
+      if (ch === '{') { if (depth === 0) start = i; depth++; }
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          const frag = clean.slice(start, i + 1);
+          try { objs.push(JSON.parse(frag)); } catch (_) { /* skip a bad fragment */ }
+          start = -1;
+        }
+      } else if (ch === ']' && depth === 0) {
+        break;
+      }
+    }
+    if (!objs.length) return null;
+    return { store, receipt_date: date, lines: objs };
+  } catch (_) {
+    return null;
+  }
 }
 
 // Shared validation: turn a raw parsed order object into clean items + flags.

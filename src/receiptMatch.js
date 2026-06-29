@@ -54,22 +54,32 @@ export function normalizeUnit(raw) {
     floz: 'fl_oz', fluidounce: 'fl_oz',
     l: 'liter', liter: 'liter', litre: 'liter', ml: 'ml',
     cup: 'cup', c: 'cup', tbsp: 'tbsp', tbs: 'tbs', tsp: 'tsp', tsp_: 'tsp',
-    package: 'package', pkg: 'package', pk: 'package', pack: 'package', bar: 'package', bag: 'package',
+    package: 'package', pkg: 'package', pk: 'package', pack: 'package', bar: 'package', bag: 'package', ct: 'package', count: 'package',
     box: 'box', bx: 'box', carton: 'box',
   };
   return map[u] || null;
 }
 
-// Butter is the one fixed-pack special case: Kevin always buys 1 lb = 4 sticks,
-// so a per-lb butter price converts to per-stick by /4. Keyed by ingredient id.
-// Same mechanism for other always-same-package buys: Guittard (283g bar) and
-// kosher salt (Morton 1.36kg box). `fromUnit` is what the receipt prices in;
-// `perBase` is how many costing-units are in one purchased pack.
+// Fixed pack buys: when the receipt prices a whole pack but we cost per piece.
+// `fromUnit` is the receipt unit that triggers it; `perBase` is how many
+// costing-units are in one pack. Because this keys on the receipt's printed
+// unit, an ingredient bought loose one trip and packaged the next converts
+// only when the pack unit actually appears (e.g. garlic: a "5 pack" line
+// divides by 5, a loose "head"/"each" line passes straight through).
 const PACK_OVERRIDE = {
-  butter: { fromUnit: 'lb', perBase: 4 },          // 1 lb butter = 4 sticks
-  guittard_low: { fromUnit: 'package', perBase: 283 },  // 1 package = 283 g
+  butter: { fromUnit: 'lb', perBase: 4 },              // 1 lb butter = 4 sticks
+  guittard_low: { fromUnit: 'package', perBase: 283 }, // 1 package = 283 g
   guittard_high: { fromUnit: 'package', perBase: 283 },
-  kosher_salt: { fromUnit: 'box', perBase: 90.7 },  // Morton 1.36kg box ≈ 90.7 tbsp (15g/tbsp)
+  kosher_salt: { fromUnit: 'box', perBase: 90.7 },     // Morton 1.36kg box ≈ 90.7 tbsp
+  garlic: { fromUnit: 'package', perBase: 5 },         // labeled 5-pack = 5 heads (loose heads pass through)
+  chocolate_100: { fromUnit: 'package', perBase: 8 },  // 100% chocolate pack = 8 squares
+};
+
+// Per-each produce that is sometimes weighed at the register. The costing unit
+// is 'each', but a per-lb receipt price converts via a known average weight.
+// price/lb × lbPerEach = price/each. Keyed by ingredient id.
+const EACH_LB_BRIDGE = {
+  onion: { lbPerEach: 0.6 },   // 1 yellow onion ≈ 0.6 lb
 };
 
 // Convert a per-unit price FROM the receipt unit INTO the ingredient's costing
@@ -78,10 +88,15 @@ const PACK_OVERRIDE = {
 // conversion needed/possible" and proceeds normally).
 export function convertPerUnit(perUnit, fromUnit, toUnit, ingredientId) {
   if (perUnit == null) return null;
-  // butter-style fixed pack override first
+  // 1) fixed pack override (pack/box/package → pieces), fires on receipt unit
   const ov = ingredientId && PACK_OVERRIDE[ingredientId];
   if (ov && fromUnit === ov.fromUnit) {
     return { perUnit: round3(perUnit / ov.perBase), factor: ov.perBase, fromUnit, toUnit };
+  }
+  // 2) each↔lb bridge for per-each produce weighed at the register
+  const br = ingredientId && EACH_LB_BRIDGE[ingredientId];
+  if (br && toUnit === 'each' && fromUnit === 'lb') {
+    return { perUnit: round3(perUnit * br.lbPerEach), factor: br.lbPerEach, fromUnit, toUnit };
   }
   if (!fromUnit || !toUnit || fromUnit === toUnit) return null;
   const fam = UNIT_FAMILY[fromUnit];
@@ -185,12 +200,21 @@ function classifyLine(line, seed, aliases, store) {
   // Auto-convert the per-unit price into the ingredient's costing unit when the
   // receipt's unit differs (e.g. milk priced per gallon → per cup). Carries the
   // conversion detail so the confirm screen can show "per gal → per cup (÷16)".
-  // Only fires for printed/weight bases (a real per-unit number); a bare
-  // line_total has no trustworthy unit attached, so it still goes to confirm.
   let conversion = null;
   const fromUnit = normalizeUnit(line.unit);
   const toUnit = seedIng ? seedIng.unit : null;
-  if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
+  // (a) PACK priced as a lump line_total (e.g. garlic "5 PACK" at $2.50 total,
+  // 100% chocolate 8-pack). No per-unit was printed, so divide the total by the
+  // pack count — the printed quantity if the receipt gave one, else the
+  // ingredient's known pack size — to get the per-piece cost.
+  const packOv = ingredientId ? PACK_OVERRIDE[ingredientId] : null;
+  if (basis === 'line_total' && packOv && fromUnit === packOv.fromUnit && line.line_total != null) {
+    const count = (typeof line.quantity === 'number' && line.quantity > 0) ? line.quantity : packOv.perBase;
+    perUnit = round(line.line_total / count);
+    conversion = { fromUnit, toUnit, factor: count, basis: 'pack_total' };
+    basis = 'converted';
+  } else if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
+    // (b) a real per-unit price in a different unit → table/bridge conversion
     const conv = convertPerUnit(perUnit, fromUnit, toUnit, ingredientId);
     if (conv) {
       perUnit = conv.perUnit;

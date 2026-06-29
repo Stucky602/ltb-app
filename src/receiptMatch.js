@@ -175,14 +175,13 @@ function classifyLine(line, seed, aliases, store) {
 
   const aliasFlat = alias && alias.pricing === 'FLAT';
   // A line only needs a manual price when it's genuinely weighed but the weight
-  // wasn't printed, so we can't derive a per-unit cost. We trust the per-line
-  // `weighed` flag the extractor sets from the actual receipt (a weight or "@"
-  // rate). H-Mart mixes by-the-pound and by-the-pack lines; a pack line is
-  // weighed=false and flows straight through, a weighed line with a printed
-  // weight derives its per-unit, and only a weighed line missing its weight
-  // (any store) drops to the price prompt.
+  // A weighed item only needs a MANUAL price when we truly can't cost it: no
+  // weight AND no usable total. If the receipt printed a line total (the common
+  // H-E-B "FW" case: weighed flag set but no weight shown, e.g. "HONEYCRISP
+  // APPLES FW 1.33"), that total IS the cost for what was bought, so it flows
+  // through as a flat match the user just confirms — no per-unit entry needed.
   const weighedNoWeight = line.weighed && (line.quantity == null) && (line.unit_price_printed == null);
-  const needsPrice = !aliasFlat && weighedNoWeight;
+  const needsPrice = !aliasFlat && weighedNoWeight && (line.line_total == null);
 
   const seedIng = ingredientId ? seed.find(s => s.id === ingredientId) : null;
 

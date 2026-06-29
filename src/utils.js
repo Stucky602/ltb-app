@@ -679,7 +679,7 @@ These receipts come from three store layouts. Items often span TWO printed lines
 
   Per-line type detection (H-Mart AND H-E-B):
   (a) BY THE POUND (weighed): a weight-times-rate pattern is present ("2.95 lb @ 0.69 /lb", a "WT" prefix, "2#", "NET WT 0.75 LB"). weighed=true, quantity=<weight>, unit="lb", unit_price_printed=<per-lb rate>, line_total=<charged total>.
-  (b) BY A PACK/COUNT: the name shows a pack marker like "PK 5PC", "5 PACK", "8 CT", or it's just "<NAME> <price> <flag>" with NO weight and NO "@" rate. weighed=false. If a pack count is printed (e.g. "5PC" = 5 pieces), put that number in quantity and unit="pack"; otherwise quantity=null, unit=null. unit_price_printed=null, line_total=<price>.
+  (b) BY A PACK/COUNT: the name shows a pack marker like "PK 5PC", "5 PACK", "8 CT", "BAG", "BTL"/"BOTTLE", or it's just "<NAME> <price> <flag>" with NO weight and NO "@" rate. weighed=false. If a pack count is printed (e.g. "5PC" = 5 pieces), put that number in quantity and unit="pack"; for a single bag/bottle/carton with no count, set unit="pack" (or "bottle"/"bag"/"carton" as printed) and quantity=null. Otherwise quantity=null, unit=null. unit_price_printed=null, line_total=<price>.
   Decide PER LINE from what is actually printed. Do NOT assume a whole store is one type. No weight and no "@" rate means it is a pack/count line (weighed=false).
 
 Return ONLY a JSON object. No prose, no explanation, no markdown code fences. The object has exactly these keys:

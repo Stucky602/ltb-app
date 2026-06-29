@@ -55,6 +55,7 @@ export function normalizeUnit(raw) {
     l: 'liter', liter: 'liter', litre: 'liter', ml: 'ml',
     cup: 'cup', c: 'cup', tbsp: 'tbsp', tbs: 'tbs', tsp: 'tsp', tsp_: 'tsp',
     package: 'package', pkg: 'package', pk: 'package', pack: 'package', bar: 'package', bag: 'package', ct: 'package', count: 'package',
+    bottle: 'package', btl: 'package', btl_: 'package', fourpack: 'package', fourpk: 'package',
     box: 'box', bx: 'box', carton: 'box',
   };
   return map[u] || null;
@@ -73,6 +74,10 @@ const PACK_OVERRIDE = {
   kosher_salt: { fromUnit: 'box', perBase: 90.7 },     // Morton 1.36kg box ≈ 90.7 tbsp
   garlic: { fromUnit: 'package', perBase: 5 },         // labeled 5-pack = 5 heads (loose heads pass through)
   chocolate_100: { fromUnit: 'package', perBase: 8 },  // 100% chocolate pack = 8 squares
+  beef_stock: { fromUnit: 'package', perBase: 4 },     // 1 Kitch Basics carton = 4 cups
+  tofu: { fromUnit: 'package', perBase: 1 },           // 16oz package = 1 block (price as-is, just accept "package")
+  baby_gold_potatoes: { fromUnit: 'package', perBase: 2 }, // 1 bag = 2 lb (baby gold ONLY)
+  red_wine: { fromUnit: 'package', perBase: 3.17, fixedCount: true, matchNullUnit: true }, // 1 bottle OR 1 four-pack of minis ≈ 750ml ≈ 3.17 cups
 };
 
 // Per-each produce that is sometimes weighed at the register. The costing unit
@@ -204,14 +209,21 @@ function classifyLine(line, seed, aliases, store) {
   const fromUnit = normalizeUnit(line.unit);
   const toUnit = seedIng ? seedIng.unit : null;
   // (a) PACK priced as a lump line_total (e.g. garlic "5 PACK" at $2.50 total,
-  // 100% chocolate 8-pack). No per-unit was printed, so divide the total by the
-  // pack count — the printed quantity if the receipt gave one, else the
-  // ingredient's known pack size — to get the per-piece cost.
+  // 100% chocolate 8-pack, a wine bottle). No per-unit was printed, so divide
+  // the total by the pack count to get the per-piece cost. Count is the printed
+  // quantity when the receipt gave one, else the ingredient's known pack size.
+  // `fixedCount` overrides force perBase regardless of printed quantity (red
+  // wine: a 4-pack of minis is still one bottle ≈ 3.17 cups, not ÷4).
+  // `matchNullUnit` lets an item with no printed unit still take the override
+  // (a bare "RED WINE 12.99" line is one bottle).
   const packOv = ingredientId ? PACK_OVERRIDE[ingredientId] : null;
-  if (basis === 'line_total' && packOv && fromUnit === packOv.fromUnit && line.line_total != null) {
-    const count = (typeof line.quantity === 'number' && line.quantity > 0) ? line.quantity : packOv.perBase;
+  const packUnitOk = packOv && (fromUnit === packOv.fromUnit || (packOv.matchNullUnit && !fromUnit));
+  if (basis === 'line_total' && packUnitOk && line.line_total != null) {
+    const count = packOv.fixedCount
+      ? packOv.perBase
+      : ((typeof line.quantity === 'number' && line.quantity > 0) ? line.quantity : packOv.perBase);
     perUnit = round(line.line_total / count);
-    conversion = { fromUnit, toUnit, factor: count, basis: 'pack_total' };
+    conversion = { fromUnit: fromUnit || packOv.fromUnit, toUnit, factor: count, basis: 'pack_total' };
     basis = 'converted';
   } else if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
     // (b) a real per-unit price in a different unit → table/bridge conversion
@@ -245,9 +257,45 @@ function groupClassified(classified) {
   return [...groups.values()];
 }
 
+// Built-in alias seed: recurring store-brand / abbreviated receipt names that
+// fuzzy matching can't reach, mapped to their ingredient id. Keys are already
+// normalizeIngredientName()-form (lowercased, parentheticals dropped, words >4
+// chars singularized). OCR drifts on some of these, so common misreads get
+// their own key. Learned aliases (what Kevin maps in-app) merge ON TOP of this,
+// so a manual remap always wins.
+export const ALIAS_SEED = {
+  // beef stock — Kitch Basics carton (OCR: KITCH BASICS / KITCH BASIC, U/LNSLTD)
+  'kitch basic unsltd beef': { ingredientId: 'beef_stock' },
+  'kitch basic lnsltd beef': { ingredientId: 'beef_stock' },
+  'kitch basic unslted beef': { ingredientId: 'beef_stock' },
+  // beef chuck roast — "SEL BNL/BAL SHLDER RST" (boneless shoulder roast)
+  'sel bnl shlder rst': { ingredientId: 'beef_chuck' },
+  'sel bal shlder rst': { ingredientId: 'beef_chuck' },
+  'sel bnl shldr rst': { ingredientId: 'beef_chuck' },
+  // tofu — Banyan hard tofu (OCR often "TCFU")
+  'banyan hard tcfu': { ingredientId: 'tofu' },
+  'banyan hard tofu': { ingredientId: 'tofu' },
+  // seasonal melons — all variants map to the one melon ingredient (like dried chilis)
+  'emerald crunch dm': { ingredientId: 'cantaloupe' },
+  'emerald crunch melon': { ingredientId: 'cantaloupe' },
+  'dulcinea melon': { ingredientId: 'cantaloupe' },
+  // good parm — Agriform Parmigiano 24 month (OCR: ANRIFORM/AGRIFORM)
+  'agriform parmigiano 24 mo': { ingredientId: 'parm' },
+  'anriform parmigiano 24 mo': { ingredientId: 'parm' },
+  'agriform parmigiano': { ingredientId: 'parm' },
+  // baby gold potatoes — bagged (2 lb bag handled by PACK_OVERRIDE)
+  'bagged baby gold potatoe': { ingredientId: 'baby_gold_potatoes' },
+  'baby gold potatoe': { ingredientId: 'baby_gold_potatoes' },
+  // 100% chocolate — Ghirardelli 100% cocoa unsweetened (8-square pack)
+  'ghirardelli 100% cocoa un': { ingredientId: 'chocolate_100' },
+  'ghirardelli 100% cocoa unsweetened': { ingredientId: 'chocolate_100' },
+};
+
 export function buildReviewPlan(extracted, seed, aliases) {
   const store = extracted.store || null;
-  const classified = (extracted.lines || []).map(l => classifyLine(l, seed, aliases || {}, store));
+  // learned aliases merge on top of the built-in seed (a manual remap wins)
+  const merged = { ...ALIAS_SEED, ...(aliases || {}) };
+  const classified = (extracted.lines || []).map(l => classifyLine(l, seed, merged, store));
   const grouped = groupClassified(classified);
   return {
     store,

@@ -669,6 +669,10 @@ These receipts come from three store layouts:
 - H-E-B: "<line#> <NAME> <flag> <price>", e.g. "2 FRESH CARROTS 2#  FW  1.59". Flags: T (taxed), F (food/exempt), FW (food + weighed). Has a "Sale Subtotal", "Sales Tax", "Total Sale".
 - H-E-B GO: same family. Weighed items may print NO weight, only the total (e.g. "PREMIUM BANANAS  FW  0.61"). Store-brand names are often truncated mid-word (e.g. "CLABBER GIRL BAKING POWDE", "EZ TIGER SOURDOUGH ROUND"). Transcribe the truncation exactly; do not complete the word.
 - H-Mart: "<NAME> <price> <flag>" with the price on the RIGHT and the flag after it, no line numbers (e.g. "KING OYSTER MUSHRM  4.64  F"). The same item can appear on multiple lines. Tax may show as "TAX 0.00".
+  H-Mart mixes two line types and you MUST tell them apart per line:
+  (a) BY THE POUND (weighed): the line (or the line right below it) shows a weight-times-rate pattern, e.g. "0.85 lb @ $5.49/lb", "1.20 LB @ 3.99", "NET WT 0.75 LB", or any "<weight> @ <rate>". For these: weighed=true, quantity=<the weight number>, unit="lb", unit_price_printed=<the per-lb rate>, line_total=<the charged total>.
+  (b) BY THE PACK (fixed price): the line is just "<NAME> <price> <flag>" with NO weight and NO "@" rate (e.g. "KING OYSTER MUSHRM  4.64  F"). For these: weighed=false, quantity=null, unit=null, unit_price_printed=null, line_total=<price>.
+  Decide per line from what is actually printed. Do NOT assume every H-Mart food line is weighed. If there is no weight and no "@" rate on or under the line, it is a pack (weighed=false).
 
 Return ONLY a JSON object. No prose, no explanation, no markdown code fences. The object has exactly these keys:
 

@@ -154,9 +154,15 @@ function classifyLine(line, seed, aliases, store) {
   }
 
   const aliasFlat = alias && alias.pricing === 'FLAT';
-  const hmartWeighed = store === 'H-Mart' && (line.tax_flag === 'F' || line.tax_flag === 'FW') && !aliasFlat;
-  const weighedNoWeight = line.weighed && (line.quantity == null);
-  const needsPrice = !aliasFlat && (weighedNoWeight || hmartWeighed);
+  // A line only needs a manual price when it's genuinely weighed but the weight
+  // wasn't printed, so we can't derive a per-unit cost. We trust the per-line
+  // `weighed` flag the extractor sets from the actual receipt (a weight or "@"
+  // rate). H-Mart mixes by-the-pound and by-the-pack lines; a pack line is
+  // weighed=false and flows straight through, a weighed line with a printed
+  // weight derives its per-unit, and only a weighed line missing its weight
+  // (any store) drops to the price prompt.
+  const weighedNoWeight = line.weighed && (line.quantity == null) && (line.unit_price_printed == null);
+  const needsPrice = !aliasFlat && weighedNoWeight;
 
   const seedIng = ingredientId ? seed.find(s => s.id === ingredientId) : null;
 
@@ -164,8 +170,7 @@ function classifyLine(line, seed, aliases, store) {
     return { status: 'unmatched', norm, line, candidates, needsPrice };
   }
   if (needsPrice) {
-    const reason = weighedNoWeight ? 'weighed_no_weight' : 'hmart_default';
-    return { status: 'needsPrice', norm, line, ingredientId, ingredient: seedIng, via, candidates, reason };
+    return { status: 'needsPrice', norm, line, ingredientId, ingredient: seedIng, via, candidates, reason: 'weighed_no_weight' };
   }
   // matched & priced — derive per-unit and tag the basis (drives the
   // confirm-screen accept-toggle default: weight-derived = ON, line_total = OFF)

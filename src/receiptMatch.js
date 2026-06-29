@@ -72,12 +72,12 @@ const PACK_OVERRIDE = {
   guittard_low: { fromUnit: 'package', perBase: 283 }, // 1 package = 283 g
   guittard_high: { fromUnit: 'package', perBase: 283 },
   kosher_salt: { fromUnit: 'box', perBase: 90.7 },     // Morton 1.36kg box ≈ 90.7 tbsp
-  garlic: { fromUnit: 'package', perBase: 5 },         // labeled 5-pack = 5 heads (loose heads pass through)
-  chocolate_100: { fromUnit: 'package', perBase: 8 },  // 100% chocolate pack = 8 squares
-  beef_stock: { fromUnit: 'package', perBase: 4 },     // 1 Kitch Basics carton = 4 cups
-  tofu: { fromUnit: 'package', perBase: 1 },           // 16oz package = 1 block (price as-is, just accept "package")
-  baby_gold_potatoes: { fromUnit: 'package', perBase: 2 }, // 1 bag = 2 lb (baby gold ONLY)
-  red_wine: { fromUnit: 'package', perBase: 3.17, fixedCount: true, matchNullUnit: true }, // 1 bottle OR 1 four-pack of minis ≈ 750ml ≈ 3.17 cups
+  garlic: { fromUnit: 'package', perBase: 5 },         // labeled 5-pack = 5 heads; loose "each"/"head" must pass through (eachIsPack stays false)
+  chocolate_100: { fromUnit: 'package', perBase: 8, eachIsPack: true },  // 8-square pack; an "Ea" line is the whole pack
+  beef_stock: { fromUnit: 'package', perBase: 4, eachIsPack: true },     // Kitch Basics carton = 4 cups; "2 Ea" = 2 cartons
+  tofu: { fromUnit: 'package', perBase: 1, eachIsPack: true },           // 16oz package = 1 block; "Ea" = one package
+  baby_gold_potatoes: { fromUnit: 'package', perBase: 2, eachIsPack: true }, // 1 bag = 2 lb (baby gold ONLY)
+  red_wine: { fromUnit: 'package', perBase: 3.17, fixedCount: true, matchNullUnit: true, eachIsPack: true }, // bottle or 4-pack minis ≈ 750ml ≈ 3.17 cups
 };
 
 // Per-each produce that is sometimes weighed at the register. The costing unit
@@ -192,8 +192,7 @@ function classifyLine(line, seed, aliases, store) {
   if (needsPrice) {
     return { status: 'needsPrice', norm, line, ingredientId, ingredient: seedIng, via, candidates, reason: 'weighed_no_weight' };
   }
-  // matched & priced — derive per-unit and tag the basis (drives the
-  // confirm-screen accept-toggle default: weight-derived = ON, line_total = OFF)
+  // matched & priced — derive a raw figure and tag the basis.
   let perUnit = null, basis = null;
   if (line.unit_price_printed != null) {
     perUnit = line.unit_price_printed; basis = 'printed_unit_price';
@@ -202,28 +201,43 @@ function classifyLine(line, seed, aliases, store) {
   } else if (line.line_total != null) {
     perUnit = line.line_total; basis = 'line_total';
   }
-  // Auto-convert the per-unit price into the ingredient's costing unit when the
-  // receipt's unit differs (e.g. milk priced per gallon → per cup). Carries the
-  // conversion detail so the confirm screen can show "per gal → per cup (÷16)".
   let conversion = null;
   const fromUnit = normalizeUnit(line.unit);
   const toUnit = seedIng ? seedIng.unit : null;
-  // (a) PACK priced as a lump line_total (e.g. garlic "5 PACK" at $2.50 total,
-  // 100% chocolate 8-pack, a wine bottle). No per-unit was printed, so divide
-  // the total by the pack count to get the per-piece cost. Count is the printed
-  // quantity when the receipt gave one, else the ingredient's known pack size.
-  // `fixedCount` overrides force perBase regardless of printed quantity (red
-  // wine: a 4-pack of minis is still one bottle ≈ 3.17 cups, not ÷4).
-  // `matchNullUnit` lets an item with no printed unit still take the override
-  // (a bare "RED WINE 12.99" line is one bottle).
   const packOv = ingredientId ? PACK_OVERRIDE[ingredientId] : null;
-  const packUnitOk = packOv && (fromUnit === packOv.fromUnit || (packOv.matchNullUnit && !fromUnit));
-  if (basis === 'line_total' && packUnitOk && line.line_total != null) {
-    const count = packOv.fixedCount
-      ? packOv.perBase
-      : ((typeof line.quantity === 'number' && line.quantity > 0) ? line.quantity : packOv.perBase);
-    perUnit = round(line.line_total / count);
-    conversion = { fromUnit: fromUnit || packOv.fromUnit, toUnit, factor: count, basis: 'pack_total' };
+
+  // (a) PACK OVERRIDE — this ingredient is bought as a fixed pack and the receipt
+  // unit looks like a single-pack unit (the override's own unit, a bare "each"/
+  // "ea" for carton-style packs, or no unit). Convert the price of ONE pack into
+  // the per-costing-unit cost by dividing by the pack size.
+  //
+  // The printed quantity is ambiguous and must be read by unit:
+  //   • unit is the PACK unit ("5 pack", "package", "bottle"): the printed count
+  //     describes pack CONTENTS (garlic "5 pack" qty 5 = 5 heads in the pack), so
+  //     ignore it — the line_total IS the one-pack price, perBase does the divide.
+  //   • unit is "each"/"Ea": the printed count is how many packs were bought
+  //     (beef stock "2 Ea" = 2 cartons), so reduce line_total ÷ count to one pack.
+  const packUnitLooksSingle = packOv && (
+    fromUnit === packOv.fromUnit ||
+    (fromUnit === 'each' && packOv.eachIsPack) ||
+    (!fromUnit && (packOv.eachIsPack || packOv.matchNullUnit))
+  );
+  if (packOv && (basis === 'printed_unit_price' || basis === 'line_total') && line.line_total != null && packUnitLooksSingle) {
+    // Determine the price of ONE pack:
+    //   • if a per-each price was printed ("2 Ea @ 2.98"), that IS the one-pack
+    //     price — use it directly, do NOT divide by the count again.
+    //   • otherwise it's a lump line_total: for an "each" unit divide by how many
+    //     packs were bought; for a pack unit the total is already one pack.
+    let onePackPrice;
+    if (line.unit_price_printed != null) {
+      onePackPrice = line.unit_price_printed;
+    } else {
+      const isEachUnit = fromUnit === 'each';
+      const packsBought = (isEachUnit && typeof line.quantity === 'number' && line.quantity > 0) ? line.quantity : 1;
+      onePackPrice = round(line.line_total / packsBought);
+    }
+    perUnit = round(onePackPrice / packOv.perBase);
+    conversion = { fromUnit: packOv.fromUnit, toUnit, factor: packOv.perBase, basis: 'pack' };
     basis = 'converted';
   } else if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
     // (b) a real per-unit price in a different unit → table/bridge conversion
@@ -277,7 +291,9 @@ export const ALIAS_SEED = {
   'banyan hard tofu': { ingredientId: 'tofu' },
   // seasonal melons — all variants map to the one melon ingredient (like dried chilis)
   'emerald crunch dm': { ingredientId: 'cantaloupe' },
+  'emerald crunch dm 11-12 c': { ingredientId: 'cantaloupe' },
   'emerald crunch melon': { ingredientId: 'cantaloupe' },
+  'emerald crunch': { ingredientId: 'cantaloupe' },
   'dulcinea melon': { ingredientId: 'cantaloupe' },
   // good parm — Agriform Parmigiano 24 month (OCR: ANRIFORM/AGRIFORM)
   'agriform parmigiano 24 mo': { ingredientId: 'parm' },
@@ -285,10 +301,31 @@ export const ALIAS_SEED = {
   'agriform parmigiano': { ingredientId: 'parm' },
   // baby gold potatoes — bagged (2 lb bag handled by PACK_OVERRIDE)
   'bagged baby gold potatoe': { ingredientId: 'baby_gold_potatoes' },
+  'bagged baby gold potato': { ingredientId: 'baby_gold_potatoes' },
   'baby gold potatoe': { ingredientId: 'baby_gold_potatoes' },
+  'baby gold potato': { ingredientId: 'baby_gold_potatoes' },
   // 100% chocolate — Ghirardelli 100% cocoa unsweetened (8-square pack)
   'ghirardelli 100% cocoa un': { ingredientId: 'chocolate_100' },
   'ghirardelli 100% cocoa unsweetened': { ingredientId: 'chocolate_100' },
+  'ghirardelli 100 cocoa un': { ingredientId: 'chocolate_100' },
+  // fennel bulb — "ANISE FENNEL"
+  'anise fennel': { ingredientId: 'fennel_bulb' },
+  'fennel anise': { ingredientId: 'fennel_bulb' },
+  // bulb/spring onion — "SWEET BULB ONIONS" (used in the pappardelle recipe)
+  'sweet bulb onion': { ingredientId: 'bulb_onion' },
+  'bulb onion': { ingredientId: 'bulb_onion' },
+  // tomato paste — "HUNTS TOMATO PASTE W BASIL" (OCR: PASTE/FASTE)
+  'hunt tomato paste w basi': { ingredientId: 'tomato_paste' },
+  'hunt tomato faste w basi': { ingredientId: 'tomato_paste' },
+  'hunt tomato paste': { ingredientId: 'tomato_paste' },
+  // apples — "HONEYCRISP APPLES"
+  'honeycrisp apple': { ingredientId: 'apple' },
+  'honeycrisp': { ingredientId: 'apple' },
+  // asparagus — "ASPARAGUS STANDARD"
+  'asparagu standard': { ingredientId: 'asparagus' },
+  'asparagus standard': { ingredientId: 'asparagus' },
+  // scallions — "GREEN ONIONS"
+  'green onion': { ingredientId: 'scallions' },
 };
 
 export function buildReviewPlan(extracted, seed, aliases) {

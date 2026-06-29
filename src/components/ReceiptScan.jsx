@@ -357,12 +357,11 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker }) {
   );
 }
 
-// needs-price row: weighed-no-weight or H-Mart default; type per-unit
+// needs-price row: a weighed item with no weight printed; type per-unit, or
+// fall back to the line total via "Flat price".
 function NeedsPriceRow({ r, idx, patchRow, onOpenPicker, onUseFlatPrice }) {
   const ing = r.ingredient;
-  const reasonText = r.reason === 'hmart_default'
-    ? 'H-Mart item — enter price per pound (or use the flat total).'
-    : 'Weighed item, no weight printed — enter the price per unit.';
+  const reasonText = 'Weighed item, no weight printed. Enter the price per ' + (ing ? ing.unit : 'unit') + ', or use the flat total.';
   return (
     <div style={{ ...S.row, ...(r.accept ? S.rowOn : {}) }}>
       <div style={S.rowTop}>
@@ -387,9 +386,7 @@ function NeedsPriceRow({ r, idx, patchRow, onOpenPicker, onUseFlatPrice }) {
             patchRow(idx, { priceInput: v, acceptedPerUnit: isNaN(num) ? null : num, accept: !isNaN(num) && num > 0 });
           }}
         />
-        {r.reason === 'hmart_default' && (
-          <button style={S.flatBtn} onClick={() => onUseFlatPrice(idx)}>Flat price</button>
-        )}
+        <button style={S.flatBtn} onClick={() => onUseFlatPrice(idx)}>Flat price</button>
       </div>
     </div>
   );

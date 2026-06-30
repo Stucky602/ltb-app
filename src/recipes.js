@@ -380,7 +380,7 @@ export const RECIPES = {
     factors: { 'Small (split order, ~3-6)': 0.5, 'Large (~8-12)': 1 },
     base: [
       I('Chicken thighs', 2, 'lb'),
-      I('Texas Gulf Shrimp', 2, 'lb'),
+      I('Boudin', 1, 'lb'),
       I('Onion', 1, ''),
       I('Green bell pepper', 1, ''),
       I('Celery', 3, 'stalks'),
@@ -391,10 +391,10 @@ export const RECIPES = {
       I('Rice (included with order)', 1, 'batch', true),
     ],
   },
-  'Stir Fried Long Beans with Ground Pork or Tofu': {
+  'Stir Fried Long Beans with Ground Pork': {
     factors: {
-      'Ground Pork, Small (~4)': 0.5, 'Ground Pork, Large (~8)': 1,
-      'Tofu, Small (~4)': 0.5, 'Tofu, Large (~8)': 1,
+      'Small (~4), Ground Pork': 0.5, 'Large (~8), Ground Pork': 1,
+      'Small (~4), Tofu': 0.5, 'Large (~8), Tofu': 1,
     },
     base: [
       I('Long beans', 1.5, 'lb'),
@@ -405,10 +405,10 @@ export const RECIPES = {
       I('Rice (included with order)', 1, 'batch', true),
     ],
     extras: {
-      'Ground Pork, Small (~4)': [I('Ground pork', 1, 'lb')],
-      'Ground Pork, Large (~8)': [I('Ground pork', 1, 'lb')],
-      'Tofu, Small (~4)': [I('Tofu', 1, 'block')],
-      'Tofu, Large (~8)': [I('Tofu', 1, 'block')],
+      'Small (~4), Ground Pork': [I('Ground pork', 1, 'lb')],
+      'Large (~8), Ground Pork': [I('Ground pork', 1, 'lb')],
+      'Small (~4), Tofu': [I('Tofu', 1, 'block')],
+      'Large (~8), Tofu': [I('Tofu', 1, 'block')],
     },
   },
   'Leblanc Inspired Japanese Curry': {
@@ -543,7 +543,7 @@ export const DINNER_REHEAT_BUCKET = {
   'Shrimp or Tofu with Asparagus in Black Bean Sauce': 'bagged',
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli': 'bagged',
   'Thai Basil Chicken (Pad Krapow Gai)': 'bagged',
-  'Stir Fried Long Beans with Ground Pork or Tofu': 'bagged',
+  'Stir Fried Long Beans with Ground Pork': 'bagged',
   'Pappardelle with Vegetables and Mint': 'bagged',
   // Stovetop in a container — warm gently, splash of water if thick
   'Mapo Eggplant': 'stovetop',
@@ -567,7 +567,7 @@ export const RICE_DISHES = new Set([
   'Shrimp or Tofu with Asparagus in Black Bean Sauce',
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
   'Thai Basil Chicken (Pad Krapow Gai)',
-  'Stir Fried Long Beans with Ground Pork or Tofu',
+  'Stir Fried Long Beans with Ground Pork',
   'Mapo Eggplant',
   'Gumbo',
   'Indian Style Curry',
@@ -578,8 +578,20 @@ export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Homegrown Tomato S
 export const NOODLE_DISHES = new Set(['Cumin Mushroom Noodles']);
 // Bagged dishes whose reheat ends with "mix with cooked pasta" instead of "plate"
 export const BAGGED_PASTA_DISHES = new Set(['Pappardelle with Vegetables and Mint']);
-// Stovetop dishes that come with a separate sous vide veg bag to fold in before serving
-export const STEW_VEG_DISHES = new Set(['Boeuf Bourguignon (Beef Stew)', 'Leblanc Inspired Japanese Curry']);
+
+// Stovetop dishes with a separate sous vide veg bag get fully dedicated cards
+// (main + veg bag), never the shared generic stovetop block — each one's title
+// is its own dish name, never combined with another dish on the same card.
+export const STEW_VEG_COPY = {
+  'Boeuf Bourguignon (Beef Stew)': {
+    main: 'Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through, adding a splash of water if it looks thick. Great over mashed potatoes, egg noodles, or crusty bread.',
+    veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold the vegetables into the stew right before serving. The liquid contains butter, so avoid pouring it down the drain.',
+  },
+  'Leblanc Inspired Japanese Curry': {
+    main: 'Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving.',
+    veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and add the vegetables to the curry. Unlike our other sous vide vegetables, the sauce in this bag is not meant to be used as a glaze — discard it. The liquid contains butter, so avoid pouring it down the drain.',
+  },
+};
 
 // Build the grouped reheat blocks for an order. Returns an array of
 // { title, dishes: [names], body: '...' } ready to render.
@@ -632,21 +644,24 @@ export function buildReheatBlocks(order) {
   }
 
   // ── Stovetop in a container ────────────────────────────────────────────
-  if (byBucket.stovetop.length) {
+  // Boeuf and Leblanc get their own dedicated cards (never the shared generic
+  // text), so the rest of the stovetop dishes use the shared block below.
+  const genericStovetop = byBucket.stovetop.filter(n => !STEW_VEG_COPY[n]);
+  if (genericStovetop.length) {
     let body = 'Comes in a container. Warm gently on the stove over medium-low until heated through. If it looks a little thick, add a splash of water to loosen it.';
-    if (listHasRice(byBucket.stovetop)) body += ' Cook the included rice fresh.';
-    blocks.push({ title: 'Reheat on the stovetop', dishes: byBucket.stovetop, body });
-
-    // Dishes that come with a separate sous vide veg bag
-    const stewVegDishes = byBucket.stovetop.filter(n => STEW_VEG_DISHES.has(n));
-    if (stewVegDishes.length) {
-      blocks.push({
-        title: 'Reheat the vegetable bag',
-        dishes: stewVegDishes,
-        body: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold into the main dish right before serving to keep the vegetables at peak doneness.',
-      });
-    }
+    if (listHasRice(genericStovetop)) body += ' Cook the included rice fresh.';
+    blocks.push({ title: 'Reheat on the stovetop', dishes: genericStovetop, body });
   }
+
+  // Stew/curry dishes with a separate sous vide veg bag — each dish gets its
+  // own main card and its own veg-bag card, in the order the customer ordered.
+  byBucket.stovetop.filter(n => STEW_VEG_COPY[n]).forEach(name => {
+    const copy = STEW_VEG_COPY[name];
+    let mainBody = copy.main;
+    if (RICE_DISHES.has(name)) mainBody += ' Cook the included rice fresh.';
+    blocks.push({ title: name, dishes: [name], body: mainBody });
+    blocks.push({ title: name, dishes: [name], body: copy.veg });
+  });
 
   // ── Pasta / noodle dishes ──────────────────────────────────────────────
   if (byBucket.pasta.length) {

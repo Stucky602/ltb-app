@@ -355,9 +355,12 @@ export const RECIPES = {
       I('Crushed tomatoes', 1, 'can'),
       I('Dry sherry', 0.25, 'cup'),
       I('Saffron', 1, 'pinch', true),
-      I('Pasta (ask customer for shape!)', 1, 'lb'),
     ],
     extras: {
+      // Polenta REPLACES pasta — the customer gets one starch or the other,
+      // never both. Pasta only applies to the non-Polenta variants.
+      'Small (~4 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
+      'Large (~8 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
       'Small (~4 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
       'Large (~8 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
     },
@@ -604,16 +607,37 @@ export function buildReheatBlocks(order) {
   const proteins = [];
   const veg = [];
   let hasQueso = false;
-  let hasPolenta = false;
 
   const seen = new Set();
+
+  // Saffron Pork Ragu's starch is variant-dependent (Polenta REPLACES pasta,
+  // never both), so this has to be resolved by scanning every line item for
+  // this dish up front — the dedup loop below only looks at the first
+  // occurrence of each dish name, which would silently miss a second Ragu
+  // line item with a different variant (e.g. one Small plain + one Large +
+  // Polenta in the same order).
+  let hasPolenta = false;
+  let raguNeedsPasta = false;
+  items.forEach(it => {
+    if (it.name !== 'Saffron Pork Ragu') return;
+    if (it.variant && it.variant.includes('Polenta')) hasPolenta = true;
+    else raguNeedsPasta = true;
+  });
+
   items.forEach(it => {
     const name = it.name;
     if (seen.has(name)) return;
     if (isPerLbItem(name)) { proteins.push(name); seen.add(name); return; }
     if (SOUS_VIDE_VEG.includes(name)) { veg.push(name); seen.add(name); return; }
     if (name === 'Queso') { hasQueso = true; seen.add(name); return; }
-    if (name === 'Saffron Pork Ragu' && it.variant && it.variant.includes('Polenta')) hasPolenta = true;
+    if (name === 'Saffron Pork Ragu') {
+      // Only goes in the shared pasta card if at least one ordered batch
+      // actually includes pasta; a Polenta-only order gets no pasta card at
+      // all for this dish (it never had pasta to cook).
+      seen.add(name);
+      if (raguNeedsPasta) byBucket.pasta.push(name);
+      return;
+    }
     const b = DINNER_REHEAT_BUCKET[name];
     if (b && byBucket[b]) { byBucket[b].push(name); seen.add(name); }
   });

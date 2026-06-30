@@ -653,14 +653,14 @@ export function buildReheatBlocks(order) {
     blocks.push({ title: 'Reheat on the stovetop', dishes: genericStovetop, body });
   }
 
-  // Stew/curry dishes with a separate sous vide veg bag — each dish gets its
-  // own main card and its own veg-bag card, in the order the customer ordered.
+  // Stew/curry dishes with a separate sous vide veg bag — one card per dish
+  // (never combined with another dish), with the main reheat and the veg-bag
+  // instructions as two paragraphs within that single card.
   byBucket.stovetop.filter(n => STEW_VEG_COPY[n]).forEach(name => {
     const copy = STEW_VEG_COPY[name];
     let mainBody = copy.main;
     if (RICE_DISHES.has(name)) mainBody += ' Cook the included rice fresh.';
-    blocks.push({ title: name, dishes: [name], body: mainBody });
-    blocks.push({ title: name, dishes: [name], body: copy.veg });
+    blocks.push({ title: name, dishes: [name], body: [mainBody, copy.veg] });
   });
 
   // ── Pasta / noodle dishes ──────────────────────────────────────────────

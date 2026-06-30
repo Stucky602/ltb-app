@@ -284,7 +284,11 @@ export function ReheatModal({ order, onClose }) {
                 <div style={styles.reheatDishes}>
                   {b.dishes.join(', ')}
                 </div>
-                <div style={styles.reheatBody}>{b.body}</div>
+                {Array.isArray(b.body)
+                  ? b.body.map((p, pi) => (
+                      <div key={pi} style={{ ...styles.reheatBody, ...(pi > 0 ? { marginTop: 8 } : {}) }}>{p}</div>
+                    ))
+                  : <div style={styles.reheatBody}>{b.body}</div>}
               </div>
             ))}
           </div>

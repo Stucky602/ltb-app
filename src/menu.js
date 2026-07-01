@@ -47,11 +47,15 @@ export const ALL_DINNERS = [
     { label: 'Small (~4 servings)', price: 36, cost: 17.38 },
     { label: 'Large (~8 servings)', price: 70, cost: 25.69 },
   ]},
-  { name: 'Cumin Mushroom Noodles', variants: [
+  { name: 'Cumin Mushroom Noodles / Cumin Beef on Rice', variants: [
     { label: 'Small (~3-4)', price: 45, cost: 19.86 },
     { label: 'Large (~6-8)', price: 80, cost: 38.65 },
     { label: 'Small (~3-4) + Asian Greens (1/2 lb)', price: 50, cost: 22.03 },
     { label: 'Large (~6-8) + Asian Greens (1 lb)', price: 85, cost: 40.81 },
+    { label: 'Beef, Small (~3-4)', price: 35, cost: 14.97 },
+    { label: 'Beef, Large (~6-8)', price: 60, cost: 28.86 },
+    { label: 'Beef, Small (~3-4) + Asian Greens (1/2 lb)', price: 40, cost: 16.05 },
+    { label: 'Beef, Large (~6-8) + Asian Greens (1 lb)', price: 65, cost: 31.02 },
   ]},
   { name: 'Mapo Eggplant', variants: [
     { label: 'Small (~5-6 servings)', price: 35, cost: 14.75 },

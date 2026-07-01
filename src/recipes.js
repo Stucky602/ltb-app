@@ -56,26 +56,55 @@ export const RECIPES = {
       'Tofu, Large Batch (~8)': [I('Tofu', 1, 'block')],
     },
   },
-  'Cumin Mushroom Noodles': {
+  'Cumin Mushroom Noodles / Cumin Beef on Rice': {
     factors: {
       'Small (~3-4)': 0.5, 'Large (~6-8)': 1,
       'Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Large (~6-8) + Asian Greens (1 lb)': 1,
+      'Beef, Small (~3-4)': 0.5, 'Beef, Large (~6-8)': 1,
+      'Beef, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Beef, Large (~6-8) + Asian Greens (1 lb)': 1,
     },
+    // Shared cumin-chili sauce and aromatics — identical across every variant.
+    // Protein and starch are variant-specific (mushroom+noodles vs ground beef+rice)
+    // and live in extras below.
     base: [
-      I('Mushrooms', 3, 'lb'),
       I('Garlic', 16, 'cloves'),
       I('Ginger', 4, 'knobs'),
       I('Red onion (large)', 2, ''),
       I('Cilantro', 1, 'bunch'),
-      I('Fresh noodles (not dried)', 1, 'batch'),
       I('Cumin + spices', 1, 'blend', true),
       I('Chinkiang vinegar', 6, 'tbsp', true),
       I('Shaoxing wine', 0.5, 'cup', true),
       I('House chili oil', 1, 'cup', true),
     ],
     extras: {
-      'Small (~3-4) + Asian Greens (1/2 lb)': [{ ...I('Asian greens', 0.5, 'lb'), fixed: true }],
-      'Large (~6-8) + Asian Greens (1 lb)': [{ ...I('Asian greens', 1, 'lb'), fixed: true }],
+      'Small (~3-4)': [
+        I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+      ],
+      'Large (~6-8)': [
+        I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+      ],
+      'Small (~3-4) + Asian Greens (1/2 lb)': [
+        I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+        { ...I('Asian greens', 0.5, 'lb'), fixed: true },
+      ],
+      'Large (~6-8) + Asian Greens (1 lb)': [
+        I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+        { ...I('Asian greens', 1, 'lb'), fixed: true },
+      ],
+      'Beef, Small (~3-4)': [
+        I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+      ],
+      'Beef, Large (~6-8)': [
+        I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+      ],
+      'Beef, Small (~3-4) + Asian Greens (1/2 lb)': [
+        I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        { ...I('Asian greens', 0.5, 'lb'), fixed: true },
+      ],
+      'Beef, Large (~6-8) + Asian Greens (1 lb)': [
+        I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        { ...I('Asian greens', 1, 'lb'), fixed: true },
+      ],
     },
   },
   // NOTE: recipe not yet finalized by Kevin (first cook was the pricing test
@@ -588,7 +617,7 @@ export const DINNER_REHEAT_BUCKET = {
   'Bolognese': 'pasta',
   'Pasta with Homegrown Tomato Sauce': 'pasta',
   'Saffron Pork Ragu': 'pasta',
-  'Cumin Mushroom Noodles': 'pasta',
+  'Cumin Mushroom Noodles / Cumin Beef on Rice': 'pasta',
   // Tex-Mex Kit — components, assemble at home
   'Tex-Mex Kit': 'kit',
 };
@@ -607,7 +636,7 @@ export const RICE_DISHES = new Set([
 ]);
 // Dishes that include uncooked pasta/noodles.
 export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Homegrown Tomato Sauce', 'Saffron Pork Ragu']);
-export const NOODLE_DISHES = new Set(['Cumin Mushroom Noodles']);
+export const NOODLE_DISHES = new Set(['Cumin Mushroom Noodles / Cumin Beef on Rice']);
 // Bagged dishes whose reheat ends with "mix with cooked pasta" instead of "plate"
 export const BAGGED_PASTA_DISHES = new Set(['Pappardelle with Vegetables and Mint']);
 
@@ -654,6 +683,20 @@ export function buildReheatBlocks(order) {
     else raguNeedsPasta = true;
   });
 
+  // Cumin Mushroom Noodles / Cumin Beef on Rice: the Beef variants swap
+  // noodles for rice, so they need their own rice-cooking instructions
+  // instead of being lumped into the shared noodle/pasta bucket text. Same
+  // up-front full-item scan as Ragu above, so a mixed order (one noodle
+  // variant + one beef variant) keeps both cards.
+  const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef on Rice';
+  let cuminNoodleOrdered = false;
+  let cuminBeefOrdered = false;
+  items.forEach(it => {
+    if (it.name !== CUMIN_DUAL) return;
+    if (it.variant && it.variant.startsWith('Beef,')) cuminBeefOrdered = true;
+    else cuminNoodleOrdered = true;
+  });
+
   items.forEach(it => {
     const name = it.name;
     if (seen.has(name)) return;
@@ -667,6 +710,14 @@ export function buildReheatBlocks(order) {
       // all for this dish (it never had pasta to cook).
       seen.add(name);
       if (raguNeedsPasta) byBucket.pasta.push(name);
+      return;
+    }
+    if (name === CUMIN_DUAL) {
+      // Same idea: only goes in the shared noodle/pasta card when a noodle
+      // variant was actually ordered. The Beef variant gets its own card
+      // (added near Bo Ssam's dedicated block below).
+      seen.add(name);
+      if (cuminNoodleOrdered) byBucket.pasta.push(name);
       return;
     }
     const b = DINNER_REHEAT_BUCKET[name];
@@ -751,6 +802,15 @@ export function buildReheatBlocks(order) {
       title: 'Bo Ssam',
       dishes: ['Bo Ssam'],
       body: 'The pork comes pre-pulled and sealed in a bag — bring a pot of water to a gentle simmer and place the sealed bag in until heated through. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice fresh.',
+    });
+  }
+
+  // ── Cumin Beef on Rice (same sauce as the noodle version, rice instead) ──
+  if (cuminBeefOrdered) {
+    blocks.push({
+      title: CUMIN_DUAL,
+      dishes: [CUMIN_DUAL],
+      body: 'Warm the beef and sauce gently on the stove, adding a splash of water to loosen if needed. Cook the included rice fresh and serve the beef over the top.',
     });
   }
 

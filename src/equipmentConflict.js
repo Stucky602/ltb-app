@@ -58,8 +58,9 @@ export const DISH_EQUIPMENT = {
   'Indian Style Curry':                               { flexible: [R.DUTCH, R.LARGE_POT] },
   'Leblanc Inspired Japanese Curry':                  { fixed: [R.DUTCH, R.OVEN_LOW] },
   'Mapo Eggplant':                                    { fixed: [R.DUTCH] }, // no tofu
-  'Cumin Mushroom Noodles':                           { fixed: [R.WOK] },
-  'Stir Fried Long Beans with Ground Pork':           { fixed: [R.WOK], tofu: true }, // tofu is an option → back burner
+  'Cumin Mushroom Noodles / Cumin Beef on Rice':      { fixed: [R.WOK] },
+  'Stir Fried Long Beans with Ground Pork or Tofu':   { fixed: [R.WOK], tofu: true }, // tofu is an option → back burner
+  'Bo Ssam':                                          { fixed: [R.OVEN_LOW] }, // pork shoulder roasts low and slow
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli':   { fixed: [R.WOK], tofu: true },
   'Shrimp or Tofu with Asparagus in Black Bean Sauce':{ fixed: [R.WOK, R.LARGE_POT], tofu: true },
   'Thai Basil Chicken (Pad Krapow Gai)':              { fixed: [R.WOK, R.LARGE_POT] },

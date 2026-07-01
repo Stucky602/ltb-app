@@ -391,7 +391,7 @@ export default function LTBOrderTracker() {
   const workerPollRef = React.useRef(null);
   const pollWorkerPending = React.useCallback(async (reschedule = true) => {
     try {
-      const res = await fetch(PENDING_POLL_URL, { cache: 'no-store' });
+      const res = await fetch(PENDING_POLL_URL, { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
       if (res.ok) {
         const data = await res.json();
         const submissions = (data && data.pending) || [];
@@ -420,7 +420,7 @@ export default function LTBOrderTracker() {
           fetch(WORKER_BASE + '/pending/clear', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids }),
+            body: JSON.stringify({ ids, token: PUBLISH_TOKEN }),
           }).catch(() => {});
         }
       }
@@ -1038,7 +1038,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.13-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.14-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

@@ -49,13 +49,12 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     const day = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
     // The order window closes Sunday and delivers Wednesday.
     // If today is Sun (0): use today as the deadline.
-    // If today is Mon-Wed (1-3): the window just closed; next cycle starts next Thu,
-    //   so point to the upcoming Sunday.
-    // If today is Thu-Sat (4-6): orders are open, deadline is this coming Sunday.
+    // If today is Mon-Tue (1-2): the window just closed; next cycle starts this
+    //   Wed, so point to the upcoming Sunday.
+    // If today is Wed-Sat (3-6): orders are open, deadline is this coming Sunday.
     let daysToSun;
     if (day === 0) daysToSun = 0;           // today is Sunday
-    else if (day <= 3) daysToSun = 7 - day; // Mon-Wed: next Sunday
-    else daysToSun = 7 - day;               // Thu-Sat: this coming Sunday
+    else daysToSun = 7 - day;               // Mon-Sat: this coming (or next) Sunday
     const sun = new Date(now); sun.setDate(now.getDate() + daysToSun);
     const wed = new Date(sun); wed.setDate(sun.getDate() + 3);
     const fmt = (d) => d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });

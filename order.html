@@ -141,7 +141,7 @@
       <span class="btn-icon">&#9998;</span> Place Your Order
     </a>
     <div class="order-msg" id="orderMsg">
-      Orders are open <strong style="color:var(--gold)">Thursday through Sunday</strong>.<br>
+      Orders are open <strong style="color:var(--gold)">Wednesday through Sunday</strong>.<br>
       Outside that window, reach out directly and we will work something out.
     </div>
 
@@ -185,10 +185,10 @@
     document.getElementById('savePanel').classList.toggle('open');
   });
 
-  // Order window: Thu(4) Fri(5) Sat(6) Sun(0) = active. Mon-Wed = inactive.
+  // Order window: Wed(3) Thu(4) Fri(5) Sat(6) Sun(0) = active. Mon-Tue = inactive.
   (function () {
     var day = new Date().getDay();
-    var active = day === 0 || day >= 4;
+    var active = day === 0 || day >= 3;
     if (!active) {
       var btn = document.getElementById('orderBtn');
       btn.classList.add('btn-inactive');

@@ -347,7 +347,7 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
                   <SpicePicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
                 )}
                 {/* Pasta shape input — always visible for applicable dishes */}
-                {(['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'].includes(it.name) && !it.variant.includes('Polenta')) && (
+                {(['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'].includes(it.name) && !it.variant.includes('Polenta') && !it.variant.includes('Pappardelle')) && (
                   <PastaPicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
                 )}
 

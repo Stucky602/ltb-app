@@ -636,6 +636,7 @@ export function buildReheatBlocks(order) {
   const proteins = [];
   const veg = [];
   let hasQueso = false;
+  let hasBoSsam = false;
 
   const seen = new Set();
 
@@ -659,6 +660,7 @@ export function buildReheatBlocks(order) {
     if (isPerLbItem(name)) { proteins.push(name); seen.add(name); return; }
     if (SOUS_VIDE_VEG.includes(name)) { veg.push(name); seen.add(name); return; }
     if (name === 'Queso') { hasQueso = true; seen.add(name); return; }
+    if (name === 'Bo Ssam') { hasBoSsam = true; seen.add(name); return; }
     if (name === 'Saffron Pork Ragu') {
       // Only goes in the shared pasta card if at least one ordered batch
       // actually includes pasta; a Polenta-only order gets no pasta card at
@@ -740,6 +742,15 @@ export function buildReheatBlocks(order) {
       title: 'Assemble at home',
       dishes: byBucket.kit,
       body: 'Components travel separately with assembly notes. Warm the protein gently before building. The beans travel in a separate bag — warm them on the stovetop or in the microwave.',
+    });
+  }
+
+  // ── Bo Ssam (pork pre-pulled and bagged; sauce + kimchi are cold, ready) ──
+  if (hasBoSsam) {
+    blocks.push({
+      title: 'Bo Ssam',
+      dishes: ['Bo Ssam'],
+      body: 'The pork comes pre-pulled and sealed in a bag — bring a pot of water to a gentle simmer and place the sealed bag in until heated through. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice fresh.',
     });
   }
 

@@ -20,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { ALL_DINNERS, ALWAYS_MENU } from './menu.js';
-import { RECIPES } from './recipes.js';
+import { RECIPES, RICE_DISHES } from './recipes.js';
 import { INGREDIENT_SEED } from './ingredients.js';
 
 // ── Unit conversion anchors (recipe unit -> purchase-unit quantity) ─────────
@@ -104,6 +104,11 @@ export const LINE_MAP = {
   'Chicken breast':         { id: 'chicken_breast', conv: q => q },
   'Beef chuck roast':       { id: 'beef_chuck', conv: q => q },
   'Bone-in pork butt':      { id: 'pork_butt', conv: q => q },
+  'Pork shoulder':          { id: 'pork_shoulder', conv: q => q },
+  'Kimchi':                 { id: 'kimchi', conv: q => q },
+  'Vegetable oil':          { id: 'vegetable_oil', conv: q => q },
+  'Vinegar':                { id: 'vinegar', conv: q => q },
+  'Kosher salt':            { id: 'kosher_salt', conv: q => q },
   'Wagyu london broil':     { id: 'wagyu_london_broil', conv: q => q },
   'Shrimp':                 { id: 'shrimp', conv: q => q },
   'Texas Gulf Shrimp':      { id: 'shrimp', conv: q => q },
@@ -221,6 +226,18 @@ function wrapUnits(dishName) {
   return 1;
 }
 
+// Rice container surcharge: $1/unit via the 'rice' ingredient baseline, for
+// any dish in RICE_DISHES. The container is bigger for a Large batch, so it's
+// 2 units there vs 1 for Small. Every RICE_DISHES variant label literally
+// contains "Small" or "Large" (checked against all current entries), so that
+// substring is the sizing signal — cheaper and more robust than hardcoding a
+// per-dish factor threshold, since different dishes use different factor
+// scales (some Small=0.5/Large=1, others Small=1/Large=2).
+function riceUnits(dishName, variant) {
+  if (!RICE_DISHES.has(dishName)) return 0;
+  return /large/i.test(variant || '') ? 2 : 1;
+}
+
 // Which seed ingredients are "fixed" (never drift). Read from seed flags.
 const FIXED_IDS = new Set(INGREDIENT_SEED.filter(i => i.fixed).map(i => i.id));
 
@@ -255,6 +272,13 @@ export function resolveDishVariant(dishName, variant) {
   // Packaging (wrap) as a resolved, fixed line
   const wu = wrapUnits(dishName);
   if (wu > 0) byId.set('wrap', { id: 'wrap', qty: wu, fixed: true, staple: false });
+  // Rice container surcharge as a resolved, fixed line (doesn't drift —
+  // it's a flat per-order container cost, not a market-priced ingredient)
+  const ru = riceUnits(dishName, variant);
+  if (ru > 0) {
+    const prev = byId.get('rice');
+    byId.set('rice', { id: 'rice', qty: (prev ? prev.qty : 0) + ru, fixed: true, staple: false });
+  }
   return [...byId.values()];
 }
 

@@ -43,6 +43,10 @@ export const ALL_DINNERS = [
     { label: 'Large (~8)', price: 75, cost: 37.51 },
   ]},
   // ── East Asian ─────────────────────────────────────────────────────────────
+  { name: 'Bo Ssam', variants: [
+    { label: 'Small (~4 servings)', price: 36, cost: 17.38 },
+    { label: 'Large (~8 servings)', price: 70, cost: 25.69 },
+  ]},
   { name: 'Cumin Mushroom Noodles', variants: [
     { label: 'Small (~3-4)', price: 45, cost: 19.86 },
     { label: 'Large (~6-8)', price: 80, cost: 38.65 },

@@ -78,6 +78,34 @@ export const RECIPES = {
       'Large (~6-8) + Asian Greens (1 lb)': [{ ...I('Asian greens', 1, 'lb'), fixed: true }],
     },
   },
+  // NOTE: recipe not yet finalized by Kevin (first cook was the pricing test
+  // batch) — quantities/method may change once the official recipe is set.
+  'Bo Ssam': {
+    factors: {
+      'Small (~4 servings)': 0.5, 'Large (~8 servings)': 1,
+    },
+    base: [
+      I('Pork shoulder', 4, 'lb'),
+      I('Kosher salt', 10, 'tbs'),      // 50/50 dry brine, 24 hours
+      I('Sugar', 0.5, 'cup'),           // 50/50 dry brine, 24 hours
+      I('Scallions', 2, 'bunch'),
+      I('Ginger', 4, 'knobs'),
+      I('Vegetable oil', 0.25, 'cup'),
+      I('Soy sauce', 1.5, 'tbsp'),
+      I('Vinegar', 0.2, 'batch-use'),
+      I('Salt', 2, 'batch-use'),
+      // Kimchi is priced at raw cost with no margin buffer (Kevin's call —
+      // store-bought, doesn't feel right marking it up beyond general tax).
+      // This only affects how the menu.js cost ANCHOR was built; the live
+      // drift engine still tracks kimchi like any other ingredient below.
+      // NOT a staple (buy fresh per batch, shows on the shopping list), but
+      // IS fixed — always exactly 1 jar regardless of Small/Large (can't buy
+      // half a jar; Small's smaller half-jar container is priced into the
+      // $36 Small price directly, not modeled as a quantity change here).
+      { ...I('Kimchi', 1, 'jar'), fixed: true },
+      I('Rice (included with order)', 1, 'batch', true),
+    ],
+  },
   'Bolognese': {
     factors: {
       'Small (split order, ~4)': 0.5, 'Large (~8)': 1,
@@ -383,7 +411,7 @@ export const RECIPES = {
     factors: { 'Small (split order, ~3-6)': 0.5, 'Large (~8-12)': 1 },
     base: [
       I('Chicken thighs', 2, 'lb'),
-      I('Boudin', 1, 'lb'),
+      I('Texas Gulf Shrimp', 2, 'lb'),
       I('Onion', 1, ''),
       I('Green bell pepper', 1, ''),
       I('Celery', 3, 'stalks'),
@@ -575,6 +603,7 @@ export const RICE_DISHES = new Set([
   'Gumbo',
   'Indian Style Curry',
   'Leblanc Inspired Japanese Curry',
+  'Bo Ssam',
 ]);
 // Dishes that include uncooked pasta/noodles.
 export const PASTA_DISHES = new Set(['Bolognese', 'Pasta with Homegrown Tomato Sauce', 'Saffron Pork Ragu']);

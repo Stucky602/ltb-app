@@ -199,6 +199,29 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
     return counts;
   }, [items]);
 
+  // Off-menu catalog: every dish in the full catalog that ISN'T on this week's
+  // active menu, grouped by its category. Lets manual/edit orders pull in a past
+  // dish (e.g. a returning customer who wants last week's pappardelle) as a real
+  // line item — so the reheat card, costing, and drift all work — instead of
+  // faking it as a custom charge (which has no dish identity, so its reheat
+  // toggle never fires). Admin-only by construction: this whole component is the
+  // manual order editor; the customer-facing form is a separate file (form.html).
+  const offMenu = useMemo(() => {
+    const activeNames = new Set();
+    Object.keys(menu).forEach(cat => (menu[cat] || []).forEach(it => activeNames.add(cat + '::' + it.name)));
+    const out = {};
+    Object.keys(FULL_MENU).forEach(cat => {
+      const missing = (FULL_MENU[cat] || []).filter(it => !activeNames.has(cat + '::' + it.name));
+      if (missing.length) out[cat] = missing;
+    });
+    return out;
+  }, [menu]);
+  const offMenuCount = useMemo(
+    () => Object.values(offMenu).reduce((n, arr) => n + arr.length, 0),
+    [offMenu]
+  );
+  const [showOffMenu, setShowOffMenu] = useState(false);
+
   return (
     <div style={styles.formCard}>
       <div style={styles.formHeader}>
@@ -304,6 +327,60 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Off-menu: pull in any catalog dish not on this week's menu (admin only).
+          Comes in as a real line item so reheat + costing work. */}
+      {offMenuCount > 0 && (
+        <div style={styles.offMenuWrap}>
+          <button
+            style={styles.offMenuToggle}
+            onClick={() => setShowOffMenu(v => !v)}
+          >
+            <span>Off-menu items ({offMenuCount})</span>
+            {showOffMenu ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          {showOffMenu && (
+            <div style={styles.offMenuBody}>
+              <div style={styles.offMenuHint}>
+                Anything not on this week's menu — for edits and manual orders. Adds as a
+                normal item, so reheat instructions and costs work just like on-menu dishes.
+              </div>
+              {Object.keys(offMenu).map(cat => (
+                <div key={cat} style={styles.offMenuCatGroup}>
+                  <div style={styles.offMenuCatLabel}>{CATEGORY_LABELS[cat]}</div>
+                  {offMenu[cat].map(menuItem => (
+                    <div key={menuItem.name} style={styles.pickerGroup}>
+                      <div style={styles.pickerGroupName}>{menuItem.name}</div>
+                      <div style={styles.pickerVariants}>
+                        {menuItem.variants.map(variant => {
+                          const idx = findItemIndex(cat, menuItem.name, variant);
+                          const selected = idx >= 0;
+                          return (
+                            <div
+                              key={variant.label}
+                              style={{ ...styles.variantBtn, ...(selected ? styles.variantBtnSelected : {}) }}
+                              onClick={() => !selected && addItem(cat, menuItem.name, variant)}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <span style={styles.variantLabel}>{variant.label}</span>
+                              {selected ? (
+                                <QtyControl value={items[idx].qty} onChange={(q) => setQty(idx, q)} />
+                              ) : (
+                                <span style={styles.variantPrice}>{currency(variant.price)}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

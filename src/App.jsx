@@ -446,6 +446,7 @@ export default function LTBOrderTracker() {
           name: item.name,
           perLb: true,
           pricePerLb: info.pricePerLb,
+          avgWeightLb: info.avgWeightLb,
           variants: [{ label: 'By weight', price: info.pricePerLb, cost: info.costPerLb }],
         };
       }
@@ -460,9 +461,10 @@ export default function LTBOrderTracker() {
     const addons = (activeMenu.addons || []).map(toVariants);
     const bag = (activeMenu.bag || []).map(toVariants);
     const sauces = (activeMenu.sauces || []).map(toVariants);
+    const confit = (activeMenu.confit || []).map(toVariants);
     const payload = {
       token: PUBLISH_TOKEN,
-      dishes, fruit, desserts, addons, bag, sauces,
+      dishes, fruit, desserts, addons, bag, sauces, confit,
       menuPdfUrl: menuPdfUrl || '',
       weekLabel: weekLabel || '',
     };
@@ -1038,7 +1040,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.15-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.16-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

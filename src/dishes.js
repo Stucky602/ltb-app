@@ -821,32 +821,49 @@ export const ALWAYS_ITEMS = {
       },
     },
   ],
+  // ── PROTEINS (sous vide, priced by weight) ────────────────────────────────
+  // perLb items: pricePerLb is the clean /lb price (NO bag baked in — the
+  // $1.50 bag is added at display/estimate time). avgWeightLb drives the
+  // per-piece order estimate in form.html.
   bag: [
     {
-      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 25, costPerLb: 19,
-      variants: [{ label: 'price by weight', price: 26.5, cost: 19 }],
+      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 19, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 30, cost: 19 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 23, costPerLb: 17.49,
-      variants: [{ label: 'price by weight', price: 24.5, cost: 17.49 }],
+      // THIS WEEK'S SPECIAL — H-E-B Prime 1 NY Strip. Reverts to Select next
+      // week (pricePerLb 23 / costPerLb 17.49). See handoff for revert values.
+      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 22, costPerLb: 13.99, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 22, cost: 13.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 24.99,
-      variants: [{ label: 'price by weight', price: 35.5, cost: 24.99 }],
+      name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 25, avgWeightLb: 0.5,
+      variants: [{ label: 'price by weight', price: 34, cost: 25 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Chicken Breast', packaging: 'none', perLb: true, pricePerLb: 9, costPerLb: 6,
-      variants: [{ label: 'price by weight', price: 10.5, cost: 6 }],
+      name: 'Flank Steak', packaging: 'none', perLb: true, pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
+      variants: [{ label: 'price by weight', price: 20, cost: 11 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
+      variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 8,
-      variants: [{ label: 'price by weight', price: 16.5, cost: 8 }],
+      name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, pricePerLb: 9, costPerLb: 4.19, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 9, cost: 4.19 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 8, avgWeightLb: 1.25,
+      variants: [{ label: 'price by weight', price: 15, cost: 8 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
+    // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {
       name: 'Carrots', packaging: 'none',
       variants: [{ label: '~2 servings', price: 6, cost: 1.83 }],
@@ -862,6 +879,11 @@ export const ALWAYS_ITEMS = {
       variants: [{ label: '~2 servings', price: 7, cost: 2.0 }],
     },
     {
+      name: 'Kabocha Squash', packaging: 'none',
+      variants: [{ label: '~2 servings', price: 7, cost: 2.90 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.75, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
       name: 'Parsnips', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7, cost: 2.0 }],
     },
@@ -871,6 +893,14 @@ export const ALWAYS_ITEMS = {
         { label: 'Whole (~2 servings)', price: 8, cost: 3.0 },
         { label: 'Bite-size (~2 servings)', price: 8, cost: 3.0 },
       ],
+    },
+  ],
+  // ── GARLIC CONFIT — own section, directly after the veg (bag, $0 wrap) ─────
+  confit: [
+    {
+      name: 'Garlic Confit', packaging: 'none',
+      variants: [{ label: '6 oz jar', price: 10, cost: 5.05 }],
+      recipe: { factors: { '6 oz jar': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
   ],
   sauces: [

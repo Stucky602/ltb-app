@@ -212,6 +212,8 @@ export const LINE_MAP = {
   'Ribeye':                 { skip: true },
   'NY Strip':               { skip: true },
   'Filet Mignon':           { skip: true },
+  'Flank steak':            { skip: true },
+  'Pork chop':              { skip: true },
   'Pork tenderloin':        { skip: true },
   'Baby gold potatoes':     { skip: true },
 };

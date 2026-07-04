@@ -154,13 +154,16 @@
             var key = gi + "_" + di + "_" + vi;
             var qty = cart[key] || 0;
             html += '<div class="variant-row">' +
-              '<div class="variant-info"><span class="variant-label">' + esc(fmtLabel(v.label)) + '</span> ' +
+              '<div class="variant-info"><span class="variant-label">' + (dish.perLb ? 'Priced by weight &middot; order by the piece' : esc(fmtLabel(v.label))) + '</span> ' +
               '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $1.50 bag' : money(v.price)) + '</span>' +
               (!dish.perLb && perServing(v.price, v.label) ? '<span class="variant-per-serving">' + perServing(v.price, v.label) + '</span>' : '') +
               '</div>' +
               '<div class="qty-control">' +
               '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">−</button>' +
+              '<div style="display:flex;flex-direction:column;align-items:center;">' +
               '<span class="qty-num' + (qty === 0 ? ' zero' : '') + '" id="qty_' + key + '">' + qty + '</span>' +
+              (dish.perLb ? '<span style="font-size:10px;color:var(--dim);line-height:1;">pieces</span>' : '') +
+              '</div>' +
               '<button class="qty-btn" onclick="changeQty(\'' + key + '\', 1)">+</button>' +
               '</div></div>';
           });
@@ -282,7 +285,7 @@
         if (PASTA_DISHES.indexOf(dish.name) !== -1 && pastaSelections[dishKey2]) {
           noteparts.push("Pasta: " + pastaSelections[dishKey2]);
         }
-        items.push({ name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". ") });
+        items.push({ name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb });
       });
       return items;
     }
@@ -307,18 +310,35 @@
 
       // Build summary HTML
       var total = 0;
+      var hasPerLb = false;
       var summaryHtml = '<div style="margin-bottom:14px;">';
       summaryHtml += '<div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Items</div>';
       items.forEach(function(it) {
-        var lineTotal = it.price * it.qty;
+        var isPerLb = !!it.perLb;
+        var lineTotal;
+        var variantLabel;
+        if (isPerLb) {
+          hasPerLb = true;
+          var avgW = it.avgWeightLb || 0;
+          lineTotal = (it.price * avgW + 1.50) * it.qty;
+          variantLabel = it.qty + ' piece' + (it.qty === 1 ? '' : 's') + ' &middot; priced by weight';
+        } else {
+          lineTotal = it.price * it.qty;
+          variantLabel = esc(it.variant);
+        }
         total += lineTotal;
+        var lineTotalStr = (lineTotal % 1 === 0 ? lineTotal : lineTotal.toFixed(2));
         summaryHtml += '<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--cream);padding:4px 0;border-bottom:1px solid #2d3a36;">' +
-          '<div>' + esc(it.qty) + '× ' + esc(it.name) + '<br><span style="font-size:12px;color:var(--dim);">' + esc(it.variant) + (it.note ? ' — ' + esc(it.note) : '') + '</span></div>' +
-          '<div style="font-weight:700;color:var(--gold);white-space:nowrap;padding-left:12px;">$' + (lineTotal % 1 === 0 ? lineTotal : lineTotal.toFixed(2)) + '</div>' +
+          '<div>' + esc(it.qty) + '× ' + esc(it.name) + '<br><span style="font-size:12px;color:var(--dim);">' + variantLabel + (it.note ? ' — ' + esc(it.note) : '') + '</span></div>' +
+          '<div style="font-weight:700;color:var(--gold);white-space:nowrap;padding-left:12px;">' + (isPerLb ? '~' : '') + '$' + lineTotalStr + '</div>' +
           '</div>';
       });
+      var totalStr = (total % 1 === 0 ? total : total.toFixed(2));
       summaryHtml += '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--gold);padding:10px 0 4px;">' +
-        '<span>Total</span><span>$' + (total % 1 === 0 ? total : total.toFixed(2)) + '</span></div>';
+        '<span>Total' + (hasPerLb ? ' (est.)' : '') + '</span><span>' + (hasPerLb ? '~' : '') + '$' + totalStr + '</span></div>';
+      if (hasPerLb) {
+        summaryHtml += '<div style="font-size:11px;color:var(--dim);font-style:italic;padding-top:2px;">Items priced by weight are estimated at typical piece sizes. Final price settles at the actual weight of your cuts.</div>';
+      }
       summaryHtml += '</div>';
 
       summaryHtml += '<div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Your Details</div>';

@@ -2,6 +2,7 @@
 // pricing math, localStorage wrapper, photo storage, and the AI order-parsing API client.
 import { FULL_MENU, ALL_DINNERS, PER_LB_ITEMS } from './menu.js';
 import { SURCHARGE, WORKER_BASE } from './config.js';
+import { DISHES } from './dishes.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const currency = (n) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -18,26 +19,8 @@ export function urlBase64ToUint8Array(base64String) {
 // ─── Regulars: cuisine map + name matching + insight generation ─────────────
 // Maps each dish to a loose cuisine bucket so insights can spot patterns like
 // "tends to favor Chinese dishes". A dish missing here is bucketed "Other".
-export const DISH_CUISINE = {
-  'Indian Style Curry': 'Indian',
-  'Shrimp or Tofu with Asparagus in Black Bean Sauce': 'Chinese',
-  'Texas Gulf Shrimp or Tofu and Chinese Broccoli': 'Chinese',
-  'Cumin Mushroom Noodles / Cumin Beef on Rice': 'Chinese',
-  'Thai Basil Chicken (Pad Krapow Gai)': 'Thai',
-  'Stir Fried Long Beans with Ground Pork or Tofu': 'Chinese',
-  'Mapo Eggplant': 'Chinese',
-  'Leblanc Inspired Japanese Curry': 'Japanese',
-  'Bo Ssam': 'Korean',
-  'Pasta with Homegrown Tomato Sauce': 'Italian',
-  'Pappardelle with Vegetables and Mint': 'Italian',
-  'Bolognese': 'Italian',
-  'Saffron Pork Ragu': 'Italian',
-  'Tex-Mex Kit': 'Tex-Mex',
-  'Brunswick Stew': 'Southern',
-  'Gumbo': 'Southern',
-  'Boeuf Bourguignon (Beef Stew)': 'French',
-  'Chili': 'American',
-};
+export const DISH_CUISINE = {};
+DISHES.forEach(d => { if (d.cuisine) DISH_CUISINE[d.name] = d.cuisine; });
 export const dishCuisine = (name) => DISH_CUISINE[name] || 'Other';
 
 // Normalize a name for comparison: lowercase, trim, collapse spaces.

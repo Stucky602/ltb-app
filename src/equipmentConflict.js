@@ -1,3 +1,5 @@
+import { DISHES, ALL_ALWAYS_ITEMS } from './dishes.js';
+
 // ═══════════════════════════════════════════════════════════════════════════
 // EQUIPMENT CONFLICT ENGINE (producer-facing kitchen-capacity guardrail)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -40,39 +42,19 @@ export const RESOURCE_LABELS = {
 // the same week run sequentially rather than truly colliding. Soft (yellow).
 const FAST_TURNOVER = new Set([R.WOK]);
 
-// ── PER-DISH EQUIPMENT MAP ──────────────────────────────────────────────────
-// Each dish lists the resources it ties up. Shapes:
-//   fixed:    [R.DUTCH, R.OVEN_LOW]            — always uses these
-//   flexible: { oneOf: [R.DUTCH, R.LARGE_POT] } — can use EITHER (relief valve)
-//   tofu:     R.BACK_BURNER added only if the tofu version is in play
-//   polenta:  R.BACK_BURNER added (treated as fixed for the polenta variant)
+// ── PER-DISH EQUIPMENT MAP — DERIVED from the dish registry (dishes.js) ────
+// Each dish record's `equipment` field lists the resources it ties up. Shapes:
+//   fixed:    ['dutch', 'ovenLow']              — always uses these
+//   flexible: ['dutch', 'largePot']             — can use EITHER (relief valve)
+//   tofu:     true → back burner added only if the tofu version is in play
+//   polenta:  true → back burner added (hard claim for the polenta variant)
 //
-// Keys are the EXACT dish `name` strings from menu.js ALL_DINNERS + the few
-// ALWAYS_MENU items Kevin asked to include (Queso, cookies, fudge).
-export const DISH_EQUIPMENT = {
-  'Boeuf Bourguignon (Beef Stew)':                    { fixed: [R.DUTCH, R.OVEN_LOW] },
-  'Brunswick Stew':                                   { flexible: [R.DUTCH, R.LARGE_POT], fixed: [R.OVEN_LOW] },
-  'Chili':                                            { fixed: [R.LARGE_POT] },
-  'Gumbo':                                            { fixed: [R.DUTCH] },
-  'Tex-Mex Kit':                                      { fixed: [R.DUTCH, R.LARGE_POT, R.OVEN_LOW] },
-  'Indian Style Curry':                               { flexible: [R.DUTCH, R.LARGE_POT] },
-  'Leblanc Inspired Japanese Curry':                  { fixed: [R.DUTCH, R.OVEN_LOW] },
-  'Mapo Eggplant':                                    { fixed: [R.DUTCH] }, // no tofu
-  'Cumin Mushroom Noodles / Cumin Beef on Rice':      { fixed: [R.WOK] },
-  'Stir Fried Long Beans with Ground Pork or Tofu':   { fixed: [R.WOK], tofu: true }, // tofu is an option → back burner
-  'Bo Ssam':                                          { fixed: [R.OVEN_LOW] }, // pork shoulder roasts low and slow
-  'Texas Gulf Shrimp or Tofu and Chinese Broccoli':   { fixed: [R.WOK], tofu: true },
-  'Shrimp or Tofu with Asparagus in Black Bean Sauce':{ fixed: [R.WOK, R.LARGE_POT], tofu: true },
-  'Thai Basil Chicken (Pad Krapow Gai)':              { fixed: [R.WOK, R.LARGE_POT] },
-  'Bolognese':                                        { flexible: [R.DUTCH, R.LARGE_POT] },
-  'Pasta with Homegrown Tomato Sauce':                { fixed: [] }, // saucier, exclusive — never conflicts
-  'Pappardelle with Vegetables and Mint':            { fixed: [R.WOK] },
-  'Saffron Pork Ragu':                                { flexible: [R.DUTCH, R.LARGE_POT], polenta: true }, // polenta → back burner
-  // ALWAYS_MENU items Kevin wants in the check:
-  'Queso':                                            { fixed: [R.LARGE_POT] },
-  'Chocolate Chip Cookies':                           { fixed: [R.OVEN_NORMAL] },
-  'Peanut Butter Fudge':                              { fixed: [R.LARGE_POT] },
-};
+// Keys are the EXACT dish `name` strings. A dish with NO equipment entry is
+// silently skipped by the analysis — which is why the invariant suite requires
+// every dinner to have one (empty fixed:[] is the explicit "never conflicts").
+export const DISH_EQUIPMENT = {};
+DISHES.forEach(d => { if (d.equipment) DISH_EQUIPMENT[d.name] = d.equipment; });
+ALL_ALWAYS_ITEMS.forEach(it => { if (it.equipment) DISH_EQUIPMENT[it.name] = it.equipment; });
 
 // ── ANALYSIS ────────────────────────────────────────────────────────────────
 // Input: array of selected dish NAME strings (whatever is checked ON).

@@ -20,6 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { ALL_DINNERS, ALWAYS_MENU } from './menu.js';
+import { ALL_ALWAYS_ITEMS } from './dishes.js';
 import { RECIPES, RICE_DISHES } from './recipes.js';
 import { INGREDIENT_SEED } from './ingredients.js';
 
@@ -200,6 +201,11 @@ export const LINE_MAP = {
 
   // Skips — packaging / per-lb bag items / included rice
   'Rice (included with order)': { skip: true },
+  // Bo Ssam finishing salt ('batch-use'): costed $0 since launch because this
+  // line was simply missing from LINE_MAP. Made explicit (invariant suite
+  // requires every line mapped). If it should ever carry real cost, map it to
+  // kosher_salt — but that changes the Bo Ssam anchors, so retune those too.
+  'Salt':                   { skip: true },
   'Pint mason jar':         { skip: true },
   'Gallon ziplock bag':     { skip: true },
   'Sous vide bag + seasonings': { skip: true },
@@ -210,16 +216,10 @@ export const LINE_MAP = {
   'Baby gold potatoes':     { skip: true },
 };
 
-// Jarred items get $2 packaging; other dinners/desserts get $1; fruit/bag $0.
-const JARRED = new Set([
-  'Queso', 'Pickled Onions or Carrots', 'Chili Oil',
-  'Thyme or Lavender Syrup', 'Vanilla Syrup', 'Vanilla Lavender Syrup',
-]);
-const NO_WRAP = new Set([
-  'Fresh Cut Pineapple', 'Seasonal Cantaloupe',
-  'Ribeye','NY Strip','Filet Mignon','Pork Tenderloin','Chicken Breast',
-  'Baby Gold Potatoes','Carrots','Corn (off the cob)','Parsnips','Asparagus',
-]);
+// Packaging class — DERIVED from the registry: 'jar' → $2, 'none' → $0,
+// absent → default $1 (dinners/desserts). Set per-item in dishes.js.
+const JARRED = new Set(ALL_ALWAYS_ITEMS.filter(it => it.packaging === 'jar').map(it => it.name));
+const NO_WRAP = new Set(ALL_ALWAYS_ITEMS.filter(it => it.packaging === 'none').map(it => it.name));
 function wrapUnits(dishName) {
   if (NO_WRAP.has(dishName)) return 0;
   if (JARRED.has(dishName)) return 2;

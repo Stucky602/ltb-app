@@ -157,7 +157,6 @@
               '<div class="variant-info"><span class="variant-label">' + (dish.perLb ? 'Priced by weight &middot; order by the piece' : esc(fmtLabel(v.label))) + '</span> ' +
               '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $1.50 bag' : money(v.price)) + '</span>' +
               (!dish.perLb && perServing(v.price, v.label) ? '<span class="variant-per-serving">' + perServing(v.price, v.label) + '</span>' : '') +
-              (dish.perLb && dish.avgWeightLb ? '<span class="variant-per-serving">approx. ' + (+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/, '') + ' lb per piece</span>' : '') +
               '</div>' +
               '<div class="qty-control">' +
               '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">−</button>' +

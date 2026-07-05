@@ -923,10 +923,12 @@ export const ALWAYS_ITEMS = {
         { label: 'Bite-size (~2 servings)', price: 8, cost: 3.0 },
       ],
     },
-  ],
-  // ── GARLIC CONFIT — own section, directly after the veg (bag, $0 wrap) ─────
-  confit: [
     {
+      // Garlic Confit lives in the bag category (not its own section) — it's a
+      // shelf-stable "stuff in a bag" item like the veg. It keeps its own
+      // customer copy (frozen-storage / botulism note) via the LIBRARY, but
+      // renders as a normal bag card. NOT flagged isSousVideVeg (it isn't a
+      // glaze veg and doesn't join the consolidated veg block).
       name: 'Garlic Confit', packaging: 'none',
       variants: [{ label: '6 oz jar', price: 10, cost: 5.05 }],
       recipe: { factors: { '6 oz jar': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },

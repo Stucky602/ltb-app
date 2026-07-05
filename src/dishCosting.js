@@ -141,7 +141,6 @@ export const LINE_MAP = {
   'Dried peppers (red sauce)': { id: 'dried_peppers', conv: (q,u)=> u==='oz'? q/8 : q },
   'Assorted dried chilis':  { id: 'dried_peppers', conv: () => 1 },
   'Mix of spicy peppers':   { id: 'chilis', conv: () => 0.2 },
-  'Dark chocolate':         { id: 'chocolate_100', conv: (q,u)=> u==='oz'? q*2 : q },
   '100% dark chocolate':    { id: 'chocolate_100', conv: q => q },
   'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: (q,u)=> q },
   'Valrhona chocolate':     { id: 'valrhona', conv: (q,u)=> u==='g'? q/290 : q },
@@ -179,7 +178,6 @@ export const LINE_MAP = {
   'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },
   'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },
   'Oyster + soy + fish sauce + sugar':    { id: 'spices_generic', conv: () => 1 },
-  'Espresso + bourbon + marmite + soy + spices': { id: 'spices_generic', conv: () => 1 }, // orphaned after Chili review split this out (harmless, same as Dark chocolate/boudin)
   'Marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },
   'Tex-Mex spices':         { id: 'spices_generic', conv: () => 1 },
   'Worcestershire + vinegar + flour': { id: 'spices_generic', conv: () => 1 },
@@ -196,7 +194,6 @@ export const LINE_MAP = {
   'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },
   'Polenta + butter + parmesan (bagged)': { id: 'parm', conv: () => 0.1 },
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
-  'Weekly vegetables + chickpeas': { id: 'black_beans', conv: () => 1 }, // orphaned after Indian Curry review split this out (harmless)
   'Chickpeas': { id: 'chickpeas', conv: q => q },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },
   'Seasonal cantaloupe (HEB melons)': { id: 'cantaloupe', conv: q => q },

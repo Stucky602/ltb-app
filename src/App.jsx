@@ -461,10 +461,9 @@ export default function LTBOrderTracker() {
     const addons = (activeMenu.addons || []).map(toVariants);
     const bag = (activeMenu.bag || []).map(toVariants);
     const sauces = (activeMenu.sauces || []).map(toVariants);
-    const confit = (activeMenu.confit || []).map(toVariants);
     const payload = {
       token: PUBLISH_TOKEN,
-      dishes, fruit, desserts, addons, bag, sauces, confit,
+      dishes, fruit, desserts, addons, bag, sauces,
       menuPdfUrl: menuPdfUrl || '',
       weekLabel: weekLabel || '',
     };
@@ -771,6 +770,9 @@ export default function LTBOrderTracker() {
       weekDishes,
       regulars,
       inventory,
+      ingredientsDb,
+      costHistory,
+      receiptAliases,
     };
     const json = JSON.stringify(payload, null, 2);
     try {
@@ -792,7 +794,7 @@ export default function LTBOrderTracker() {
       }
     }
     setTimeout(() => setExportMsg(null), 4000);
-  }, [orders, shopping, weekDishes, regulars, inventory]);
+  }, [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases]);
 
   const importData = useCallback(async (e) => {
     let json;
@@ -837,6 +839,18 @@ export default function LTBOrderTracker() {
         setInventory(payload.inventory);
         await saveJSON(INVENTORY_KEY, payload.inventory);
       }
+      if (Array.isArray(payload.ingredientsDb)) {
+        setIngredientsDb(payload.ingredientsDb);
+        await saveJSON(INGREDIENTS_KEY, payload.ingredientsDb);
+      }
+      if (Array.isArray(payload.costHistory)) {
+        setCostHistory(payload.costHistory);
+        await saveJSON(COST_HISTORY_KEY, payload.costHistory);
+      }
+      if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
+        setReceiptAliases(payload.receiptAliases);
+        await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
+      }
       setExportMsg(`Imported ${payload.orders.length} orders successfully.`);
       setTimeout(() => setExportMsg(null), 4000);
       setError(null);
@@ -877,6 +891,18 @@ export default function LTBOrderTracker() {
       if (payload.inventory && typeof payload.inventory === 'object') {
         setInventory(payload.inventory);
         await saveJSON(INVENTORY_KEY, payload.inventory);
+      }
+      if (Array.isArray(payload.ingredientsDb)) {
+        setIngredientsDb(payload.ingredientsDb);
+        await saveJSON(INGREDIENTS_KEY, payload.ingredientsDb);
+      }
+      if (Array.isArray(payload.costHistory)) {
+        setCostHistory(payload.costHistory);
+        await saveJSON(COST_HISTORY_KEY, payload.costHistory);
+      }
+      if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
+        setReceiptAliases(payload.receiptAliases);
+        await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
       }
       setExportMsg(`Imported ${payload.orders.length} orders successfully.`);
       setTimeout(() => setExportMsg(null), 4000);
@@ -1040,7 +1066,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.16-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.17-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

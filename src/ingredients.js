@@ -57,7 +57,6 @@ export const INGREDIENT_SEED = [
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },
   { id: 'anchovies', name: 'Anchovies (fillet)', unit: 'fillet', baseline: 0.24, category: 'pantry' }, // Bellino 4.25oz tin $5.78 / ~24 fillets (per printed nutrition facts: 4 servings/tin x 6 pieces/serving)
-  { id: 'boudin', name: 'Boudin', unit: 'package', baseline: 3.89, category: 'protein' },
   { id: 'kimchi', name: 'Kimchi', unit: 'jar', baseline: 8.0, category: 'pantry' },
   { id: 'butter', name: 'Butter', unit: 'stick', baseline: 0.95, category: 'dairy' },
   { id: 'milk', name: 'Milk', unit: 'cup', baseline: 0.275, category: 'dairy' },

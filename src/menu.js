@@ -46,7 +46,6 @@ export const CATEGORY_LABELS = {
   desserts: 'Desserts',
   addons: 'Add-Ons & Extras',
   bag: 'Stuff in a Bag',
-  confit: 'Garlic Confit',
 };
 
 export const STATUSES = ['Ordered', 'Cooking', 'Ready', 'Delivered'];

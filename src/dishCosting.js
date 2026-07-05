@@ -154,6 +154,7 @@ export const LINE_MAP = {
   'White wine':             { id: 'white_wine', conv: q => q },
   'Dry sherry':             { id: 'sherry', conv: q => q },
   'Espresso':               { id: 'espresso', conv: q => q },
+  'Bourbon':                { id: 'bourbon', conv: (q,u) => u==='oz' ? q/8 : q }, // bourbon priced per cup; 8oz/cup
   'Doubanjiang':            { id: 'doubanjiang', conv: q => q },
   'Soy sauce':              { id: 'soy', conv: q => q },
   'Dark soy sauce':         { id: 'dark_soy', conv: q => q },
@@ -178,7 +179,8 @@ export const LINE_MAP = {
   'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },
   'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },
   'Oyster + soy + fish sauce + sugar':    { id: 'spices_generic', conv: () => 1 },
-  'Espresso + bourbon + marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },
+  'Espresso + bourbon + marmite + soy + spices': { id: 'spices_generic', conv: () => 1 }, // orphaned after Chili review split this out (harmless, same as Dark chocolate/boudin)
+  'Marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },
   'Tex-Mex spices':         { id: 'spices_generic', conv: () => 1 },
   'Worcestershire + vinegar + flour': { id: 'spices_generic', conv: () => 1 },
   'Bay + salt + pepper + vinegar': { id: 'spices_generic', conv: () => 1 },
@@ -194,7 +196,8 @@ export const LINE_MAP = {
   'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },
   'Polenta + butter + parmesan (bagged)': { id: 'parm', conv: () => 0.1 },
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
-  'Weekly vegetables + chickpeas': { id: 'black_beans', conv: () => 1 },
+  'Weekly vegetables + chickpeas': { id: 'black_beans', conv: () => 1 }, // orphaned after Indian Curry review split this out (harmless)
+  'Chickpeas': { id: 'chickpeas', conv: q => q },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },
   'Seasonal cantaloupe (HEB melons)': { id: 'cantaloupe', conv: q => q },
   'Pineapple (1 makes 2 containers)': { id: 'pineapple', conv: () => 2 },
@@ -237,11 +240,11 @@ function wrapUnits(dishName) {
 // scales (some Small=0.5/Large=1, others Small=1/Large=2).
 function riceUnits(dishName, variant) {
   // Cumin Mushroom Noodles / Cumin Beef on Rice is a mixed dish — only the
-  // Beef variants include rice (the noodle variants never did and shouldn't
-  // be charged for it), so this can't use plain RICE_DISHES set membership
-  // the way every other dish does.
+  // Beef/Lamb variants include rice (the noodle variants never did and
+  // shouldn't be charged for it), so this can't use plain RICE_DISHES set
+  // membership the way every other dish does.
   if (dishName === 'Cumin Mushroom Noodles / Cumin Beef on Rice') {
-    if (!/^beef,/i.test(variant || '')) return 0;
+    if (!/^(beef|lamb),/i.test(variant || '')) return 0;
     return /large/i.test(variant || '') ? 2 : 1;
   }
   if (!RICE_DISHES.has(dishName)) return 0;

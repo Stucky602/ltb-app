@@ -44,11 +44,11 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: '~6 servings', price: 100, cost: 45.08 },
+      { label: '~4 servings', price: 100, cost: 45.08 },
       { label: 'With 1 lb mushrooms', price: 112, cost: 51.08 },
     ],
     recipe: {
-      factors: { '~6 servings': 1, 'With 1 lb mushrooms': 1 },
+      factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
       base: [
         I('Beef chuck roast', 2.5, 'lb'),
         I('Red potatoes', 1.5, 'lb'),
@@ -113,11 +113,13 @@ export const DISHES = [
         I('Assorted dried chilis', 1, 'bag'),
         I('Chicken broth', 4, 'cups'),
         I('Canned tomatoes', 1, '28oz can'),
-        I('Dark chocolate', 1, 'oz'),
-        I('Anchovies', 1, 'tin'),
+        I('100% dark chocolate', 2, 'square'),
+        I('Anchovies', 3.5, 'fillet'), // Bellino 4.25oz tin ~24 fillets @ $5.78 = ~$0.24/fillet; Kevin uses 3-4/batch, midpoint 3.5
         I('Tomato paste', 1, 'small can'),
         I('Limes', 1, ''),
-        I('Espresso + bourbon + marmite + soy + spices', 1, 'batch', true),
+        I('Espresso', 2, 'shot'),
+        I('Bourbon', 2, 'oz'),
+        I('Marmite + soy + spices', 1, 'batch', true),
       ],
     },
   },
@@ -191,12 +193,12 @@ export const DISHES = [
     rice: true,
     equipment: { flexible: ['dutch', 'largePot'] },
     variants: [
-      { label: 'Chickpea, Small (~4-5)', price: 22, cost: 10.79 },
-      { label: 'Chicken, Small (~4-5)', price: 27, cost: 16.21 },
-      { label: 'Shrimp, Small (~4-5)', price: 40, cost: 25.95 },
-      { label: 'Chickpea, Large (~8-10)', price: 40, cost: 21.59 },
-      { label: 'Chicken, Large (~8-10)', price: 50, cost: 32.41 },
-      { label: 'Shrimp, Large (~8-10)', price: 75, cost: 51.9 },
+      { label: 'Chickpea, Small (~4-5)', price: 25, cost: 12.71 },
+      { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.13 },
+      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 27.87 },
+      { label: 'Chickpea, Large (~8-10)', price: 45, cost: 24.35 },
+      { label: 'Chicken, Large (~8-10)', price: 65, cost: 35.17 },
+      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 54.66 },
     ],
     recipe: {
       factors: {
@@ -209,7 +211,8 @@ export const DISHES = [
         I('Butter', 2, 'sticks'),
         I('Kitchen Basics chicken stock', 32, 'oz'),
         I('Limes', 2, ''),
-        I('Weekly vegetables + chickpeas', 1, 'lb'),
+        I('Asian greens', 1, 'lb'), // stand-in for "whatever's best this week" — priced at ~$2/lb per Kevin
+        I('Chickpeas', 2, 'lb'),
         I('Mix of spicy peppers', 1, 'handful'),
         I('Curry powder', 0.25, 'cup', true),
         I('Brown sugar', 2, 'tbsp', true),
@@ -230,22 +233,22 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: 'Small (split order, ~4)', price: 40, cost: 18.76 },
-      { label: 'Large (~8)', price: 75, cost: 37.51 },
+      { label: 'Small (split order, ~4)', price: 60, cost: 31.98 },
+      { label: 'Large (~8)', price: 110, cost: 62.87 },
     ],
     recipe: {
       factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
       base: [
-        I('Wagyu london broil', 1.25, 'lb'),
+        I('Wagyu london broil', 2.5, 'lb'),
         I('Kabocha squash', 1, 'lb'),
         I('Carrots', 1, 'lb'),
-        I('Onion', 1, ''),
+        I('Onion', 1, 'lb'),
         I('Apple', 1, ''),
-        I('Ginger', 1, 'knob'),
-        I('Red wine', 1, 'cup'),
-        I('Beef stock', 4, 'cups'),
-        I('100% dark chocolate', 1, 'square'),
-        I('Espresso', 1, 'shot'),
+        I('Ginger', 2, 'knob'),
+        I('Red wine', 2, 'cup'),
+        I('Beef stock', 8, 'cups'),
+        I('100% dark chocolate', 2, 'square'),
+        I('Espresso', 2, 'shot'),
         I('Curry spice blend', 1, 'batch', true),
         I('Honey + fish sauce + butter', 1, 'batch', true),
         I('Bay leaf', 1, '', true),
@@ -265,18 +268,18 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['ovenLow'] }, // pork shoulder roasts low and slow
     variants: [
-      { label: 'Small (~4 servings)', price: 36, cost: 17.38 },
-      { label: 'Large (~8 servings)', price: 70, cost: 25.69 },
+      { label: 'Small (~4 servings)', price: 40, cost: 23.32 },
+      { label: 'Large (~8 servings)', price: 75, cost: 37.55 },
     ],
     // NOTE: recipe not yet finalized by Kevin (first cook was the pricing test
     // batch) — quantities/method may change once the official recipe is set.
     recipe: {
       factors: { 'Small (~4 servings)': 0.5, 'Large (~8 servings)': 1 },
       base: [
-        I('Pork shoulder', 4, 'lb'),
+        I('Pork shoulder', 8, 'lb'), // real yield after trim/fat loss; Small=4lb confirmed by Kevin
         I('Kosher salt', 10, 'tbs'),      // 50/50 dry brine, 24 hours
         I('Sugar', 0.5, 'cup'),           // 50/50 dry brine, 24 hours
-        I('Scallions', 2, 'bunch'),
+        I('Scallions', 3, 'bunch'), // Small=1.5 bunch confirmed by Kevin
         I('Ginger', 4, 'knobs'),
         I('Vegetable oil', 0.25, 'cup'),
         I('Soy sauce', 1.5, 'tbsp'),
@@ -311,6 +314,10 @@ export const DISHES = [
       { label: 'Beef, Large (~6-8)', price: 60, cost: 28.86 },
       { label: 'Beef, Small (~3-4) + Asian Greens (1/2 lb)', price: 40, cost: 16.05 },
       { label: 'Beef, Large (~6-8) + Asian Greens (1 lb)', price: 65, cost: 31.02 },
+      { label: 'Lamb, Small (~3-4)', price: 45, cost: 21.46 },
+      { label: 'Lamb, Large (~6-8)', price: 80, cost: 41.83 },
+      { label: 'Lamb, Small (~3-4) + Asian Greens (1/2 lb)', price: 47, cost: 22.54 },
+      { label: 'Lamb, Large (~6-8) + Asian Greens (1 lb)', price: 84, cost: 43.99 },
     ],
     recipe: {
       factors: {
@@ -318,6 +325,8 @@ export const DISHES = [
         'Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Large (~6-8) + Asian Greens (1 lb)': 1,
         'Beef, Small (~3-4)': 0.5, 'Beef, Large (~6-8)': 1,
         'Beef, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Beef, Large (~6-8) + Asian Greens (1 lb)': 1,
+        'Lamb, Small (~3-4)': 0.5, 'Lamb, Large (~6-8)': 1,
+        'Lamb, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Lamb, Large (~6-8) + Asian Greens (1 lb)': 1,
       },
       // Shared cumin-chili sauce and aromatics — identical across every variant.
       // Protein and starch are variant-specific (mushroom+noodles vs ground
@@ -359,6 +368,20 @@ export const DISHES = [
         ],
         'Beef, Large (~6-8) + Asian Greens (1 lb)': [
           I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+          { ...I('Asian greens', 1, 'lb'), fixed: true },
+        ],
+        'Lamb, Small (~3-4)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        ],
+        'Lamb, Large (~6-8)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        ],
+        'Lamb, Small (~3-4) + Asian Greens (1/2 lb)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+          { ...I('Asian greens', 0.5, 'lb'), fixed: true },
+        ],
+        'Lamb, Large (~6-8) + Asian Greens (1 lb)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
           { ...I('Asian greens', 1, 'lb'), fixed: true },
         ],
       },
@@ -441,15 +464,15 @@ export const DISHES = [
       },
       base: [
         I('Long beans', 1.5, 'lb'),
-        I('Doubanjiang', 2, 'tbsp'),
+        I('Doubanjiang', 4, 'tbsp'), // Small=2tbsp confirmed by Kevin
         I('Garlic', 6, 'cloves'),
         I('Scallions', 1, 'bunch'),
         I('Soy sauce', 2, 'tbsp', true),
         I('Rice (included with order)', 1, 'batch', true),
       ],
       extras: {
-        'Ground Pork, Small (~4)': [I('Ground pork', 1, 'lb')],
-        'Ground Pork, Large (~8)': [I('Ground pork', 1, 'lb')],
+        'Ground Pork, Small (~4)': [I('Ground pork', 2, 'lb')], // Small=1lb, Large=2lb confirmed by Kevin
+        'Ground Pork, Large (~8)': [I('Ground pork', 2, 'lb')],
         'Tofu, Small (~4)': [I('Tofu', 1, 'block')],
         'Tofu, Large (~8)': [I('Tofu', 1, 'block')],
       },
@@ -612,10 +635,10 @@ export const DISHES = [
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
     variants: [
-      { label: 'Small (~4 servings)', price: 40, cost: 17.84 },
-      { label: 'Large (~8 servings)', price: 75, cost: 35.68 },
-      { label: 'Small (~4 servings) + Polenta', price: 48, cost: 23.25 },
-      { label: 'Large (~8 servings) + Polenta', price: 90, cost: 46.5 },
+      { label: 'Small (~4 servings)', price: 35, cost: 16.79 },
+      { label: 'Large (~8 servings)', price: 65, cost: 32.50 },
+      { label: 'Small (~4 servings) + Polenta', price: 43, cost: 17.11 },
+      { label: 'Large (~8 servings) + Polenta', price: 80, cost: 33.15 },
     ],
     recipe: {
       factors: {

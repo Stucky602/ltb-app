@@ -56,7 +56,7 @@ export const INGREDIENT_SEED = [
   { id: 'shrimp', name: 'Shrimp', unit: 'lb', baseline: 14.0, category: 'protein' },
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },
-  { id: 'anchovies', name: 'Anchovies', unit: 'tin', baseline: 1.5, category: 'pantry' },
+  { id: 'anchovies', name: 'Anchovies (fillet)', unit: 'fillet', baseline: 0.24, category: 'pantry' }, // Bellino 4.25oz tin $5.78 / ~24 fillets (per printed nutrition facts: 4 servings/tin x 6 pieces/serving)
   { id: 'boudin', name: 'Boudin', unit: 'package', baseline: 3.89, category: 'protein' },
   { id: 'kimchi', name: 'Kimchi', unit: 'jar', baseline: 8.0, category: 'pantry' },
   { id: 'butter', name: 'Butter', unit: 'stick', baseline: 0.95, category: 'dairy' },
@@ -92,6 +92,7 @@ export const INGREDIENT_SEED = [
   { id: 'dried_kidney_beans', name: 'Dried kidney beans', unit: 'lb', baseline: 1.22, category: 'pantry' },
   { id: 'dried_lima_beans', name: 'Dried lima beans', unit: 'oz', baseline: 0.13, category: 'pantry' },
   { id: 'black_beans', name: 'Black beans (dried)', unit: 'lb', baseline: 0.55, category: 'pantry' },
+  { id: 'chickpeas', name: 'Chickpeas (dried)', unit: 'lb', baseline: 1.5, category: 'pantry' }, // estimate, not receipt-verified yet
   { id: 'tomato_can', name: 'Canned tomato (28oz)', unit: 'can', baseline: 3.54, category: 'pantry' },
   { id: 'peeled_tomatoes', name: 'Peeled tomatoes (14oz)', unit: 'can', baseline: 1.08, category: 'pantry' },
   { id: 'fresh_tomatoes', name: 'Fresh tomatoes', unit: 'lb', baseline: 4.0, category: 'produce' },
@@ -127,7 +128,7 @@ export const INGREDIENT_SEED = [
   { id: 'bay_leaf', name: 'Bay leaf', unit: 'leaf', baseline: 0.05, category: 'spice' },
   { id: 'nutmeg', name: 'Nutmeg', unit: 'batch-use', baseline: 0.1, category: 'spice' },
   { id: 'fennel_seeds', name: 'Fennel seeds', unit: 'tsp', baseline: 0.1, category: 'spice' },
-  { id: 'saffron', name: 'Saffron', unit: 'pinch', baseline: 2.0, category: 'spice' },
+  { id: 'saffron', name: 'Saffron', unit: 'pinch', baseline: 1.17, category: 'spice' }, // HEB 0.018oz bag $4.68 / 4 Small servings per bag (Kevin's ratio)
   { id: 'curry_powder', name: 'Curry powder', unit: 'batch-use', baseline: 1.0, category: 'spice' },
   { id: 'curry_spices', name: 'Curry spice blend', unit: 'batch-use', baseline: 1.0, category: 'spice' },
   { id: 'five_spice', name: '5-spice powder', unit: 'tsp', baseline: 0.125, category: 'spice' },

@@ -168,10 +168,10 @@ export function buildReheatBlocks(order) {
   // variant + one beef variant) keeps both cards.
   const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef on Rice';
   let cuminNoodleOrdered = false;
-  let cuminBeefOrdered = false;
+  let cuminMeatOnRiceOrdered = false;
   items.forEach(it => {
     if (it.name !== CUMIN_DUAL) return;
-    if (it.variant && it.variant.startsWith('Beef,')) cuminBeefOrdered = true;
+    if (it.variant && /^(beef|lamb),/i.test(it.variant)) cuminMeatOnRiceOrdered = true;
     else cuminNoodleOrdered = true;
   });
 
@@ -283,12 +283,12 @@ export function buildReheatBlocks(order) {
     });
   }
 
-  // ── Cumin Beef on Rice (same sauce as the noodle version, rice instead) ──
-  if (cuminBeefOrdered) {
+  // ── Cumin Beef/Lamb on Rice (same sauce as the noodle version, rice instead) ──
+  if (cuminMeatOnRiceOrdered) {
     blocks.push({
       title: CUMIN_DUAL,
       dishes: [CUMIN_DUAL],
-      body: 'Warm the beef and sauce gently on the stove, adding a splash of water to loosen if needed. Cook the included rice fresh and serve the beef over the top.',
+      body: 'Warm the meat and sauce gently on the stove, adding a splash of water to loosen if needed. Cook the included rice fresh and serve the meat over the top.',
     });
   }
 

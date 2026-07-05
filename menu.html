@@ -202,11 +202,14 @@
               html += '<div class="price-row"><span class="price-label" style="padding-left:8px">'+esc(v.label)+'</span><div class="price-right"><span class="price-amt">$'+v.price+'</span></div></div>';
             });
           }
-          // Most sous vide veg are terse (name + price). Garlic Confit carries
-          // its own description and a storage/safety note — show them inline so
-          // it reads like the rest of the veg but keeps its botulism note.
-          if (vc.desc) html += '<div class="veg-note">'+esc(vc.desc)+'</div>';
-          if (vc.reheat) html += '<div class="veg-note" style="margin-top:4px">'+esc(vc.reheat)+'</div>';
+          // All sous vide veg are terse (name + price) — that's the compact veg
+          // list. Garlic Confit is the one exception: it carries its own
+          // description and a storage/safety note (botulism), so show those two
+          // lines for confit only.
+          if (d.name === 'Garlic Confit') {
+            if (vc.desc) html += '<div class="veg-note">'+esc(vc.desc)+'</div>';
+            if (vc.reheat) html += '<div class="veg-note" style="margin-top:4px">'+esc(vc.reheat)+'</div>';
+          }
           html += '</div>';
         });
         html += '</div>';

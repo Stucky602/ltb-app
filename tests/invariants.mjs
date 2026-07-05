@@ -154,7 +154,7 @@ for (const d of DISHES) {
 }
 
 // ─── 9. Rice charge exactly where it belongs ────────────────────────────────
-const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef on Rice';
+const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
 for (const d of DISHES) {
   for (const v of d.variants) {
     const resolved = resolveDishVariant(d.name, v.label) || [];

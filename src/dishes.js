@@ -826,18 +826,10 @@ export const ALWAYS_ITEMS = {
   // $1.50 bag is added at display/estimate time). avgWeightLb drives the
   // per-piece order estimate in form.html.
   bag: [
-    {
-      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 19, avgWeightLb: 0.75,
-      variants: [{ label: 'price by weight', price: 30, cost: 19 }],
-      recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
-    },
-    {
-      // THIS WEEK'S SPECIAL — H-E-B Prime 1 NY Strip. Reverts to Select next
-      // week (pricePerLb 23 / costPerLb 17.49). See handoff for revert values.
-      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 22, costPerLb: 13.99, avgWeightLb: 0.75,
-      variants: [{ label: 'price by weight', price: 22, cost: 13.99 }],
-      recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
-    },
+    // Proteins ordered by type (beef, then pork, then chicken), alphabetical
+    // within each type. Order here flows straight through menu.js → publish →
+    // form.html render, so this array IS the customer-facing order.
+    // ── BEEF (alphabetical) ──────────────────────────────────────────────────
     {
       name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 25, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 34, cost: 25 }],
@@ -849,19 +841,33 @@ export const ALWAYS_ITEMS = {
       recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
-      variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
-      recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+      // THIS WEEK'S SPECIAL — H-E-B Prime 1 NY Strip. Reverts to Select next
+      // week (pricePerLb 23 / costPerLb 17.49). See handoff for revert values.
+      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 22, costPerLb: 13.99, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 22, cost: 13.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 19, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 30, cost: 19 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    // ── PORK (alphabetical) ──────────────────────────────────────────────────
+    {
+      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 8, avgWeightLb: 1.25,
+      variants: [{ label: 'price by weight', price: 15, cost: 8 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, pricePerLb: 9, costPerLb: 4.19, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 9, cost: 4.19 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
+    // ── CHICKEN ──────────────────────────────────────────────────────────────
     {
-      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 8, avgWeightLb: 1.25,
-      variants: [{ label: 'price by weight', price: 15, cost: 8 }],
-      recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+      name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
+      variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {

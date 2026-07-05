@@ -239,11 +239,11 @@ function wrapUnits(dishName) {
 // per-dish factor threshold, since different dishes use different factor
 // scales (some Small=0.5/Large=1, others Small=1/Large=2).
 function riceUnits(dishName, variant) {
-  // Cumin Mushroom Noodles / Cumin Beef on Rice is a mixed dish — only the
-  // Beef/Lamb variants include rice (the noodle variants never did and
+  // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice is a mixed dish — only
+  // the Beef/Lamb variants include rice (the noodle variants never did and
   // shouldn't be charged for it), so this can't use plain RICE_DISHES set
   // membership the way every other dish does.
-  if (dishName === 'Cumin Mushroom Noodles / Cumin Beef on Rice') {
+  if (dishName === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice') {
     if (!/^(beef|lamb),/i.test(variant || '')) return 0;
     return /large/i.test(variant || '') ? 2 : 1;
   }

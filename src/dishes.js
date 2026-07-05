@@ -299,17 +299,17 @@ export const DISHES = [
     },
   },
   {
-    name: 'Cumin Mushroom Noodles / Cumin Beef on Rice',
+    name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
     cuisine: 'Chinese',
     reheat: 'pasta',
-    noodle: true, // the noodle variants; rice surcharge for Beef variants is
-                  // special-cased in dishCosting riceUnits (Beef-prefix rule)
+    noodle: true, // the noodle variants; rice surcharge for Beef/Lamb variants
+                  // is special-cased in dishCosting riceUnits (Beef|Lamb-prefix rule)
     equipment: { fixed: ['wok'] },
     variants: [
-      { label: 'Small (~3-4)', price: 45, cost: 19.86 },
-      { label: 'Large (~6-8)', price: 80, cost: 38.65 },
-      { label: 'Small (~3-4) + Asian Greens (1/2 lb)', price: 50, cost: 22.03 },
-      { label: 'Large (~6-8) + Asian Greens (1 lb)', price: 85, cost: 40.81 },
+      { label: 'Mushroom, Small (~3-4)', price: 45, cost: 19.86 },
+      { label: 'Mushroom, Large (~6-8)', price: 80, cost: 38.65 },
+      { label: 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)', price: 50, cost: 22.03 },
+      { label: 'Mushroom, Large (~6-8) + Asian Greens (1 lb)', price: 85, cost: 40.81 },
       { label: 'Beef, Small (~3-4)', price: 35, cost: 14.97 },
       { label: 'Beef, Large (~6-8)', price: 60, cost: 28.86 },
       { label: 'Beef, Small (~3-4) + Asian Greens (1/2 lb)', price: 40, cost: 16.05 },
@@ -321,8 +321,8 @@ export const DISHES = [
     ],
     recipe: {
       factors: {
-        'Small (~3-4)': 0.5, 'Large (~6-8)': 1,
-        'Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Large (~6-8) + Asian Greens (1 lb)': 1,
+        'Mushroom, Small (~3-4)': 0.5, 'Mushroom, Large (~6-8)': 1,
+        'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Mushroom, Large (~6-8) + Asian Greens (1 lb)': 1,
         'Beef, Small (~3-4)': 0.5, 'Beef, Large (~6-8)': 1,
         'Beef, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Beef, Large (~6-8) + Asian Greens (1 lb)': 1,
         'Lamb, Small (~3-4)': 0.5, 'Lamb, Large (~6-8)': 1,
@@ -330,7 +330,7 @@ export const DISHES = [
       },
       // Shared cumin-chili sauce and aromatics — identical across every variant.
       // Protein and starch are variant-specific (mushroom+noodles vs ground
-      // beef+rice) and live in extras below.
+      // beef+rice vs ground lamb+rice) and live in extras below.
       base: [
         I('Garlic', 16, 'cloves'),
         I('Ginger', 4, 'knobs'),
@@ -342,17 +342,17 @@ export const DISHES = [
         I('House chili oil', 1, 'cup', true),
       ],
       extras: {
-        'Small (~3-4)': [
+        'Mushroom, Small (~3-4)': [
           I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
         ],
-        'Large (~6-8)': [
+        'Mushroom, Large (~6-8)': [
           I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
         ],
-        'Small (~3-4) + Asian Greens (1/2 lb)': [
+        'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)': [
           I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
           { ...I('Asian greens', 0.5, 'lb'), fixed: true },
         ],
-        'Large (~6-8) + Asian Greens (1 lb)': [
+        'Mushroom, Large (~6-8) + Asian Greens (1 lb)': [
           I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
           { ...I('Asian greens', 1, 'lb'), fixed: true },
         ],

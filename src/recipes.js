@@ -161,12 +161,12 @@ export function buildReheatBlocks(order) {
     else raguNeedsPasta = true;
   });
 
-  // Cumin Mushroom Noodles / Cumin Beef on Rice: the Beef variants swap
+  // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice: the Beef/Lamb
   // noodles for rice, so they need their own rice-cooking instructions
   // instead of being lumped into the shared noodle/pasta bucket text. Same
   // up-front full-item scan as Ragu above, so a mixed order (one noodle
   // variant + one beef variant) keeps both cards.
-  const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef on Rice';
+  const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
   let cuminNoodleOrdered = false;
   let cuminMeatOnRiceOrdered = false;
   items.forEach(it => {

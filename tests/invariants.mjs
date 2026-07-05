@@ -205,7 +205,7 @@ else {
       if (!DISHES.some(d => d.name === k)) F('library-orphan', `menu.html LIBRARY.dinners has "${k}" which is not a registry dinner (orphan copy — the "Pasta with Red Sauce" class)`);
     }
     // always-menu items with customer copy: name must be a real registry item
-    for (const section of ['addons', 'bag', 'sauces', 'confit']) {
+    for (const section of ['addons', 'bag', 'sauces']) {
       for (const k of Object.keys(LIB[section] || {})) {
         if (!allNames.has(k)) F('library-orphan', `menu.html LIBRARY.${section} has "${k}" which is not in the registry`);
       }

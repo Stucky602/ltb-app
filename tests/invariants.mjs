@@ -160,7 +160,7 @@ for (const d of DISHES) {
     const resolved = resolveDishVariant(d.name, v.label) || [];
     const rice = resolved.find(r => r.id === 'rice');
     let expected = 0;
-    if (d.name === CUMIN_DUAL) expected = /^beef,/i.test(v.label) ? (/large/i.test(v.label) ? 2 : 1) : 0;
+    if (d.name === CUMIN_DUAL) expected = /^(beef|lamb),/i.test(v.label) ? (/large/i.test(v.label) ? 2 : 1) : 0;
     else if (d.rice) expected = /large/i.test(v.label) ? 2 : 1;
     const got = rice ? rice.qty : 0;
     if (got !== expected) F('rice-charge', `"${d.name}" / "${v.label}" rice units ${got}, expected ${expected}`);

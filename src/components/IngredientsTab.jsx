@@ -34,7 +34,38 @@ function pctLabel(baseline, current) {
   return `${sign}${pct.toFixed(0)}%`;
 }
 
-export function IngredientsTab({ ingredients, onChange, onScanReceipt }) {
+// Compact cost-history sparkline. `points` is a time-sorted array of numbers
+// (cost at each recorded moment). Draws a small line; the last point is dotted
+// and the line is tinted by overall direction (green = trending down/cheaper,
+// red = trending up/pricier, neutral grey = flat). Renders nothing for <2 pts.
+function Sparkline({ points, width = 56, height = 18 }) {
+  if (!points || points.length < 2) return null;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = max - min;
+  const n = points.length;
+  // Flat series (no movement) — draw a centered neutral line.
+  const y = (v) => {
+    if (span < 1e-9) return height / 2;
+    // higher cost = higher on screen inverted (SVG y grows downward)
+    return height - 2 - ((v - min) / span) * (height - 4);
+  };
+  const x = (i) => (n === 1 ? 0 : (i / (n - 1)) * (width - 2) + 1);
+  const d = points.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const first = points[0];
+  const last = points[n - 1];
+  const dir = last - first;
+  const color = Math.abs(dir) < first * 0.01 ? '#9aa5a0' : (dir < 0 ? '#3fb8a0' : '#e0828a');
+  const lastX = x(n - 1), lastY = y(last);
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block' }} aria-hidden="true">
+      <path d={d} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
+      <circle cx={lastX} cy={lastY} r="1.8" fill={color} />
+    </svg>
+  );
+}
+
+export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // id being edited
   const [editVal, setEditVal] = useState('');
@@ -71,6 +102,27 @@ export function IngredientsTab({ ingredients, onChange, onScanReceipt }) {
       down: moved.filter(i => i.pct < 0).slice(0, 8),
     };
   }, [list]);
+
+  // Group cost-history points by ingredient id, time-sorted, reduced to a plain
+  // array of cost numbers per id for the sparkline. Consecutive duplicate costs
+  // are collapsed so a flat series doesn't render as a busy flat line, but at
+  // least two distinct points are always kept when movement exists.
+  const historyById = useMemo(() => {
+    const map = {};
+    (costHistory || []).forEach(p => {
+      if (!p || p.id == null) return;
+      (map[p.id] = map[p.id] || []).push(p);
+    });
+    Object.keys(map).forEach(id => {
+      const sorted = map[id].slice().sort((a, b) => a.t - b.t);
+      const costs = [];
+      sorted.forEach(p => {
+        if (!costs.length || Math.abs(costs[costs.length - 1] - p.cost) > 1e-9) costs.push(p.cost);
+      });
+      map[id] = costs;
+    });
+    return map;
+  }, [costHistory]);
 
   const startEdit = useCallback((ing) => {
     setEditing(ing.id);
@@ -204,6 +256,11 @@ export function IngredientsTab({ ingredients, onChange, onScanReceipt }) {
                       {Math.abs(ing.current - ing.baseline) > 0.005 && (
                         <div style={S.baseCost}>base ${ing.baseline.toFixed(2)}</div>
                       )}
+                      {historyById[ing.id] && historyById[ing.id].length >= 2 && (
+                        <div style={S.sparkWrap} title="Cost history">
+                          <Sparkline points={historyById[ing.id]} />
+                        </div>
+                      )}
                     </div>
                   )}
                   <div style={S.rowActions}>
@@ -278,6 +335,7 @@ const S = {
   curCost: { fontSize: 15, fontWeight: 700, color: '#e8e2d4' },
   pctTag: { fontSize: 11, fontWeight: 700, marginTop: 1, opacity: 0.9 },
   baseCost: { fontSize: 10, color: '#9aa5a0', marginTop: 1 },
+  sparkWrap: { marginTop: 3, display: 'flex', justifyContent: 'flex-end' },
   editWrap: { display: 'flex', alignItems: 'center', background: '#1a1a1a', border: '1px solid #3fb8a0', borderRadius: 8, padding: '4px 8px' },
   dollar: { color: '#9aa5a0', fontSize: 14 },
   editInput: { width: 60, background: 'transparent', border: 'none', color: '#e8e2d4', fontSize: 15, fontWeight: 700, outline: 'none', textAlign: 'right' },

@@ -1456,7 +1456,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'ingredients' && (
-          <IngredientsTab ingredients={ingredientsDb} onChange={updateIngredients} onScanReceipt={() => setShowReceiptScan(true)} />
+          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => setShowReceiptScan(true)} />
         )}
       </main>
 

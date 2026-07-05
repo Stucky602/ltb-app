@@ -233,8 +233,8 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: 'Small (split order, ~4)', price: 60, cost: 31.98 },
-      { label: 'Large (~8)', price: 110, cost: 62.87 },
+      { label: 'Small (split order, ~4)', price: 60, cost: 30.89 },
+      { label: 'Large (~8)', price: 110, cost: 60.69 },
     ],
     recipe: {
       factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
@@ -909,7 +909,7 @@ export const ALWAYS_ITEMS = {
     },
     {
       name: 'Kabocha Squash', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 2.90 }],
+      variants: [{ label: '~2 servings', price: 7, cost: 1.62 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.75, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
@@ -930,8 +930,8 @@ export const ALWAYS_ITEMS = {
       // renders as a normal bag card. NOT flagged isSousVideVeg (it isn't a
       // glaze veg and doesn't join the consolidated veg block).
       name: 'Garlic Confit', packaging: 'none',
-      variants: [{ label: '6 oz jar', price: 10, cost: 5.05 }],
-      recipe: { factors: { '6 oz jar': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },
+      variants: [{ label: '6 oz bag', price: 10, cost: 5.05 }],
+      recipe: { factors: { '6 oz bag': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
   ],
   sauces: [

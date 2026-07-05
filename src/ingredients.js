@@ -33,7 +33,7 @@ export const INGREDIENT_SEED = [
   { id: 'asian_greens', name: 'Asian greens', unit: 'lb', baseline: 2.0, category: 'produce' },
   { id: 'mushrooms', name: 'Mushrooms', unit: 'lb', baseline: 5.0, category: 'produce' },
   { id: 'baby_bella', name: 'Baby bella mushrooms', unit: '8oz', baseline: 3.0, category: 'produce' },
-  { id: 'kabocha', name: 'Kabocha squash', unit: 'lb', baseline: 4.0, category: 'produce' },
+  { id: 'kabocha', name: 'Kabocha squash', unit: 'lb', baseline: 1.99, category: 'produce' },
   { id: 'petite_peas', name: 'Petite peas', unit: '8oz', baseline: 1.0, category: 'frozen' },
   { id: 'corn', name: 'Corn', unit: 'ear', baseline: 0.33, category: 'produce' },
   { id: 'red_potatoes', name: 'Red potatoes', unit: 'lb', baseline: 2.32, category: 'produce' },

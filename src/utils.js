@@ -207,15 +207,99 @@ export function repricePerLbItem(it) {
     weightPending: false,
     price: round2(info.pricePerLb * lbs + BAG),
     cost: round2(info.costPerLb * lbs),
+    costSource: 'snapshot',
   };
 }
 
-// Cost lookup: prefer snapshotted cost on the item, fall back to current menu
+// ─── Cost-basis snapshots ────────────────────────────────────────────────────
+// The economics foundation: every order item should carry `cost` (its per-unit
+// cost basis, frozen at order time) and `costSource`:
+//   'snapshot'   — stamped from the then-current registry when the order was
+//                  created/accepted/weighed. The truthful historical basis.
+//   'backfilled' — stamped later (migration) with the registry anchor of THAT
+//                  moment, because the item predates stamping. Honest estimate,
+//                  flagged so analytics can mark it.
+// Without a stamp, cost falls back to the CURRENT registry anchor, which shifts
+// every time a dish is re-anchored/repriced — fine as a last resort, useless
+// for longitudinal analysis. That fallback is also rename-fragile, hence the
+// alias maps below.
+
+// Dishes/variants renamed after orders referencing them may already exist.
+// Maps OLD stored name → CURRENT registry name so unstamped historical items
+// can still be costed and backfilled. Append here on any future rename.
+export const DISH_RENAMES = {
+  'Cumin Mushroom Noodles / Cumin Beef on Rice': 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+};
+export const VARIANT_RENAMES = {
+  'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice': {
+    'Small (~3-4)': 'Mushroom, Small (~3-4)',
+    'Large (~6-8)': 'Mushroom, Large (~6-8)',
+    'Small (~3-4) + Asian Greens (1/2 lb)': 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)',
+    'Large (~6-8) + Asian Greens (1 lb)': 'Mushroom, Large (~6-8) + Asian Greens (1 lb)',
+  },
+  'Boeuf Bourguignon (Beef Stew)': {
+    '~6 servings': '~4 servings',
+    'With 1 lb mushrooms (~6 servings)': 'With 1 lb mushrooms',
+  },
+};
+
+// Find the current registry variant for an item, surviving dish/variant
+// renames and a missing category (customer-submitted items carry none).
+export function menuVariantFor(name, variantLabel, category) {
+  const canonName = DISH_RENAMES[name] || name;
+  const vmap = VARIANT_RENAMES[canonName] || {};
+  const canonVariant = (vmap[variantLabel] || variantLabel) ?? '';
+  const pools = category && FULL_MENU[category]
+    ? [FULL_MENU[category]]
+    : Object.values(FULL_MENU);
+  for (const pool of pools) {
+    const mi = (pool || []).find(m => m.name === canonName);
+    if (!mi) continue;
+    const v = (mi.variants || []).find(x => x.label === canonVariant);
+    if (v) return v;
+  }
+  return null;
+}
+
+// True when the item carries a usable frozen cost basis. cost === 0 only
+// counts for weight-pending per-lb items (deliberate placeholder until
+// weighing); anywhere else a 0 is a degenerate value (e.g. form.html's
+// `v.cost || 0`) that must NOT freeze as "this cost nothing".
+function hasCostBasis(it) {
+  if (typeof it.cost !== 'number') return false;
+  if (it.cost > 0) return true;
+  return !!it.weightPending;
+}
+
+// Stamp cost bases onto items that lack one, from the current registry.
+// `source` labels how the stamp happened ('snapshot' at creation/acceptance,
+// 'backfilled' for later migration). Idempotent: already-stamped items keep
+// their cost; they just gain a 'snapshot' tag if untagged (they WERE stamped
+// at creation — that's a genuine snapshot). With `reStamp`, a registry match
+// OVERRIDES the existing cost — used at customer-order acceptance so the
+// app's own registry is authoritative over client-submitted numbers.
+export function stampItemCosts(items, source = 'snapshot', { reStamp = false } = {}) {
+  return (items || []).map(it => {
+    if (it.weightPending) return it; // weighed later; repricePerLbItem stamps it
+    const v = reStamp || !hasCostBasis(it) ? menuVariantFor(it.name, it.variant, it.category) : null;
+    if (v && typeof v.cost === 'number' && v.cost > 0) {
+      return { ...it, cost: v.cost, costSource: source };
+    }
+    if (hasCostBasis(it)) {
+      return it.costSource ? it : { ...it, costSource: 'snapshot' };
+    }
+    return it; // unstampable (off-menu + no basis) — stays incomplete, shows the *
+  });
+}
+
+// Cost lookup: prefer the frozen per-item basis, fall back to the current
+// registry anchor (rename-immune, category-optional). Weight-pending per-lb
+// items report 0 until weighed.
 export function itemCost(it) {
-  if (typeof it.cost === 'number') return it.cost;
-  const menuItem = (FULL_MENU[it.category] || []).find(m => m.name === it.name);
-  const variant = menuItem?.variants.find(v => v.label === it.variant);
-  return typeof variant?.cost === 'number' ? variant.cost : null;
+  if (it.weightPending) return typeof it.cost === 'number' ? it.cost : 0;
+  if (hasCostBasis(it)) return it.cost;
+  const v = menuVariantFor(it.name, it.variant, it.category);
+  return v && typeof v.cost === 'number' ? v.cost : null;
 }
 
 // { cost, complete } — complete=false when any item has no cost data
@@ -846,7 +930,7 @@ export function validateParsedOrder(parsed, menu) {
           }
           matched = {
             category: cat, name: menuItem.name, variant: variant.label,
-            price: variant.price, cost: variant.cost,
+            price: variant.price, cost: variant.cost, costSource: 'snapshot',
             qty: Math.max(1, parseInt(pi.qty) || 1),
             note: pi.note ? String(pi.note).slice(0, 200) : '',
             upcharge,
@@ -1070,11 +1154,16 @@ export function parseFormRow(headerMap) {
         });
       }
       if (matched) {
-        items.push({
+        const csvItem = {
           name: matched.name, variant: matched.label, qty: 1,
-          price: matched.price, cost: matched.cost || 0,
+          price: matched.price,
           note: '', hasPhoto: false,
-        });
+        };
+        if (typeof matched.cost === 'number' && matched.cost > 0) {
+          csvItem.cost = matched.cost;
+          csvItem.costSource = 'snapshot';
+        }
+        items.push(csvItem);
       } else {
         notes.push('Unmatched item: ' + sel);
       }

@@ -28,7 +28,7 @@ import {
   urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
-  orderTotal, repricePerLbItem, itemCost, orderCostInfo,
+  orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -139,14 +139,17 @@ export default function LTBOrderTracker() {
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
         ...o,
-        items: (o.items || []).map(it => {
+        // Cost-basis migration: items stamped at creation keep their frozen
+        // cost (tagged 'snapshot'); items predating stamping get today's
+        // registry anchor, honestly tagged 'backfilled'. Idempotent.
+        items: stampItemCosts((o.items || []).map(it => {
           const clean = { ...it };
           if (clean.upcharge != null && typeof clean.upcharge !== 'object') {
             delete clean.upcharge;
           }
           if ('lbs' in clean) delete clean.lbs;
           return clean;
-        }),
+        }), 'backfilled'),
         paid: o.paid === undefined ? o.status === 'Delivered' : o.paid,
         archived: o.archived || false,
         discountType: o.discountType || null,
@@ -511,12 +514,18 @@ export default function LTBOrderTracker() {
     const discountValue = exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0;
     const total = orderTotal(pending.items, 0, 0, discountType, discountValue, [], false);
 
+    // Re-stamp cost bases from the app's own registry at acceptance — the
+    // registry is authoritative over whatever the customer form submitted
+    // (which can be stale, zero-coerced, or tampered). Items the registry
+    // can't match keep any client value they carried.
+    const stampedItems = stampItemCosts(pending.items, 'snapshot', { reStamp: true });
+
     const order = {
       id: orderId,
       customer: pending.customer,
       address: pending.address || '',
       phone: pending.phone || '',
-      items: pending.items,
+      items: stampedItems,
       jarSwaps: 0,
       containerReturns: 0,
       notes: pending.notes || '',
@@ -821,7 +830,7 @@ export default function LTBOrderTracker() {
         `Import ${payload.orders.length} orders from ${payload.exportedAt?.slice(0, 10) || 'backup'}?\n\nThis will replace your current orders.`
       );
       if (!ok) return;
-      const res = await persistOrders(payload.orders);
+      const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
       if (!res.ok) return;
       if (Array.isArray(payload.shopping)) {
         setShopping(payload.shopping);
@@ -874,7 +883,7 @@ export default function LTBOrderTracker() {
         setError("That doesn't look like an LTB backup. Nothing was changed.");
         return;
       }
-      const res = await persistOrders(payload.orders);
+      const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
       if (!res.ok) return;
       if (Array.isArray(payload.shopping)) {
         setShopping(payload.shopping);
@@ -1066,7 +1075,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.17-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.18-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

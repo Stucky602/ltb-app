@@ -111,8 +111,8 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
     items.findIndex(i => i.category === category && i.name === name && i.variant === variant.label);
 
   const addItem = (category, name, variant) => {
-    const base = { category, name, variant: variant.label, price: variant.price, cost: variant.cost, qty: 1, note: '', upcharge: null };
-    if (isPerLbItem(name)) { base.weightPending = true; base.price = 0; base.cost = 0; }
+    const base = { category, name, variant: variant.label, price: variant.price, cost: variant.cost, costSource: 'snapshot', qty: 1, note: '', upcharge: null };
+    if (isPerLbItem(name)) { base.weightPending = true; base.price = 0; base.cost = 0; delete base.costSource; }
     setItems(prev => [...prev, base]);
   };
 

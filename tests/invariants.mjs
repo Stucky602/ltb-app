@@ -19,7 +19,7 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { buildReviewPlan } from '../src/receiptMatch.js';
 
@@ -326,6 +326,66 @@ for (const [cat, items] of Object.entries(ALWAYS_ITEMS)) {
   if (menuCat.length !== items.length) F('menu-derive', `ALWAYS_MENU.${cat} length ${menuCat.length} != registry ${items.length}`);
 }
 if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length ${ALL_DINNERS.length} != registry ${DISHES.length}`);
+
+// ─── Cost-basis snapshot semantics (order economics foundation) ──────────────
+// These encode the rules that make historical order profit stable: a stamped
+// item's cost NEVER moves when the registry is re-anchored; unstamped items
+// fall back to the current registry (rename-immune); degenerate 0s don't
+// freeze; stamping is idempotent and honestly source-flagged.
+{
+  const anyDinner = DISHES.find(d => d.name === 'Chili');
+  const chiliLg = anyDinner.variants.find(v => /Large/.test(v.label));
+
+  // 1. Snapshot preference: a stamped cost wins over the current anchor.
+  const stamped = { name: 'Chili', category: 'dinner', variant: chiliLg.label, cost: 5, costSource: 'snapshot', qty: 1 };
+  if (itemCost(stamped) !== 5) F('cost-basis', `stamped cost ignored: got ${itemCost(stamped)}, expected 5 (re-anchoring must not move history)`);
+
+  // 2. Fallback: unstamped item costs at the CURRENT anchor.
+  const unstamped = { name: 'Chili', category: 'dinner', variant: chiliLg.label, qty: 1 };
+  if (itemCost(unstamped) !== chiliLg.cost) F('cost-basis', `unstamped fallback: got ${itemCost(unstamped)}, expected current anchor ${chiliLg.cost}`);
+
+  // 3. Category-optional fallback (customer items carry no category).
+  const noCat = { name: 'Chili', variant: chiliLg.label, qty: 1 };
+  if (itemCost(noCat) !== chiliLg.cost) F('cost-basis', `category-less fallback failed: got ${itemCost(noCat)}`);
+
+  // 4. Rename immunity: an old stored dish name + old variant label still
+  //    resolves to the current registry entry via the alias maps.
+  const cuminNew = DISHES.find(d => d.name === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice');
+  const mushSm = cuminNew.variants.find(v => v.label === 'Mushroom, Small (~3-4)');
+  const oldNames = { name: 'Cumin Mushroom Noodles / Cumin Beef on Rice', variant: 'Small (~3-4)', qty: 1 };
+  if (itemCost(oldNames) !== mushSm.cost) F('cost-basis', `rename immunity failed: old Cumin names got ${itemCost(oldNames)}, expected ${mushSm.cost}`);
+
+  // 5. Zero-cost guard: cost 0 on a normal item is degenerate (falls back);
+  //    cost 0 on a weight-pending per-lb item is a deliberate placeholder.
+  const zeroNormal = { name: 'Chili', category: 'dinner', variant: chiliLg.label, cost: 0, qty: 1 };
+  if (itemCost(zeroNormal) !== chiliLg.cost) F('cost-basis', `zero-cost guard failed: degenerate 0 froze instead of falling back`);
+  const zeroPending = { name: 'Ribeye', cost: 0, weightPending: true, qty: 1 };
+  if (itemCost(zeroPending) !== 0) F('cost-basis', `weight-pending placeholder broken: got ${itemCost(zeroPending)}, expected 0`);
+
+  // 6. Stamping: fills missing bases with the requested source flag, tags
+  //    pre-existing bases as genuine snapshots, and is idempotent.
+  const toStamp = [
+    { name: 'Chili', category: 'dinner', variant: chiliLg.label, qty: 1 },                                   // missing → stamp
+    { name: 'Chili', category: 'dinner', variant: chiliLg.label, cost: 5, qty: 1 },                          // pre-existing → tag snapshot
+    { name: 'Ribeye', weightPending: true, cost: 0, qty: 1 },                                                // pending → untouched
+  ];
+  const once = stampItemCosts(toStamp, 'backfilled');
+  if (once[0].cost !== chiliLg.cost || once[0].costSource !== 'backfilled') F('cost-basis', `backfill stamp wrong: ${JSON.stringify(once[0])}`);
+  if (once[1].cost !== 5 || once[1].costSource !== 'snapshot') F('cost-basis', `pre-existing basis mishandled: ${JSON.stringify(once[1])}`);
+  if (once[2].cost !== 0 || once[2].costSource) F('cost-basis', `weight-pending item was stamped: ${JSON.stringify(once[2])}`);
+  const twice = stampItemCosts(once, 'backfilled');
+  if (JSON.stringify(twice) !== JSON.stringify(once)) F('cost-basis', `stampItemCosts is not idempotent`);
+
+  // 7. Acceptance re-stamp: the registry overrides client-submitted numbers.
+  const clientItem = [{ name: 'Chili', variant: chiliLg.label, cost: 0.01, qty: 1 }];
+  const accepted = stampItemCosts(clientItem, 'snapshot', { reStamp: true });
+  if (accepted[0].cost !== chiliLg.cost) F('cost-basis', `acceptance re-stamp failed: kept client cost ${accepted[0].cost}`);
+
+  // 8. Off-menu with no basis stays unstamped (order stays honestly incomplete).
+  const offMenu = stampItemCosts([{ name: 'Totally Custom Thing', variant: 'One', qty: 1 }], 'backfilled');
+  if (offMenu[0].cost !== undefined || offMenu[0].costSource) F('cost-basis', `off-menu item got a fabricated basis: ${JSON.stringify(offMenu[0])}`);
+  if (itemCost(offMenu[0]) !== null) F('cost-basis', `off-menu itemCost should be null, got ${itemCost(offMenu[0])}`);
+}
 
 // ─── Report ──────────────────────────────────────────────────────────────────
 console.log(`\nLTB invariant suite — ${DISHES.length} dinners, ${ALL_ALWAYS_ITEMS.length} always-menu items, ${Object.keys(RECIPES).length} recipes checked.\n`);

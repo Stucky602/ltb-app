@@ -19,9 +19,10 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { buildReviewPlan } from '../src/receiptMatch.js';
+import { normalizeIngredientName } from '../src/recipes.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const fails = [];
@@ -320,6 +321,62 @@ for (const c of receiptCases) {
   if (c.expect.perUnit != null && Math.abs(g.perUnit - c.expect.perUnit) > 0.005) F('receipt', `${c.name}: perUnit ${g.perUnit}, expected ${c.expect.perUnit}`);
 }
 
+// ─── Receipt matcher v2: confidence bands, families, conversions ────────────
+// Pins the July 5 rebuild. Wrong cost data is the cardinal sin, so these
+// encode WHEN the matcher is allowed to be confident and when it must ask.
+{
+  const seedIngs = INGREDIENT_SEED.map(i => ({ id: i.id, name: i.name, unit: i.unit, baseline: i.baseline, current: i.baseline }));
+  const plan = (lines, aliases = {}) => buildReviewPlan({ store: 'HEB', lines }, seedIngs, aliases);
+
+  // 1. Kevin's pork case: bone-in shoulder must NOT silently auto-match — it
+  //    lands in review with BOTH pork cuts offered (interchange family).
+  const pork = plan([{ item_name: 'PORK SHOULDER BONE IN', quantity: 8.2, unit: 'lb', weighed: true, line_total: 24.52 }]);
+  const pg = pork.buckets.review[0];
+  if (!pg) F('receipt-v2', 'bone-in pork shoulder did not land in review');
+  else {
+    const ids = pg.candidates.map(c => c.id);
+    if (!ids.includes('pork_butt') || !ids.includes('pork_shoulder')) F('receipt-v2', `pork family candidates missing: ${ids.join(',')}`);
+    if (pork.buckets.matched.length) F('receipt-v2', 'ambiguous pork was auto-matched — must ask');
+  }
+
+  // 2. Strong unambiguous name still auto-matches (no new friction).
+  const thighs = plan([{ item_name: 'CHICKEN THIGHS BNLS', quantity: 2.1, unit: 'lb', weighed: true, line_total: 10.5 }]);
+  const tg = thighs.buckets.matched[0];
+  if (!tg || tg.ingredientId !== 'chicken_thighs') F('receipt-v2', `chicken thighs failed to auto-match: ${JSON.stringify(thighs.buckets)}`);
+
+  // 3. Same-family near-tie goes to review, never auto (onion vs sweet onion).
+  const onion = plan([{ item_name: 'YELLOW ONION', quantity: 1.1, unit: 'lb', weighed: true, line_total: 1.2 }]);
+  if (onion.buckets.matched.length) F('receipt-v2', 'same-family onion tie was auto-matched');
+  if (!onion.buckets.review.length) F('receipt-v2', 'onion tie did not land in review');
+
+  // 4. Portion-unit ingredient bought as a package → needsConversion prompt,
+  //    and a learned alias.packQty resolves it deterministically forever.
+  const fennelLine = { item_name: 'MCCORMICK FENNEL SEED', quantity: 1, unit: 'Ea', unit_price_printed: 3.99, line_total: 3.99 };
+  const ask = plan([fennelLine]);
+  const ag = ask.buckets.needsConversion[0];
+  if (!ag || ag.ingredientId !== 'fennel_seeds') F('receipt-v2', `fennel jar did not ask for pack size: ${JSON.stringify(ask.buckets)}`);
+  const learned = plan([fennelLine], { [normalizeIngredientName('MCCORMICK FENNEL SEED')]: { ingredientId: 'fennel_seeds', packQty: 24 } });
+  const lg = learned.buckets.matched[0];
+  if (!lg || Math.abs(lg.perUnit - 3.99 / 24) > 0.001 || lg.basis !== 'converted') F('receipt-v2', `learned packQty failed: ${JSON.stringify(lg)}`);
+
+  // 5. Bidirectional weight bridge: a whole kabocha priced per-each converts to
+  //    the per-lb costing unit via the 2.5 lb average.
+  const kab = plan([{ item_name: 'KABOCHA SQUASH', quantity: 1, unit: 'Ea', unit_price_printed: 4.98, line_total: 4.98 }]);
+  const kg = kab.buckets.matched[0];
+  if (!kg || Math.abs(kg.perUnit - 4.98 / 2.5) > 0.01) F('receipt-v2', `kabocha each→lb bridge failed: ${JSON.stringify(kg)}`);
+
+  // 6. Dozen invariant: eggs at $3.60/dozen cost $0.30 each.
+  const eggs = plan([{ item_name: 'GRADE A LARGE EGGS', quantity: 1, unit: 'dozen', unit_price_printed: 3.6, line_total: 3.6 }]);
+  const eg = eggs.buckets.matched[0];
+  if (!eg || Math.abs(eg.perUnit - 0.3) > 0.001) F('receipt-v2', `eggs dozen conversion failed: ${JSON.stringify(eg)}`);
+
+  // 7. Price sanity: a fuzzy match whose derived price is wildly off current
+  //    demotes to review instead of silently poisoning the cost DB.
+  const crazy = plan([{ item_name: 'GROUND LAMB', quantity: 1, unit: 'lb', weighed: true, line_total: 55 }]);
+  if (crazy.buckets.matched.length) F('receipt-v2', 'wild price was auto-accepted — must demote to review');
+  if (!crazy.buckets.review.length) F('receipt-v2', 'wild-price line did not land in review');
+}
+
 // ─── FULL_MENU / ALWAYS_MENU structural agreement with the registry ─────────
 for (const [cat, items] of Object.entries(ALWAYS_ITEMS)) {
   const menuCat = ALWAYS_MENU[cat] || [];
@@ -385,6 +442,45 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   const offMenu = stampItemCosts([{ name: 'Totally Custom Thing', variant: 'One', qty: 1 }], 'backfilled');
   if (offMenu[0].cost !== undefined || offMenu[0].costSource) F('cost-basis', `off-menu item got a fabricated basis: ${JSON.stringify(offMenu[0])}`);
   if (itemCost(offMenu[0]) !== null) F('cost-basis', `off-menu itemCost should be null, got ${itemCost(offMenu[0])}`);
+
+  // ── Per-lb protein hardening (July 5 sweep) ────────────────────────────────
+  const nyInfo = ALWAYS_MENU.bag.find(b => b.name === 'NY Strip');
+  const ratePrice = nyInfo.pricePerLb, rateCost = nyInfo.costPerLb;
+
+  // 9. repricePerLbItem REFUSES to price an unweighed item (the old 1-lb
+  //    default silently fabricated weights via the reprice-all button).
+  const unweighed = { name: 'NY Strip', variant: 'price by weight', weightPending: true, price: 0, cost: 0, qty: 1 };
+  const notRepriced = repricePerLbItem(unweighed);
+  if (!notRepriced.weightPending || notRepriced.price !== 0) F('cost-basis', `repricePerLbItem fabricated a weight: ${JSON.stringify(notRepriced)}`);
+
+  // 10. With a real weight it prices correctly and tags the snapshot.
+  const weighed = repricePerLbItem({ ...unweighed, weight: 0.8 });
+  const expPrice = Math.round((ratePrice * 0.8 + 1.5) * 100) / 100;
+  const expCost = Math.round((rateCost * 0.8) * 100) / 100;
+  if (weighed.weightPending || weighed.price !== expPrice || weighed.cost !== expCost || weighed.costSource !== 'snapshot')
+    F('cost-basis', `repricePerLbItem wrong: ${JSON.stringify(weighed)}, expected price ${expPrice} cost ${expCost}`);
+
+  // 11. stampItemCosts must NEVER stamp the $/lb RATE as a basis — not even
+  //     with reStamp (the acceptance path) on the raw customer-form shape.
+  const customerShape = { name: 'NY Strip', variant: 'price by weight', price: ratePrice, cost: rateCost, perLb: true, avgWeightLb: 0.75, qty: 1 };
+  const stampedPerLb = stampItemCosts([customerShape], 'snapshot', { reStamp: true })[0];
+  if (stampedPerLb.costSource) F('cost-basis', `per-lb rate was stamped as a basis: ${JSON.stringify(stampedPerLb)}`);
+
+  // 12. A genuinely weighed per-lb item's basis gets tagged, never re-derived.
+  const weighedLegacy = stampItemCosts([{ name: 'NY Strip', variant: 'price by weight', weight: 0.8, cost: expCost, price: expPrice, qty: 1 }], 'backfilled')[0];
+  if (weighedLegacy.cost !== expCost || weighedLegacy.costSource !== 'snapshot') F('cost-basis', `weighed per-lb basis mishandled: ${JSON.stringify(weighedLegacy)}`);
+
+  // 13. normalizePendingItems converts the customer-form rate shape into the
+  //     canonical pending shape (weightPending, zeroed rate) and touches
+  //     nothing else.
+  const norm = normalizePendingItems([
+    customerShape,
+    { name: 'Chili', variant: chiliLg.label, price: chiliLg.price, cost: chiliLg.cost, qty: 1 },
+    { name: 'NY Strip', variant: 'price by weight', weight: 0.8, price: expPrice, cost: expCost, qty: 1 },
+  ]);
+  if (!norm[0].weightPending || norm[0].price !== 0 || norm[0].cost !== 0) F('cost-basis', `pending normalization failed: ${JSON.stringify(norm[0])}`);
+  if (norm[1].price !== chiliLg.price || norm[1].weightPending) F('cost-basis', `normalization touched a regular item: ${JSON.stringify(norm[1])}`);
+  if (norm[2].weightPending || norm[2].price !== expPrice) F('cost-basis', `normalization clobbered a weighed item: ${JSON.stringify(norm[2])}`);
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

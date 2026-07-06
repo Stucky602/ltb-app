@@ -54,6 +54,13 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     const out = [];
     p.buckets.matched.forEach(g => out.push(makeRow(g, 'matched')));
     p.buckets.needsPrice.forEach(g => out.push(makeRow(g, 'needsPrice')));
+    // v2 bridge: the matcher's new review ("I'm unsure — pick one") and
+    // needsConversion ("how many per pack?") buckets render through the
+    // existing unmatched picker until the dedicated UI lands — their
+    // candidates (incl. family suggestions) already show in the picker, and
+    // the FLAT hatch covers pack pricing. Never let a bucket go invisible.
+    (p.buckets.review || []).forEach(g => out.push(makeRow(g, 'unmatched')));
+    (p.buckets.needsConversion || []).forEach(g => out.push(makeRow(g, 'unmatched')));
     p.buckets.unmatched.forEach(g => out.push(makeRow(g, 'unmatched')));
     p.buckets.ignored.forEach(g => out.push(makeRow(g, 'ignored')));
     return out;

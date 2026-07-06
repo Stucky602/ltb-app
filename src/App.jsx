@@ -28,7 +28,7 @@ import {
   urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
-  orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts,
+  orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -512,13 +512,20 @@ export default function LTBOrderTracker() {
 
     const discountType = exactReg && exactReg.discountPercent > 0 ? 'percent' : null;
     const discountValue = exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0;
-    const total = orderTotal(pending.items, 0, 0, discountType, discountValue, [], false);
+
+    // Normalize the customer-form item shape FIRST (per-lb proteins arrive with
+    // the $/lb rate in price/cost and no weightPending — see normalizePendingItems),
+    // then total and stamp. Order of operations matters: totaling before
+    // normalizing counts a rate as a price; stamping before normalizing freezes
+    // a rate as a cost basis.
+    const normalizedItems = normalizePendingItems(pending.items);
+    const total = orderTotal(normalizedItems, 0, 0, discountType, discountValue, [], false);
 
     // Re-stamp cost bases from the app's own registry at acceptance — the
     // registry is authoritative over whatever the customer form submitted
     // (which can be stale, zero-coerced, or tampered). Items the registry
     // can't match keep any client value they carried.
-    const stampedItems = stampItemCosts(pending.items, 'snapshot', { reStamp: true });
+    const stampedItems = stampItemCosts(normalizedItems, 'snapshot', { reStamp: true });
 
     const order = {
       id: orderId,
@@ -1075,7 +1082,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.18-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.19-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

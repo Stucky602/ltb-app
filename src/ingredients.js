@@ -99,7 +99,8 @@ export const INGREDIENT_SEED = [
   { id: 'tomato_paste', name: 'Tomato paste', unit: 'can', baseline: 1.0, category: 'pantry' },
   { id: 'canola_oil', name: 'Canola oil', unit: 'cup', baseline: 0.74, category: 'pantry' },
   { id: 'vegetable_oil', name: 'Vegetable oil', unit: 'cup', baseline: 0.58, category: 'pantry' },
-  { id: 'olive_oil', name: 'Olive oil', unit: 'oz', baseline: 1.27, category: 'pantry' },
+  { id: 'olive_oil', name: 'Good olive oil (Graza Drizzle)', unit: 'oz', baseline: 1.27, category: 'pantry' }, // finishing oil — 500 ml bottle; the 'Good olive oil' recipe line
+  { id: 'olive_oil_cooking', name: 'Cooking olive oil (Graza Sizzle)', unit: 'oz', baseline: 0.79, category: 'pantry' }, // everyday cooking oil — 750 ml bottle; distinct oil, do NOT conflate (Kevin, Jul 5)
   { id: 'oil_generic', name: 'Cooking oil', unit: 'cup', baseline: 0.7, category: 'pantry' },
   { id: 'toasted_sesame', name: 'Toasted sesame oil', unit: 'tbs', baseline: 0.12, category: 'pantry' },
   { id: 'chili_oil', name: 'Chili oil (house)', unit: 'cup', baseline: 2.3, category: 'pantry' },

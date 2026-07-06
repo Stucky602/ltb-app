@@ -1,6 +1,6 @@
 // All pure-JS helpers: uid/currency/formatting, name matching, regulars helpers, insights,
 // pricing math, localStorage wrapper, photo storage, and the AI order-parsing API client.
-import { FULL_MENU, ALL_DINNERS, PER_LB_ITEMS } from './menu.js';
+import { FULL_MENU, ALL_DINNERS, PER_LB_ITEMS, isPerLbItem } from './menu.js';
 import { SURCHARGE, WORKER_BASE } from './config.js';
 import { DISHES } from './dishes.js';
 
@@ -196,11 +196,16 @@ export function orderTotal(items, jarSwaps, containerReturns, discountType, disc
   return round2(base + upcharges - disc + custom + surcharge - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1);
 }
 
-// Recompute a per-lb item's price and cost from its weight (rounded to cents)
+// Recompute a per-lb item's price and cost from its weight (rounded to cents).
+// Refuses to price an item that has never been weighed: the old behavior
+// defaulted to 1 lb, which meant the "reprice all" button silently fabricated
+// a weight for any still-pending protein, cleared weightPending, and (post
+// cost-basis) froze the fabricated number as a permanent snapshot.
 export function repricePerLbItem(it) {
   const info = PER_LB_ITEMS[it.name];
   if (!info) return it;
-  const lbs = typeof it.weight === 'number' && it.weight > 0 ? it.weight : 1;
+  if (!(typeof it.weight === 'number' && it.weight > 0)) return it; // not weighed yet
+  const lbs = it.weight;
   const BAG = 1.5; // per-bag surcharge baked into each protein bag
   return {
     ...it,
@@ -278,9 +283,20 @@ function hasCostBasis(it) {
 // at creation — that's a genuine snapshot). With `reStamp`, a registry match
 // OVERRIDES the existing cost — used at customer-order acceptance so the
 // app's own registry is authoritative over client-submitted numbers.
+//
+// Per-lb proteins are special: the registry's 'By weight' variant carries a
+// $/lb RATE, not an item cost, so stamping it would freeze a rate as a basis.
+// Their only legitimate basis comes from weighing (repricePerLbItem); here we
+// only tag an existing weighed basis, never fabricate one.
 export function stampItemCosts(items, source = 'snapshot', { reStamp = false } = {}) {
   return (items || []).map(it => {
     if (it.weightPending) return it; // weighed later; repricePerLbItem stamps it
+    if (isPerLbItem(it.name)) {
+      if (typeof it.cost === 'number' && it.cost > 0 && typeof it.weight === 'number' && it.weight > 0) {
+        return it.costSource ? it : { ...it, costSource: 'snapshot' }; // genuinely weighed
+      }
+      return it; // unweighed per-lb — no basis until weighed, never stamp the rate
+    }
     const v = reStamp || !hasCostBasis(it) ? menuVariantFor(it.name, it.variant, it.category) : null;
     if (v && typeof v.cost === 'number' && v.cost > 0) {
       return { ...it, cost: v.cost, costSource: source };
@@ -289,6 +305,24 @@ export function stampItemCosts(items, source = 'snapshot', { reStamp = false } =
       return it.costSource ? it : { ...it, costSource: 'snapshot' };
     }
     return it; // unstampable (off-menu + no basis) — stays incomplete, shows the *
+  });
+}
+
+// Normalize customer-form items into the canonical shapes the rest of the app
+// assumes. The form (form.html) is the one entry path that ships a different
+// item shape: per-lb proteins arrive with the $/lb RATE in `price` and `cost`
+// and no `weightPending` flag — so order totals counted a rate as a price and
+// (post cost-basis) the rate froze as a cost snapshot. Manual entry and the
+// AI-parse path both use weightPending:true / price 0 until weighing; this
+// brings accepted customer orders to the same shape. Run BEFORE stampItemCosts
+// and BEFORE orderTotal at acceptance.
+export function normalizePendingItems(items) {
+  return (items || []).map(it => {
+    if (!isPerLbItem(it.name)) return it;
+    if (typeof it.weight === 'number' && it.weight > 0) return it; // already genuinely weighed
+    const n = { ...it, weightPending: true, price: 0, cost: 0 };
+    delete n.costSource;
+    return n;
   });
 }
 

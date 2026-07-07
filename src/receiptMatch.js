@@ -711,3 +711,157 @@ export function buildReviewPlan(extracted, seed, aliases) {
 export function defaultAccept(group) {
   return group.basis === 'total_div_weight' || group.basis === 'printed_unit_price' || group.basis === 'converted';
 }
+
+// ═══ v3.1: DETERMINISTIC PASTED-TEXT RECEIPT PARSER (Fable, Jul 6) ═══════════
+// Pasted receipt text needs ZERO model calls: this produces the exact same
+// extraction shape as /parse-receipt ({store, receipt_date, lines[]}), so
+// buildReviewPlan consumes it unchanged. Grammar from Kevin's real receipts:
+//   H-E-B:  "1 KITCH BASICS UNSLTD BEEF" + "  2 Ea. @ 1/ 2.98 F  5.96"  (2 lines)
+//           "7 ANISE FENNEL  F  3.98"                                    (1 line)
+//   H-Mart: "2.95 lb @ 0.69 /lb" + "WT  YELLOW ONION  2.04 F"            (2 lines)
+//           "GARLIC PK 5PC  2.99 F"                                      (1 line)
+// Junk (subtotals, tax, card, survey…) is skipped. Returns null lines it
+// can't parse in `unparsed` so the caller can fall back to the AI for JUST
+// those (or the whole paste if nothing parsed).
+const SKIP_LINE_RE = /subtotal|sales tax|^\s*tax\b|total sale|balance|mastercard|mastrcrd|visa|debit|credit|approval|sequence|account|change\b|items purchased|items sold|you saved|savings|survey|win 1 of|gift card|purchase necessary|see rules|call 1-|text survey|message and data|odds depend|must be 18|return policy|unused product|refunded|http|www\.|tel \(|cashier|expires|barcode|ref no|appr no|mode:|aid\s|tvr\s|iad\s|tsi\s|arc\s|contactless|big \$avings/i;
+
+export function parsePastedReceipt(text) {
+  const rawLines = String(text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const lines = [];
+  const unparsed = [];
+  let store = null;
+  let receipt_date = null;
+
+  if (rawLines.some(l => /h[-\s]?e[-\s]?b/i.test(l))) store = 'H-E-B';
+  if (rawLines.some(l => /h\s*mart|hmart/i.test(l))) store = 'H-Mart';
+  for (const l of rawLines) {
+    const d = l.match(/\b(\d{2})\/(\d{2})\/(\d{2})\b/); // 06/29/26
+    if (d && !receipt_date) receipt_date = `20${d[3]}-${d[1]}-${d[2]}`;
+    const iso = l.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
+    if (iso && !receipt_date) receipt_date = iso[0];
+  }
+
+  const money = '(\\d+\\.\\d{2})';
+  const flag = '(FW|TF|F|T)';
+  // H-E-B detail line: "2 Ea. @ 1/ 2.98 F  5.96"
+  const hebDetail = new RegExp(`^(\\d+)\\s*Ea\\.?\\s*@\\s*1\\/\\s*${money}\\s*${flag}?\\s+${money}$`, 'i');
+  // H-E-B one-liner: "7 ANISE FENNEL  FW  3.98"  (leading line number optional)
+  const hebOne = new RegExp(`^(?:\\d{1,2}\\s+)?(.+?)\\s+${flag}\\s+${money}-?$`);
+  // H-Mart weight line: "2.95 lb @ 0.69 /lb"
+  const hmWeight = new RegExp(`^(\\d+(?:\\.\\d+)?)\\s*lb\\s*@\\s*${money}\\s*\\/\\s*lb$`, 'i');
+  // H-Mart item line: "WT  YELLOW ONION  2.04 F" or "GARLIC PK 5PC  2.99 F"
+  const hmItem = new RegExp(`^(WT\\s+)?(.+?)\\s+${money}\\s+${flag}$`);
+
+  let pendingName = null;   // H-E-B: name line waiting for its detail line
+  let pendingWt = null;     // H-Mart: weight line waiting for its WT name line
+
+  const emit = (o) => lines.push({
+    raw_text: o.raw, item_name: o.name, quantity: o.qty ?? null, unit: o.unit ?? null,
+    line_total: o.total ?? null, unit_price_printed: o.rate ?? null,
+    tax_flag: o.flag ?? null, weighed: !!o.weighed,
+  });
+
+  for (const l of rawLines) {
+    if (SKIP_LINE_RE.test(l)) { pendingName = null; continue; }
+
+    const w = l.match(hmWeight);
+    if (w) { pendingWt = { qty: Number(w[1]), rate: Number(w[2]) }; continue; }
+
+    const hd = pendingName && l.match(hebDetail);
+    if (hd) {
+      emit({ raw: pendingName + ' | ' + l, name: pendingName, qty: Number(hd[1]), unit: 'ea',
+             rate: Number(hd[2]), flag: hd[3] || null, total: Number(hd[4]),
+             weighed: /w/i.test(hd[3] || '') });
+      pendingName = null; continue;
+    }
+
+    const hi = l.match(hmItem) || l.match(hebOne);
+    if (hi) {
+      const isWT = hi.length === 5 && /^WT\s+$/i.test(hi[1] || '');
+      const name = (hi.length === 5 ? hi[2] : hi[1]).trim();
+      const fl = hi.length === 5 ? hi[4] : hi[2];
+      const total = Number(hi.length === 5 ? hi[3] : hi[3]);
+      const weighed = isWT || /w/i.test(fl || '');
+      if (pendingWt && (isWT || weighed)) {
+        emit({ raw: l, name, qty: pendingWt.qty, unit: 'lb', rate: pendingWt.rate, flag: fl, total, weighed: true });
+        pendingWt = null;
+      } else {
+        emit({ raw: l, name, flag: fl, total, weighed });
+      }
+      pendingName = null; continue;
+    }
+
+    // Bare name line (H-E-B first line of a pair): "1 KITCH BASICS UNSLTD BEEF"
+    const bare = l.match(/^(?:\d{1,2}\s+)?([A-Z][A-Z0-9 %&#.\/'-]{2,})$/);
+    if (bare && !/^\d+(\.\d+)?$/.test(bare[1])) {
+      if (pendingName) unparsed.push(pendingName); // previous never got a detail line
+      pendingName = bare[1].trim(); continue;
+    }
+    unparsed.push(l);
+  }
+  if (pendingName) unparsed.push(pendingName);
+  return { store, receipt_date, lines, unparsed };
+}
+
+// ═══ v3.2: LEARNING-OVER-TIME HELPERS (engine side) ══════════════════════════
+// (a) When Kevin ACCEPTS a name-size or pack conversion, persist it: the alias
+// gains packQty (costing units per one package of that exact receipt string),
+// so next time the conversion is instant even if the name changes format.
+// (b) Auto-promote: a review-band candidate Kevin has confirmed twice for the
+// same normalized string becomes an alias (auto next time). Confirm counts
+// ride the alias store under `confirms`.
+export function learnFromAcceptance(group, aliases) {
+  const out = { ...(aliases || {}) };
+  const key = group.norm;
+  if (!key || !group.ingredientId) return out;
+  const prev = out[key] || {};
+  const entry = { ...prev, ingredientId: group.ingredientId };
+  // Persist the effective pack size when a conversion produced the accepted price
+  const onePack = group.lines && group.lines[0] ? (group.lines[0].line_total != null ? group.lines[0].line_total / Math.max(1, Number(group.lines[0].quantity) || 1) : null) : null;
+  if (group.conversion && group.perUnit > 0 && onePack != null
+      && (group.conversion.basis === 'name_size' || group.conversion.basis === 'pack_conversion' || group.conversion.basis === 'sold_by_each')) {
+    entry.packQty = Math.round((onePack / group.perUnit) * 1000) / 1000;
+  }
+  // Confirm counting → auto-promote after 2 confirmations of a review pick
+  entry.confirms = (prev.confirms || 0) + 1;
+  out[key] = entry;
+  return out;
+}
+
+// ═══ v3.3: PRICE-DRIFT INTELLIGENCE (the "only if data survives" item) ═══════
+// A scan should KNOW when a price jumped and what it does to Kevin's margins.
+// Pure function: call at confirm time with the accepted per-unit price.
+// Returns null when boring; otherwise { pctChange, prevAvg, dishesUnderFloor }.
+import { costDishVariant, baselineCostMap, trueRawCost } from './dishCosting.js';
+import { DISHES } from './dishes.js';
+export function priceDriftReport(ingredientId, newPerUnit, costHistory, seed, floorPct = 45) {
+  const hist = (costHistory || []).filter(h => h.id === ingredientId).slice(-3);
+  const base = hist.length ? hist.reduce((s, h) => s + h.cost, 0) / hist.length
+    : (seed.find(i => i.id === ingredientId) || {}).current;
+  if (!(base > 0) || !(newPerUnit > 0)) return null;
+  const pctChange = Math.round(((newPerUnit - base) / base) * 1000) / 10;
+  if (Math.abs(pctChange) < 15) return null; // boring
+  // Which dish variants does the new price push under the margin floor —
+  // using the REAL engine (adjustedCost = drift applied to the buffered
+  // anchor, exactly what MoneyTab margins use). Only NEWLY-under variants
+  // are reported (already-under Kevin-accepted ones stay quiet).
+  const baseMap = baselineCostMap();
+  const liveOld = { ...baseMap }; const liveNew = { ...baseMap };
+  seed.forEach(i => { if (i.current > 0) { liveOld[i.id] = i.current; liveNew[i.id] = i.current; } });
+  liveNew[ingredientId] = newPerUnit;
+  const dishesUnderFloor = [];
+  for (const d of DISHES) {
+    for (const v of d.variants) {
+      if (!(v.price > 0) || !(v.cost > 0)) continue;
+      const cOld = costDishVariant(d.name, v.label, v.cost, liveOld, baseMap);
+      const cNew = costDishVariant(d.name, v.label, v.cost, liveNew, baseMap);
+      if (cOld.unknown || cNew.unknown) continue;
+      const mOld = (1 - trueRawCost(cOld.adjustedCost) / v.price) * 100;
+      const mNew = (1 - trueRawCost(cNew.adjustedCost) / v.price) * 100;
+      if (mNew < floorPct && mOld >= floorPct) {
+        dishesUnderFloor.push(`${d.name} — ${v.label} (${Math.round(mOld * 10) / 10}% → ${Math.round(mNew * 10) / 10}%)`);
+      }
+    }
+  }
+  return { pctChange, prevAvg: Math.round(base * 1000) / 1000, dishesUnderFloor };
+}

@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, priceDriftReport } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -11,7 +11,7 @@ const GOLD = '#c9a84c';
 
 // ── stages ──────────────────────────────────────────────────────────────────
 // capture -> extracting -> review (the work happens here) -> done
-export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onClose }) {
+export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onClose, costHistory }) {
   const [stage, setStage] = useState('capture');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -48,6 +48,25 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       setBusy(false);
     }
   }, [seed, aliases]);
+
+  // ---- paste path (v3.1): deterministic parser, ZERO model calls ----
+  const [pasteText, setPasteText] = useState('');
+  const [showPaste, setShowPaste] = useState(false);
+  const onPaste = useCallback(() => {
+    setErr('');
+    const parsed = parsePastedReceipt(pasteText);
+    if (!parsed.lines.length) {
+      setErr("Couldn't recognize any receipt lines in that text. Try a photo instead, or check the paste includes the item lines.");
+      return;
+    }
+    const p = buildReviewPlan(parsed, seed, aliases || {});
+    setPlan(p);
+    setRows(planToRows(p));
+    setStage('review');
+    if (parsed.unparsed.length > 3) {
+      setErr(`${parsed.unparsed.length} lines weren't recognized and were skipped.`);
+    }
+  }, [pasteText, seed, aliases]);
 
   // ---- build working rows from the plan ----
   function planToRows(p) {
@@ -174,8 +193,16 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       });
     });
     linkExtras.forEach(e => { if (!updatedIds.has(e.id)) { updates.push(e); updatedIds.add(e.id); } });
-    // persist aliases (staged edits this session)
-    onSaveAliases(localAliases);
+    // persist aliases (staged edits this session) + LEARNING (v3.2): every
+    // accepted match teaches the matcher — alias, learned pack size from any
+    // accepted conversion, and a confirm counter for auto-promotion.
+    let learned = { ...localAliases };
+    rows.forEach(r => {
+      if ((r.status === 'matched' || r.status === 'needsPrice') && r.accept && r.ingredientId) {
+        learned = learnFromAcceptance({ ...r, perUnit: effectivePerUnit(r) }, learned);
+      }
+    });
+    onSaveAliases(learned);
     // commit costs stamped with purchase date (App handler handles new-ingredient ids via current map)
     onCommit(updates, plan ? plan.receipt_date : null, newIngredients);
     setStage('done');
@@ -198,6 +225,24 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
               {busy ? 'Working…' : 'Take photo or choose'}
               <input type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
             </label>
+            {!showPaste && (
+              <button style={{ ...S.captureBtn, background: 'transparent', border: '1px dashed #3a4040', marginTop: 8 }} onClick={() => setShowPaste(true)}>
+                Or paste receipt text (no AI needed)
+              </button>
+            )}
+            {showPaste && (
+              <div style={{ marginTop: 8 }}>
+                <textarea
+                  style={{ width: '100%', minHeight: 140, boxSizing: 'border-box', background: '#1e2422', color: '#e8ede9', border: '1px solid #3a4040', borderRadius: 8, padding: 10, fontSize: 13, fontFamily: 'monospace' }}
+                  placeholder={'Paste the receipt text here — H-E-B or H-Mart format.'}
+                  value={pasteText}
+                  onChange={e => setPasteText(e.target.value)}
+                />
+                <button style={{ ...S.captureBtn, marginTop: 6 }} onClick={onPaste} disabled={!pasteText.trim()}>
+                  Read pasted receipt
+                </button>
+              </div>
+            )}
             {err && <div style={S.error}>{err}</div>}
           </div>
         )}
@@ -211,7 +256,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
 
         {stage === 'review' && plan && (
           <ReviewBody
-            plan={plan} rows={rows} seed={seed}
+            plan={plan} rows={rows} seed={seed} costHistory={costHistory}
             patchRow={patchRow}
             onOpenPicker={(idx) => setPicker({ rowIdx: idx })}
             onUseFlatPrice={useFlatPrice}
@@ -266,7 +311,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
 }
 
 // ── review body ──────────────────────────────────────────────────────────────
-function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, acceptedCount, onCommit }) {
+function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, acceptedCount, onCommit, costHistory }) {
   const matched = rows.map((r, i) => ({ r, i })).filter(x => x.r.status === 'matched');
   const needs = rows.map((r, i) => ({ r, i })).filter(x => x.r.status === 'needsPrice');
   const unmatched = rows.map((r, i) => ({ r, i })).filter(x => x.r.status === 'unmatched');
@@ -286,7 +331,7 @@ function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, 
 
       {matched.length > 0 && (
         <Section title="Matched — confirm each">
-          {matched.map(({ r, i }) => <MatchedRow key={i} r={r} idx={i} patchRow={patchRow} onOpenPicker={onOpenPicker} />)}
+          {matched.map(({ r, i }) => <MatchedRow key={i} r={r} idx={i} patchRow={patchRow} onOpenPicker={onOpenPicker} costHistory={costHistory} seed={seed} />)}
         </Section>
       )}
 
@@ -328,11 +373,15 @@ function Section({ title, children }) {
 }
 
 // matched row: shows current -> receipt-implied, with accept toggle + unit reconcile
-function MatchedRow({ r, idx, patchRow, onOpenPicker }) {
+function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
   const ing = r.ingredient;
   const cur = ing ? ing.current : null;
   const implied = effectivePerUnit(r);
   const mismatchRisk = r.basis === 'line_total'; // box-vs-stick guard
+  // v3.3 drift intelligence: big move vs recent buys + margin blast radius
+  const drift = useMemo(() => (r.ingredientId && implied > 0 && seed)
+    ? priceDriftReport(r.ingredientId, implied, costHistory || [], seed)
+    : null, [r.ingredientId, implied, costHistory, seed]);
   return (
     <div style={{ ...S.row, ...(r.accept ? S.rowOn : {}) }}>
       <div style={S.rowTop}>
@@ -356,7 +405,17 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker }) {
       )}
       {mismatchRisk && (
         <div style={S.warn}>
-          Receipt gives a line total ({currency(r.line.line_total)}), not a per-{ing ? ing.unit : 'unit'} price. Confirm this equals one {ing ? ing.unit : 'unit'}, or edit below.
+          Receipt gives a line total ({currency(r.line.line_total)}
+      {drift && (
+        <div style={{ background: drift.pctChange > 0 ? '#3a2a20' : '#1c2e28', border: '1px solid #4a3a2a', borderRadius: 8, padding: '7px 9px', margin: '6px 0', fontSize: 12, color: drift.pctChange > 0 ? '#EF9F27' : '#1D9E75' }}>
+          {drift.pctChange > 0 ? '▲' : '▼'} {Math.abs(drift.pctChange)}% vs your recent buys (avg {currency(drift.prevAvg)}).
+          {drift.dishesUnderFloor.length > 0 && (
+            <div style={{ marginTop: 4, color: '#e8ede9' }}>
+              Pushes under your margin floor: {drift.dishesUnderFloor.slice(0, 3).join(' · ')}{drift.dishesUnderFloor.length > 3 ? ` +${drift.dishesUnderFloor.length - 3} more` : ''}
+            </div>
+          )}
+        </div>
+      )}), not a per-{ing ? ing.unit : 'unit'} price. Confirm this equals one {ing ? ing.unit : 'unit'}, or edit below.
         </div>
       )}
       <EditablePerUnit r={r} idx={idx} patchRow={patchRow} />

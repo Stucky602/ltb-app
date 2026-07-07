@@ -7,8 +7,13 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { DISHES, ALWAYS_ITEMS } from './dishes.js';
 
-// Dinners: { name, variants } in registry order.
-export const ALL_DINNERS = DISHES.map(d => ({ name: d.name, variants: d.variants }));
+// Dinners: { name, variants } in registry order. Dishes with customer
+// options (spice level, pasta shape) carry them through — the publish
+// payload and both order forms read options from HERE, never from
+// hardcoded dish-name lists (Batch 3).
+export const ALL_DINNERS = DISHES.map(d => (d.options
+  ? { name: d.name, variants: d.variants, options: d.options }
+  : { name: d.name, variants: d.variants }));
 
 // Always-available items by category, same shapes as before (perLb items keep
 // their pricePerLb/costPerLb fields).

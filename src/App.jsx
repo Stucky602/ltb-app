@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -456,6 +456,7 @@ export default function LTBOrderTracker() {
       return {
         name: item.name,
         variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })),
+        ...(item.options ? { options: item.options } : {}), // form.html renders pickers from this (Batch 3)
       };
     };
     const dishes = (activeMenu.dinner || []).map(toVariants);
@@ -777,20 +778,26 @@ export default function LTBOrderTracker() {
 
   const [exportMsg, setExportMsg] = useState(null);
 
-  const exportData = useCallback(async () => {
-    const payload = {
-      version: 'ltb-v1',
-      exportedAt: new Date().toISOString(),
-      orders: orders || [],
-      shopping,
-      weekDishes,
-      regulars,
-      inventory,
-      ingredientsDb,
-      costHistory,
-      receiptAliases,
-    };
-    const json = JSON.stringify(payload, null, 2);
+  // ── Backup payload + online backup ring (v9.20) ──────────────────────────
+  // One builder for every path that serializes app data (clipboard copy,
+  // file download, auto-push). Shape unchanged from the v9.18 exportData —
+  // the worker validates version + orders on push, and restore validates
+  // the same fields, so old Notes-paste backups stay importable.
+  const buildBackupPayload = useCallback(() => ({
+    version: 'ltb-v1',
+    exportedAt: new Date().toISOString(),
+    orders: orders || [],
+    shopping,
+    weekDishes,
+    regulars,
+    inventory,
+    ingredientsDb,
+    costHistory,
+    receiptAliases,
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases]);
+
+  const copyBackupToClipboard = useCallback(async () => {
+    const json = JSON.stringify(buildBackupPayload(), null, 2);
     try {
       await navigator.clipboard.writeText(json);
       setExportMsg('Copied! Paste into Notes or anywhere to save.');
@@ -810,7 +817,148 @@ export default function LTBOrderTracker() {
       }
     }
     setTimeout(() => setExportMsg(null), 4000);
-  }, [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases]);
+  }, [buildBackupPayload]);
+
+  const downloadBackupFile = useCallback(() => {
+    try {
+      const payload = buildBackupPayload();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ltb-backup-' + payload.exportedAt.slice(0, 10) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      setExportMsg('Backup file saved.');
+      setTimeout(() => setExportMsg(null), 4000);
+    } catch {
+      setExportMsg('Could not save a file here — use Copy to clipboard instead.');
+      setTimeout(() => setExportMsg(null), 4000);
+    }
+  }, [buildBackupPayload]);
+
+  // Auto-push: silent backup to the worker's KV ring on app open, every
+  // 15 minutes while open, and when the app goes to the background (iOS
+  // kills timers in background — the visibilitychange push captures the
+  // latest state on the way out). Hash-throttled: the hash EXCLUDES
+  // exportedAt (which changes every call), so a no-op state pushes nothing.
+  // Never fires before the initial load completes, and never pushes a
+  // fully-empty state (that's either a brand-new install with nothing worth
+  // backing up, or a broken load that must not enter the ring).
+  const lastPushedHash = useRef(null);
+  const payloadRef = useRef(buildBackupPayload);
+  useEffect(() => { payloadRef.current = buildBackupPayload; }, [buildBackupPayload]);
+
+  const pushBackup = useCallback(async () => {
+    try {
+      const payload = payloadRef.current();
+      if ((payload.orders || []).length === 0 && (payload.costHistory || []).length === 0) return;
+      const { exportedAt, ...stable } = payload;
+      const hash = String(djb2(JSON.stringify(stable)));
+      if (hash === lastPushedHash.current) return;
+      const res = await fetch(WORKER_BASE + '/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: PUBLISH_TOKEN, snapshot: payload }),
+      });
+      if (res.ok) lastPushedHash.current = hash;
+    } catch { /* offline or worker down — next tick retries; silence is the feature */ }
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    pushBackup(); // on-open push, once data is actually loaded
+    const tick = setInterval(pushBackup, 15 * 60 * 1000);
+    const onVis = () => { if (document.visibilityState === 'hidden') pushBackup(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(tick); document.removeEventListener('visibilitychange', onVis); };
+  }, [loading, pushBackup]);
+
+  // ── Shared restore body (v9.20) ───────────────────────────────────────────
+  // ONE implementation applied by all three restore paths (file/paste/online)
+  // — previously importData and submitImport were 45-line twins, the exact
+  // "same logic in N places" footgun. Validation and any confirm dialog stay
+  // with the CALLER; this just applies a validated payload.
+  const applyBackupPayload = useCallback(async (payload) => {
+    const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
+    if (!res.ok) return false;
+    if (Array.isArray(payload.shopping)) {
+      setShopping(payload.shopping);
+      await saveJSON(SHOPPING_KEY, payload.shopping);
+    }
+    if (Array.isArray(payload.weekDishes)) {
+      setWeekDishes(payload.weekDishes);
+      await saveJSON(WEEK_KEY, { selected: payload.weekDishes });
+    }
+    if (Array.isArray(payload.regulars)) {
+      setRegulars(payload.regulars);
+      await saveJSON(REGULARS_KEY, payload.regulars);
+    }
+    if (payload.inventory && typeof payload.inventory === 'object') {
+      setInventory(payload.inventory);
+      await saveJSON(INVENTORY_KEY, payload.inventory);
+    }
+    if (Array.isArray(payload.ingredientsDb)) {
+      setIngredientsDb(payload.ingredientsDb);
+      await saveJSON(INGREDIENTS_KEY, payload.ingredientsDb);
+    }
+    if (Array.isArray(payload.costHistory)) {
+      setCostHistory(payload.costHistory);
+      await saveJSON(COST_HISTORY_KEY, payload.costHistory);
+    }
+    if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
+      setReceiptAliases(payload.receiptAliases);
+      await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
+    }
+    setExportMsg(`Imported ${(payload.orders || []).length} orders successfully.`);
+    setTimeout(() => setExportMsg(null), 4000);
+    setError(null);
+    return true;
+  }, [persistOrders]);
+
+  // ── Online restore (v9.20) ────────────────────────────────────────────────
+  const [showBackupModal, setShowBackupModal] = useState(false);
+  const [backupList, setBackupList] = useState(null); // null=loading, []=none, 'error'=unreachable
+
+  const openBackupModal = useCallback(async () => {
+    setShowBackupModal(true);
+    setBackupList(null);
+    try {
+      const res = await fetch(WORKER_BASE + '/backup/list', { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
+      const j = await res.json();
+      setBackupList(res.ok && Array.isArray(j.backups) ? j.backups : 'error');
+    } catch {
+      setBackupList('error');
+    }
+  }, []);
+
+  const restoreFromOnline = useCallback(async (age) => {
+    try {
+      const res = await fetch(WORKER_BASE + '/backup?age=' + age, { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
+      const j = await res.json();
+      if (!res.ok || !j.snapshot) {
+        setError(j.error || 'Could not fetch that backup.');
+        return;
+      }
+      const snap = j.snapshot;
+      if (!snap.version || !Array.isArray(snap.orders)) {
+        setError("That online backup doesn't look right. Nothing was changed.");
+        return;
+      }
+      // Preview-before-apply: real timestamp, real counts, explicit warning.
+      const ok = window.confirm(
+        `Restore backup from ${relativeAge(j.timestamp)} (${formatDate(j.timestamp)})?\n\n` +
+        `It has ${snap.orders.length} orders — you currently have ${(orders || []).length}.\n\n` +
+        `This REPLACES what's on this device. Anything newer than that backup will be lost.`
+      );
+      if (!ok) return;
+      const applied = await applyBackupPayload(snap);
+      if (applied) setShowBackupModal(false);
+    } catch {
+      setError('Could not reach the backup server.');
+    }
+  }, [orders, applyBackupPayload]);
 
   const importData = useCallback(async (e) => {
     let json;
@@ -837,43 +985,11 @@ export default function LTBOrderTracker() {
         `Import ${payload.orders.length} orders from ${payload.exportedAt?.slice(0, 10) || 'backup'}?\n\nThis will replace your current orders.`
       );
       if (!ok) return;
-      const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
-      if (!res.ok) return;
-      if (Array.isArray(payload.shopping)) {
-        setShopping(payload.shopping);
-        await saveJSON(SHOPPING_KEY, payload.shopping);
-      }
-      if (Array.isArray(payload.weekDishes)) {
-        setWeekDishes(payload.weekDishes);
-        await saveJSON(WEEK_KEY, { selected: payload.weekDishes });
-      }
-      if (Array.isArray(payload.regulars)) {
-        setRegulars(payload.regulars);
-        await saveJSON(REGULARS_KEY, payload.regulars);
-      }
-      if (payload.inventory && typeof payload.inventory === 'object') {
-        setInventory(payload.inventory);
-        await saveJSON(INVENTORY_KEY, payload.inventory);
-      }
-      if (Array.isArray(payload.ingredientsDb)) {
-        setIngredientsDb(payload.ingredientsDb);
-        await saveJSON(INGREDIENTS_KEY, payload.ingredientsDb);
-      }
-      if (Array.isArray(payload.costHistory)) {
-        setCostHistory(payload.costHistory);
-        await saveJSON(COST_HISTORY_KEY, payload.costHistory);
-      }
-      if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
-        setReceiptAliases(payload.receiptAliases);
-        await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
-      }
-      setExportMsg(`Imported ${payload.orders.length} orders successfully.`);
-      setTimeout(() => setExportMsg(null), 4000);
-      setError(null);
+      await applyBackupPayload(payload);
     } catch {
       setError("Couldn't read that backup — make sure you copied the full text.");
     }
-  }, [persistOrders]);
+  }, [applyBackupPayload]);
 
   const [showImportModal, setShowImportModal] = useState(false);
 
@@ -890,43 +1006,11 @@ export default function LTBOrderTracker() {
         setError("That doesn't look like an LTB backup. Nothing was changed.");
         return;
       }
-      const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
-      if (!res.ok) return;
-      if (Array.isArray(payload.shopping)) {
-        setShopping(payload.shopping);
-        await saveJSON(SHOPPING_KEY, payload.shopping);
-      }
-      if (Array.isArray(payload.weekDishes)) {
-        setWeekDishes(payload.weekDishes);
-        await saveJSON(WEEK_KEY, { selected: payload.weekDishes });
-      }
-      if (Array.isArray(payload.regulars)) {
-        setRegulars(payload.regulars);
-        await saveJSON(REGULARS_KEY, payload.regulars);
-      }
-      if (payload.inventory && typeof payload.inventory === 'object') {
-        setInventory(payload.inventory);
-        await saveJSON(INVENTORY_KEY, payload.inventory);
-      }
-      if (Array.isArray(payload.ingredientsDb)) {
-        setIngredientsDb(payload.ingredientsDb);
-        await saveJSON(INGREDIENTS_KEY, payload.ingredientsDb);
-      }
-      if (Array.isArray(payload.costHistory)) {
-        setCostHistory(payload.costHistory);
-        await saveJSON(COST_HISTORY_KEY, payload.costHistory);
-      }
-      if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
-        setReceiptAliases(payload.receiptAliases);
-        await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
-      }
-      setExportMsg(`Imported ${payload.orders.length} orders successfully.`);
-      setTimeout(() => setExportMsg(null), 4000);
-      setError(null);
+      await applyBackupPayload(payload);
     } catch {
       setError("Couldn't read that — make sure you copied the full backup text.");
     }
-  }, [persistOrders]);
+  }, [applyBackupPayload]);
 
   const currentOrders = useMemo(() => (orders || []).filter(o => !o.archived), [orders]);
   const activeOrders = useMemo(() => currentOrders.filter(o => o.status !== 'Delivered'), [currentOrders]);
@@ -1082,7 +1166,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.19-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.20-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (
@@ -1094,7 +1178,7 @@ export default function LTBOrderTracker() {
                 <Bell size={16} />
               </button>
             )}
-            <button style={styles.headerActionBtn} onClick={exportData} title="Copy backup to clipboard">
+            <button style={styles.headerActionBtn} onClick={openBackupModal} title="Backup & restore">
               <Download size={16} />
             </button>
             <button style={styles.headerActionBtn} onClick={pasteImport} title="Paste backup from clipboard">
@@ -1157,6 +1241,16 @@ export default function LTBOrderTracker() {
       )}
       {showImportModal && (
         <ImportModal onSubmit={submitImport} onCancel={() => setShowImportModal(false)} />
+      )}
+      {showBackupModal && (
+        <BackupModal
+          list={backupList}
+          onRestore={restoreFromOnline}
+          onRestoreFile={importData}
+          onDownloadFile={downloadBackupFile}
+          onCopy={copyBackupToClipboard}
+          onClose={() => setShowBackupModal(false)}
+        />
       )}
 
       {linkPrompt && (
@@ -1485,6 +1579,111 @@ export default function LTBOrderTracker() {
           onClose={() => setShowReceiptScan(false)}
         />
       )}
+    </div>
+  );
+}
+
+// ── Backup helpers + modal (v9.20) ──────────────────────────────────────────
+// djb2 string hash — throttles auto-push (skip identical payloads). Not
+// crypto, just cheap change detection.
+function djb2(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+// "26 hours ago" style honesty for the restore picker — never pretend a
+// snapshot is exactly the age Kevin asked for.
+function relativeAge(iso) {
+  const ms = Date.now() - Date.parse(iso);
+  if (!Number.isFinite(ms) || ms < 0) return 'just now';
+  const mins = Math.round(ms / 60e3);
+  if (mins < 2) return 'just now';
+  if (mins < 90) return `${mins} minutes ago`;
+  const hours = Math.round(ms / 3600e3);
+  if (hours < 48) return `${hours} hours ago`;
+  return `${Math.round(ms / 86400e3)} days ago`;
+}
+
+// The four approximate restore targets, resolved against the REAL list:
+// each option shows the actual nearest snapshot's true age, and options
+// that resolve to the same snapshot collapse into one (no fake choices).
+function resolveRestoreOptions(list) {
+  if (!Array.isArray(list) || list.length === 0) return [];
+  const now = Date.now();
+  const targets = [
+    { age: 'recent', label: 'Most recent', ms: 0 },
+    { age: '1h', label: 'About 1 hour ago', ms: 3600e3 },
+    { age: '1d', label: 'About 1 day ago', ms: 24 * 3600e3 },
+    { age: '3d', label: 'About 3 days ago', ms: 72 * 3600e3 },
+  ];
+  const seen = new Set();
+  const options = [];
+  for (const t of targets) {
+    let best = null;
+    let bestDiff = Infinity;
+    for (const b of list) {
+      const diff = Math.abs((now - Date.parse(b.timestamp)) - t.ms);
+      if (diff < bestDiff) { bestDiff = diff; best = b; }
+    }
+    if (!best || seen.has(best.timestamp)) continue;
+    seen.add(best.timestamp);
+    options.push({ ...t, timestamp: best.timestamp, orders: best.orders });
+  }
+  return options;
+}
+
+function BackupModal({ list, onRestore, onRestoreFile, onDownloadFile, onCopy, onClose }) {
+  const m = {
+    overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
+    box: { background: '#1c2422', border: '1px solid #2d3a36', borderRadius: 12, padding: 18, width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', color: '#e8e6df' },
+    h: { margin: '0 0 4px', fontSize: 17, fontWeight: 700 },
+    sub: { margin: '0 0 14px', fontSize: 12.5, color: '#9aa5a0', lineHeight: 1.45 },
+    section: { fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: '#9aa5a0', margin: '16px 0 8px' },
+    opt: { display: 'block', width: '100%', textAlign: 'left', background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 10, padding: '10px 12px', marginBottom: 8, color: '#e8e6df', cursor: 'pointer' },
+    optTitle: { fontSize: 14.5, fontWeight: 600 },
+    optMeta: { fontSize: 12, color: '#9aa5a0', marginTop: 2 },
+    row: { display: 'flex', gap: 8 },
+    smallBtn: { flex: 1, background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 10, padding: '10px 8px', color: '#e8e6df', fontSize: 13.5, cursor: 'pointer' },
+    close: { display: 'block', width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#9aa5a0', fontSize: 14, padding: 8, cursor: 'pointer' },
+    note: { fontSize: 12, color: '#9aa5a0', lineHeight: 1.45 },
+    fileLabel: { display: 'block', width: '100%', textAlign: 'center', background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 10, padding: '10px 8px', color: '#e8e6df', fontSize: 13.5, cursor: 'pointer', boxSizing: 'border-box' },
+  };
+  const options = Array.isArray(list) ? resolveRestoreOptions(list) : [];
+  return (
+    <div style={m.overlay} onClick={onClose}>
+      <div style={m.box} onClick={e => e.stopPropagation()}>
+        <h3 style={m.h}>Backup &amp; Restore</h3>
+        <p style={m.sub}>The app backs itself up online automatically while it's open. Restoring replaces what's on this device.</p>
+
+        <div style={m.section}>Restore from online</div>
+        {list === null && <div style={m.note}>Checking for backups…</div>}
+        {list === 'error' && <div style={m.note}>Couldn't reach the backup server. You can still restore from a file below.</div>}
+        {Array.isArray(list) && options.length === 0 && <div style={m.note}>No online backups yet. They'll start appearing after the app has been open with data in it.</div>}
+        {options.map(o => (
+          <button key={o.age} style={m.opt} onClick={() => onRestore(o.age)}>
+            <div style={m.optTitle}>{o.label}</div>
+            <div style={m.optMeta}>
+              {relativeAge(o.timestamp)} · {formatDate(o.timestamp)}
+              {o.orders != null ? ` · ${o.orders} orders` : ''}
+            </div>
+          </button>
+        ))}
+
+        <div style={m.section}>Restore from file</div>
+        <label style={m.fileLabel}>
+          Choose a backup file…
+          <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={onRestoreFile} />
+        </label>
+
+        <div style={m.section}>Save a copy</div>
+        <div style={m.row}>
+          <button style={m.smallBtn} onClick={onDownloadFile}>Download file</button>
+          <button style={m.smallBtn} onClick={onCopy}>Copy to clipboard</button>
+        </div>
+
+        <button style={m.close} onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }

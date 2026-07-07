@@ -69,6 +69,8 @@ export function normalizeUnit(raw) {
 // per-alias packQty instead — ask once, convert forever.
 const PACK_OVERRIDE = {
   butter: { fromUnit: 'lb', perBase: 4 },              // 1 lb butter = 4 sticks
+  milk: { fromUnit: 'package', perBase: 16, eachIsPack: true, matchNullUnit: true },       // Kevin ALWAYS buys milk by the gallon = 16 cups (his rule, Jul 6)
+  ground_lamb: { fromUnit: 'package', perBase: 1, eachIsPack: true, matchNullUnit: true }, // HEB ground lamb: always 1 lb packages sold each (Kevin, Jul 6)
   guittard_low: { fromUnit: 'package', perBase: 283 },
   guittard_high: { fromUnit: 'package', perBase: 283 },
   kosher_salt: { fromUnit: 'box', perBase: 90.7 },
@@ -76,7 +78,7 @@ const PACK_OVERRIDE = {
   chocolate_100: { fromUnit: 'package', perBase: 8, eachIsPack: true },
   beef_stock: { fromUnit: 'package', perBase: 4, eachIsPack: true },
   tofu: { fromUnit: 'package', perBase: 1, eachIsPack: true },
-  baby_gold_potatoes: { fromUnit: 'package', perBase: 2, eachIsPack: true },
+  baby_gold_potatoes: { fromUnit: 'package', perBase: 1.5, eachIsPack: true }, // Kevin correction Jul 6: the bag is ALWAYS 1.5 lb (was seeded as 2)
   red_wine: { fromUnit: 'package', perBase: 3.17, fixedCount: true, matchNullUnit: true, eachIsPack: true },
   // v2 additions — physical invariants:
   eggs: { fromUnit: 'dozen', perBase: 12, eachIsPack: true },              // a dozen is 12
@@ -128,6 +130,94 @@ const AVG_WEIGHT_LB = {
   kabocha: 2.5,         // costed per LB; whole squash ≈ 2.5 lb (Kevin-confirmed)
 };
 const EACHISH_UNITS = new Set(['each', 'head', 'container']);
+
+// ═══ v3: NAME-SIZE EXTRACTION ═══════════════════════════════════════════════
+// Receipts constantly put the pack size IN THE NAME while printing only a
+// line total: "10 CT FLOUR TORTILLA", "POTATO BABY MEDLEY 1.5LB",
+// "GARLIC PK 5PC", "HEB ... BUTTER QTR", "1 GALLON WHOLE MILK". Before v3 the
+// engine only converted off a PRINTED per-unit rate, so all of these dumped
+// Kevin into manual math. This extractor returns every size/count candidate
+// found in the name; the classifier tries each through the normal conversion
+// path and uses the first that reaches the ingredient's costing unit. Reading
+// the count from THIS receipt (10 CT vs 20 CT tortillas) beats hardcoding.
+const NAME_SIZE_PATTERNS = [
+  // counts: "10 CT", "20CT", "8 COUNT", "5 PC", "PK 5PC", "5 PACK"
+  { re: /\b(?:pk|pack)\s*(\d+)\s*pc\b/i, unit: 'count' },
+  { re: /\b(\d+)\s*(?:ct|count|pc)\b/i, unit: 'count' },
+  { re: /\b(\d+)\s*pack\b/i, unit: 'count' },
+  { re: /\b(?:dozen|doz)\b/i, unit: 'count', qty: 12 },
+  // volumes: "1 GALLON", "0.5 GAL", "HALF GALLON", "750 ML", "1 L", "12 FL OZ"
+  { re: /\bhalf\s*gal(?:lon)?\b/i, unit: 'gallon', qty: 0.5 },
+  { re: /(\d+(?:\.\d+)?)\s*gal(?:lon)?s?\b/i, unit: 'gallon' },
+  { re: /(\d+(?:\.\d+)?)\s*(?:qt|quart)s?\b/i, unit: 'quart' },
+  { re: /(\d+(?:\.\d+)?)\s*(?:pt|pint)s?\b/i, unit: 'pint' },
+  { re: /(\d+(?:\.\d+)?)\s*fl\.?\s*oz\b/i, unit: 'fl_oz' },
+  { re: /(\d+(?:\.\d+)?)\s*(?:ml)\b/i, unit: 'ml' },
+  { re: /(\d+(?:\.\d+)?)\s*(?:l|liter|litre)s?\b/i, unit: 'liter' },
+  // weights: "1.5LB", "2#", "16 OZ" (oz is ambiguous — classifier retries as fl_oz), "500 G"
+  { re: /(\d+(?:\.\d+)?)\s*(?:lb|lbs)\.?\b/i, unit: 'lb' },
+  { re: /(\d+(?:\.\d+)?)\s*#/, unit: 'lb' },
+  { re: /(\d+(?:\.\d+)?)\s*oz\b/i, unit: 'oz' },
+  { re: /(\d+(?:\.\d+)?)\s*(?:kg)\b/i, unit: 'kg' },
+  { re: /(\d+(?:\.\d+)?)\s*g\b/i, unit: 'g' },
+];
+export function extractNameSizes(itemName) {
+  const name = String(itemName || '');
+  const out = [];
+  for (const p of NAME_SIZE_PATTERNS) {
+    const m = name.match(p.re);
+    if (!m) continue;
+    const qty = p.qty != null ? p.qty : Number(m[1]);
+    if (!(qty > 0)) continue;
+    out.push({ qty, unit: p.unit, token: m[0].trim() });
+  }
+  // "BUTTER QTR" — H-E-B's quarters box is 1 lb of quarter-stick butter.
+  // Butter-specific by design; QTR means nothing sizewise on other items.
+  if (/\bbutter\b/i.test(name) && /\bqtr\b/i.test(name)) {
+    out.push({ qty: 1, unit: 'lb', token: 'QTR' });
+  }
+  return out;
+}
+
+// How many countables does the ingredient's costing unit represent?
+// tortillas are costed per '10ct' (=10), eggs per each (=1), a dozen is 12.
+export function countBaseOf(toUnit) {
+  if (!toUnit) return null;
+  const m = String(toUnit).toLowerCase().match(/^(\d+)\s*ct$/);
+  if (m) return Number(m[1]);
+  if (/^(each|head|container|block|can|jar|carton|package|bottle|piece)$/i.test(toUnit)) return 1;
+  if (/^dozen$/i.test(toUnit)) return 12;
+  return null;
+}
+
+// ═══ v3: SOLD-BY-EACH (Kevin's store facts, Jul 6) ══════════════════════════
+// These ring up with a weight flag (FW) or no unit at H-E-B but are SOLD per
+// piece/bunch — the line total IS the per-each price. Melons, pineapple,
+// herbs, scallions, fennel, sweet bulb onions, garlic. Kills the
+// "confirm this equals one bunch" prompt for the whole category.
+const SOLD_BY_EACH = new Set([
+  'cantaloupe', 'pineapple',
+  'cilantro', 'basil', 'mint', 'thyme_fresh', 'herb_generic',
+  'scallions', 'fennel_bulb', 'bulb_onion', 'garlic',
+]);
+const EACHISH_TO_UNITS = new Set(['each', 'head', 'container', 'bunch']);
+
+// ═══ v3: WINE VARIETAL → TYPE ════════════════════════════════════════════════
+// Wine receipt names never say "red wine" — they say the varietal or the
+// producer ("LA VIEILLE FERME ROUGE"). Map the common ones. If a name somehow
+// hits BOTH lists, both candidates surface and the family tie sends it to
+// review instead of guessing.
+const RED_WINE_RE = /\b(cabernet|cab\s*sauv\w*|merlot|pinot\s*noir|malbec|syrah|shiraz|zinfandel|grenache|garnacha|sangiovese|chianti|rioja|tempranillo|primitivo|barbera|nebbiolo|bordeaux|beaujolais|rouge|red\s*blend|c[oô]tes?\s*du\s*rh[oô]ne)\b/i;
+const WHITE_WINE_RE = /\b(sauvignon\s*blanc|sauv\s*blanc|chardonnay|pinot\s*gri(?:gio|s)|riesling|albari[nñ]o|gr[uü]ner|viognier|vermentino|vinho\s*verde|ch[eé]nin|moscato|gew[uü]rztraminer|white\s*blend|\bblanc\b)\b/i;
+export function wineHint(itemName) {
+  const name = String(itemName || '');
+  const red = RED_WINE_RE.test(name);
+  const white = WHITE_WINE_RE.test(name);
+  if (red && white) return 'both';
+  if (red) return 'red_wine';
+  if (white) return 'white_wine';
+  return null;
+}
 
 // Ingredient units that are PORTIONS of a purchased package — a receipt line
 // priced per package can never be recorded per one of these without knowing
@@ -281,6 +371,12 @@ function classifyLine(line, seed, aliases, store) {
   } else {
     const scoreById = {};
     seed.forEach(ing => { scoreById[ing.id] = scoreNamePair(line.item_name, ing.name); });
+    // v3 wine layer: a varietal/producer name IS the identification. Boost the
+    // matching wine id to auto-strength; 'both' boosts both, and the wines
+    // family tie routes it to review instead of guessing.
+    const wine = wineHint(line.item_name);
+    if (wine === 'red_wine' || wine === 'both') scoreById.red_wine = Math.max(scoreById.red_wine || 0, 0.9);
+    if (wine === 'white_wine' || wine === 'both') scoreById.white_wine = Math.max(scoreById.white_wine || 0, 0.9);
     // family layer: any triggered family injects ALL its members as candidates
     const trigFams = familiesTriggeredByTokens(nameTokens);
     const famBonus = {};
@@ -371,7 +467,72 @@ function classifyLine(line, seed, aliases, store) {
     perUnit = round(onePack / packOv.perBase);
     conversion = { fromUnit: packOv.fromUnit, toUnit, factor: packOv.perBase, basis: 'pack' };
     basis = 'converted';
-  } else if (basis !== 'converted' && perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
+  }
+
+  // (b2) v3 SOLD-BY-EACH: rings up with a weight flag (or no unit) but is sold
+  // per piece/bunch — the one-pack price IS the per-each price. Direct when the
+  // costing unit is each-ish; otherwise bridge through 'each' (avg-weight).
+  if (basis !== 'converted' && SOLD_BY_EACH.has(ingredientId)
+      && (line.weighed || !fromUnit) && line.line_total != null
+      && (basis === 'line_total' || basis === 'printed_unit_price')
+      // An explicit size/count in the NAME (GARLIC PK 5PC) is more specific
+      // than the category rule — let name-size handle those instead.
+      && extractNameSizes(line.item_name).length === 0) {
+    const onePack = onePackPriceFor(line, fromUnit);
+    if (onePack != null) {
+      if (EACHISH_TO_UNITS.has(toUnit)) {
+        perUnit = round(onePack);
+        conversion = { fromUnit: 'each', toUnit, factor: 1, basis: 'sold_by_each' };
+        basis = 'converted';
+      } else {
+        const conv = convertPerUnit(onePack, 'each', toUnit, ingredientId);
+        if (conv) {
+          perUnit = conv.perUnit;
+          conversion = { fromUnit: 'each', toUnit: conv.toUnit, factor: conv.factor, basis: 'sold_by_each' };
+          basis = 'converted';
+        }
+      }
+    }
+  }
+
+  // (b3) v3 NAME-SIZE: the pack size/count is printed in the NAME while the
+  // line carries only a total (or a per-package price). Try every extracted
+  // candidate through the normal conversion path; first one that reaches the
+  // costing unit wins. Reads THIS receipt's size (10 CT vs 20 CT), never a
+  // hardcoded assumption. The price-sanity check downstream still guards a
+  // misread token.
+  if (basis !== 'converted' && (basis === 'line_total' || (basis === 'printed_unit_price' && (!fromUnit || fromUnit === 'each' || fromUnit === 'package' || fromUnit === 'box')))
+      && line.line_total != null) {
+    const onePack = onePackPriceFor(line, fromUnit);
+    if (onePack != null) {
+      const sizes = extractNameSizes(line.item_name);
+      for (const s of sizes) {
+        if (s.unit === 'count') {
+          const tc = countBaseOf(toUnit);
+          if (tc != null) {
+            perUnit = round(onePack * tc / s.qty);
+            conversion = { fromUnit: `${s.qty}-count pack`, toUnit, factor: s.qty / tc, basis: 'name_size' };
+            basis = 'converted';
+            break;
+          }
+          continue;
+        }
+        const perNameUnit = onePack / s.qty;
+        let conv = convertPerUnit(perNameUnit, s.unit, toUnit, ingredientId);
+        // 'OZ' in a name is ambiguous weight/volume — retry as fluid for
+        // volume-costed ingredients.
+        if (!conv && s.unit === 'oz') conv = convertPerUnit(perNameUnit, 'fl_oz', toUnit, ingredientId);
+        if (conv) {
+          perUnit = conv.perUnit;
+          conversion = { fromUnit: `${s.qty} ${s.unit} (from name)`, toUnit: conv.toUnit, factor: conv.factor, basis: 'name_size' };
+          basis = 'converted';
+          break;
+        }
+      }
+    }
+  }
+
+  if (basis !== 'converted' && perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
     // (c) real per-unit price in a different unit → table/bridge conversion
     const conv = convertPerUnit(perUnit, fromUnit, toUnit, ingredientId);
     if (conv) {
@@ -435,6 +596,28 @@ function groupClassified(classified) {
 
 // Built-in alias seed (unchanged from v1 — learned aliases merge on top).
 export const ALIAS_SEED = {
+  // ── Jul 6 batch: seeded from Kevin's real H-E-B / H-Mart receipts ─────────
+  'heb whole milk': { ingredientId: 'milk' },
+  'garlic pk 5pc': { ingredientId: 'garlic' },                   // H-Mart 5-piece pack (name-size divides by the 5)                    // + PACK_OVERRIDE milk: always a gallon
+  'heb si unsaltd butter qtr': { ingredientId: 'butter' },       // QTR box = 1 lb = 4 sticks (name-size + override)
+  'heb si unsalted butter qtr': { ingredientId: 'butter' },
+  'heb unsaltd butter qtr': { ingredientId: 'butter' },
+  'boston butt pork roast': { ingredientId: 'pork_butt' },
+  'heb natural lamb ground b': { ingredientId: 'ground_lamb' },  // + override: 1 lb packages sold each
+  'heb natural lamb ground': { ingredientId: 'ground_lamb' },
+  '10 ct flour tortilla scan': { ingredientId: 'tortillas' },    // name-size reads the 10 (or 20) CT
+  '20 ct flour tortilla scan': { ingredientId: 'tortillas' },
+  'kabucha': { ingredientId: 'kabocha' },                        // H-Mart spells it KABUCHA
+  'soli organic thyme': { ingredientId: 'thyme_fresh' },
+  'cm br egg pappardelle nes': { ingredientId: 'egg_pappardelle' },
+  'smithfield ground pork': { ingredientId: 'ground_pork' },
+  'la vieille ferme rouge ss': { ingredientId: 'red_wine' },     // wineHint also catches ROUGE — belt & suspenders
+  'la vieille ferme rouge': { ingredientId: 'red_wine' },
+  'peco cantaloupe': { ingredientId: 'cantaloupe' },
+  'pecos cantaloupe': { ingredientId: 'cantaloupe' },
+  'small lime': { ingredientId: 'lime' },
+  'heb cloud9 tomatoe': { ingredientId: 'fresh_tomatoes' },
+  'heb cloud9 tomato': { ingredientId: 'fresh_tomatoes' },
   'kitch basic unsltd beef': { ingredientId: 'beef_stock' },
   'kitch basic lnsltd beef': { ingredientId: 'beef_stock' },
   'kitch basic unslted beef': { ingredientId: 'beef_stock' },

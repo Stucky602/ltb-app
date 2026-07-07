@@ -165,15 +165,25 @@ export function loadHtml2Canvas() {
 
 export function discountAmount(itemsTotal, discountType, discountValue) {
   if (!discountType || !discountValue) return 0;
-  if (discountType === 'percent') return round2(itemsTotal * (discountValue / 100));
-  return round2(Math.min(discountValue, itemsTotal));
+  // Clamped to [0, itemsTotal] for BOTH types: a percent > 100 or a fixed
+  // discount larger than the base caps at the base (can't mint money), and
+  // a negative value is a no-op (can't RAISE the total). Found by the
+  // property suite (tests/property.mjs) — fixed values were already
+  // Math.min-capped but percents weren't, and neither floor existed.
+  const raw = discountType === 'percent'
+    ? round2(itemsTotal * (discountValue / 100))
+    : round2(discountValue);
+  return Math.min(Math.max(raw, 0), itemsTotal);
 }
 
 // Sum of per-item upcharges (each item may carry one {label, amount})
 export function itemsUpchargeTotal(items) {
   return round2((items || []).reduce((sum, it) => {
     const amt = it.upcharge && typeof it.upcharge.amount === 'number' ? it.upcharge.amount : 0;
-    return sum + amt * it.qty;
+    // qty defaults to 1 like itemsBaseTotal — without this, 0 * undefined
+    // is NaN, and ONE qty-less item poisoned the whole order total.
+    // Found by the property suite (tests/property.mjs).
+    return sum + amt * (Number(it.qty) || 1);
   }, 0));
 }
 
@@ -193,7 +203,10 @@ export function orderTotal(items, jarSwaps, containerReturns, discountType, disc
   const custom = customChargesTotal(customCharges);
   const disc = discountAmount(base, discountType, discountValue);
   const surcharge = waiveSurcharge ? 0 : SURCHARGE;
-  return round2(base + upcharges - disc + custom + surcharge - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1);
+  // Floored at $0: over-crediting container returns or jar swaps can reduce
+  // an order to free, never to Kevin owing money on it. Property-suite
+  // invariant I1 (tests/property.mjs).
+  return Math.max(0, round2(base + upcharges - disc + custom + surcharge - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1));
 }
 
 // Recompute a per-lb item's price and cost from its weight (rounded to cents).
@@ -232,6 +245,51 @@ export function repricePerLbItem(it) {
 // Dishes/variants renamed after orders referencing them may already exist.
 // Maps OLD stored name → CURRENT registry name so unstamped historical items
 // can still be costed and backfilled. Append here on any future rename.
+// ── Structured item options (v9.20, Batch 3) ────────────────────────────────
+// Spice level and pasta shape are FIRST-CLASS fields (item.options = {spice,
+// pasta}), declared per-dish in the registry (dishes.js `options`). Before
+// this they were stuffed into the free-text note as "Spice: 3. ..." and
+// regex-parsed back out. itemOptions() is the ONE canonical reader: it
+// prefers the structured field and falls back to the legacy note prefixes,
+// so every pre-v9.20 order keeps displaying correctly forever.
+export function itemOptions(it) {
+  const out = {};
+  if (it && it.options && typeof it.options === 'object') {
+    if (it.options.spice != null && Number(it.options.spice) > 0) out.spice = Number(it.options.spice);
+    if (typeof it.options.pasta === 'string' && it.options.pasta.trim()) out.pasta = it.options.pasta.trim();
+  }
+  const note = String((it && it.note) || '');
+  if (out.spice == null) {
+    const m = note.match(/Spice:\s*(\d)/i);
+    if (m) out.spice = Number(m[1]);
+  }
+  if (out.pasta == null) {
+    const m = note.match(/Pasta:\s*([^.]+)/i);
+    if (m && m[1].trim()) out.pasta = m[1].trim();
+  }
+  return out;
+}
+
+// Strip the legacy option prefixes out of a note for display, so an old
+// order's "Spice: 3. extra sauce" renders as options chips + "extra sauce"
+// instead of printing the spice twice.
+export function noteWithoutOptions(note) {
+  return String(note || '')
+    .replace(/Spice:\s*\d\.?\s*/gi, '')
+    .replace(/Pasta:\s*[^.]+\.?\s*/gi, '')
+    .trim();
+}
+
+// One-line human summary ("Spice 3 · rigatoni") for cards, cook lists, and
+// order text. Empty string when the item has no options.
+export function optionsSummary(it) {
+  const o = itemOptions(it);
+  const bits = [];
+  if (o.spice != null) bits.push(`Spice ${o.spice}`);
+  if (o.pasta) bits.push(o.pasta);
+  return bits.join(' · ');
+}
+
 export const DISH_RENAMES = {
   'Cumin Mushroom Noodles / Cumin Beef on Rice': 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
 };
@@ -389,7 +447,10 @@ export function orderToText(order) {
     lines.push(`${it.qty}x ${it.name} (${it.variant}) — ${currency(up * it.qty)}`);
     if (it.upcharge && it.upcharge.amount)
       lines.push(`   + ${it.upcharge.label || 'Upcharge'} (+${currency(it.upcharge.amount)} ea)`);
-    if (it.note) lines.push(`   note: ${it.note}`);
+    const optLine = optionsSummary(it);
+    if (optLine) lines.push(`   ${optLine}`);
+    const cleanNote = noteWithoutOptions(it.note);
+    if (cleanNote) lines.push(`   note: ${cleanNote}`);
   });
   const base = itemsBaseTotal(order.items);
   const disc = discountAmount(base, order.discountType, order.discountValue);
@@ -695,7 +756,8 @@ Match what the customer asked for to menu options. Rules:
 - If the customer mentions returning or swapping a jar for a jar item, choose the "With jar swap" variant of that item if one exists.
 - "jarSwaps" should equal the number of jar items ordered with the jar-swap variant.
 - "containerReturns" is the number of meal containers the customer says they will return (not jars).
-- PER-ITEM NOTES: if a request clearly attaches to ONE specific item (e.g. "chili oil on the side", "extra spicy", "no cilantro"), put it in that item's "note" field, NOT in the order-level notes.
+- PER-ITEM REQUESTS: if the customer asks for something about ONE specific item (e.g. "chili oil on the side", "extra spicy", "spice level 4", "rigatoni please", "no cilantro"), put the request VERBATIM as a string in that item's "requests" array, NOT in notes. Do not interpret it — the app routes requests itself. The item "note" field is only for factual annotations these rules tell you to write (like protein amounts).
+- SERVICE REQUESTS: if the customer asks for something DONE that is not a menu item and not delivery logistics (e.g. "can you cut up some strawberries", "throw in extra ice packs"), put it verbatim in the order-level "serviceRequests" array. Delivery timing/location stays in "notes".
 - ADD-ONS: some items have add-on options baked into their variants (e.g. a dish with a "+ Asian Greens" or "With Mushrooms" variant). If the customer asks for an add-on that EXISTS as a variant of that item (look for variants with + or "With" in the label, or a higher price than the base), select that upgraded variant — do NOT create an upcharge and do NOT flag it. Example: customer says "small mushroom noodles with Asian greens" → select variant "Small (~3-4) + Asian Greens", not "Small (~3-4)".
 - OFF-MENU EXTRAS (upcharge): only if the customer asks to add something to an item that is NOT an available variant of that item (e.g. "add mushrooms" to a dish that has no mushroom option), set that item's "upcharge" to {"label":"short description","amount":null} with amount null. Do NOT also write a reviewReason for it — the app detects unpriced upcharges automatically. Just set the upcharge object.
 - WEIGHT FOR PROTEINS: items named exactly "Ribeye", "NY Strip", "Filet Mignon", "Flank Steak", "Thick-Cut Pork Chop", "Pork Tenderloin", or "Air-Chilled Chicken Breast" are priced by the pound, weighed by the chef after shopping. Do NOT price them, do NOT set an upcharge, and do NOT write a reviewReason about their weight. If the customer mentions an intended amount (e.g. "1 lb chicken", "ribeye about half a pound", "a 12 oz NY strip"), put that amount in the item's "note" field as a reminder (e.g. note "about 1 lb"). Always leave "weight" null.
@@ -704,7 +766,7 @@ Match what the customer asked for to menu options. Rules:
 - reviewReasons: ONLY use this for genuine ambiguity the app cannot detect on its own — an unclear quantity, an item you couldn't confidently match, or a confusing request. Do NOT add reviewReasons for unpriced upcharges or for protein weights; those are handled automatically. If everything is clear, return an empty reviewReasons array.
 
 Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
-{"items":[{"category":"...","name":"...","variant":"...","qty":1,"note":"","upcharge":null,"weight":null}],"jarSwaps":0,"containerReturns":0,"notes":"","reviewReasons":[]}`;
+{"items":[{"category":"...","name":"...","variant":"...","qty":1,"note":"","requests":[],"upcharge":null,"weight":null}],"jarSwaps":0,"containerReturns":0,"notes":"","serviceRequests":[],"reviewReasons":[]}`;
 
   const content = imageBase64
     ? [
@@ -940,6 +1002,163 @@ export function salvageReceiptJson(clean) {
 
 // Shared validation: turn a raw parsed order object into clean items + flags.
 // Used by both the new-order parser and the amend-order parser.
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INTENT ROUTER (v9.20, Batch 4) — deterministic, zero API calls
+// ═══════════════════════════════════════════════════════════════════════════
+// The model does LINGUISTIC EXTRACTION ONLY (verbatim per-item "requests" and
+// order-level "serviceRequests"). Everything below is app code reasoning
+// against the registry. Output is typed ACTIONS:
+//   { type:'set-option', itemIdx, key, value, auto:true }        — executed, reported
+//   { type:'set-option', itemIdx, key:'spice', value:null,
+//     suggest, source, auto:false }                              — vague → one-tap prompt
+//   { type:'add-item-note', itemIdx, text, auto:true }           — generic ask → attached silently
+//   { type:'add-item-note', itemIdx, text, tier2:'spice'|'pasta',
+//     auto:false }                                               — option-ish ask on a dish
+//                                                                  WITHOUT that option → prompt
+//   { type:'custom-charge', label, auto:false }                  — service ask → prompt with price
+// Auto actions are applied by applyAutoActions() and summarized for Kevin.
+// Prompted actions ride the draft as `pendingActions`; the ReviewModal
+// resolves them 100% in-app. Genuine ambiguity stays in reviewReasons
+// (the existing flag-unclear mechanism).
+
+const SPICE_ISH = /\b(spice|spicy|spicier|heat|hot|hotter|mild|milder|medium)\b/i;
+// Word→level map, checked in order (first match wins). Clamped to the dish's
+// declared min/max at apply time.
+const SPICE_WORD_LEVELS = [
+  [/(extra|very|super|really)\s*(hot|spicy)|as hot as|max(imum)? (spice|heat)/i, 5],
+  [/\b(hot|spicy|spicier|hotter)\b/i, 4],
+  [/\bmedium\b/i, 3],
+  [/\bmild(er)?\b/i, 2],
+];
+const PASTA_SHAPES = /\b(rigatoni|penne|ziti|shells?|conchiglie|fusilli|rotini|spaghetti|linguine|fettuccine|pappardelle|tagliatelle|orecchiette|bucatini|macaroni|elbows?|farfalle|bow\s*ties?|cavatappi|gemelli|orzo|campanelle|radiatori)\b/i;
+const PASTA_ISH = /\b(pasta|noodle)\b.*\b(shape|kind|type)\b|\b(shape|kind|type)\b.*\b(pasta|noodle)\b/i;
+
+const clampSpice = (n, def) => Math.min(Math.max(Math.round(n), (def && def.min) || 1), (def && def.max) || 5);
+
+// Does this dish declare an option, and does it apply to THIS variant?
+// (excludeVariants: Polenta replaces pasta; Egg Pappardelle IS the pasta.)
+function optionDefFor(menu, item, key) {
+  const dish = ((menu && menu.dinner) || []).find(d => d.name === item.name);
+  const def = dish && dish.options && dish.options[key];
+  if (!def) return null;
+  const excl = def.excludeVariants || [];
+  if (excl.some(sub => String(item.variant || '').includes(sub))) return null;
+  return def;
+}
+
+// Route ONE verbatim request on ONE matched item → action (never null).
+export function routeItemRequest(menu, items, itemIdx, text) {
+  const item = items[itemIdx];
+  const t = String(text || '').trim();
+
+  // ── Spice intent ──
+  if (SPICE_ISH.test(t)) {
+    const def = optionDefFor(menu, item, 'spice');
+    if (def) {
+      // Explicit digit ("spice 4", "level 3", "a 5 please")
+      const digit = t.match(/\b([1-9])\b/);
+      if (digit) return { type: 'set-option', itemIdx, key: 'spice', value: clampSpice(Number(digit[1]), def), source: t, auto: true };
+      // Clear verbal level ("extra spicy" → 5, "spicy" → 4, "mild" → 2)
+      for (const [re, level] of SPICE_WORD_LEVELS) {
+        if (re.test(t)) return { type: 'set-option', itemIdx, key: 'spice', value: clampSpice(level, def), source: t, auto: true };
+      }
+      // Spice-ish but no level ("can you adjust the heat?") → prompt with a suggestion
+      return { type: 'set-option', itemIdx, key: 'spice', value: null, suggest: clampSpice(4, def), min: (def && def.min) || 1, max: (def && def.max) || 5, source: t, auto: false };
+    }
+    // Tier 2: no spice option on this dish → propose a prep note, never silent
+    return { type: 'add-item-note', itemIdx, text: t, tier2: 'spice', auto: false };
+  }
+
+  // ── Pasta intent ──
+  const shape = t.match(PASTA_SHAPES);
+  if (shape || PASTA_ISH.test(t)) {
+    const def = optionDefFor(menu, item, 'pasta');
+    if (def && shape) return { type: 'set-option', itemIdx, key: 'pasta', value: shape[0].toLowerCase(), source: t, auto: true };
+    if (def) return { type: 'add-item-note', itemIdx, text: t, auto: true }; // pasta-ish, no shape named — keep their words on the item
+    if (shape) return { type: 'add-item-note', itemIdx, text: t, tier2: 'pasta', auto: false }; // shape named on a dish with no pasta option
+  }
+
+  // ── Everything else: a plain per-item ask ("no cilantro") — today's behavior ──
+  return { type: 'add-item-note', itemIdx, text: t, auto: true };
+}
+
+// Route a whole validated draft: item requests + order serviceRequests.
+// Returns { pendingActions, autoApplied } and EXECUTES the auto ones in place.
+export function routeParsedDraft(draft, menu) {
+  const pendingActions = [];
+  const autoApplied = [];
+  (draft.items || []).forEach((it, idx) => {
+    const reqs = it._requests || [];
+    delete it._requests;
+    for (const r of reqs) {
+      const action = routeItemRequest(menu, draft.items, idx, r);
+      if (action.auto) applyAction(draft, action, autoApplied);
+      else pendingActions.push(action);
+    }
+  });
+  for (const s of (draft._serviceRequests || [])) {
+    pendingActions.push({ type: 'custom-charge', label: String(s).slice(0, 60), auto: false });
+  }
+  delete draft._serviceRequests;
+  return { pendingActions, autoApplied };
+}
+
+// Execute one action against the draft. Used for auto actions at parse time
+// and by the ReviewModal when Kevin approves a prompted one.
+export function applyAction(draft, action, appliedLog) {
+  const it = draft.items[action.itemIdx];
+  if (!it && action.type !== 'custom-charge') return;
+  if (action.type === 'set-option') {
+    it.options = { ...(it.options || {}) };
+    it.options[action.key] = action.value;
+    if (appliedLog) appliedLog.push(`${action.key === 'spice' ? 'Spice ' + action.value : action.value} on ${it.name}`);
+  } else if (action.type === 'add-item-note') {
+    it.note = [it.note, action.text].filter(Boolean).join('. ');
+    if (appliedLog) appliedLog.push(`Note "${action.text}" on ${it.name}`);
+  }
+}
+
+// ── Amendment diff (v9.20, Batch 4) — never mutate an order silently ────────
+// Pure structural diff between the existing order and the parsed amendment.
+// Items are keyed by name+variant (duplicates by index within the key).
+export function diffOrders(before, after) {
+  const keyOf = (it) => `${it.name}::${it.variant}`;
+  const bucket = (items) => {
+    const m = new Map();
+    (items || []).forEach(it => {
+      if (!m.has(keyOf(it))) m.set(keyOf(it), []);
+      m.get(keyOf(it)).push(it);
+    });
+    return m;
+  };
+  const B = bucket(before.items), A = bucket(after.items);
+  const added = [], removed = [], changed = [];
+  for (const [k, aList] of A) {
+    const bList = B.get(k) || [];
+    for (let i = 0; i < aList.length; i++) {
+      const a = aList[i], b = bList[i];
+      if (!b) { added.push(a); continue; }
+      const deltas = [];
+      if ((Number(a.qty) || 1) !== (Number(b.qty) || 1)) deltas.push(`qty ${b.qty || 1} → ${a.qty || 1}`);
+      const ao = optionsSummary(a), bo = optionsSummary(b);
+      if (ao !== bo) deltas.push(`options ${bo || '(none)'} → ${ao || '(none)'}`);
+      const an = noteWithoutOptions(a.note), bn = noteWithoutOptions(b.note);
+      if (an !== bn) deltas.push(`note ${bn ? `"${bn}"` : '(none)'} → ${an ? `"${an}"` : '(none)'}`);
+      const upStr = (x) => (x && x.upcharge && x.upcharge.label) ? `${x.upcharge.label} $${x.upcharge.amount || '?'}` : '';
+      if (upStr(a) !== upStr(b)) deltas.push(`upcharge ${upStr(b) || '(none)'} → ${upStr(a) || '(none)'}`);
+      if (deltas.length) changed.push({ item: a, deltas });
+    }
+    for (let i = aList.length; i < bList.length; i++) removed.push(bList[i]);
+  }
+  for (const [k, bList] of B) if (!A.has(k)) removed.push(...bList);
+  const extras = [];
+  if ((Number(after.jarSwaps) || 0) !== (Number(before.jarSwaps) || 0)) extras.push(`jar swaps ${before.jarSwaps || 0} → ${after.jarSwaps || 0}`);
+  if ((Number(after.containerReturns) || 0) !== (Number(before.containerReturns) || 0)) extras.push(`container returns ${before.containerReturns || 0} → ${after.containerReturns || 0}`);
+  if (String(after.notes || '') !== String(before.notes || '')) extras.push('order notes changed');
+  return { added, removed, changed, extras, isEmpty: !added.length && !removed.length && !changed.length && !extras.length };
+}
+
 export function validateParsedOrder(parsed, menu) {
   // Validate every parsed item against the real menu; collect misses into notes
   const items = [];
@@ -969,6 +1188,11 @@ export function validateParsedOrder(parsed, menu) {
             note: pi.note ? String(pi.note).slice(0, 200) : '',
             upcharge,
           };
+          // Verbatim customer requests ride along for the intent router
+          // (_requests is stripped by routeParsedDraft before save).
+          const reqs = (Array.isArray(pi.requests) ? pi.requests : [])
+            .map(r => String(r).trim()).filter(Boolean).slice(0, 5);
+          if (reqs.length) matched._requests = reqs;
           // Per-lb proteins are weighed after shopping: start pending (no price yet)
           if (isPerLbItem(menuItem.name)) {
             matched.weightPending = true;
@@ -981,10 +1205,10 @@ export function validateParsedOrder(parsed, menu) {
       }
     }
     if (matched) {
-      // Only merge duplicates when they have no distinguishing note/upcharge
+      // Only merge duplicates when they have no distinguishing note/upcharge/requests
       const dup = items.find(i =>
         i.category === matched.category && i.name === matched.name && i.variant === matched.variant
-        && !i.note && !i.upcharge && !matched.note && !matched.upcharge);
+        && !i.note && !i.upcharge && !i._requests && !matched.note && !matched.upcharge && !matched._requests);
       if (dup) dup.qty += matched.qty;
       else items.push(matched);
     }
@@ -1022,13 +1246,31 @@ export function validateParsedOrder(parsed, menu) {
     return true;
   });
 
-  return {
+  // Quantity range check (Batch 4): a friends-only shop never sees 25 of
+  // anything — a huge qty is almost always a parse misread ("2 5" → 25).
+  // Flag it, don't mutate it.
+  items.forEach(it => {
+    if (it.qty > 24) dedupedReasons.push(`Quantity looks off: ${it.qty}x ${it.name} — double-check the message`);
+  });
+
+  const draft = {
     items,
     jarSwaps: Math.max(0, parseInt(parsed.jarSwaps) || 0),
     containerReturns: Math.max(0, parseInt(parsed.containerReturns) || 0),
     notes,
     reviewReasons: dedupedReasons,
   };
+
+  // Intent routing (Batch 4): verbatim requests → typed actions. Auto ones
+  // (explicit spice level, named pasta shape, plain notes) EXECUTE here and
+  // get reported; ambiguous/tier-2/billable ones become pendingActions for
+  // the one-tap ReviewModal. Zero further API calls.
+  draft._serviceRequests = (Array.isArray(parsed.serviceRequests) ? parsed.serviceRequests : [])
+    .map(s => String(s).trim()).filter(Boolean).slice(0, 5);
+  const routed = routeParsedDraft(draft, menu);
+  draft.pendingActions = routed.pendingActions;
+  draft.autoApplied = routed.autoApplied;
+  return draft;
 }
 
 // Amend an EXISTING order from a follow-up text. Sends the AI the current order
@@ -1038,7 +1280,10 @@ export async function parseAmendment(order, messageText, menu) {
   // Describe the current order plainly for the model
   const currentLines = (order.items || []).map(it => {
     const bits = [`${it.qty}x ${it.name} (${it.variant})`];
-    if (it.note) bits.push(`note: ${it.note}`);
+    const optLine = optionsSummary(it);
+    if (optLine) bits.push(`options: ${optLine}`);
+    const cleanNote = noteWithoutOptions(it.note);
+    if (cleanNote) bits.push(`note: ${cleanNote}`);
     if (it.upcharge && it.upcharge.label) bits.push(`upcharge: ${it.upcharge.label}${it.upcharge.amount ? ` $${it.upcharge.amount}` : ' (unpriced)'}`);
     return '  - ' + bits.join(', ');
   }).join('\n');
@@ -1063,14 +1308,16 @@ ${menuForPrompt(menu)}
 
 Apply the customer's requested changes to the current order and return the COMPLETE updated order (not just the changes). Keep every existing item that wasn't changed, exactly as it was (same variant, note, upcharge). Apply additions, removals, quantity changes, and variant changes as requested. Follow these rules:
 - Use EXACT category, name, and variant strings from the menu.
-- Keep existing per-item notes and upcharges unless the customer's message changes them.
+- Keep existing per-item notes, options, and upcharges unless the customer's message changes them. If an existing item shows "options: Spice N" or a pasta shape, carry it forward by putting "spice N" / the shape into that item's "requests" array unchanged.
+- PER-ITEM REQUESTS: any customer ask about ONE item (spice level, pasta shape, "extra sauce", "no cilantro") goes VERBATIM into that item's "requests" array, not notes. The app routes requests itself.
+- SERVICE REQUESTS: anything the customer wants DONE that isn't a menu item or delivery logistics goes verbatim in the order-level "serviceRequests" array.
 - ADD-ONS: if the customer asks for an add-on that EXISTS as a variant of an item, switch to that variant. Do not create an upcharge for it.
 - OFF-MENU EXTRAS: only if they ask to add something that is NOT an available variant, set that item's "upcharge" to {"label":"...","amount":null}. Do not also add a reviewReason for it.
 - PER-LB PROTEINS (Ribeye, NY Strip, Filet Mignon, Flank Steak, Thick-Cut Pork Chop, Pork Tenderloin, Air-Chilled Chicken Breast): never price or weight them; put any stated amount in the item "note". Leave weight null.
 - reviewReasons: ONLY for genuine ambiguity you cannot resolve (an unclear request, an item you couldn't match). Do not flag upcharges or weights.
 
 Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
-{"items":[{"category":"...","name":"...","variant":"...","qty":1,"note":"","upcharge":null,"weight":null}],"jarSwaps":0,"containerReturns":0,"notes":"","reviewReasons":[]}`;
+{"items":[{"category":"...","name":"...","variant":"...","qty":1,"note":"","requests":[],"upcharge":null,"weight":null}],"jarSwaps":0,"containerReturns":0,"notes":"","serviceRequests":[],"reviewReasons":[]}`;
 
   let response;
   try {

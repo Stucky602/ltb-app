@@ -192,6 +192,7 @@ export const DISHES = [
     reheat: 'stovetop',
     rice: true,
     equipment: { flexible: ['dutch', 'largePot'] },
+    options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
       { label: 'Chickpea, Small (~4-5)', price: 25, cost: 12.71 },
       { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.13 },
@@ -519,6 +520,7 @@ export const DISHES = [
     reheat: 'bagged',
     rice: true,
     equipment: { fixed: ['wok', 'largePot'] },
+    options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
       { label: 'Small (~3-4)', price: 35, cost: 14.45 },
       { label: 'Large (~7-8)', price: 60, cost: 27.82 },
@@ -543,6 +545,7 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'] },
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] } }, // egg-papp variants ARE the pasta
     variants: [
       { label: 'Small (split order, ~4)', price: 40, cost: 16.79 },
       { label: 'Large (~8)', price: 70, cost: 32.57 },
@@ -580,6 +583,7 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { fixed: [] }, // saucier, exclusive — never conflicts
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle' } },
     variants: [
       { label: 'Base (~4)', price: 20, cost: 7.24 },
       { label: 'With Beef or Turkey', price: 35, cost: 14.24 },
@@ -634,6 +638,7 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variants replace pasta
     variants: [
       { label: 'Small (~4 servings)', price: 35, cost: 16.79 },
       { label: 'Large (~8 servings)', price: 65, cost: 32.50 },

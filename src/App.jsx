@@ -1573,6 +1573,7 @@ export default function LTBOrderTracker() {
       {showReceiptScan && (
         <ReceiptScan
           ingredients={ingredientsDb}
+          costHistory={costHistory}
           aliases={receiptAliases}
           onSaveAliases={saveReceiptAliases}
           onCommit={commitReceiptCosts}

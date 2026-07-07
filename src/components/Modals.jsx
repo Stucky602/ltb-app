@@ -30,6 +30,7 @@ import {
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  optionsSummary, noteWithoutOptions,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 
@@ -144,7 +145,8 @@ export function InvoiceModal({ order, onClose }) {
                   {it.upcharge && typeof it.upcharge === 'object' && it.upcharge.amount > 0 ? (
                     <div style={styles.invoiceItemExtra}>+ {it.upcharge.label} ({currency(it.upcharge.amount)} ea)</div>
                   ) : null}
-                  {it.note && <div style={styles.invoiceItemNote}>"{it.note}"</div>}
+                  {optionsSummary(it) && <div style={styles.invoiceItemExtra}>{optionsSummary(it)}</div>}
+                  {noteWithoutOptions(it.note) && <div style={styles.invoiceItemNote}>"{noteWithoutOptions(it.note)}"</div>}
                 </div>
               );
             })}

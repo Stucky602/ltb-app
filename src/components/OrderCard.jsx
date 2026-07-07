@@ -30,6 +30,7 @@ import {
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  optionsSummary, noteWithoutOptions,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { InvoiceModal, ReheatModal, WeightPhotoModal } from './Modals.jsx';
@@ -203,7 +204,8 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                   {it.upcharge && typeof it.upcharge === 'object' && it.upcharge.amount > 0 ? (
                     <div style={styles.orderItemSub}>+ {it.upcharge.label} ({currency(it.upcharge.amount)} ea)</div>
                   ) : null}
-                  {it.note && <div style={styles.orderItemNote}>“{it.note}”</div>}
+                  {optionsSummary(it) && <div style={styles.orderItemSub}>{optionsSummary(it)}</div>}
+                  {noteWithoutOptions(it.note) && <div style={styles.orderItemNote}>“{noteWithoutOptions(it.note)}”</div>}
                   {perLb && (
                     <button
                       style={styles.setWeightBtn}

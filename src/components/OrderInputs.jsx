@@ -28,7 +28,7 @@ import {
   orderTotal, repricePerLbItem, itemCost, orderCostInfo,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
-  menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
+  menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment, diffOrders,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
@@ -173,6 +173,9 @@ export function AmendOrderCard({ menu, orders, onAmended, onCancel }) {
   const [text, setText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState(null);
+  // Batch 4: an amendment MUTATES an existing order — never apply silently.
+  // The parse result is held here as a diff preview until Kevin confirms.
+  const [preview, setPreview] = useState(null); // { draft, diff }
 
   const selectedOrder = orders.find(o => o.id === selectedId) || null;
   const canParse = !!selectedOrder && !!text.trim();
@@ -181,6 +184,7 @@ export function AmendOrderCard({ menu, orders, onAmended, onCancel }) {
     if (!canParse) return;
     setParsing(true);
     setParseError(null);
+    setPreview(null);
     try {
       const draft = await parseAmendment(selectedOrder, text.trim(), menu);
       if (draft.items.length === 0) {
@@ -188,7 +192,8 @@ export function AmendOrderCard({ menu, orders, onAmended, onCancel }) {
         setParsing(false);
         return;
       }
-      onAmended(draft); // opens the order form pre-filled with the amended order
+      setPreview({ draft, diff: diffOrders(selectedOrder, draft) });
+      setParsing(false);
     } catch (e) {
       const msg = (e && e.message) || '';
       const detail = msg ? ` (${msg})` : '';
@@ -253,13 +258,46 @@ export function AmendOrderCard({ menu, orders, onAmended, onCancel }) {
             onChange={e => setText(e.target.value)}
           />
           {parseError && <div style={styles.parseError}>{parseError}</div>}
-          <button
-            style={{ ...styles.saveBtn, ...((!canParse || parsing) ? styles.saveBtnDisabled : {}) }}
-            onClick={parse}
-            disabled={!canParse || parsing}
-          >
-            {parsing ? 'Applying the change...' : 'Apply change'}
-          </button>
+
+          {preview && (
+            <div style={styles.amendCurrentBox}>
+              <div style={styles.amendCurrentTitle}>What will change:</div>
+              {preview.diff.isEmpty && (
+                <div style={styles.amendCurrentItem}>No changes detected — the parsed order matches what's there. Open it anyway to edit by hand, or rephrase the message.</div>
+              )}
+              {preview.diff.added.map((it, i) => (
+                <div key={'a' + i} style={{ ...styles.amendCurrentItem, color: '#1D9E75' }}>+ {it.qty}× {it.name} ({it.variant})</div>
+              ))}
+              {preview.diff.removed.map((it, i) => (
+                <div key={'r' + i} style={{ ...styles.amendCurrentItem, color: '#993556' }}>− {it.qty}× {it.name} ({it.variant})</div>
+              ))}
+              {preview.diff.changed.map((c, i) => (
+                <div key={'c' + i} style={{ ...styles.amendCurrentItem, color: '#EF9F27' }}>~ {c.item.name}: {c.deltas.join(', ')}</div>
+              ))}
+              {preview.diff.extras.map((x, i) => (
+                <div key={'x' + i} style={{ ...styles.amendCurrentItem, color: '#EF9F27' }}>~ {x}</div>
+              ))}
+              {(preview.draft.pendingActions || []).length > 0 && (
+                <div style={styles.amendCurrentItem}>+ {preview.draft.pendingActions.length} request{preview.draft.pendingActions.length !== 1 ? 's' : ''} to sort out in review</div>
+              )}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                <button style={styles.doneItemBtn} onClick={() => onAmended(preview.draft)}>
+                  Looks right — open to review
+                </button>
+                <button style={styles.confirmNo} onClick={() => setPreview(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          {!preview && (
+            <button
+              style={{ ...styles.saveBtn, ...((!canParse || parsing) ? styles.saveBtnDisabled : {}) }}
+              onClick={parse}
+              disabled={!canParse || parsing}
+            >
+              {parsing ? 'Reading the change...' : 'Preview the change'}
+            </button>
+          )}
         </>
       )}
     </div>
@@ -298,9 +336,21 @@ export function CsvImportCard({ menu, onImport, onCancel }) {
       }
       try {
         const parsed = await parseOrderText(orderText, null, menu);
+        // CSV orders save directly (no per-order review modal), so prompted
+        // actions fold into reviewReasons — they surface on the row flag and
+        // again if the order is opened for editing. Auto-applied results
+        // (options/notes) are already executed on the items.
+        const foldedReasons = [
+          ...(parsed.reviewReasons || []),
+          ...(parsed.pendingActions || []).map(a =>
+            a.type === 'custom-charge' ? `Custom request: "${a.label}" — price it or skip it`
+            : a.type === 'set-option' ? `They asked "${a.source}" — set the spice level on ${(parsed.items[a.itemIdx] || {}).name || 'the item'}`
+            : `They asked "${a.text}" on ${(parsed.items[a.itemIdx] || {}).name || 'an item'} — add as a prep note?`),
+        ];
+        const { pendingActions: _pa, autoApplied: _aa, ...rest } = parsed;
         out.push({
           customer: customer || `Row ${r + 1}`,
-          order: { ...parsed, customer: customer || `Row ${r + 1}` },
+          order: { ...rest, reviewReasons: foldedReasons, customer: customer || `Row ${r + 1}` },
           error: null,
         });
       } catch (e) {
@@ -398,15 +448,20 @@ export function CsvImportCard({ menu, onImport, onCancel }) {
 }
 
 // ─── Review Modal: walk each flagged thing and resolve it inline ─────────────
-export function ReviewModal({ reasons, items, onApplyNote, onApplyUpcharge, onApplyWeight, onAddCustomCharge, onResolve, onClose }) {
-  // Step through reasons one at a time
+export function ReviewModal({ reasons, actions = [], items, onApplyNote, onApplyOption, onApplyUpcharge, onApplyWeight, onAddCustomCharge, onResolve, onResolveAction, onClose }) {
+  // Unified steps (Batch 4): typed ACTIONS from the intent router first
+  // (they execute on approval), then legacy free-text reasons.
+  const steps = [
+    ...actions.map((a, ai) => ({ kind: 'action', a, ai })),
+    ...reasons.map((r, ri) => ({ kind: 'reason', r, ri })),
+  ];
   const [idx, setIdx] = useState(0);
-  const [resolved, setResolved] = useState({}); // reason index -> true
+  const [resolved, setResolved] = useState({}); // step index -> true
 
-  const total = reasons.length;
+  const total = steps.length;
   const allDone = Object.keys(resolved).length >= total;
 
-  // Try to associate a reason with a specific item by name match
+  // Try to associate a legacy reason with a specific item by name match
   const matchItem = (reason) => {
     const lower = reason.toLowerCase();
     let best = -1;
@@ -416,8 +471,10 @@ export function ReviewModal({ reasons, items, onApplyNote, onApplyUpcharge, onAp
     return best;
   };
 
-  const reason = reasons[idx];
-  const itemIdx = reason ? matchItem(reason) : -1;
+  const step = steps[idx];
+  const action = step && step.kind === 'action' ? step.a : null;
+  const reason = step && step.kind === 'reason' ? step.r : null;
+  const itemIdx = action ? (action.itemIdx ?? -1) : (reason ? matchItem(reason) : -1);
   const item = itemIdx >= 0 ? items[itemIdx] : null;
 
   // Local inputs for the current step
@@ -440,9 +497,10 @@ export function ReviewModal({ reasons, items, onApplyNote, onApplyUpcharge, onAp
 
   const markResolved = () => {
     setResolved(prev => ({ ...prev, [idx]: true }));
-    onResolve(idx);
+    if (step.kind === 'action') { if (onResolveAction) onResolveAction(step.ai); }
+    else onResolve(step.ri);
     // advance to next unresolved
-    const next = reasons.findIndex((_, i) => i !== idx && !resolved[i]);
+    const next = steps.findIndex((_, i) => i !== idx && !resolved[i]);
     if (next >= 0) setIdx(next);
   };
 
@@ -458,6 +516,82 @@ export function ReviewModal({ reasons, items, onApplyNote, onApplyUpcharge, onAp
           <button style={styles.iconBtn} onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <div style={styles.reviewProgress}>{Object.keys(resolved).length} of {total} handled</div>
+
+        {!allDone && action && (
+          <div style={styles.reviewStep}>
+            {/* Vague spice ask — one-tap level buttons, straight to the item */}
+            {action.type === 'set-option' && action.key === 'spice' && (
+              <>
+                <div style={styles.reviewReasonBox}>They asked: “{action.source}” — set the spice level on {item ? item.name : 'this item'}?</div>
+                <div style={{ display: 'flex', gap: '6px', margin: '10px 0' }}>
+                  {Array.from({ length: (action.max || 5) - (action.min || 1) + 1 }, (_, i) => (action.min || 1) + i).map(level => (
+                    <button
+                      key={level}
+                      style={{
+                        flex: 1, padding: '9px 0', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                        background: level === action.suggest ? '#1D9E75' : '#2a2f2d',
+                        color: level === action.suggest ? '#1a1a1a' : '#c8cfc9',
+                        fontWeight: 700, fontSize: '15px',
+                      }}
+                      onClick={() => { onApplyOption(action.itemIdx, 'spice', level); markResolved(); }}
+                    >{level}</button>
+                  ))}
+                </div>
+                <button style={styles.reviewSkipBtn || styles.confirmNo} onClick={markResolved}>Skip</button>
+              </>
+            )}
+
+            {/* Tier 2: option-ish ask on a dish without that option — propose a prep note */}
+            {action.type === 'add-item-note' && (
+              <>
+                <div style={styles.reviewReasonBox}>
+                  {item ? item.name : 'This dish'} has no {action.tier2 === 'pasta' ? 'pasta' : 'spice'} setting, but I can add a prep note “{action.text}” to it. Do that?
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                  <button
+                    style={styles.doneItemBtn}
+                    onClick={() => {
+                      onApplyNote(action.itemIdx, [item && item.note, action.text].filter(Boolean).join('. '));
+                      markResolved();
+                    }}
+                  >Add the note</button>
+                  <button style={styles.confirmNo} onClick={markResolved}>Skip</button>
+                </div>
+              </>
+            )}
+
+            {/* Billable service ask — custom charge with Kevin-set price */}
+            {action.type === 'custom-charge' && (
+              <>
+                <div style={styles.reviewReasonBox}>Custom request: “{action.label}” — add it as a line item?</div>
+                <div style={styles.upchargeRow}>
+                  <input
+                    style={{ ...styles.input, flex: 2, marginTop: 0 }}
+                    value={chargeLabel || action.label}
+                    onChange={e => setChargeLabel(e.target.value)}
+                  />
+                  <input
+                    style={{ ...styles.input, flex: 1, marginTop: 0 }}
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="$"
+                    value={chargeAmount}
+                    onChange={e => setChargeAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    style={{ ...styles.doneItemBtn, ...(parseFloat(chargeAmount) > 0 ? {} : styles.saveBtnDisabled) }}
+                    disabled={!(parseFloat(chargeAmount) > 0)}
+                    onClick={() => { onAddCustomCharge(chargeLabel || action.label, parseFloat(chargeAmount)); markResolved(); }}
+                  >Add charge</button>
+                  <button style={styles.confirmNo} onClick={markResolved}>Skip</button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {!allDone && reason && (
           <div style={styles.reviewStep}>

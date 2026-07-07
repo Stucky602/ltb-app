@@ -30,23 +30,22 @@ import {
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  itemOptions, noteWithoutOptions,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { QtyControl, ReviewModal } from './OrderInputs.jsx';
 
-// ─── Spice level picker (1–5) ───────────────────────────────────────────────
-function SpicePicker({ note, onSetNote }) {
-  const match = note.match(/Spice:\s*(\d)/);
-  const current = match ? parseInt(match[1]) : null;
-  const setSpice = (level) => {
-    const base = note.replace(/Spice:\s*\d\.?\s*/g, '').trim();
-    onSetNote('Spice: ' + level + (base ? '. ' + base : ''));
-  };
+// ─── Spice level picker (registry-declared; writes item.options.spice) ──────
+// Batch 3: options are FIRST-CLASS item fields now, not "Spice: 3" note-regex.
+function SpicePicker({ value, min = 1, max = 5, onChange }) {
+  const current = Number(value) || null;
+  const levels = [];
+  for (let l = min; l <= max; l++) levels.push(l);
   return (
     <div>
-      <label style={{ fontSize: '11px', color: '#9aa5a0', display: 'block', marginBottom: '4px' }}>Spice level (1–5)</label>
+      <label style={{ fontSize: '11px', color: '#9aa5a0', display: 'block', marginBottom: '4px' }}>Spice level ({min}–{max})</label>
       <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-        {[1,2,3,4,5].map(level => (
+        {levels.map(level => (
           <button
             key={level}
             style={{
@@ -55,7 +54,7 @@ function SpicePicker({ note, onSetNote }) {
               color: current === level ? '#1a1a1a' : '#c8cfc9',
               fontWeight: 700, fontSize: '14px',
             }}
-            onClick={() => setSpice(level)}
+            onClick={() => onChange(current === level ? null : level)}
           >{level}</button>
         ))}
       </div>
@@ -63,31 +62,55 @@ function SpicePicker({ note, onSetNote }) {
   );
 }
 
-// ─── Pasta shape picker ──────────────────────────────────────────────────────
-function PastaPicker({ note, onSetNote }) {
-  const match = note.match(/Pasta:\s*([^.]+)/);
-  const current = match ? match[1].trim() : '';
-  const setPasta = (val) => {
-    const base = note.replace(/Pasta:\s*[^.]+\.?\s*/g, '').trim();
-    onSetNote(val.trim() ? 'Pasta: ' + val.trim() + (base ? '. ' + base : '') : base);
-  };
+// ─── Pasta shape picker (registry-declared; writes item.options.pasta) ──────
+function PastaPicker({ value, placeholder, onChange }) {
   return (
     <div>
       <label style={{ fontSize: '11px', color: '#9aa5a0', display: 'block', marginBottom: '4px' }}>Pasta shape</label>
       <input
         style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #3a4040', background: '#1e2422', color: '#e8ede9', fontSize: '14px', marginBottom: '8px', boxSizing: 'border-box' }}
-        placeholder="e.g. rigatoni, pappardelle"
-        value={current}
-        onChange={e => setPasta(e.target.value)}
+        placeholder={placeholder || 'e.g. rigatoni, pappardelle'}
+        value={value || ''}
+        onChange={e => onChange(e.target.value)}
       />
     </div>
   );
 }
 
+// Which option controls does this item get? Reads the dish's registry-declared
+// `options` (via the menu prop) — NEVER a hardcoded dish-name list. An option
+// hides when the variant label contains any excludeVariants substring
+// (Polenta replaces pasta; Egg Pappardelle IS the pasta).
+function itemOptionDefs(menu, it) {
+  const dish = ((menu && menu.dinner) || []).find(d => d.name === it.name);
+  const defs = (dish && dish.options) || null;
+  if (!defs) return null;
+  const out = {};
+  for (const [key, def] of Object.entries(defs)) {
+    const excl = (def && def.excludeVariants) || [];
+    if (excl.some(sub => String(it.variant || '').includes(sub))) continue;
+    out[key] = def;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, onCancel }) {
   const isEdit = !!initial?.id;
   const [customer, setCustomer] = useState(initial?.customer || '');
-  const [items, setItems] = useState(initial?.items || []);
+  // Lift legacy note-embedded options ("Spice: 3. ...") into the structured
+  // field when editing an old order, so the pickers show the real state and
+  // the note stops carrying option text (Batch 3 migration-on-edit).
+  const liftLegacyOptions = (arr) => (arr || []).map(it => {
+    if (it.options && (it.options.spice || it.options.pasta)) return it;
+    const legacy = itemOptions(it);
+    if (legacy.spice == null && !legacy.pasta) return it;
+    const options = { ...(it.options || {}) };
+    if (legacy.spice != null) options.spice = legacy.spice;
+    if (legacy.pasta) options.pasta = legacy.pasta;
+    const cleaned = noteWithoutOptions(it.note);
+    return { ...it, options, note: cleaned || undefined };
+  });
+  const [items, setItems] = useState(liftLegacyOptions(initial?.items) || []);
   const [jarSwaps, setJarSwaps] = useState(initial?.jarSwaps || 0);
   const [containerReturns, setContainerReturns] = useState(initial?.containerReturns || 0);
   const [notes, setNotes] = useState(initial?.notes || '');
@@ -98,6 +121,13 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
   const [pickerCategory, setPickerCategory] = useState(null);
   // Review prompts surfaced by the AI parser; dismissible
   const [reviewReasons, setReviewReasons] = useState(initial?.reviewReasons || []);
+  // Batch 4: typed actions the router couldn't auto-apply (vague spice,
+  // tier-2 prep notes, billable service asks). Resolved one-tap in the
+  // ReviewModal; never persisted onto the saved order.
+  const [pendingActions, setPendingActions] = useState(initial?.pendingActions || []);
+  const dismissAction = (i) => setPendingActions(prev => prev.filter((_, x) => x !== i));
+  // What the router already DID from the customer's own words — shown once.
+  const [autoApplied, setAutoApplied] = useState(initial?.autoApplied || []);
   const [expandedItem, setExpandedItem] = useState(null); // idx of item whose note/upcharge editor is open
   const [showReview, setShowReview] = useState(false); // conversational review modal
 
@@ -127,6 +157,22 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
 
   const setItemNote = (idx, note) => {
     setItems(prev => prev.map((it, i) => (i === idx ? { ...it, note } : it)));
+  };
+
+  // Set/clear one structured option on an item (null clears it; an empty
+  // options object is dropped entirely so untouched items stay lean).
+  const setItemOption = (idx, key, value) => {
+    setItems(prev => prev.map((it, i) => {
+      if (i !== idx) return it;
+      const options = { ...(it.options || {}) };
+      if (value == null || value === '') delete options[key];
+      else options[key] = value;
+      if (Object.keys(options).length === 0) {
+        const { options: _drop, ...rest } = it;
+        return rest;
+      }
+      return { ...it, options };
+    }));
   };
 
   const setItemUpcharge = (idx, label, amount) => {
@@ -231,11 +277,22 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
         </button>
       </div>
 
-      {reviewReasons.length > 0 && (
+      {autoApplied.length > 0 && (
+        <div style={{ ...styles.reviewOpenBtn, background: '#1c2e28', cursor: 'default', alignItems: 'flex-start' }}>
+          <Check size={16} color={'#1D9E75'} style={{ marginTop: 2 }} />
+          <div style={styles.reviewOpenText}>
+            <div style={styles.reviewOpenTitle}>Applied from their message</div>
+            <div style={styles.reviewOpenSub}>{autoApplied.join(' · ')}</div>
+          </div>
+          <button style={styles.iconBtn} onClick={() => setAutoApplied([])} aria-label="Dismiss"><X size={14} /></button>
+        </div>
+      )}
+
+      {(reviewReasons.length + pendingActions.length) > 0 && (
         <button style={styles.reviewOpenBtn} onClick={() => setShowReview(true)}>
           <AlertTriangle size={16} />
           <div style={styles.reviewOpenText}>
-            <div style={styles.reviewOpenTitle}>{reviewReasons.length} thing{reviewReasons.length !== 1 ? 's' : ''} to sort out</div>
+            <div style={styles.reviewOpenTitle}>{reviewReasons.length + pendingActions.length} thing{(reviewReasons.length + pendingActions.length) !== 1 ? 's' : ''} to sort out</div>
             <div style={styles.reviewOpenSub}>Tap to work through them</div>
           </div>
           <ChevronDown size={16} style={{ transform: 'rotate(-90deg)' }} />
@@ -245,13 +302,16 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
       {showReview && (
         <ReviewModal
           reasons={reviewReasons}
+          actions={pendingActions}
           items={items}
           onApplyNote={setItemNote}
+          onApplyOption={setItemOption}
           onApplyUpcharge={setItemUpcharge}
           onApplyWeight={setItemWeight}
           onAddCustomCharge={(label, amount) =>
             setCustomCharges(prev => [...prev, { id: uid(), label, amount: String(amount) }])}
           onResolve={(i) => dismissReview(i)}
+          onResolveAction={dismissAction}
           onClose={() => setShowReview(false)}
         />
       )}
@@ -412,6 +472,11 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
                     : <div style={styles.itemUpchargeNeedsPrice}>set weight ⌄</div>
                 )}
                 {!open && it.note && <div style={styles.itemNotePreview}>“{it.note}”</div>}
+                {!open && it.options && (it.options.spice || it.options.pasta) && (
+                  <div style={styles.itemUpchargePreview}>
+                    {[it.options.spice ? `Spice ${it.options.spice}` : null, it.options.pasta || null].filter(Boolean).join(' · ')}
+                  </div>
+                )}
                 {!open && it.upcharge && typeof it.upcharge === 'object' && it.upcharge.amount > 0 ? (
                   <div style={styles.itemUpchargePreview}>+ {it.upcharge.label} ({currency(it.upcharge.amount)})</div>
                 ) : null}
@@ -419,14 +484,29 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
                   <div style={styles.itemUpchargeNeedsPrice}>+ {it.upcharge.label} — set a price ⌄</div>
                 ) : null}
 
-                {/* Spice level selector — always visible for applicable dishes */}
-                {(it.name === 'Indian Style Curry' || it.name === 'Thai Basil Chicken (Pad Krapow Gai)') && (
-                  <SpicePicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
-                )}
-                {/* Pasta shape input — always visible for applicable dishes */}
-                {(['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'].includes(it.name) && !it.variant.includes('Polenta') && !it.variant.includes('Pappardelle')) && (
-                  <PastaPicker note={it.note || ''} onSetNote={(n) => setItemNote(idx, n)} />
-                )}
+                {/* Option controls — declared per-dish in the registry (dishes.js `options`) */}
+                {(() => {
+                  const defs = itemOptionDefs(menu, it);
+                  if (!defs) return null;
+                  return (
+                    <>
+                      {defs.spice && (
+                        <SpicePicker
+                          value={it.options && it.options.spice}
+                          min={defs.spice.min} max={defs.spice.max}
+                          onChange={(v) => setItemOption(idx, 'spice', v)}
+                        />
+                      )}
+                      {defs.pasta && (
+                        <PastaPicker
+                          value={it.options && it.options.pasta}
+                          placeholder={defs.pasta.placeholder}
+                          onChange={(v) => setItemOption(idx, 'pasta', v)}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
 
                 {open && (
                   <div style={styles.itemEditor}>

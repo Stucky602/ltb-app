@@ -19,9 +19,9 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
-import { buildReviewPlan } from '../src/receiptMatch.js';
+import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -307,7 +307,7 @@ const receiptCases = [
   { name: 'Weighed with weight: total / lbs', line: { item_name: 'ASPARAGUS STANDARD', weighed: true, quantity: 1.5, unit: 'lb', line_total: 6.0 }, expect: { id: 'asparagus', perUnit: 4.0 } },
   { name: 'Weighed FW no weight but has total: flat, no prompt', line: { item_name: 'HONEYCRISP APPLES', weighed: true, line_total: 4.11 }, expect: { id: 'apple', status: 'matched' } },
   { name: 'Weighed, no weight, no total: prompt', line: { item_name: 'ASPARAGUS STANDARD', weighed: true }, expect: { id: 'asparagus', status: 'needsPrice' } },
-  { name: 'Baby gold 2lb bag halves to per-lb', line: { item_name: 'BAGGED BABY GOLD POTATOES', quantity: 1, unit: 'Ea', line_total: 4.5 }, expect: { id: 'baby_gold_potatoes', perUnit: 2.25 } },
+  { name: 'Baby gold 1.5lb bag → per-lb (Kevin-corrected Jul 6, was seeded 2lb)', line: { item_name: 'BAGGED BABY GOLD POTATOES', quantity: 1, unit: 'Ea', line_total: 4.5 }, expect: { id: 'baby_gold_potatoes', perUnit: 3 } },
   { name: 'Butter lb → per stick', line: { item_name: 'BUTTER UNSALTED', quantity: 1, unit: 'lb', unit_price_printed: 4.4, line_total: 4.4 }, expect: { id: 'butter', perUnit: 1.1 } },
 ];
 for (const c of receiptCases) {
@@ -481,6 +481,245 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   if (!norm[0].weightPending || norm[0].price !== 0 || norm[0].cost !== 0) F('cost-basis', `pending normalization failed: ${JSON.stringify(norm[0])}`);
   if (norm[1].price !== chiliLg.price || norm[1].weightPending) F('cost-basis', `normalization touched a regular item: ${JSON.stringify(norm[1])}`);
   if (norm[2].weightPending || norm[2].price !== expPrice) F('cost-basis', `normalization clobbered a weighed item: ${JSON.stringify(norm[2])}`);
+}
+
+// ─── Dish options: registry schema + structured/legacy accessor (Batch 3) ────
+// Options are first-class: dishes declare them (dishes.js `options`), the
+// publish payload and both order forms read them from there, and items store
+// choices in item.options. itemOptions() must prefer the structured field
+// and fall back to legacy "Spice: N" / "Pasta: x" note prefixes forever.
+{
+  const KNOWN_OPTION_KEYS = new Set(['spice', 'pasta']);
+  for (const d of DISHES) {
+    if (!d.options) continue;
+    for (const [k, def] of Object.entries(d.options)) {
+      if (!KNOWN_OPTION_KEYS.has(k)) F('options-schema', `"${d.name}" declares unknown option "${k}" — add it to KNOWN_OPTION_KEYS deliberately or fix the typo`);
+      if (k === 'spice') {
+        if (!Number.isInteger(def.min) || !Number.isInteger(def.max) || def.min < 1 || def.max > 9 || def.min >= def.max) {
+          F('options-schema', `"${d.name}" spice option needs integer 1 ≤ min < max ≤ 9, got ${JSON.stringify(def)}`);
+        }
+      }
+      if (k === 'pasta') {
+        if (def.excludeVariants) {
+          if (!Array.isArray(def.excludeVariants)) F('options-schema', `"${d.name}" pasta excludeVariants must be an array`);
+          else for (const sub of def.excludeVariants) {
+            if (!d.variants.some(v => v.label.includes(sub))) F('options-schema', `"${d.name}" pasta excludeVariants "${sub}" matches no variant label (stale exclusion)`);
+          }
+        }
+      }
+    }
+    // ALL_DINNERS (→ publish → form.html) must carry the declaration through
+    const menuDish = ALL_DINNERS.find(m => m.name === d.name);
+    if (!menuDish || JSON.stringify(menuDish.options) !== JSON.stringify(d.options)) {
+      F('options-schema', `"${d.name}" options not carried through ALL_DINNERS — form.html would render no picker`);
+    }
+  }
+  // Accessor semantics fixtures
+  const structured = itemOptions({ options: { spice: 3, pasta: 'rigatoni' }, note: 'Spice: 5. Pasta: shells. extra sauce' });
+  if (structured.spice !== 3 || structured.pasta !== 'rigatoni') F('options-accessor', `structured field must win over legacy note: got ${JSON.stringify(structured)}`);
+  const legacy = itemOptions({ note: 'Spice: 4. Pasta: penne. no cilantro' });
+  if (legacy.spice !== 4 || legacy.pasta !== 'penne') F('options-accessor', `legacy note fallback broken: got ${JSON.stringify(legacy)}`);
+  if (itemOptions({}).spice !== undefined) F('options-accessor', 'empty item must yield no options');
+  const stripped = noteWithoutOptions('Spice: 4. Pasta: penne. no cilantro');
+  if (stripped !== 'no cilantro') F('options-accessor', `noteWithoutOptions must strip prefixes and keep the rest, got "${stripped}"`);
+  if (noteWithoutOptions('just a note') !== 'just a note') F('options-accessor', 'noteWithoutOptions must not touch plain notes');
+}
+
+// ─── Intent router + amendment diff (Batch 4) ────────────────────────────────
+// The router is DETERMINISTIC app code: the model extracts verbatim requests,
+// these fixtures pin how they route. Any change to routing behavior must
+// update these deliberately.
+{
+  const M = FULL_MENU;
+  const mk = (name, variant) => [{ name, variant, qty: 1 }];
+
+  // Tier 1 — option exists, explicit → auto
+  let items = mk('Indian Style Curry', 'Chicken, Small (~4-5)');
+  let a = routeItemRequest(M, items, 0, 'spice level 4 please');
+  if (!(a.type === 'set-option' && a.key === 'spice' && a.value === 4 && a.auto)) F('router', `explicit spice digit: ${JSON.stringify(a)}`);
+  a = routeItemRequest(M, items, 0, 'extra spicy!!');
+  if (!(a.type === 'set-option' && a.value === 5 && a.auto)) F('router', `"extra spicy" should auto-map to 5: ${JSON.stringify(a)}`);
+  a = routeItemRequest(M, items, 0, 'mild please');
+  if (!(a.type === 'set-option' && a.value === 2 && a.auto)) F('router', `"mild" should auto-map to 2: ${JSON.stringify(a)}`);
+  a = routeItemRequest(M, items, 0, 'spice 9');
+  if (!(a.type === 'set-option' && a.value === 5 && a.auto)) F('router', `out-of-range digit must clamp to max: ${JSON.stringify(a)}`);
+
+  // Tier 1 — option exists, vague → prompt with suggestion
+  a = routeItemRequest(M, items, 0, 'can you adjust the heat on this');
+  if (!(a.type === 'set-option' && a.value === null && a.suggest >= 1 && a.auto === false)) F('router', `vague spice must prompt: ${JSON.stringify(a)}`);
+
+  // Tier 2 — option-ish ask on a dish WITHOUT the option → prompt, never silent
+  items = mk('Gumbo', 'Small (split order, ~3-6)');
+  a = routeItemRequest(M, items, 0, 'make it spicy');
+  if (!(a.type === 'add-item-note' && a.tier2 === 'spice' && a.auto === false)) F('router', `tier-2 spice must prompt a note: ${JSON.stringify(a)}`);
+
+  // Pasta — shape named, option applies → auto
+  items = mk('Saffron Pork Ragu', 'Small (~4 servings)');
+  a = routeItemRequest(M, items, 0, 'rigatoni please!');
+  if (!(a.type === 'set-option' && a.key === 'pasta' && a.value === 'rigatoni' && a.auto)) F('router', `named shape must auto-set: ${JSON.stringify(a)}`);
+
+  // Pasta — shape named but variant EXCLUDED (Polenta) → tier-2 prompt
+  items = mk('Saffron Pork Ragu', 'With Polenta, Small (~4 servings)');
+  a = routeItemRequest(M, items, 0, 'rigatoni please!');
+  if (!(a.type === 'add-item-note' && a.tier2 === 'pasta' && a.auto === false)) F('router', `excluded variant must not take a pasta option: ${JSON.stringify(a)}`);
+
+  // Generic ask → silent note (today's behavior preserved)
+  items = mk('Mapo Eggplant', 'Small (~5-6 servings)');
+  a = routeItemRequest(M, items, 0, 'no cilantro');
+  if (!(a.type === 'add-item-note' && a.auto === true)) F('router', `plain ask must attach silently: ${JSON.stringify(a)}`);
+
+  // End-to-end through validateParsedOrder: routing executes autos, queues prompts
+  const curry = ALL_DINNERS.find(d => d.name === 'Indian Style Curry');
+  const curryVar = curry.variants[1]; // Chicken, Small
+  const parsed = {
+    items: [
+      { category: 'dinner', name: 'Indian Style Curry', variant: curryVar.label, qty: 1, requests: ['spice 3', 'no cilantro'] },
+      { category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 1, requests: ['make it spicy'] },
+    ],
+    serviceRequests: ['can you cut up some strawberries'],
+    jarSwaps: 0, containerReturns: 0, notes: '', reviewReasons: [],
+  };
+  const v = validateParsedOrder(parsed, M);
+  const vCurry = v.items.find(i => i.name === 'Indian Style Curry');
+  if (!vCurry || !vCurry.options || vCurry.options.spice !== 3) F('router-e2e', `explicit spice not executed: ${JSON.stringify(vCurry)}`);
+  if (!/no cilantro/.test(vCurry.note)) F('router-e2e', `generic request not attached as note: ${JSON.stringify(vCurry)}`);
+  if (vCurry._requests) F('router-e2e', '_requests must be stripped before save');
+  if (!(v.autoApplied && v.autoApplied.length === 2)) F('router-e2e', `expected 2 auto-applied, got ${JSON.stringify(v.autoApplied)}`);
+  const pend = v.pendingActions || [];
+  if (!pend.some(p => p.type === 'add-item-note' && p.tier2 === 'spice')) F('router-e2e', `tier-2 gumbo spice missing from pendingActions: ${JSON.stringify(pend)}`);
+  if (!pend.some(p => p.type === 'custom-charge' && /strawberries/.test(p.label))) F('router-e2e', `service request must become a custom-charge action: ${JSON.stringify(pend)}`);
+  if (v._serviceRequests) F('router-e2e', '_serviceRequests must be stripped');
+
+  // Merge guard: same item twice, one carrying requests → NOT merged
+  const parsed2 = {
+    items: [
+      { category: 'dinner', name: 'Mapo Eggplant', variant: 'Small (~5-6 servings)', qty: 1 },
+      { category: 'dinner', name: 'Mapo Eggplant', variant: 'Small (~5-6 servings)', qty: 1, requests: ['extra sauce'] },
+    ], jarSwaps: 0, containerReturns: 0, notes: '',
+  };
+  const v2 = validateParsedOrder(parsed2, M);
+  if (v2.items.length !== 2) F('router-merge', `request-carrying duplicate must not merge: got ${v2.items.length} items`);
+
+  // Qty range check flags, never mutates
+  const v3 = validateParsedOrder({ items: [{ category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 30 }], jarSwaps: 0, containerReturns: 0 }, M);
+  if (v3.items[0].qty !== 30) F('qty-check', 'qty must not be mutated');
+  if (!v3.reviewReasons.some(r => /Quantity looks off/.test(r))) F('qty-check', `huge qty must be flagged: ${JSON.stringify(v3.reviewReasons)}`);
+
+  // ── diffOrders fixtures ──
+  const before = { items: [
+    { name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 1 },
+    { name: 'Chili', variant: 'Large (~6-8)', qty: 2, note: 'no beans' },
+  ], jarSwaps: 0, containerReturns: 0, notes: '' };
+  const after = { items: [
+    { name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 2 },
+    { name: 'Bo Ssam', variant: 'Small (~4 servings)', qty: 1 },
+  ], jarSwaps: 1, containerReturns: 0, notes: '' };
+  const d = diffOrders(before, after);
+  if (!(d.added.length === 1 && d.added[0].name === 'Bo Ssam')) F('diff', `added: ${JSON.stringify(d.added)}`);
+  if (!(d.removed.length === 1 && d.removed[0].name === 'Chili')) F('diff', `removed: ${JSON.stringify(d.removed)}`);
+  if (!(d.changed.length === 1 && /qty 1 → 2/.test(d.changed[0].deltas[0]))) F('diff', `changed: ${JSON.stringify(d.changed)}`);
+  if (!(d.extras.length === 1 && /jar swaps 0 → 1/.test(d.extras[0]))) F('diff', `extras: ${JSON.stringify(d.extras)}`);
+  const dSame = diffOrders(before, JSON.parse(JSON.stringify(before)));
+  if (!dSame.isEmpty) F('diff', `identical orders must diff empty: ${JSON.stringify(dSame)}`);
+  // options change surfaces
+  const dOpt = diffOrders(
+    { items: [{ name: 'Indian Style Curry', variant: 'Chicken, Small (~4-5)', qty: 1, options: { spice: 2 } }] },
+    { items: [{ name: 'Indian Style Curry', variant: 'Chicken, Small (~4-5)', qty: 1, options: { spice: 5 } }] });
+  if (!(dOpt.changed.length === 1 && /Spice 2 → Spice 5/.test(dOpt.changed[0].deltas[0]))) F('diff', `options delta: ${JSON.stringify(dOpt.changed)}`);
+}
+
+// ─── Receipt intelligence v3: name-size, sold-by-each, wine (Jul 6) ─────────
+// Every fixture below is a REAL line from Kevin's photographed receipts.
+{
+  const SEED = INGREDIENT_SEED.map(i => ({ ...i, current: i.baseline }));
+  const plan1 = buildReviewPlan({ store: 'H-E-B', lines: [
+    // The milk that started it all: FW flag, no weight, line total only.
+    { raw_text: '', item_name: 'HEB WHOLE MILK', quantity: null, unit: null, line_total: 3.70, unit_price_printed: null, tax_flag: 'FW', weighed: true },
+    // Butter: QTR in the name = 1 lb box = 4 sticks.
+    { raw_text: '', item_name: 'HEB SI UNSALTD BUTTER QTR', quantity: null, unit: null, line_total: 3.98, unit_price_printed: null, tax_flag: 'F', weighed: false },
+    // Tortillas: the count is IN THE NAME.
+    { raw_text: '', item_name: '10 CT FLOUR TORTILLA SCAN', quantity: null, unit: null, line_total: 1.98, unit_price_printed: null, tax_flag: 'F', weighed: false },
+    { raw_text: '', item_name: '20 CT FLOUR TORTILLA SCAN', quantity: null, unit: null, line_total: 3.96, unit_price_printed: null, tax_flag: 'F', weighed: false },
+    // Sold-by-each despite the FW flag: cilantro, cantaloupe, fennel, bulb onions.
+    { raw_text: '', item_name: 'CILANTRO', quantity: null, unit: null, line_total: 0.45, unit_price_printed: null, tax_flag: 'F', weighed: true },
+    { raw_text: '', item_name: 'PECOS CANTALOUPES', quantity: null, unit: null, line_total: 3.48, unit_price_printed: null, tax_flag: 'FW', weighed: true },
+    { raw_text: '', item_name: 'ANISE FENNEL', quantity: null, unit: null, line_total: 3.98, unit_price_printed: null, tax_flag: 'F', weighed: true },
+    { raw_text: '', item_name: 'SWEET BULB ONIONS', quantity: null, unit: null, line_total: 1.97, unit_price_printed: null, tax_flag: 'FW', weighed: true },
+    // Ground lamb: Kevin's 1-lb-package rule.
+    { raw_text: '', item_name: 'HEB NATURAL LAMB GROUND B', quantity: null, unit: null, line_total: 12.99, unit_price_printed: null, tax_flag: 'F', weighed: false },
+    // Pork butt maps straight to pork_butt via seed.
+    { raw_text: '', item_name: 'BOSTON BUTT PORK ROAST', quantity: null, unit: null, line_total: 11.45, unit_price_printed: null, tax_flag: 'F', weighed: false },
+    // Wine by producer name (ROUGE), 2 bottles at printed each-price.
+    { raw_text: '', item_name: 'LA VIEILLE FERME ROUGE SS', quantity: 2, unit: 'ea', line_total: 16.14, unit_price_printed: 8.07, tax_flag: 'T', weighed: false },
+    // H-Mart misspelled kabocha, weighed WITH rate — the good path, plus alias.
+    { raw_text: '', item_name: 'KABUCHA', quantity: 2.81, unit: 'lb', line_total: 4.19, unit_price_printed: 1.49, tax_flag: 'F', weighed: true },
+    // Garlic 5-piece pack: count in name (also covered by the old override).
+    { raw_text: '', item_name: 'GARLIC PK 5PC', quantity: null, unit: null, line_total: 2.99, unit_price_printed: null, tax_flag: 'F', weighed: false },
+    // Baby gold potatoes: Kevin's corrected 1.5 lb bag.
+    { raw_text: '', item_name: 'BAGGED BABY GOLD POTATOES', quantity: null, unit: null, line_total: 2.99, unit_price_printed: null, tax_flag: 'FW', weighed: true },
+  ] }, SEED, {});
+  const all1 = [...plan1.buckets.matched, ...plan1.buckets.review, ...plan1.buckets.needsConversion, ...plan1.buckets.needsPrice, ...plan1.buckets.unmatched];
+  const find = (name) => all1.find(g => g.line.item_name === name);
+  const matchedAs = (name, id) => { const g = find(name); return g && g.status === 'matched' && g.ingredientId === id ? g : null; };
+
+  // THE MILK: matched to milk, gallon rule applied, $3.70/16 = $0.231/cup, zero prompts.
+  const milk = matchedAs('HEB WHOLE MILK', 'milk');
+  if (!milk) F('rcpt-v3', `milk not auto-matched: ${JSON.stringify(find('HEB WHOLE MILK'))}`);
+  else if (Math.abs(milk.perUnit - 0.231) > 0.002 || milk.basis !== 'converted') F('rcpt-v3', `milk gallon conversion wrong: ${JSON.stringify({ perUnit: milk.perUnit, basis: milk.basis })}`);
+
+  // BUTTER: QTR → 1 lb → 4 sticks → $0.995/stick, auto.
+  const butter = matchedAs('HEB SI UNSALTD BUTTER QTR', 'butter');
+  if (!butter) F('rcpt-v3', `butter not auto-matched: ${JSON.stringify(find('HEB SI UNSALTD BUTTER QTR'))}`);
+  else if (Math.abs(butter.perUnit - 0.995) > 0.002) F('rcpt-v3', `butter QTR conversion wrong: got ${butter.perUnit}/stick`);
+
+  // TORTILLAS: 10 CT = $1.98/10ct exactly; 20 CT = $1.98/10ct too (half of 3.96).
+  const t10 = matchedAs('10 CT FLOUR TORTILLA SCAN', 'tortillas');
+  if (!t10 || Math.abs(t10.perUnit - 1.98) > 0.001 || t10.conversion?.basis !== 'name_size') F('rcpt-v3', `10ct tortillas: ${JSON.stringify(t10 && { perUnit: t10.perUnit, conv: t10.conversion })}`);
+  const t20 = matchedAs('20 CT FLOUR TORTILLA SCAN', 'tortillas');
+  if (!t20 || Math.abs(t20.perUnit - 1.98) > 0.001) F('rcpt-v3', `20ct tortillas must halve: ${JSON.stringify(t20 && t20.perUnit)}`);
+
+  // SOLD-BY-EACH: cilantro $0.45/bunch auto (no 'confirm one bunch' friction).
+  const cil = matchedAs('CILANTRO', 'cilantro');
+  if (!cil || cil.perUnit !== 0.45 || cil.basis !== 'converted' || cil.conversion?.basis !== 'sold_by_each') F('rcpt-v3', `cilantro sold-by-each: ${JSON.stringify(cil && { perUnit: cil.perUnit, basis: cil.basis, conv: cil.conversion })}`);
+  const cant = matchedAs('PECOS CANTALOUPES', 'cantaloupe');
+  if (!cant || cant.perUnit !== 3.48) F('rcpt-v3', `cantaloupe by-each: ${JSON.stringify(cant && cant.perUnit)}`);
+  const fen = matchedAs('ANISE FENNEL', 'fennel_bulb');
+  if (!fen || fen.perUnit !== 3.98) F('rcpt-v3', `fennel by-each: ${JSON.stringify(fen && fen.perUnit)}`);
+  const bulb = matchedAs('SWEET BULB ONIONS', 'bulb_onion');
+  if (!bulb || bulb.perUnit !== 1.97) F('rcpt-v3', `bulb onions by-each (per bunch): ${JSON.stringify(bulb && bulb.perUnit)}`);
+
+  // GROUND LAMB: 1 lb package rule → $12.99/lb exactly.
+  const lamb = matchedAs('HEB NATURAL LAMB GROUND B', 'ground_lamb');
+  if (!lamb || Math.abs(lamb.perUnit - 12.99) > 0.001) F('rcpt-v3', `ground lamb 1lb rule: ${JSON.stringify(lamb && lamb.perUnit)}`);
+
+  // PORK BUTT: seeded straight to pork_butt.
+  if (!matchedAs('BOSTON BUTT PORK ROAST', 'pork_butt')) F('rcpt-v3', `boston butt: ${JSON.stringify(find('BOSTON BUTT PORK ROAST'))}`);
+
+  // WINE: ROUGE → red_wine, bottle → 3.17 cups; $8.07/3.17 = $2.546/cup.
+  const rouge = matchedAs('LA VIEILLE FERME ROUGE SS', 'red_wine');
+  if (!rouge) F('rcpt-v3', `rouge → red_wine: ${JSON.stringify(find('LA VIEILLE FERME ROUGE SS'))}`);
+  else if (Math.abs(rouge.perUnit - 2.546) > 0.005) F('rcpt-v3', `rouge bottle→cup: ${rouge.perUnit}`);
+
+  // KABUCHA: alias fixes the misspelling; weighed-with-rate = $1.49/lb.
+  const kab = matchedAs('KABUCHA', 'kabocha');
+  if (!kab || kab.perUnit !== 1.49) F('rcpt-v3', `kabucha: ${JSON.stringify(kab && kab.perUnit)}`);
+
+  // GARLIC 5PC: $2.99/5 = $0.598/head.
+  const gar = matchedAs('GARLIC PK 5PC', 'garlic');
+  if (!gar || Math.abs(gar.perUnit - 0.598) > 0.002) F('rcpt-v3', `garlic 5pc: ${JSON.stringify(gar && gar.perUnit)}`);
+
+  // POTATOES: corrected 1.5 lb bag → $2.99/1.5 = $1.993/lb.
+  const pot = matchedAs('BAGGED BABY GOLD POTATOES', 'baby_gold_potatoes');
+  if (!pot || Math.abs(pot.perUnit - 1.993) > 0.002) F('rcpt-v3', `potatoes 1.5lb bag: ${JSON.stringify(pot && pot.perUnit)}`);
+
+  // Pure-function spot checks
+  const ns = extractNameSizes('POTATO BABY MEDLEY 1.5LB');
+  if (!ns.some(s => s.unit === 'lb' && s.qty === 1.5)) F('rcpt-v3', `name-size 1.5LB: ${JSON.stringify(ns)}`);
+  if (!extractNameSizes('HEB 1 GALLON WHOLE MILK').some(s => s.unit === 'gallon' && s.qty === 1)) F('rcpt-v3', 'name-size gallon');
+  if (countBaseOf('10ct') !== 10 || countBaseOf('each') !== 1 || countBaseOf('lb') !== null) F('rcpt-v3', 'countBaseOf');
+  if (wineHint('SAUVIGNON BLANC 750ML') !== 'white_wine') F('rcpt-v3', 'sauvignon blanc → white');
+  if (wineHint('CHATEAU ROUGE BLANC MIX') !== 'both') F('rcpt-v3', 'both-hit must return both (→ review)');
+  if (wineHint('KOSHER SALT') !== null) F('rcpt-v3', 'non-wine must not hint');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

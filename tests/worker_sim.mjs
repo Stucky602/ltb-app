@@ -4,12 +4,16 @@
 import worker from '../worker.js';
 
 class MockKV {
-  constructor() { this.m = new Map(); }
+  constructor() { this.m = new Map(); this.md = new Map(); }
   async get(k) { return this.m.has(k) ? this.m.get(k) : null; }
-  async put(k, v) { this.m.set(k, v); }
-  async delete(k) { this.m.delete(k); }
+  async put(k, v, opts = {}) {
+    this.m.set(k, v);
+    if (opts.metadata) this.md.set(k, opts.metadata); else this.md.delete(k);
+  }
+  async delete(k) { this.m.delete(k); this.md.delete(k); }
   async list({ prefix = '', limit = 1000 } = {}) {
-    const keys = [...this.m.keys()].filter(k => k.startsWith(prefix)).sort().slice(0, limit).map(name => ({ name }));
+    const keys = [...this.m.keys()].filter(k => k.startsWith(prefix)).sort().slice(0, limit)
+      .map(name => ({ name, metadata: this.md.get(name) }));
     return { keys, list_complete: keys.length < limit, cursor: undefined };
   }
 }
@@ -74,6 +78,85 @@ check('empty submit → 400', r.status === 400);
 for (let i = 0; i < 200; i++) await env.LTB_KV.put('pending:spam_' + String(i).padStart(3, '0'), '{"id":"spam"}');
 r = await call('POST', '/submit', { customer: 'Late Fred', items: [{ name: 'Gumbo', qty: 1 }] });
 check('queue at cap → 429', r.status === 429, 'got ' + r.status);
+
+// ── Scenario 6: backup auth + validation protects the ring ──────────────────
+const goodSnap = { version: 'ltb-v1', exportedAt: new Date().toISOString(), orders: [{ id: 'o1' }, { id: 'o2' }], shopping: [] };
+r = await call('POST', '/backup', { snapshot: goodSnap });
+check('POST /backup without token → 401', r.status === 401);
+r = await call('GET', '/backup?age=recent');
+check('GET /backup without token → 401', r.status === 401);
+r = await call('GET', '/backup/list');
+check('GET /backup/list without token → 401', r.status === 401);
+
+r = await call('POST', '/backup', { token: 'test-token', snapshot: goodSnap });
+j = await r.json();
+check('valid backup accepted', j.ok === true && typeof j.timestamp === 'string', JSON.stringify(j));
+const firstTs = j.timestamp;
+
+r = await call('POST', '/backup', { token: 'test-token', snapshot: { version: 'ltb-v1' } }); // no orders array
+check('snapshot without orders array → 400', r.status === 400);
+r = await call('POST', '/backup', { token: 'test-token', snapshot: null });
+check('null snapshot → 400', r.status === 400);
+r = await call('POST', '/backup', { token: 'test-token', snapshot: { version: '', orders: [] } });
+check('falsy version → 400', r.status === 400);
+
+r = await call('GET', '/backup/list', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('bad pushes never touched the ring (1 good snapshot survives)', j.ok === true && j.backups.length === 1, JSON.stringify(j));
+check('list carries size + order count metadata', j.backups[0].size > 0 && j.backups[0].orders === 2);
+
+// ── Scenario 7: age-based selection is honest-nearest ────────────────────────
+// Seed the ring directly with controlled ages (26h, 70h, 5min old) alongside
+// the just-pushed recent one.
+const HOUR = 3600e3;
+const seed = async (ageMs, marker) => {
+  const ts = new Date(Date.now() - ageMs).toISOString();
+  const snap = { version: 'ltb-v1', orders: [{ id: marker }] };
+  const v = JSON.stringify(snap);
+  await env.LTB_KV.put('backup:' + ts, v, { metadata: { size: v.length, orders: 1 } });
+  return ts;
+};
+const ts26h = await seed(26 * HOUR, 'day-old');
+const ts70h = await seed(70 * HOUR, 'three-day-old');
+await seed(5 * 60e3, 'five-min-old');
+
+r = await call('GET', '/backup?age=recent', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('age=recent returns the newest snapshot', j.ok && j.timestamp === firstTs, j.timestamp);
+r = await call('GET', '/backup?age=1d', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('age=1d picks the 26h snapshot (honest nearest)', j.ok && j.timestamp === ts26h, j.timestamp);
+check('1d response carries the real timestamp + payload', j.snapshot.orders[0].id === 'day-old');
+r = await call('GET', '/backup?age=3d', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('age=3d picks the 70h snapshot', j.ok && j.timestamp === ts70h, j.timestamp);
+r = await call('GET', '/backup?age=1w', null, { 'X-LTB-Token': 'test-token' });
+check('unknown age param → 400', r.status === 400);
+
+// ── Scenario 8: pruning keeps the ring bounded AND age-shaped ────────────────
+// Flood with 15 more recent snapshots (minutes old) so the ring exceeds cap;
+// the pruner must bound it while PRESERVING the old 26h/70h snapshots (they
+// are the nearest to the 1d/3d targets — deleting them would silently
+// destroy the restore options Kevin asked for).
+for (let i = 0; i < 15; i++) await seed((i + 1) * 60e3, 'flood_' + i);
+r = await call('POST', '/backup', { token: 'test-token', snapshot: goodSnap }); // triggers prune
+j = await r.json();
+check('prune ran and reports kept count ≤ cap', j.ok && j.kept <= 12, JSON.stringify(j));
+r = await call('GET', '/backup/list', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('ring bounded after flood (≤ 12 keys)', j.backups.length <= 12, 'got ' + j.backups.length);
+const tsSet = new Set(j.backups.map(b => b.timestamp));
+check('PRUNE PRESERVED the ~1d snapshot', tsSet.has(ts26h));
+check('PRUNE PRESERVED the ~3d snapshot', tsSet.has(ts70h));
+check('newest snapshot survived its own prune', tsSet.has((await (await call('GET', '/backup?age=recent', null, { 'X-LTB-Token': 'test-token' })).json()).timestamp));
+
+// ── Scenario 9: oversize rejected before any write ───────────────────────────
+const bigSnap = { version: 'ltb-v1', orders: [], blob: 'x'.repeat(9 * 1024 * 1024) };
+r = await call('POST', '/backup', { token: 'test-token', snapshot: bigSnap });
+check('oversized backup → 413', r.status === 413, 'got ' + r.status);
+r = await call('GET', '/backup/list', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('oversize push did not evict anything', j.backups.length >= 3);
 
 console.log(failed === 0 ? '\nWORKER SIM: ALL PASS' : `\nWORKER SIM: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

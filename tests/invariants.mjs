@@ -141,6 +141,35 @@ for (const d of DISHES) {
 const seen = analyzeConflicts(DISHES.map(d => d.name));
 if (!seen || !('red' in seen)) F('equipment-run', 'analyzeConflicts returned an unexpected shape');
 
+// Soft back-burner claims (quick sauce dishes, e.g. Pork Mustard Tarragon) must
+// NOT emit tofu / "meat/shrimp version" advice — that language only applies to
+// dishes with a real tofu variant. Regression guard for the conditional-vs-soft
+// overload bug.
+{
+  // Sweep every pair: any note mentioning tofu/meat-shrimp must involve a dish
+  // that genuinely has equipment.tofu.
+  const names = DISHES.map(d => d.name);
+  for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) {
+    const r = analyzeConflicts([names[i], names[j]]);
+    for (const x of [...r.red, ...r.yellow]) {
+      if (/tofu|meat\/shrimp/.test(x.note)) {
+        const hasTofu = [names[i], names[j]].some(n => DISH_EQUIPMENT[n] && DISH_EQUIPMENT[n].tofu);
+        if (!hasTofu) F('equip-soft', `phantom tofu/shrimp advice for ${names[i]} + ${names[j]}: "${x.note.slice(0, 90)}"`);
+      }
+    }
+  }
+  // Specific: the reported bug — pork (soft) + Mushroom Ragu (polenta hard) is a
+  // yellow with quick-sauce wording, no tofu language, no red.
+  const bug = analyzeConflicts(['Pork with Mustard Tarragon Cream Sauce', 'Mushroom Ragu']);
+  if (bug.red.length !== 0) F('equip-soft', 'pork + mushroom ragu should not be a red conflict');
+  const bb = bug.yellow.find(y => y.resource === 'backBurner');
+  if (!bb || /tofu|meat\/shrimp/.test(bb.note)) F('equip-soft', `pork+mushroom back-burner note wrong: ${bb ? bb.note : 'missing'}`);
+  // A genuine tofu-conditional case still produces the tofu advice.
+  const realTofu = analyzeConflicts(['Stir Fried Long Beans with Ground Pork or Tofu', 'Saffron Pork Ragu']);
+  const tofuNote = [...realTofu.yellow, ...realTofu.red].find(x => x.resource === 'backBurner');
+  if (!tofuNote || !/tofu/.test(tofuNote.note)) F('equip-soft', 'genuine tofu-conditional case lost its advice');
+}
+
 // ─── 7. Cuisine for every dinner ────────────────────────────────────────────
 for (const d of DISHES) {
   if (!DISH_CUISINE[d.name]) F('cuisine', `dinner "${d.name}" missing from DISH_CUISINE (insights bucket it "Other")`);

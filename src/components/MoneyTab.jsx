@@ -374,9 +374,9 @@ export function MoneyTab({ orders, onUpdate }) {
         <div style={styles.moneyCount}>{totals.count} order{totals.count !== 1 ? 's' : ''}</div>
       </div>
 
-      <div style={styles.moneySearchRow}>
+      <div style={{ ...styles.moneySearchRow, flexWrap: 'wrap', rowGap: 8 }}>
         <input
-          style={styles.moneySearchInput}
+          style={{ ...styles.moneySearchInput, flex: '1 1 160px', minWidth: 0 }}
           placeholder="Search by customer name..."
           value={search}
           onChange={e => setSearch(e.target.value)}

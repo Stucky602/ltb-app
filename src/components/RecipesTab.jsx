@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD } from '../styles.js';
-import { currency } from '../utils.js';
+import { currency, itemCost } from '../utils.js';
 import { MARGIN_BUFFER } from '../dishCosting.js';
 import {
-  buildDishReport, buildPortfolioSummary, reportableDishes,
+  buildDishReport, buildPortfolioSummary, reportableDishes, dishSalesHistory,
 } from '../dishReport.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
@@ -52,7 +52,7 @@ const S = {
   portTd: { fontSize: 12, padding: '5px 6px', borderTop: `1px solid ${C.border}` },
 };
 
-export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes }) {
+export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders }) {
   const [dish, setDish] = useState('');
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [size, setSize] = useState('small'); // 'small' | 'large' | 'only'
@@ -60,6 +60,7 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(true);
   const [portSort, setPortSort] = useState('margin');
+  const [salesPeriod, setSalesPeriod] = useState('all'); // week|month|year|all
 
   const ctx = useMemo(() => ({ liveCostMap, baseCostMap, costHistory }), [liveCostMap, baseCostMap, costHistory]);
   const report = useMemo(() => (dish ? buildDishReport(dish, ctx) : null), [dish, ctx]);
@@ -89,6 +90,10 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
   const cot = (report && currentVariant) ? report.costOverTimeFor(currentVariant.label) : null;
   const reheat = (report && currentVariant) ? report.reheatFor(currentVariant.label) : [];
   const scaleForFlavor = (report && group) ? report.scaling.find(s => s.flavor === group.flavor) : null;
+  const sales = useMemo(
+    () => (dish ? dishSalesHistory(dish, orders || [], itemCost, salesPeriod) : null),
+    [dish, orders, salesPeriod]
+  );
 
   const pickFlavor = (i) => {
     setFlavorIdx(i);
@@ -100,7 +105,6 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
   const sortedPortfolio = useMemo(() => {
     const arr = [...portfolio];
     if (portSort === 'margin') arr.sort((a, b) => a.worstMarginPct - b.worstMarginPct);
-    else if (portSort === 'gap') arr.sort((a, b) => Math.abs(b.maxAnchorGapPct ?? 0) - Math.abs(a.maxAnchorGapPct ?? 0));
     else if (portSort === 'drift') arr.sort((a, b) => Math.abs(b.maxDriftPct) - Math.abs(a.maxDriftPct));
     return arr;
   }, [portfolio, portSort]);
@@ -113,7 +117,7 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
       {/* ── Portfolio radar ── */}
       <div style={S.section}>
         <button style={S.collapseBtn} onClick={() => setShowPortfolio(o => !o)}>
-          <span>Menu overview · margin & re-anchor radar</span>
+          <span>Menu overview · margin & drift radar</span>
           <span>{showPortfolio ? '▲' : '▼'}</span>
         </button>
         {showPortfolio && (
@@ -123,7 +127,6 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
                 <tr>
                   <th style={S.portTh} onClick={() => setPortSort('name')}>Dish</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }} onClick={() => setPortSort('margin')}>Worst margin{portSort === 'margin' ? ' ▾' : ''}</th>
-                  <th style={{ ...S.portTh, textAlign: 'right' }} onClick={() => setPortSort('gap')}>Anchor gap{portSort === 'gap' ? ' ▾' : ''}</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }} onClick={() => setPortSort('drift')}>Drift{portSort === 'drift' ? ' ▾' : ''}</th>
                 </tr>
               </thead>
@@ -135,9 +138,6 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
                       {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
-                    </td>
-                    <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxAnchorGapPct ?? 0) >= 10 ? C.warn : C.faint }}>
-                      {r.maxAnchorGapPct == null ? '—' : `${r.maxAnchorGapPct > 0 ? '+' : ''}${r.maxAnchorGapPct}%`}
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
                       {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
@@ -213,16 +213,48 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
                   <span>Baseline anchor</span><span>{currency(econ.anchorCost)} · {econ.marginBasePct.toFixed(0)}%</span>
                 </div>
               )}
-              {econ.anchorGapPct != null && Math.abs(econ.anchorGapPct) >= 10 && (
-                <div style={S.banner('warn')}>
-                  Anchor is {Math.abs(econ.anchorGapPct)}% {econ.anchorGapPct > 0 ? 'below' : 'above'} today's ingredient reality (recomputes to {currency(econ.recomputedRaw)}).
-                  {dish === 'Pasta with Homegrown Tomato Sauce' ? ' Garden economics — this is what it would cost if you bought the tomatoes.' : ' Worth a re-anchor when you next reprice.'}
-                </div>
-              )}
               {econ.underFloor && (
                 <div style={S.banner('bad')}>
                   Below the {report.floorPct}% floor. {econ.priceToHoldFloor ? `About ${currency(econ.priceToHoldFloor.suggested)} would hold it.` : ''}
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Sales history (moved from Money tab) ── */}
+          {sales && (
+            <div style={S.section}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={S.sectionTitle}>Sales history</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {[['week', 'Wk'], ['month', 'Mo'], ['year', 'Yr'], ['all', 'All']].map(([p, lbl]) => (
+                    <button key={p} onClick={() => setSalesPeriod(p)}
+                      style={{ padding: '3px 9px', borderRadius: 6, border: `1px solid ${salesPeriod === p ? C.good : C.border}`, background: salesPeriod === p ? 'rgba(93,202,165,0.15)' : 'transparent', color: salesPeriod === p ? C.good : C.dim, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {sales.hasData ? (
+                <>
+                  <div style={S.row}><span style={{ color: C.dim }}>Units sold</span><span style={{ fontWeight: 700 }}>{sales.units}{sales.orderCount ? ` · ${sales.orderCount} order${sales.orderCount !== 1 ? 's' : ''}` : ''}</span></div>
+                  <div style={S.row}><span style={{ color: C.dim }}>Revenue</span><span>{currency(sales.revenue)}</span></div>
+                  <div style={S.row}><span style={{ color: C.dim }}>Cost</span><span>{currency(sales.cost)}{sales.est ? ' ‡' : ''}{sales.unknown ? ' *' : ''}</span></div>
+                  <div style={S.row}>
+                    <span style={{ color: C.dim }}>Profit</span>
+                    <span style={{ fontWeight: 700, color: sales.profit >= 0 ? C.good : C.badText }}>
+                      {sales.profit >= 0 ? '+' : ''}{currency(sales.profit)} · {sales.marginPct}%
+                    </span>
+                  </div>
+                  {(sales.est || sales.unknown) && (
+                    <div style={{ fontSize: 10.5, color: C.faint, marginTop: 6 }}>
+                      Revenue is item price + upcharges, before order-level discounts and fees.
+                      {sales.est ? ' ‡ includes estimated costs.' : ''}{sales.unknown ? ' * some costs unknown.' : ''}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: 12.5, color: C.dim }}>No sales in this period.</div>
               )}
             </div>
           )}

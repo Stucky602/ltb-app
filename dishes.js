@@ -1,0 +1,1025 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// THE DISH REGISTRY — single source of truth for every dish.
+// ═══════════════════════════════════════════════════════════════════════════
+// One record per dish. Everything the app knows about a dish lives HERE:
+//
+//   name        — exact dish name (the key used everywhere)
+//   cuisine     — loose cuisine bucket for Regulars insights (dinners only)
+//   variants    — [{ label, price, cost }] — cost is the BUFFERED anchor
+//                 (MARGIN_BUFFER 1.0825 baked in; see dishCosting.js)
+//   recipe      — { factors, base, extras } per-batch ingredients
+//   reheat      — shared reheat bucket id ('bagged'|'stovetop'|'pasta'|'kit'),
+//                 or absent for dishes with fully dedicated card logic
+//                 (Bo Ssam) — that logic lives in recipes.js buildReheatBlocks
+//   rice        — true if the dish ships uncooked rice (drives the rice
+//                 container surcharge + "cook the included rice" copy)
+//   pasta       — true if it ships uncooked pasta
+//   noodle      — true if it ships fresh noodles
+//   baggedPasta — true for bagged dishes finished by mixing with cooked pasta
+//   stewVegCopy — { main, veg } dedicated 2-paragraph reheat copy (Boeuf/Leblanc)
+//   equipment   — kitchen-capacity claims for the conflict checker:
+//                 { fixed:[...], flexible:[...], tofu:true, polenta:true }
+//                 resource ids: 'wok','dutch','backBurner','largePot',
+//                               'ovenNormal','ovenLow'
+//   packaging   — 'jar' ($2 wrap) | 'none' ($0) | absent (default $1 wrap)
+//   perLb       — priced by weight (sous vide proteins): pricePerLb, costPerLb
+//
+// ADDING OR RENAMING A DISH IS A CHANGE TO THIS FILE ONLY (plus customer copy
+// in menu.html LIBRARY + a main-menu.html card, which `npm test` validates
+// against this registry — a miss fails the build check, never silently).
+//
+// menu.js, recipes.js, dishCosting.js, equipmentConflict.js, and utils.js all
+// DERIVE their dish data from this file. Do not re-declare dish facts there.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Recipe-line helper (was in recipes.js; re-exported from there for compat)
+export const I = (name, q, u, staple = false) => ({ name, q, u, staple });
+
+// ── DINNERS (order here = display order everywhere) ─────────────────────────
+export const DISHES = [
+  // ── American / Southern / Tex-Mex ─────────────────────────────────────────
+  {
+    name: 'Boeuf Bourguignon (Beef Stew)',
+    cuisine: 'French',
+    reheat: 'stovetop',
+    equipment: { fixed: ['dutch', 'ovenLow'] },
+    variants: [
+      { label: '~4 servings', price: 100, cost: 45.08 },
+      { label: 'With 1 lb mushrooms', price: 112, cost: 51.08 },
+    ],
+    recipe: {
+      factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
+      base: [
+        I('Beef chuck roast', 2.5, 'lb'),
+        I('Red potatoes', 1.5, 'lb'),
+        I('Carrots', 1.5, 'lb'),
+        I('Red wine', 1, 'bottle'),
+        I('Beef stock', 8, 'cups'),
+        I('Fresh thyme', 1, 'bunch'),
+        I('Tomato paste', 1, 'small can'),
+        I('Onion', 1, 'lb'),
+        I('Bay + salt + pepper + vinegar', 1, 'batch', true),
+      ],
+      extras: {
+        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb')],
+      },
+    },
+    // Dedicated 2-paragraph reheat card (main + veg bag) — never combined
+    // with another dish on one card. Both veg paragraphs end with the same
+    // butter/drain line by design.
+    stewVegCopy: {
+      main: 'Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through, adding a splash of water if it looks thick. Great over mashed potatoes, egg noodles, or crusty bread.',
+      veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold the vegetables into the stew right before serving. The liquid contains butter, so avoid pouring it down the drain.',
+    },
+  },
+  {
+    name: 'Brunswick Stew',
+    cuisine: 'Southern',
+    reheat: 'stovetop',
+    equipment: { flexible: ['dutch', 'largePot'], fixed: ['ovenLow'] },
+    variants: [
+      { label: 'Small (~4)', price: 35, cost: 15.55 },
+      { label: 'Large (~8)', price: 65, cost: 31.1 },
+    ],
+    recipe: {
+      factors: { 'Small (~4)': 1, 'Large (~8)': 2 },
+      base: [
+        I('Chicken thighs', 1, 'lb'),
+        I('Salt pork', 2, 'oz'),
+        I('Chicken stock', 4, 'cups'),
+        I('Canned peeled tomatoes', 1, '14oz can'),
+        I('Red potatoes', 0.5, 'lb'),
+        I('Onion', 1, 'lb'),
+        I('Corn', 3, 'ears'),
+        I('Dried lima beans', 5, 'oz'),
+        I('Worcestershire + vinegar + flour', 1, 'batch', true),
+      ],
+    },
+  },
+  {
+    name: 'Chili',
+    cuisine: 'American',
+    reheat: 'stovetop',
+    equipment: { fixed: ['largePot'] },
+    variants: [
+      { label: 'Small (split order, ~3-4)', price: 45, cost: 18.53 },
+      { label: 'Large (~6-8)', price: 80, cost: 37.06 },
+    ],
+    recipe: {
+      factors: { 'Small (split order, ~3-4)': 0.5, 'Large (~6-8)': 1 },
+      base: [
+        I('Ground beef', 2, 'lb'),
+        I('Dried kidney beans', 1, 'lb'),
+        I('Assorted dried chilis', 1, 'bag'),
+        I('Chicken broth', 4, 'cups'),
+        I('Canned tomatoes', 1, '28oz can'),
+        I('100% dark chocolate', 2, 'square'),
+        I('Anchovies', 3.5, 'fillet'), // Bellino 4.25oz tin ~24 fillets @ $5.78 = ~$0.24/fillet; Kevin uses 3-4/batch, midpoint 3.5
+        I('Tomato paste', 1, 'small can'),
+        I('Limes', 1, ''),
+        I('Espresso', 2, 'shot'),
+        I('Bourbon', 2, 'oz'),
+        I('Marmite + soy + spices', 1, 'batch', true),
+      ],
+    },
+  },
+  {
+    name: 'Gumbo',
+    cuisine: 'Southern',
+    reheat: 'stovetop',
+    rice: true,
+    equipment: { fixed: ['dutch'] },
+    variants: [
+      { label: 'Small (split order, ~3-6)', price: 50, cost: 23.33 },
+      { label: 'Large (~8-12)', price: 90, cost: 46.66 },
+    ],
+    recipe: {
+      factors: { 'Small (split order, ~3-6)': 0.5, 'Large (~8-12)': 1 },
+      base: [
+        I('Chicken thighs', 2, 'lb'),
+        I('Texas Gulf Shrimp', 2, 'lb'),
+        I('Onion', 1, ''),
+        I('Green bell pepper', 1, ''),
+        I('Celery', 3, 'stalks'),
+        I('Garlic', 4, 'cloves'),
+        I('Flour', 1, 'cup'),
+        I('Filé powder', 1, 'tbsp', true),
+        I('Cajun spices', 1, 'blend', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+    },
+  },
+  {
+    name: 'Tex-Mex Kit',
+    cuisine: 'Tex-Mex',
+    reheat: 'kit',
+    equipment: { fixed: ['dutch', 'largePot', 'ovenLow'] },
+    variants: [
+      { label: 'Pulled Pork, Small (~5-6)', price: 42, cost: 19.21 },
+      { label: 'Pulled Pork, Large (~9-10)', price: 80, cost: 37.42 },
+      { label: 'Pulled Beef, Small (~5-6)', price: 60, cost: 28.05 },
+      { label: 'Pulled Beef, Large (~9-10)', price: 115, cost: 55.1 },
+    ],
+    recipe: {
+      factors: {
+        'Pulled Pork, Small (~5-6)': 0.5, 'Pulled Pork, Large (~9-10)': 1,
+        'Pulled Beef, Small (~5-6)': 0.5, 'Pulled Beef, Large (~9-10)': 1,
+      },
+      base: [
+        I('Beans (for refried)', 1, 'lb'),
+        I('Tomatoes (pico)', 1, 'lb'),
+        I('Red onion', 1.5, 'lb'),
+        I('Cilantro', 1, 'bunch'),
+        I('Limes', 8, ''),
+        I('Garlic', 4, 'cloves'),
+        I('HEB bakery tortillas', 1, '10-ct pack'),
+        I('Dried peppers (red sauce)', 8, 'oz'),
+        I('Orange juice', 1, 'small bottle'),
+        I('Tex-Mex spices', 1, 'blend', true),
+      ],
+      extras: {
+        'Pulled Pork, Small (~5-6)': [I('Bone-in pork butt', 4, 'lb')],
+        'Pulled Pork, Large (~9-10)': [I('Bone-in pork butt', 4, 'lb')],
+        'Pulled Beef, Small (~5-6)': [I('Beef chuck roast', 2.5, 'lb')],
+        'Pulled Beef, Large (~9-10)': [I('Beef chuck roast', 2.5, 'lb')],
+      },
+    },
+  },
+  // ── Curry ──────────────────────────────────────────────────────────────────
+  {
+    name: 'Indian Style Curry',
+    cuisine: 'Indian',
+    reheat: 'stovetop',
+    rice: true,
+    equipment: { flexible: ['dutch', 'largePot'] },
+    options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
+    variants: [
+      { label: 'Chickpea, Small (~4-5)', price: 25, cost: 12.71 },
+      { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.13 },
+      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 27.87 },
+      { label: 'Chickpea, Large (~8-10)', price: 45, cost: 24.35 },
+      { label: 'Chicken, Large (~8-10)', price: 65, cost: 35.17 },
+      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 54.66 },
+    ],
+    recipe: {
+      factors: {
+        'Chickpea, Small (~4-5)': 0.5, 'Chicken, Small (~4-5)': 0.5, 'Shrimp, Small (~4-5)': 0.5,
+        'Chickpea, Large (~8-10)': 1, 'Chicken, Large (~8-10)': 1, 'Shrimp, Large (~8-10)': 1,
+      },
+      base: [
+        I('Canned tomatoes', 1, '28oz can'),
+        I('Red onion', 28, 'oz'),
+        I('Butter', 2, 'sticks'),
+        I('Kitchen Basics chicken stock', 32, 'oz'),
+        I('Limes', 2, ''),
+        I('Asian greens', 1, 'lb'), // stand-in for "whatever's best this week" — priced at ~$2/lb per Kevin
+        I('Chickpeas', 2, 'lb'),
+        I('Mix of spicy peppers', 1, 'handful'),
+        I('Curry powder', 0.25, 'cup', true),
+        I('Brown sugar', 2, 'tbsp', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+      extras: {
+        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb')],
+        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb')],
+        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb')],
+        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb')],
+      },
+    },
+  },
+  {
+    name: 'Leblanc Inspired Japanese Curry',
+    cuisine: 'Japanese',
+    reheat: 'stovetop',
+    rice: true,
+    equipment: { fixed: ['dutch', 'ovenLow'] },
+    variants: [
+      { label: 'Small (split order, ~4)', price: 60, cost: 30.89 },
+      { label: 'Large (~8)', price: 110, cost: 60.69 },
+    ],
+    recipe: {
+      factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
+      base: [
+        I('Wagyu london broil', 2.5, 'lb'),
+        I('Kabocha squash', 1, 'lb'),
+        I('Carrots', 1, 'lb'),
+        I('Onion', 1, 'lb'),
+        I('Apple', 1, ''),
+        I('Ginger', 2, 'knob'),
+        I('Red wine', 2, 'cup'),
+        I('Beef stock', 8, 'cups'),
+        I('100% dark chocolate', 2, 'square'),
+        I('Espresso', 2, 'shot'),
+        I('Curry spice blend', 1, 'batch', true),
+        I('Honey + fish sauce + butter', 1, 'batch', true),
+        I('Bay leaf', 1, '', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+    },
+    stewVegCopy: {
+      main: 'Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving.',
+      veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and add the vegetables to the curry. Unlike our other sous vide vegetables, the sauce in this bag is not meant to be used as a glaze — discard it. The liquid contains butter, so avoid pouring it down the drain.',
+    },
+  },
+  // ── East Asian ─────────────────────────────────────────────────────────────
+  {
+    name: 'Bo Ssam',
+    cuisine: 'Korean',
+    // No shared reheat bucket — fully dedicated card logic in buildReheatBlocks
+    rice: true,
+    equipment: { fixed: ['ovenLow'] }, // pork shoulder roasts low and slow
+    variants: [
+      { label: 'Small (~4 servings)', price: 40, cost: 23.32 },
+      { label: 'Large (~8 servings)', price: 75, cost: 37.55 },
+    ],
+    // NOTE: recipe not yet finalized by Kevin (first cook was the pricing test
+    // batch) — quantities/method may change once the official recipe is set.
+    recipe: {
+      factors: { 'Small (~4 servings)': 0.5, 'Large (~8 servings)': 1 },
+      base: [
+        I('Pork shoulder', 8, 'lb'), // real yield after trim/fat loss; Small=4lb confirmed by Kevin
+        I('Kosher salt', 10, 'tbs'),      // 50/50 dry brine, 24 hours
+        I('Sugar', 0.5, 'cup'),           // 50/50 dry brine, 24 hours
+        I('Scallions', 3, 'bunch'), // Small=1.5 bunch confirmed by Kevin
+        I('Ginger', 4, 'knobs'),
+        I('Vegetable oil', 0.25, 'cup'),
+        I('Soy sauce', 1.5, 'tbsp'),
+        I('Vinegar', 0.2, 'batch-use'),
+        I('Salt', 2, 'batch-use'),
+        // Kimchi is priced at raw cost with no margin buffer (Kevin's call —
+        // store-bought, doesn't feel right marking it up beyond general tax).
+        // This only affects how the cost ANCHOR was built; the live drift
+        // engine still tracks kimchi like any other ingredient below.
+        // NOT a staple (buy fresh per batch, shows on the shopping list), but
+        // IS fixed — always exactly 1 jar regardless of Small/Large (can't buy
+        // half a jar; Small's smaller half-jar container is priced into the
+        // $36 Small price directly, not modeled as a quantity change here).
+        { ...I('Kimchi', 1, 'jar'), fixed: true },
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+    },
+  },
+  {
+    name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    cuisine: 'Chinese',
+    reheat: 'pasta',
+    noodle: true, // the noodle variants; rice surcharge for Beef/Lamb variants
+                  // is special-cased in dishCosting riceUnits (Beef|Lamb-prefix rule)
+    equipment: { fixed: ['wok'] },
+    variants: [
+      { label: 'Mushroom, Small (~3-4)', price: 45, cost: 19.86 },
+      { label: 'Mushroom, Large (~6-8)', price: 80, cost: 38.65 },
+      { label: 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)', price: 50, cost: 22.03 },
+      { label: 'Mushroom, Large (~6-8) + Asian Greens (1 lb)', price: 85, cost: 40.81 },
+      { label: 'Beef, Small (~3-4)', price: 35, cost: 14.97 },
+      { label: 'Beef, Large (~6-8)', price: 60, cost: 28.86 },
+      { label: 'Beef, Small (~3-4) + Asian Greens (1/2 lb)', price: 40, cost: 16.05 },
+      { label: 'Beef, Large (~6-8) + Asian Greens (1 lb)', price: 65, cost: 31.02 },
+      { label: 'Lamb, Small (~3-4)', price: 45, cost: 21.46 },
+      { label: 'Lamb, Large (~6-8)', price: 80, cost: 41.83 },
+      { label: 'Lamb, Small (~3-4) + Asian Greens (1/2 lb)', price: 47, cost: 22.54 },
+      { label: 'Lamb, Large (~6-8) + Asian Greens (1 lb)', price: 84, cost: 43.99 },
+    ],
+    recipe: {
+      factors: {
+        'Mushroom, Small (~3-4)': 0.5, 'Mushroom, Large (~6-8)': 1,
+        'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Mushroom, Large (~6-8) + Asian Greens (1 lb)': 1,
+        'Beef, Small (~3-4)': 0.5, 'Beef, Large (~6-8)': 1,
+        'Beef, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Beef, Large (~6-8) + Asian Greens (1 lb)': 1,
+        'Lamb, Small (~3-4)': 0.5, 'Lamb, Large (~6-8)': 1,
+        'Lamb, Small (~3-4) + Asian Greens (1/2 lb)': 0.5, 'Lamb, Large (~6-8) + Asian Greens (1 lb)': 1,
+      },
+      // Shared cumin-chili sauce and aromatics — identical across every variant.
+      // Protein and starch are variant-specific (mushroom+noodles vs ground
+      // beef+rice vs ground lamb+rice) and live in extras below.
+      base: [
+        I('Garlic', 16, 'cloves'),
+        I('Ginger', 4, 'knobs'),
+        I('Red onion (large)', 2, ''),
+        I('Cilantro', 1, 'bunch'),
+        I('Cumin + spices', 1, 'blend', true),
+        I('Chinkiang vinegar', 6, 'tbsp', true),
+        I('Shaoxing wine', 0.5, 'cup', true),
+        I('House chili oil', 1, 'cup', true),
+      ],
+      extras: {
+        'Mushroom, Small (~3-4)': [
+          I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+        ],
+        'Mushroom, Large (~6-8)': [
+          I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+        ],
+        'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)': [
+          I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+          { ...I('Asian greens', 0.5, 'lb'), fixed: true },
+        ],
+        'Mushroom, Large (~6-8) + Asian Greens (1 lb)': [
+          I('Mushrooms', 3, 'lb'), I('Fresh noodles (not dried)', 1, 'batch'),
+          { ...I('Asian greens', 1, 'lb'), fixed: true },
+        ],
+        'Beef, Small (~3-4)': [
+          I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        ],
+        'Beef, Large (~6-8)': [
+          I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        ],
+        'Beef, Small (~3-4) + Asian Greens (1/2 lb)': [
+          I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+          { ...I('Asian greens', 0.5, 'lb'), fixed: true },
+        ],
+        'Beef, Large (~6-8) + Asian Greens (1 lb)': [
+          I('Ground beef', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+          { ...I('Asian greens', 1, 'lb'), fixed: true },
+        ],
+        'Lamb, Small (~3-4)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        ],
+        'Lamb, Large (~6-8)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+        ],
+        'Lamb, Small (~3-4) + Asian Greens (1/2 lb)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+          { ...I('Asian greens', 0.5, 'lb'), fixed: true },
+        ],
+        'Lamb, Large (~6-8) + Asian Greens (1 lb)': [
+          I('Ground lamb', 2, 'lb'), I('Rice (included with order)', 1, 'batch', true),
+          { ...I('Asian greens', 1, 'lb'), fixed: true },
+        ],
+      },
+    },
+  },
+  {
+    name: 'Mapo Eggplant',
+    cuisine: 'Chinese',
+    reheat: 'stovetop',
+    rice: true,
+    equipment: { fixed: ['dutch'] }, // no tofu
+    variants: [
+      { label: 'Small (~5-6 servings)', price: 35, cost: 14.75 },
+      { label: 'Large (~10-12 servings)', price: 65, cost: 29.51 },
+    ],
+    recipe: {
+      factors: { 'Small (~5-6 servings)': 1, 'Large (~10-12 servings)': 2 },
+      base: [
+        I('Chinese eggplant', 2, 'lb'),
+        I('Ground chicken', 0.5, 'lb'),
+        I('Doubanjiang', 3, 'tbsp'),
+        I('Garlic', 4, 'cloves'),
+        I('Ginger', 1, 'knob'),
+        I('Scallions', 1, 'bunch'),
+        I('House chili oil', 0.25, 'cup', true),
+        I('Sichuan peppercorns', 1, 'tbsp', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+    },
+  },
+  {
+    name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce',
+    cuisine: 'Chinese',
+    reheat: 'bagged',
+    rice: true,
+    equipment: { fixed: ['wok', 'largePot'], tofu: true },
+    variants: [
+      { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 21.99 },
+      { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 42.98 },
+      { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 10.6 },
+      { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 20.2 },
+    ],
+    recipe: {
+      factors: {
+        'Shrimp, Small Batch (~3-4)': 1, 'Shrimp, Large Batch (~7-8)': 2,
+        'Tofu, Small Batch (~3-4)': 1, 'Tofu, Large Batch (~7-8)': 2,
+      },
+      base: [
+        I('Asparagus', 1, 'lb'),
+        I('Scallions', 1, 'bunch'),
+        I('Garlic', 3, 'cloves'),
+        I('Ginger', 1, 'knob'),
+        I('Soy + Shaoxing + black beans + sugar', 1, 'batch', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+      extras: {
+        'Shrimp, Small Batch (~3-4)': [I('Shrimp', 1, 'lb')],
+        'Shrimp, Large Batch (~7-8)': [I('Shrimp', 1, 'lb')],
+        'Tofu, Small Batch (~3-4)': [I('Tofu', 1, 'block')],
+        'Tofu, Large Batch (~7-8)': [I('Tofu', 1, 'block')],
+      },
+    },
+  },
+  {
+    name: 'Stir Fried Long Beans with Ground Pork or Tofu',
+    cuisine: 'Chinese',
+    reheat: 'bagged',
+    rice: true,
+    equipment: { fixed: ['wok'], tofu: true }, // tofu is an option → back burner
+    variants: [
+      { label: 'Ground Pork, Small (~4)', price: 30, cost: 12.54 },
+      { label: 'Ground Pork, Large (~8)', price: 55, cost: 25.07 },
+      { label: 'Tofu, Small (~4)', price: 30, cost: 12.54 },
+      { label: 'Tofu, Large (~8)', price: 55, cost: 25.07 },
+    ],
+    recipe: {
+      factors: {
+        'Ground Pork, Small (~4)': 0.5, 'Ground Pork, Large (~8)': 1,
+        'Tofu, Small (~4)': 0.5, 'Tofu, Large (~8)': 1,
+      },
+      base: [
+        I('Long beans', 1.5, 'lb'),
+        I('Doubanjiang', 4, 'tbsp'), // Small=2tbsp confirmed by Kevin
+        I('Garlic', 6, 'cloves'),
+        I('Scallions', 1, 'bunch'),
+        I('Soy sauce', 2, 'tbsp', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+      extras: {
+        'Ground Pork, Small (~4)': [I('Ground pork', 2, 'lb')], // Small=1lb, Large=2lb confirmed by Kevin
+        'Ground Pork, Large (~8)': [I('Ground pork', 2, 'lb')],
+        'Tofu, Small (~4)': [I('Tofu', 1, 'block')],
+        'Tofu, Large (~8)': [I('Tofu', 1, 'block')],
+      },
+    },
+  },
+  {
+    name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
+    cuisine: 'Chinese',
+    reheat: 'bagged',
+    rice: true,
+    equipment: { fixed: ['wok'], tofu: true },
+    variants: [
+      { label: 'Shrimp, Small Batch (~4)', price: 40, cost: 19.56 },
+      { label: 'Shrimp, Large Batch (~8)', price: 75, cost: 38.12 },
+      { label: 'Tofu, Small Batch (~4)', price: 25, cost: 8.17 },
+      { label: 'Tofu, Large Batch (~8)', price: 45, cost: 15.34 },
+    ],
+    recipe: {
+      factors: {
+        'Shrimp, Small Batch (~4)': 1, 'Shrimp, Large Batch (~8)': 2,
+        'Tofu, Small Batch (~4)': 1, 'Tofu, Large Batch (~8)': 2,
+      },
+      base: [
+        I('Chinese broccoli', 8, 'oz'),
+        I('Garlic', 3, 'cloves'),
+        I('Ginger', 1, 'knob'),
+        I('Oyster sauce', 3, 'tbsp', true),
+        I('Soy sauce', 2, 'tbsp', true),
+        I('Dark soy sauce', 1, 'tbsp', true),
+        I('House chili oil', 2, 'tbsp', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+      extras: {
+        'Shrimp, Small Batch (~4)': [I('Shrimp', 1, 'lb')],
+        'Shrimp, Large Batch (~8)': [I('Shrimp', 1, 'lb')],
+        'Tofu, Small Batch (~4)': [I('Tofu', 1, 'block')],
+        'Tofu, Large Batch (~8)': [I('Tofu', 1, 'block')],
+      },
+    },
+  },
+  {
+    name: 'Thai Basil Chicken (Pad Krapow Gai)',
+    cuisine: 'Thai',
+    reheat: 'bagged',
+    rice: true,
+    equipment: { fixed: ['wok', 'largePot'] },
+    options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
+    variants: [
+      { label: 'Small (~3-4)', price: 35, cost: 14.45 },
+      { label: 'Large (~7-8)', price: 60, cost: 27.82 },
+    ],
+    recipe: {
+      factors: { 'Small (~3-4)': 1, 'Large (~7-8)': 2 },
+      base: [
+        I('Ground chicken', 1, 'lb'),
+        I('Asparagus', 8, 'oz'),
+        I('Thai basil', 1, 'bunch'),
+        I('Garlic', 6, 'cloves'),
+        I('Limes', 1, ''),
+        I('Oyster + soy + fish sauce + sugar', 1, 'batch', true),
+        I('Rice (included with order)', 1, 'batch', true),
+      ],
+    },
+  },
+  // ── Italian ────────────────────────────────────────────────────────────────
+  {
+    name: 'Bolognese',
+    cuisine: 'Italian',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { flexible: ['dutch', 'largePot'] },
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] } }, // egg-papp variants ARE the pasta
+    variants: [
+      { label: 'Small (split order, ~4)', price: 40, cost: 16.79 },
+      { label: 'Large (~8)', price: 70, cost: 32.57 },
+      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 50, cost: 26.79 },
+      { label: 'Large (~8) + Egg Pappardelle', price: 85, cost: 42.57 },
+    ],
+    recipe: {
+      factors: {
+        'Small (split order, ~4)': 0.5, 'Large (~8)': 1,
+        'Small (split order, ~4) + Egg Pappardelle': 0.5, 'Large (~8) + Egg Pappardelle': 1,
+      },
+      base: [
+        I('Ground pork', 1, 'lb'),
+        I('Ground lamb', 1, 'lb'),
+        I('Ground beef', 1, 'lb'),
+        I('Whole milk', 1, 'cup'),
+        I('Red wine', 1, 'bottle'),
+        I('Tomato paste', 1, 'small can'),
+        I('Fresh thyme', 1, 'bunch'),
+        I('Onion', 1, ''),
+        I('Carrot', 1, ''),
+        I('Garlic', 4, 'cloves'),
+        I('Pasta (ask customer for shape!)', 2, 'lb'),
+        I('Nutmeg', 1, 'pinch', true),
+      ],
+      extras: {
+        'Small (split order, ~4) + Egg Pappardelle': [I('Egg pappardelle', 2, 'packs')],
+        'Large (~8) + Egg Pappardelle': [I('Egg pappardelle', 3, 'packs')],
+      },
+    },
+  },
+  {
+    name: 'Pasta with Homegrown Tomato Sauce',
+    cuisine: 'Italian',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { fixed: [] }, // saucier, exclusive — never conflicts
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle' } },
+    variants: [
+      { label: 'Base (~4)', price: 20, cost: 7.24 },
+      { label: 'With Beef or Turkey', price: 35, cost: 14.24 },
+      { label: 'With Mushrooms', price: 26, cost: 10.24 },
+      { label: 'With Both', price: 41, cost: 17.24 },
+    ],
+    recipe: {
+      factors: { 'Base (~4)': 1, 'With Beef or Turkey': 1, 'With Mushrooms': 1, 'With Both': 1 },
+      base: [
+        I('Homegrown tomatoes', 1, '28oz can'),
+        I('Garlic', 5, 'cloves'),
+        I('Pasta', 1, 'lb'),
+        I('Good olive oil', 1, 'glug', true),
+      ],
+      extras: {
+        'With Beef or Turkey': [I('Ground beef or turkey', 1, 'lb')],
+        'With Mushrooms': [I('Baby bella mushrooms', 8, 'oz')],
+        'With Both': [I('Ground beef or turkey', 1, 'lb'), I('Baby bella mushrooms', 8, 'oz')],
+      },
+    },
+  },
+  {
+    name: 'Pappardelle with Vegetables and Mint',
+    cuisine: 'Italian',
+    reheat: 'bagged',
+    baggedPasta: true, // bagged dish finished by mixing with cooked pasta
+    equipment: { fixed: ['wok'] },
+    variants: [
+      { label: 'Small (~2-3)', price: 35, cost: 15.48 },
+      { label: 'Large (~5-6)', price: 65, cost: 30.96 },
+    ],
+    recipe: {
+      factors: { 'Small (~2-3)': 0.5, 'Large (~5-6)': 1 },
+      base: [
+        I('Egg pappardelle', 2, 'packs'),
+        I('Fennel bulb', 1, ''),
+        I('Bulb onions', 1, 'bunch'),
+        I('Asparagus', 0.5, 'lb'),
+        I('Petite peas', 8, 'oz'),
+        I('Fresh mint', 2, 'sprigs'),
+        I('Good parmesan', 1, 'cup'),
+        I('Heavy cream', 0.5, 'cup'),
+        I('White wine', 1, 'cup'),
+        I('Lemon', 1, ''),
+        I('Xanthan gum + lecithin powder', 1, 'batch', true),
+      ],
+    },
+  },
+  {
+    name: 'Saffron Pork Ragu',
+    cuisine: 'Italian',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variants replace pasta
+    variants: [
+      { label: 'Small (~4 servings)', price: 35, cost: 16.79 },
+      { label: 'Large (~8 servings)', price: 65, cost: 32.50 },
+      { label: 'Small (~4 servings) + Polenta', price: 43, cost: 17.11 },
+      { label: 'Large (~8 servings) + Polenta', price: 80, cost: 33.15 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~4 servings)': 1, 'Large (~8 servings)': 2,
+        'Small (~4 servings) + Polenta': 1, 'Large (~8 servings) + Polenta': 2,
+      },
+      base: [
+        I('Ground pork', 1, 'lb'),
+        I('Fennel seeds', 1, 'tsp'),
+        I('Onion', 1, ''),
+        I('Garlic', 4, 'cloves'),
+        I('Crushed tomatoes', 1, 'can'),
+        I('Dry sherry', 0.25, 'cup'),
+        I('Saffron', 1, 'pinch', true),
+      ],
+      extras: {
+        // Polenta REPLACES pasta — the customer gets one starch or the other,
+        // never both. Pasta only applies to the non-Polenta variants.
+        'Small (~4 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
+        'Large (~8 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
+        'Small (~4 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+        'Large (~8 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+      },
+    },
+  },
+  {
+    name: 'Mushroom Ragu',
+    cuisine: 'Italian',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variant replaces pasta; egg pappardelle is the default
+    variants: [
+      // Single size only (expensive dish, no Large). Polenta sub is the SAME
+      // price as pasta — the required egg pappardelle costs about what the
+      // polenta does, so it's a wash (Kevin, Jul 2026).
+      { label: 'Small (~4-5 servings)', price: 60, cost: 32.50 },
+      { label: 'Small (~4-5 servings) + Polenta', price: 60, cost: 32.50 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~4-5 servings)': 1,
+        'Small (~4-5 servings) + Polenta': 1,
+      },
+      base: [
+        I('Dried porcini', 1, 'oz'),
+        I('Oyster mushroom', 8, 'oz'),
+        I('King oyster mushroom', 1, 'lb'),
+        I('Shiitake mushroom', 8, 'oz'),
+        I('Onion', 5, 'oz'),
+        I('Carrot', 3, 'oz'),
+        I('Celery', 3, 'oz'),
+        I('Garlic', 3, 'cloves'),
+        I('Cooking olive oil', 2, 'oz'),
+        I('Tomato paste', 2, 'tbs'),
+        I('Dry marsala', 0.5, 'cup'),
+        I('Heavy cream (oz)', 2, 'oz'),
+        I('Good parm', 2, 'oz'),
+        I('Fresh thyme', 1, 'bunch', true),
+        I('Bay leaf', 1, 'leaf', true),
+        I('Nutmeg', 1, 'pinch', true),
+      ],
+      extras: {
+        // Polenta REPLACES the pasta, same as Saffron Ragu. Egg pappardelle is
+        // required on the pasta variant (this dish isn't the same without it).
+        'Small (~4-5 servings)': [I('Egg pappardelle', 2, 'pack')],
+        'Small (~4-5 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+      },
+    },
+  },
+  {
+    name: 'Pork with Mustard Tarragon Cream Sauce',
+    cuisine: 'German',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { backBurner: true }, // soft claim — quick sauce reduction, just be mindful (Kevin)
+    // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
+    variants: [
+      { label: 'Small (~3 servings)', price: 45, cost: 22.42 },
+      { label: 'Large (~6 servings)', price: 85, cost: 44.84 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~3 servings)': 1,
+        'Large (~6 servings)': 2,
+      },
+      base: [
+        I('Pork tenderloin (sous vide)', 1.25, 'lb'),
+        I('Sous vide bag + butter + herbs (costed)', 1, ''),
+        I('Butter', 2, 'tbsp'),
+        I('Shallot', 2, 'oz'),
+        I('Garlic', 2, 'cloves'),
+        I('White wine', 0.5, 'cup'),
+        I('Heavy cream', 1, 'cup'),
+        I('Whole grain mustard', 2, 'tbs'),
+        I('Fresh tarragon', 0.5, 'bunch'),
+        I('Egg taglierini', 1, 'pack'),
+      ],
+    },
+  },
+];
+
+// ── ALWAYS-MENU ITEMS (breakfast/fruit/desserts/addons/bag/sauces) ──────────
+// Same registry idea: each item's recipe/equipment/packaging lives on the
+// record. packaging: 'jar' → $2 wrap, 'none' → $0, absent → default $1.
+export const ALWAYS_ITEMS = {
+  breakfast: [
+    {
+      name: 'Homemade Waffles',
+      variants: [{ label: 'Set of 12', price: 7, cost: 2.78 }],
+      recipe: {
+        factors: { 'Set of 12': 1 },
+        base: [
+          I('Milk', 2, 'cups'),
+          I('Butter', 1, 'stick'),
+          I('Flour', 270, 'g', true),
+          I('Eggs', 2, '', true),
+          I('Gallon ziplock bag', 1, '', true),
+        ],
+      },
+    },
+  ],
+  fruit: [
+    {
+      name: 'Fresh Cut Pineapple',
+      packaging: 'none',
+      variants: [{ label: 'Per Container', price: 6, cost: 2.5 }],
+      recipe: { factors: { 'Per Container': 0.5 }, base: [I('Pineapple (1 makes 2 containers)', 1, '')] },
+    },
+    {
+      name: 'Seasonal Cantaloupe',
+      packaging: 'none',
+      variants: [{ label: 'Per Container', price: 6, cost: 3 }],
+      recipe: { factors: { 'Per Container': 1 }, base: [I('Seasonal cantaloupe (HEB melons)', 1, '')] },
+    },
+  ],
+  desserts: [
+    {
+      name: 'Chocolate Chip Cookies',
+      equipment: { fixed: ['ovenNormal'] },
+      variants: [
+        { label: '1 Dozen (Standard)', price: 25, cost: 11.33 },
+        { label: '1 Dozen (Premium Valrhona)', price: 40, cost: 23.33 },
+      ],
+      recipe: {
+        factors: { '1 Dozen (Standard)': 1, '1 Dozen (Premium Valrhona)': 1 },
+        base: [
+          I('Butter', 2, 'sticks'),
+          I('Flour', 322, 'g', true),
+          I('Eggs', 3, '', true),
+          I('Brown + white sugar', 1, 'batch', true),
+        ],
+        extras: {
+          '1 Dozen (Standard)': [I('Guittard chocolate (low + high %)', 290, 'g')],
+          '1 Dozen (Premium Valrhona)': [I('Valrhona chocolate', 290, 'g')],
+        },
+      },
+    },
+    {
+      name: 'Peanut Butter Fudge',
+      equipment: { fixed: ['largePot'] },
+      variants: [{ label: '1 Batch', price: 15, cost: 4.35 }],
+      recipe: {
+        factors: { '1 Batch': 1 },
+        base: [
+          I('Peanut butter', 0.5, 'cup'),
+          I('Evaporated milk', 0.75, 'cup'),
+          I('Butter', 3, 'tbsp'),
+          I('Sugar + karo + cocoa + vanilla', 1, 'batch', true),
+        ],
+      },
+    },
+  ],
+  addons: [
+    {
+      name: 'Queso',
+      packaging: 'jar',
+      equipment: { fixed: ['largePot'] },
+      variants: [
+        { label: 'Per Pint Jar', price: 12, cost: 4.87 },
+        { label: 'With jar swap', price: 10, cost: 3.62 },
+      ],
+      recipe: {
+        factors: { 'Per Pint Jar': 0.5, 'With jar swap': 0.5 },
+        base: [
+          I('Oaxaca cheese', 250, 'g'),
+          I('Colby Jack', 250, 'g'),
+          I('Poblano pepper', 90, 'g'),
+          I('Sweet onion', 135, 'g'),
+          I('Habaneros', 2, ''),
+          I('Dried ancho chili', 9, 'g'),
+          I('Limes', 1, ''),
+          I('Cilantro', 15, 'g'),
+          I('Sodium citrate', 20, 'g', true),
+          I('Pint mason jar', 2, '', false),
+        ],
+      },
+    },
+    {
+      name: 'Pickled Onions or Carrots',
+      packaging: 'jar',
+      variants: [
+        { label: 'Standard', price: 7.5, cost: 4 },
+        { label: 'With jar swap', price: 5.5, cost: 2.75 },
+      ],
+      recipe: {
+        factors: { 'Standard': 1, 'With jar swap': 1 },
+        base: [
+          I('Onions or carrots (for pickling)', 1, 'lb'),
+          I('Pint mason jar', 1, ''),
+          I('Pickling vinegar + spices', 1, 'batch', true),
+        ],
+      },
+    },
+    {
+      name: 'Chili Oil',
+      packaging: 'jar',
+      variants: [
+        { label: 'Per Jar', price: 10, cost: 4.07 },
+        { label: 'With jar swap', price: 8, cost: 3.07 },
+      ],
+      recipe: {
+        factors: { 'Per Jar': 0.5, 'With jar swap': 0.5 },
+        base: [
+          I('Ginger', 4, 'knobs'),
+          I('Pint mason jar', 2, ''),
+          I('Chili flakes + whole spices + oil', 1, 'batch', true),
+        ],
+      },
+    },
+    {
+      name: 'Thyme or Lavender Syrup',
+      packaging: 'jar',
+      variants: [
+        { label: 'Per Jar', price: 7, cost: 3.67 },
+        { label: 'With jar swap', price: 5, cost: 1.67 },
+      ],
+      recipe: {
+        factors: { 'Per Jar': 1, 'With jar swap': 1 },
+        base: [
+          I('Fresh thyme or lavender', 1, 'bunch'),
+          I('Pint mason jar', 1, ''),
+          I('Sugar', 1, 'cup', true),
+        ],
+      },
+    },
+    {
+      name: 'Vanilla Syrup',
+      packaging: 'jar',
+      variants: [
+        { label: 'Per Jar', price: 12, cost: 7.17 },
+        { label: 'With jar swap', price: 10, cost: 5.17 },
+      ],
+      recipe: {
+        factors: { 'Per Jar': 1, 'With jar swap': 1 },
+        base: [
+          I('Pint mason jar', 1, ''),
+          I('House vanilla extract + beans', 1, 'batch', true),
+          I('Sugar', 1, 'cup', true),
+        ],
+      },
+    },
+    {
+      name: 'Vanilla Lavender Syrup',
+      packaging: 'jar',
+      variants: [
+        { label: 'Per Jar', price: 13, cost: 8.17 },
+        { label: 'With jar swap', price: 11, cost: 6.17 },
+      ],
+      recipe: {
+        factors: { 'Per Jar': 1, 'With jar swap': 1 },
+        base: [
+          I('Fresh lavender', 1, 'bunch'),
+          I('Pint mason jar', 1, ''),
+          I('House vanilla extract + beans', 1, 'batch', true),
+          I('Sugar', 1, 'cup', true),
+        ],
+      },
+    },
+  ],
+  // ── PROTEINS (sous vide, priced by weight) ────────────────────────────────
+  // perLb items: pricePerLb is the clean /lb price (NO bag baked in — the
+  // $1.50 bag is added at display/estimate time). avgWeightLb drives the
+  // per-piece order estimate in form.html.
+  bag: [
+    // Proteins ordered by type (beef, then pork, then chicken), alphabetical
+    // within each type. Order here flows straight through menu.js → publish →
+    // form.html render, so this array IS the customer-facing order.
+    // ── BEEF (alphabetical) ──────────────────────────────────────────────────
+    {
+      name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 25, avgWeightLb: 0.5,
+      variants: [{ label: 'price by weight', price: 34, cost: 25 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Flank Steak', packaging: 'none', perLb: true, pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
+      variants: [{ label: 'price by weight', price: 20, cost: 11 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 26, costPerLb: 14.49, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 26, cost: 14.49 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 19, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 30, cost: 19 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    // ── PORK (alphabetical) ──────────────────────────────────────────────────
+    {
+      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 7.29, avgWeightLb: 1.25,
+      variants: [{ label: 'price by weight', price: 15, cost: 7.29 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, pricePerLb: 9, costPerLb: 4.19, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 9, cost: 4.19 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    // ── CHICKEN ──────────────────────────────────────────────────────────────
+    {
+      name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
+      variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
+    {
+      name: 'Carrots', packaging: 'none',
+      variants: [{ label: '~2 servings', price: 6, cost: 1.83 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 0.6, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Baby Gold Potatoes', packaging: 'none',
+      variants: [{ label: '~2 servings', price: 7, cost: 2.5 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Baby gold potatoes', 0.6, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Corn (off the cob)', packaging: 'none',
+      variants: [{ label: '~2 servings', price: 7, cost: 2.0 }],
+    },
+    {
+      name: 'Kabocha Squash', packaging: 'none',
+      variants: [{ label: '~2 servings', price: 7, cost: 1.62 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.75, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Parsnips', packaging: 'none',
+      variants: [{ label: '~2 servings', price: 7, cost: 2.0 }],
+    },
+    {
+      name: 'Asparagus', packaging: 'none',
+      variants: [
+        { label: 'Whole (~2 servings)', price: 8, cost: 3.0 },
+        { label: 'Bite-size (~2 servings)', price: 8, cost: 3.0 },
+      ],
+    },
+    {
+      // Garlic Confit lives in the bag category (not its own section) — it's a
+      // shelf-stable "stuff in a bag" item like the veg. It keeps its own
+      // customer copy (frozen-storage / botulism note) via the LIBRARY, but
+      // renders as a normal bag card. NOT flagged isSousVideVeg (it isn't a
+      // glaze veg and doesn't join the consolidated veg block).
+      name: 'Garlic Confit', packaging: 'none',
+      variants: [{ label: '6 oz bag', price: 10, cost: 5.05 }],
+      recipe: { factors: { '6 oz bag': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+  ],
+  sauces: [
+    { name: 'Chimichurri', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
+    { name: 'Romesco', variants: [{ label: 'Per Container', price: 4, cost: 0.80 }] },
+    { name: 'Chermoula', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
+    { name: 'Miso Butter Sauce', variants: [{ label: 'Per Container', price: 3, cost: 0.55 }] },
+    { name: 'Whipped Lemon Garlic Herb Butter', variants: [{ label: 'Per Container', price: 3, cost: 0.45 }] },
+  ],
+};
+
+// Flat list of every always-menu item (order preserved within categories).
+export const ALL_ALWAYS_ITEMS = Object.values(ALWAYS_ITEMS).flat();

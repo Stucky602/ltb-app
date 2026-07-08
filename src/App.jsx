@@ -46,6 +46,7 @@ import { OrderCard } from './components/OrderCard.jsx';
 import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/CookTabs.jsx';
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
+import { RecipesTab } from './components/RecipesTab.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
@@ -1210,6 +1211,7 @@ export default function LTBOrderTracker() {
               ['money', 'Money'],
               ['regulars', 'Regulars'],
               ['week', 'Week'],
+              ['recipes', 'Recipes'],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -1537,16 +1539,22 @@ export default function LTBOrderTracker() {
             inventory={inventory}
             onAdjustInventory={adjustInventory}
             onSetInventory={setInventoryCount}
-            dishNotes={dishNotes}
-            onSaveDishNote={saveDishNote}
-            liveCostMap={liveCostMap}
-            baseCostMap={baseCostMap}
-            costHistory={costHistory}
           />
         )}
 
         {view === 'money' && (
           <MoneyTab orders={orders || []} onUpdate={updateOrder} />
+        )}
+
+        {view === 'recipes' && (
+          <RecipesTab
+            liveCostMap={liveCostMap}
+            baseCostMap={baseCostMap}
+            costHistory={costHistory}
+            dishNotes={dishNotes}
+            onSaveDishNote={saveDishNote}
+            weekDishes={weekDishes}
+          />
         )}
 
         {view === 'regulars' && (

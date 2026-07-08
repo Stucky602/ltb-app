@@ -92,6 +92,7 @@ export function analyzeConflicts(selectedNames) {
     if (e.fixed && e.fixed.includes(res)) return 'hard';
     if (res === R.BACK_BURNER && e.polenta) return 'hard';
     if (res === R.BACK_BURNER && e.tofu) return 'conditional';
+    if (res === R.BACK_BURNER && e.backBurner) return 'conditional'; // soft always-on claim (quick sauce dishes) — yields yellow, not red
     if (e.flexible && e.flexible.includes(res)) return 'flex';
     return null;
   };

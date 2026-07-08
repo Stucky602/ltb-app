@@ -33,6 +33,10 @@ export const INGREDIENT_SEED = [
   { id: 'asian_greens', name: 'Asian greens', unit: 'lb', baseline: 2.0, category: 'produce' },
   { id: 'mushrooms', name: 'Mushrooms', unit: 'lb', baseline: 5.0, category: 'produce' },
   { id: 'baby_bella', name: 'Baby bella mushrooms', unit: '8oz', baseline: 3.0, category: 'produce' },
+  { id: 'porcini', name: 'Dried porcini', unit: 'oz', baseline: 2.25, category: 'produce' },
+  { id: 'oyster_mushroom', name: 'Oyster mushroom', unit: 'lb', baseline: 8.99, category: 'produce' },
+  { id: 'king_oyster_mushroom', name: 'King oyster mushroom', unit: 'lb', baseline: 4.99, category: 'produce' },
+  { id: 'shiitake', name: 'Shiitake mushroom', unit: 'lb', baseline: 7.99, category: 'produce' },
   { id: 'kabocha', name: 'Kabocha squash', unit: 'lb', baseline: 1.99, category: 'produce' },
   { id: 'petite_peas', name: 'Petite peas', unit: '8oz', baseline: 1.0, category: 'frozen' },
   { id: 'corn', name: 'Corn', unit: 'ear', baseline: 0.33, category: 'produce' },
@@ -53,6 +57,7 @@ export const INGREDIENT_SEED = [
   { id: 'pork_butt', name: 'Pork butt roast (bone-in)', unit: 'lb', baseline: 2.75, category: 'protein' },
   { id: 'pork_shoulder', name: 'Pork shoulder (bone-in)', unit: 'lb', baseline: 2.59, category: 'protein' },
   { id: 'wagyu_london_broil', name: 'Wagyu london broil', unit: 'lb', baseline: 12.0, category: 'protein' },
+  { id: 'pork_tenderloin', name: 'Pork tenderloin', unit: 'lb', baseline: 7.29, category: 'protein' }, // raw cost for recipe use (the bag item carries its own costPerLb)
   { id: 'shrimp', name: 'Shrimp', unit: 'lb', baseline: 14.0, category: 'protein' },
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },
@@ -120,6 +125,11 @@ export const INGREDIENT_SEED = [
   { id: 'white_wine', name: 'White wine', unit: 'cup', baseline: 2.5, category: 'pantry' },
   { id: 'shaoxing', name: 'Shaoxing wine', unit: 'cup', baseline: 3.0, category: 'pantry' },
   { id: 'sherry', name: 'Sherry', unit: 'cup', baseline: 8.0, category: 'pantry' },
+  { id: 'marsala', name: 'Marsala wine (dry or sweet)', unit: 'cup', baseline: 4.1, category: 'pantry' }, // $13/750ml ÷ 3.17 cups; dry & sweet priced the same (Kevin)
+  { id: 'shallot', name: 'Shallot', unit: 'lb', baseline: 3.98, category: 'produce' },
+  { id: 'whole_grain_mustard', name: 'Whole grain mustard', unit: 'oz', baseline: 0.17, category: 'pantry' },
+  { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, category: 'pantry' },
+  { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'bunch', baseline: 2.5, category: 'produce' },
   { id: 'bourbon', name: 'Bourbon', unit: 'cup', baseline: 6.4, category: 'pantry' },
   { id: 'espresso', name: 'Espresso', unit: 'shot', baseline: 1.5, category: 'pantry' },
   { id: 'salt', name: 'Salt', unit: 'batch-use', baseline: 0.05, category: 'spice' },
@@ -138,6 +148,7 @@ export const INGREDIENT_SEED = [
   { id: 'spices_generic', name: 'Spice blend (generic)', unit: 'batch-use', baseline: 1.0, category: 'spice' },
   { id: 'cornstarch', name: 'Cornstarch', unit: 'batch-use', baseline: 0.1, category: 'pantry' },
   { id: 'wrap', name: 'Packaging (wrap/jar)', unit: 'each', baseline: 1.0, category: 'pantry', fixed: true },
+  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 1.5, category: 'pantry', fixed: true }, // composed sous vide dishes: bag + seasoning cost tracked separately from packaging
   { id: 'sodium_citrate', name: 'Sodium citrate', unit: 'g', baseline: 0.025, category: 'pantry' },
   { id: 'herb_generic', name: 'Herb (thyme/lavender)', unit: 'batch', baseline: 1.0, category: 'produce' },
   { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, category: 'pantry' },

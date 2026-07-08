@@ -669,6 +669,81 @@ export const DISHES = [
       },
     },
   },
+  {
+    name: 'Mushroom Ragu',
+    cuisine: 'Italian',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variant replaces pasta; egg pappardelle is the default
+    variants: [
+      // Single size only (expensive dish, no Large). Polenta sub is the SAME
+      // price as pasta — the required egg pappardelle costs about what the
+      // polenta does, so it's a wash (Kevin, Jul 2026).
+      { label: 'Small (~4-5 servings)', price: 60, cost: 32.50 },
+      { label: 'Small (~4-5 servings) + Polenta', price: 60, cost: 32.50 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~4-5 servings)': 1,
+        'Small (~4-5 servings) + Polenta': 1,
+      },
+      base: [
+        I('Dried porcini', 1, 'oz'),
+        I('Oyster mushroom', 8, 'oz'),
+        I('King oyster mushroom', 1, 'lb'),
+        I('Shiitake mushroom', 8, 'oz'),
+        I('Onion', 5, 'oz'),
+        I('Carrot', 3, 'oz'),
+        I('Celery', 3, 'oz'),
+        I('Garlic', 3, 'cloves'),
+        I('Cooking olive oil', 2, 'oz'),
+        I('Tomato paste', 2, 'tbs'),
+        I('Dry marsala', 0.5, 'cup'),
+        I('Heavy cream (oz)', 2, 'oz'),
+        I('Good parm', 2, 'oz'),
+        I('Fresh thyme', 1, 'bunch', true),
+        I('Bay leaf', 1, 'leaf', true),
+        I('Nutmeg', 1, 'pinch', true),
+      ],
+      extras: {
+        // Polenta REPLACES the pasta, same as Saffron Ragu. Egg pappardelle is
+        // required on the pasta variant (this dish isn't the same without it).
+        'Small (~4-5 servings)': [I('Egg pappardelle', 2, 'pack')],
+        'Small (~4-5 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+      },
+    },
+  },
+  {
+    name: 'Pork with Mustard Tarragon Cream Sauce',
+    cuisine: 'German',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { backBurner: true }, // soft claim — quick sauce reduction, just be mindful (Kevin)
+    // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
+    variants: [
+      { label: 'Small (~3 servings)', price: 45, cost: 22.42 },
+      { label: 'Large (~6 servings)', price: 85, cost: 44.84 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~3 servings)': 1,
+        'Large (~6 servings)': 2,
+      },
+      base: [
+        I('Pork tenderloin (sous vide)', 1.25, 'lb'),
+        I('Sous vide bag + butter + herbs (costed)', 1, ''),
+        I('Butter', 2, 'tbsp'),
+        I('Shallot', 2, 'oz'),
+        I('Garlic', 2, 'cloves'),
+        I('White wine', 0.5, 'cup'),
+        I('Heavy cream', 1, 'cup'),
+        I('Whole grain mustard', 2, 'tbs'),
+        I('Fresh tarragon', 0.5, 'bunch'),
+        I('Egg taglierini', 1, 'pack'),
+      ],
+    },
+  },
 ];
 
 // ── ALWAYS-MENU ITEMS (breakfast/fruit/desserts/addons/bag/sauces) ──────────
@@ -882,8 +957,8 @@ export const ALWAYS_ITEMS = {
     },
     // ── PORK (alphabetical) ──────────────────────────────────────────────────
     {
-      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 8, avgWeightLb: 1.25,
-      variants: [{ label: 'price by weight', price: 15, cost: 8 }],
+      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 7.29, avgWeightLb: 1.25,
+      variants: [{ label: 'price by weight', price: 15, cost: 7.29 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {

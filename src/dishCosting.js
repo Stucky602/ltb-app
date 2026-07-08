@@ -54,7 +54,7 @@ export const LINE_MAP = {
   // Onions
   'Red onion':              { id: 'red_onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u==='lb'? q/LB_PER_ONION : q) },
   'Red onion (large)':      { id: 'red_onion', conv: q => q },
-  'Onion':                  { id: 'onion', conv: (q,u) => u === 'lb' ? q/LB_PER_ONION : q },
+  'Onion':                  { id: 'onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u === 'lb' ? q/LB_PER_ONION : q) },
   'Onions or carrots (for pickling)': { id: 'onion', conv: (q,u)=> u==='lb'? q/LB_PER_ONION : q },
   'Sweet onion':            { id: 'sweet_onion', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
   'Bulb onions':            { id: 'bulb_onion', conv: q => q },
@@ -67,7 +67,7 @@ export const LINE_MAP = {
   // Produce / veg
   'Carrots':                { id: 'carrots', conv: q => q },
   'Carrot':                 { id: 'carrots', conv: () => 0.15 },
-  'Celery':                 { id: 'celery', conv: (q,u)=> u==='stalks'? q/8 : q },
+  'Celery':                 { id: 'celery', conv: (q,u)=> u==='stalks'? q/8 : (u==='oz'? q/24 : q) }, // head ~1.5 lb = 24 oz
   'Green bell pepper':      { id: 'green_bell_pepper', conv: q => q },
   'Poblano pepper':         { id: 'poblano', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
   'Habaneros':              { id: 'habanero', conv: q => q*0.1 },
@@ -78,6 +78,10 @@ export const LINE_MAP = {
   'Long beans':             { id: 'long_beans', conv: q => q },
   'Asian greens':           { id: 'asian_greens', conv: q => q },
   'Mushrooms':              { id: 'mushrooms', conv: q => q },
+  'Dried porcini':          { id: 'porcini', conv: q => q }, // recipe qty in oz, ingredient priced per oz
+  'Oyster mushroom':        { id: 'oyster_mushroom', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
+  'King oyster mushroom':   { id: 'king_oyster_mushroom', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
+  'Shiitake mushroom':      { id: 'shiitake', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
   'Baby bella mushrooms':   { id: 'baby_bella', conv: (q,u)=> u==='oz'? q/8 : q },
   'Kabocha squash':         { id: 'kabocha', conv: q => q },
   'Petite peas':            { id: 'petite_peas', conv: (q,u)=> u==='oz'? q/8 : q },
@@ -125,6 +129,9 @@ export const LINE_MAP = {
   'Heavy cream':            { id: 'heavy_cream', conv: q => q },
   'Eggs':                   { id: 'eggs', conv: q => q },
   'Good parmesan':          { id: 'parm', conv: (q,u)=> u==='cup'? q*0.19 : q },
+  'Good parm':              { id: 'parm', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : (u==='cup'? q*0.19 : q) }, // recipe gives oz, parm priced per lb
+  'Heavy cream (oz)':       { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 oz = 1 cup
+  'Cooking olive oil':      { id: 'olive_oil_cooking', conv: q => q }, // Graza Sizzle, priced per oz, recipe gives oz
   'Oaxaca cheese':          { id: 'oaxaca', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
   'Colby Jack':             { id: 'colby_jack', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
 
@@ -152,6 +159,7 @@ export const LINE_MAP = {
   'Red wine':               { id: 'red_wine', conv: (q,u)=> u==='bottle'? q*CUPS_PER_BOTTLE_WINE : q },
   'White wine':             { id: 'white_wine', conv: q => q },
   'Dry sherry':             { id: 'sherry', conv: q => q },
+  'Dry marsala':            { id: 'marsala', conv: q => q },
   'Espresso':               { id: 'espresso', conv: q => q },
   'Bourbon':                { id: 'bourbon', conv: (q,u) => u==='oz' ? q/8 : q }, // bourbon priced per cup; 8oz/cup
   'Doubanjiang':            { id: 'doubanjiang', conv: q => q },
@@ -209,6 +217,12 @@ export const LINE_MAP = {
   'Pint mason jar':         { skip: true },
   'Gallon ziplock bag':     { skip: true },
   'Sous vide bag + seasonings': { skip: true },
+  'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $1.50 sv_bag ingredient; separate from $1 packaging wrap
+  'Pork tenderloin (sous vide)': { id: 'pork_tenderloin', conv: q => q },
+  'Shallot':                { id: 'shallot', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
+  'Whole grain mustard':    { id: 'whole_grain_mustard', conv: (q,u)=> u==='tbs'? q*0.5 : q }, // ~0.5 oz per tbsp
+  'Egg taglierini':         { id: 'egg_taglierini', conv: q => q },
+  'Fresh tarragon':         { id: 'tarragon', conv: q => q },
   'Ribeye':                 { skip: true },
   'NY Strip':               { skip: true },
   'Filet Mignon':           { skip: true },

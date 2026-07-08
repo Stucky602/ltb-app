@@ -161,6 +161,22 @@ export function buildReheatBlocks(order) {
     else raguNeedsPasta = true;
   });
 
+  // Mushroom Ragu — same variant-dependent starch as Saffron Ragu (Polenta
+  // REPLACES the egg pappardelle), but it gets its own dedicated cards with
+  // its own wording rather than the shared generic pasta text. Up-front scan
+  // so a mixed pasta + polenta order keeps both cards.
+  let mushroomRaguPasta = false;
+  let mushroomRaguPolenta = false;
+  items.forEach(it => {
+    if (it.name !== 'Mushroom Ragu') return;
+    if (it.variant && it.variant.includes('Polenta')) mushroomRaguPolenta = true;
+    else mushroomRaguPasta = true;
+  });
+
+  // Pork with Mustard Tarragon Cream Sauce — dedicated 3-part card (sear the
+  // sous vide pork, warm the sauce, cook the taglierini fresh).
+  let porkMustardOrdered = items.some(it => it.name === 'Pork with Mustard Tarragon Cream Sauce');
+
   // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice: the Beef/Lamb
   // noodles for rice, so they need their own rice-cooking instructions
   // instead of being lumped into the shared noodle/pasta bucket text. Same
@@ -196,6 +212,16 @@ export function buildReheatBlocks(order) {
       // (added near Bo Ssam's dedicated block below).
       seen.add(name);
       if (cuminNoodleOrdered) byBucket.pasta.push(name);
+      return;
+    }
+    if (name === 'Mushroom Ragu') {
+      // Dedicated cards (below), never the shared generic pasta text.
+      seen.add(name);
+      return;
+    }
+    if (name === 'Pork with Mustard Tarragon Cream Sauce') {
+      // Dedicated 3-part card (below), never the shared generic pasta text.
+      seen.add(name);
       return;
     }
     const b = DINNER_REHEAT_BUCKET[name];
@@ -262,6 +288,31 @@ export function buildReheatBlocks(order) {
       title: 'Reheat the polenta bag',
       dishes: ['Saffron Pork Ragu'],
       body: 'Bring a pot of water to a gentle simmer and place the sealed polenta bag in until heated through, then cut open and plate alongside the ragu.',
+    });
+  }
+
+  // ── Mushroom Ragu — dedicated cards, split by variant ─────────────────
+  if (mushroomRaguPasta) {
+    blocks.push({
+      title: 'Reheat the sauce, cook the pasta',
+      dishes: ['Mushroom Ragu'],
+      body: 'Comes in a container, ready to go. Empty the sauce into a saucepan and warm it over medium-low, stirring now and then, while you boil your pasta in lightly salted water. Once the pasta is cooked and drained, toss it with the sauce and a splash of the pasta water to loosen it, then finish with a little parm if you have it.',
+    });
+  }
+  if (mushroomRaguPolenta) {
+    blocks.push({
+      title: 'Reheat the sauce and polenta',
+      dishes: ['Mushroom Ragu'],
+      body: 'Comes in a container with the polenta sealed in a separate sous vide bag. Warm the sauce in a saucepan over medium-low, stirring now and then. Reheat the polenta bag in simmering water for a few minutes until hot, then cut it open, spoon it out, and top with the sauce and a little parm if you have it.',
+    });
+  }
+
+  // ── Pork with Mustard Tarragon Cream Sauce — dedicated 3-part card ─────
+  if (porkMustardOrdered) {
+    blocks.push({
+      title: 'Sear the pork, warm the sauce, cook the pasta',
+      dishes: ['Pork with Mustard Tarragon Cream Sauce'],
+      body: 'Three parts: the pork in a sealed bag, the sauce in a container, and the taglierini to cook fresh. For the pork, pat it very dry, then sear hard on each side in a blazing-hot pan just until deeply browned on each side. Cut it into half-inch to one-inch medallions after searing. Warm the sauce in a saucepan over medium-low, stirring now and then, while you boil your pasta in lightly salted water. Once the pasta is cooked and drained, toss it with the sauce, then plate with the pork on top.',
     });
   }
 

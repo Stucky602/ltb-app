@@ -109,7 +109,7 @@ export function generateShoppingItems(activeOrders, includeStaples) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Sous vide vegetable names (from ALWAYS_MENU.bag, the non-perLb entries).
-export const SOUS_VIDE_VEG = ['Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Parsnips', 'Asparagus'];
+export const SOUS_VIDE_VEG = ['Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Kabocha Squash', 'Parsnips', 'Asparagus'];
 
 // ── All the per-dish reheat/starch identity data below is DERIVED from the
 // dish registry (dishes.js). Rename or add a dish there; these follow. ──────
@@ -131,6 +131,18 @@ export const BAGGED_PASTA_DISHES = new Set(DISHES.filter(d => d.baggedPasta).map
 // is its own dish name, never combined with another dish on the same card.
 export const STEW_VEG_COPY = {};
 DISHES.forEach(d => { if (d.stewVegCopy) STEW_VEG_COPY[d.name] = d.stewVegCopy; });
+
+// Per-veg reheat copy for the sous vide vegetables. Each ordered veg with an
+// entry here gets its OWN titled card (like the stew veg / split ragu cards),
+// because these veg genuinely finish differently — asparagus overcooks and
+// drains, corn soaks everything up, kabocha wants a butter drizzle. Any veg
+// NOT listed here falls back to the shared generic veg card below, so the
+// glaze-optional veg (Carrots, Baby Gold, Parsnips) are unaffected.
+export const VEG_REHEAT_COPY = {
+  'Asparagus': 'Place the sealed bag in simmering water, but go easy here. Asparagus overcooks fast, so a minute at a simmer is really all it needs. Cut open and drain off the excess liquid, then plate. The liquid contains butter, so avoid pouring it down the drain.',
+  'Corn (off the cob)': 'Place the sealed bag in simmering water for a few minutes to reheat. Cut open, pick out the thyme sprigs, and plate as-is. The corn soaks up all the seasoning, so there\'s nothing to drain.',
+  'Kabocha Squash': 'Place the sealed bag in simmering water for a few minutes to reheat. Cut open and plate as-is; the squash soaks up all the seasoning, so there\'s nothing to drain. A drizzle of melted butter over the top right before serving takes it up a notch.',
+};
 
 // Build the grouped reheat blocks for an order. Returns an array of
 // { title, dishes: [names], body: '...' } ready to render.
@@ -352,13 +364,22 @@ export function buildReheatBlocks(order) {
     });
   }
 
-  // ── Sous vide vegetables (two finishing options) ───────────────────────
+  // ── Sous vide vegetables ───────────────────────────────────────────────
+  // Veg with their own copy (asparagus/corn/kabocha finish differently) get a
+  // dedicated titled card each; the rest share the generic two-option card.
   if (veg.length) {
-    blocks.push({
-      title: 'Reheat the vegetables',
-      dishes: veg,
-      body: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Plate as-is, or, if you have a few extra minutes, strain the liquid from the bag into a pan and reduce it down into a glaze to spoon over the top.',
+    const specialVeg = veg.filter(n => VEG_REHEAT_COPY[n]);
+    const genericVeg = veg.filter(n => !VEG_REHEAT_COPY[n]);
+    specialVeg.forEach(name => {
+      blocks.push({ title: name, dishes: [name], body: VEG_REHEAT_COPY[name] });
     });
+    if (genericVeg.length) {
+      blocks.push({
+        title: 'Reheat the vegetables',
+        dishes: genericVeg,
+        body: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Plate as-is, or, if you have a few extra minutes, strain the liquid from the bag into a pan and reduce it down into a glaze to spoon over the top.',
+      });
+    }
   }
 
   // ── Queso (verbatim) ───────────────────────────────────────────────────

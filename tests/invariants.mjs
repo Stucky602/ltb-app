@@ -21,7 +21,7 @@ import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
-import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary } from '../src/dishReport.js';
+import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
 import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
@@ -953,9 +953,11 @@ TAX  0.00
       if (!rec || !rec.costedLines.length) { F('report-build', `"${name}" / "${v.label}" has no costed recipe`); continue; }
       // Internal consistency: the variant's independent recomputation and the
       // costed recipe lines are the SAME math via two paths — must match to
-      // the cent. (The ANCHOR is allowed to differ: it's the historical
+      // the cent, within a few cents of per-line rounding (fractional
+      // conversions like 2 tbsp = 1/12 can round differently across the two
+      // summation paths). (The ANCHOR is allowed to differ: it's the historical
       // pricing basis, and the gap is deliberately surfaced as anchorGapPct.)
-      if (Math.abs(rec.rawTotal - v.recomputedRaw) > 0.02) {
+      if (Math.abs(rec.rawTotal - v.recomputedRaw) > 0.05) {
         F('report-reconcile', `"${name}" / "${v.label}" recipe lines ${rec.rawTotal} vs recomputed ${v.recomputedRaw} — same math must agree`);
       }
       // Sanity cap: an anchor gap beyond ±45% means a LINE_MAP or recipe entry
@@ -1007,9 +1009,14 @@ TAX  0.00
   if (!(boSmall.priceToHoldFloor && boSmall.priceToHoldFloor.suggested > boSmall.price)) {
     F('report-floor', `Bo Ssam suggested hold price must exceed current $${boSmall.price}: ${JSON.stringify(boSmall.priceToHoldFloor)}`);
   }
-  // And a comfortably-over dish must NOT flag: Mushroom Ragu (50%).
+  // A comfortably-over dish must NOT flag: Thai Basil Chicken (well over floor).
+  const overRep = buildDishReport('Thai Basil Chicken (Pad Krapow Gai)', { baseCostMap: base });
+  if (overRep.variants.some(v => v.underFloor)) F('report-floor', 'Thai Basil Chicken should not flag under-floor');
+  // Mushroom Ragu's pasta variant is honestly under floor now (38% after the
+  // anchor correction) — it SHOULD flag; the polenta variant is over.
   const mrRep = buildDishReport('Mushroom Ragu', { baseCostMap: base });
-  if (mrRep.variants.some(v => v.underFloor)) F('report-floor', 'Mushroom Ragu should not flag under-floor');
+  const mrPasta = mrRep.variants.find(v => !v.label.includes('Polenta'));
+  if (!mrPasta.underFloor) F('report-floor', `Mushroom Ragu pasta variant should flag under-floor (margin ${mrPasta.marginLivePct.toFixed(1)}%)`);
 
   // 11. Reheat parity: the report's reheat text is the ORDER engine's, not a copy.
   const porkReheat = buildDishReport('Pork with Mustard Tarragon Cream Sauce', { baseCostMap: base })
@@ -1025,7 +1032,64 @@ TAX  0.00
   const boRow = port.find(r => r.name === 'Bo Ssam');
   if (!boRow.underFloor || !/Small/.test(boRow.worstMarginVariant)) F('report-portfolio', JSON.stringify(boRow));
   const mrRow = port.find(r => r.name === 'Mushroom Ragu');
-  if (mrRow.underFloor) F('report-portfolio', 'Mushroom Ragu must not flag in portfolio');
+  if (!mrRow.underFloor) F('report-portfolio', 'Mushroom Ragu should flag in portfolio (pasta variant under floor after anchor fix)');
+}
+
+// ─── dishSalesHistory (Recipes-tab sales section, moved from Money) ──────────
+{
+  const now = Date.now();
+  const day = 86400000;
+  const costOf = (it) => (typeof it.cost === 'number' ? it.cost : null);
+  const orders = [
+    { createdAt: new Date(now - 2 * day).toISOString(), items: [
+      { name: 'Gumbo', qty: 2, price: 30, cost: 12 },
+      { name: 'Mushroom Ragu', qty: 1, price: 60, cost: 32.5 },
+    ] },
+    { createdAt: new Date(now - 40 * day).toISOString(), items: [
+      { name: 'Gumbo', qty: 1, price: 30, cost: 12, upcharge: { amount: 5 } },
+    ] },
+    { createdAt: new Date(now - 400 * day).toISOString(), items: [
+      { name: 'Gumbo', qty: 3, price: 28, cost: 11 },
+    ] },
+    // A weighed per-lb item: qty is a piece count, price is the full weighed
+    // amount — must NOT be multiplied by qty.
+    { createdAt: new Date(now - 1 * day).toISOString(), items: [
+      { name: 'NY Strip', qty: 2, price: 39, cost: 21.74, weight: 1.5 },
+    ] },
+  ];
+
+  // Week: only the 2-day-old Gumbo order (2 units) + NY Strip
+  const gw = dishSalesHistory('Gumbo', orders, costOf, 'week');
+  if (gw.units !== 2 || gw.orderCount !== 1) F('sales', `week gumbo: ${JSON.stringify(gw)}`);
+  if (gw.revenue !== 60 || gw.profit !== 36) F('sales', `week gumbo money: ${JSON.stringify(gw)}`);
+
+  // Month: adds the 40-day order? No — 40 > 30, so still just the 2-day one.
+  const gm = dishSalesHistory('Gumbo', orders, costOf, 'month');
+  if (gm.units !== 2) F('sales', `month gumbo should be 2 (40d excluded): ${JSON.stringify(gm)}`);
+
+  // Year: 2-day + 40-day (not the 400-day)
+  const gy = dishSalesHistory('Gumbo', orders, costOf, 'year');
+  if (gy.units !== 3 || gy.orderCount !== 2) F('sales', `year gumbo: ${JSON.stringify(gy)}`);
+  // 40-day order has a $5 upcharge → revenue 60 + (30+5) = 95
+  if (gy.revenue !== 95) F('sales', `year gumbo revenue w/ upcharge: ${gy.revenue}`);
+
+  // All: everything
+  const ga = dishSalesHistory('Gumbo', orders, costOf, 'all');
+  if (ga.units !== 6 || ga.orderCount !== 3) F('sales', `all gumbo: ${JSON.stringify(ga)}`);
+
+  // Per-lb: 2 pieces, weight set — revenue is price ONCE (39), not 78.
+  const ny = dishSalesHistory('NY Strip', orders, costOf, 'all');
+  if (ny.revenue !== 39 || ny.cost !== 21.74) F('sales', `per-lb must not multiply by qty: ${JSON.stringify(ny)}`);
+  if (ny.units !== 2) F('sales', `per-lb units still counts pieces: ${ny.units}`);
+
+  // Empty period
+  const none = dishSalesHistory('Bolognese', orders, costOf, 'week');
+  if (none.hasData || none.units !== 0) F('sales', `no-data case: ${JSON.stringify(none)}`);
+
+  // Unknown cost flag
+  const unkOrders = [{ createdAt: new Date().toISOString(), items: [{ name: 'Chili', qty: 1, price: 30 }] }];
+  const unk = dishSalesHistory('Chili', unkOrders, () => null, 'all');
+  if (!unk.unknown) F('sales', 'unknown-cost flag not set');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

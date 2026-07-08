@@ -21,6 +21,7 @@ import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
+import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary } from '../src/dishReport.js';
 import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
@@ -829,6 +830,153 @@ TAX  0.00
   const drop = priceDriftReport('shrimp', 7, [], SEED3);
   if (!drop || drop.pctChange !== -50) F('drift', `drop alert: ${JSON.stringify(drop)}`);
   if (drop.dishesUnderFloor.length !== 0) F('drift', 'a price DROP must not flag under-floor dishes');
+}
+
+// ─── Dish report engine (v9.21) — the Recipes tab data layer ─────────────────
+// The variant decomposition is the load-bearing piece: it must be TOTAL
+// (every variant lands in exactly one flavor×size cell) and COLLISION-FREE
+// for every dinner, or the Recipes tab dropdown lies. These fixtures pin it
+// against the real registry, so a future dish with a new labeling convention
+// fails loudly here instead of silently mis-grouping.
+{
+  // 1. Totality + zero collisions across ALL dinners
+  for (const d of DISHES) {
+    const dec = decomposeVariants(d.variants);
+    if (dec.collisions.length) F('report-decomp', `"${d.name}" collision: ${JSON.stringify(dec.collisions)}`);
+    const cellCount = dec.groups.reduce((s, g) => s + (g.small ? 1 : 0) + (g.large ? 1 : 0) + (g.only ? 1 : 0), 0);
+    if (cellCount !== d.variants.length) F('report-decomp', `"${d.name}" not total: ${cellCount} cells vs ${d.variants.length} variants`);
+  }
+
+  // 2. Cumin — the hard case: protein prefix × Asian-Greens suffix whose QTY
+  // text differs by size ("1/2 lb" vs "1 lb"). Must normalize into 6 flavors,
+  // each with both sizes.
+  const cumin = DISHES.find(d => d.name.startsWith('Cumin'));
+  const cdec = decomposeVariants(cumin.variants);
+  if (cdec.groups.length !== 6) F('report-decomp', `Cumin should decompose to 6 flavors, got ${cdec.groups.length}: ${cdec.groups.map(g=>g.flavor).join(' | ')}`);
+  const lambG = cdec.groups.find(g => g.flavor === 'Lamb');
+  const lambGreens = cdec.groups.find(g => g.flavor === 'Lamb + Asian Greens');
+  if (!lambG || !lambG.small || !lambG.large) F('report-decomp', `Cumin Lamb flavor missing a size: ${JSON.stringify(lambG && { s: !!lambG.small, l: !!lambG.large })}`);
+  if (!lambGreens || !lambGreens.small || !lambGreens.large) F('report-decomp', `Asian Greens qty suffix not normalized: ${JSON.stringify(cdec.groups.map(g=>g.flavor))}`);
+  if (lambG.small.label !== 'Lamb, Small (~3-4)') F('report-decomp', `Lamb small maps to wrong variant: ${lambG.small.label}`);
+
+  // 3. Sizeless dishes: Boeuf (2 flavors, no toggle), Homegrown (4 flavors)
+  const boeuf = decomposeVariants(DISHES.find(d => d.name.startsWith('Boeuf')).variants);
+  if (boeuf.groups.length !== 2 || boeuf.hasSizeToggle) F('report-decomp', `Boeuf: ${JSON.stringify(boeuf.groups.map(g=>g.flavor))} toggle=${boeuf.hasSizeToggle}`);
+  if (!boeuf.groups.every(g => g.only)) F('report-decomp', 'Boeuf variants must land in the sizeless cell');
+  const homegrown = decomposeVariants(DISHES.find(d => d.name.includes('Homegrown')).variants);
+  if (homegrown.groups.length !== 4) F('report-decomp', `Homegrown should be 4 sizeless flavors, got ${homegrown.groups.length}`);
+
+  // 4. Polenta flavors: Saffron (Standard + '+ Polenta', both sized),
+  //    Mushroom Ragu (same flavors, small-only, NO size toggle)
+  const saffron = decomposeVariants(DISHES.find(d => d.name === 'Saffron Pork Ragu').variants);
+  if (!(saffron.groups.length === 2 && saffron.hasSizeToggle && saffron.groups[1].flavor === '+ Polenta')) {
+    F('report-decomp', `Saffron: ${JSON.stringify(saffron.groups.map(g=>({f:g.flavor,s:!!g.small,l:!!g.large})))}`);
+  }
+  const mr = decomposeVariants(DISHES.find(d => d.name === 'Mushroom Ragu').variants);
+  if (!(mr.groups.length === 2 && !mr.hasSizeToggle && mr.groups.every(g => g.small && !g.large))) {
+    F('report-decomp', `Mushroom Ragu: ${JSON.stringify(mr.groups.map(g=>({f:g.flavor,s:!!g.small,l:!!g.large})))}`);
+  }
+
+  // 5. Servings parsing
+  const sv = [
+    ['Small (~4-5 servings)', 4.5], ['Large (~8-12)', 10], ['~4 servings', 4],
+    ['Small (split order, ~3-6)', 4.5], ['With 1 lb mushrooms', null], ['price by weight', null],
+  ];
+  for (const [label, want] of sv) {
+    const got = parseServings(label);
+    if (got !== want) F('report-servings', `"${label}" → ${got}, want ${want}`);
+  }
+
+  // 6. priceToHoldFloor math
+  const h = priceToHoldFloor(30.02, 45);
+  if (Math.abs(h.exact - 54.58) > 0.01 || h.suggested !== 55) F('report-floor', JSON.stringify(h));
+  if (priceToHoldFloor(0) !== null) F('report-floor', 'zero cost must return null');
+
+  // 7. Every dinner builds a full report; recipe + cost-over-time run for
+  //    every variant; costed-lines total reconciles with the variant's raw
+  //    cost (within anchor-rounding tolerance) — the drivers-sum-to-whole check.
+  const base = baselineCostMap();
+  for (const name of reportableDishes()) {
+    const rep = buildDishReport(name, { baseCostMap: base, liveCostMap: base, costHistory: [] });
+    if (!rep) { F('report-build', `no report for "${name}"`); continue; }
+    for (const v of rep.variants) {
+      const rec = rep.recipeFor(v.label);
+      if (!rec || !rec.costedLines.length) { F('report-build', `"${name}" / "${v.label}" has no costed recipe`); continue; }
+      // Internal consistency: the variant's independent recomputation and the
+      // costed recipe lines are the SAME math via two paths — must match to
+      // the cent. (The ANCHOR is allowed to differ: it's the historical
+      // pricing basis, and the gap is deliberately surfaced as anchorGapPct.)
+      if (Math.abs(rec.rawTotal - v.recomputedRaw) > 0.02) {
+        F('report-reconcile', `"${name}" / "${v.label}" recipe lines ${rec.rawTotal} vs recomputed ${v.recomputedRaw} — same math must agree`);
+      }
+      // Sanity cap: an anchor gap beyond ±45% means a LINE_MAP or recipe entry
+      // is genuinely broken, not just stale pricing. DOCUMENTED EXCEPTION:
+      // Homegrown Tomato is priced on garden economics (tomatoes ~free), so
+      // its recomputation-at-market gap is huge AND honest — the report
+      // surfaces it as "what this costs if you had to buy the tomatoes."
+      if (name !== 'Pasta with Homegrown Tomato Sauce'
+          && v.anchorGapPct != null && Math.abs(v.anchorGapPct) > 45) {
+        F('report-reconcile', `"${name}" / "${v.label}" anchor gap ${v.anchorGapPct}% — beyond stale-anchor territory, check LINE_MAP/recipe`);
+      }
+      if (rec.costDrivers.length < 1) F('report-build', `"${name}" / "${v.label}" no cost drivers`);
+      const cot = rep.costOverTimeFor(v.label);
+      if (!cot.dishSeries.length || cot.dishSeries[0].label !== 'baseline') F('report-build', `"${name}" cost-over-time baseline missing`);
+    }
+  }
+
+  // 8. Scaling check: the pork dish is a clean ×2; Bolognese's egg-pappardelle
+  //    flavor must FLAG the documented 2-pack→3-pack exception (1.5× pasta).
+  const porkRep = buildDishReport('Pork with Mustard Tarragon Cream Sauce', { baseCostMap: base });
+  const porkScale = porkRep.scaling.find(s => s.flavor === 'Standard');
+  if (!porkScale || !porkScale.clean || porkScale.ratio !== 2) F('report-scaling', `pork dish should scale clean ×2: ${JSON.stringify(porkScale)}`);
+  const boloRep = buildDishReport('Bolognese', { baseCostMap: base });
+  const boloPapp = boloRep.scaling.find(s => s.flavor === '+ Egg Pappardelle');
+  if (!boloPapp || boloPapp.clean || !boloPapp.mismatches.some(m => m.id === 'egg_pappardelle')) {
+    F('report-scaling', `Bolognese egg-papp exception must be flagged: ${JSON.stringify(boloPapp)}`);
+  }
+
+  // 9. Cost-over-time replay: synthetic shrimp jump on Gumbo — series rises,
+  //    trend math correct, unrelated-ingredient points ignored.
+  const gumboRep = buildDishReport('Gumbo', { baseCostMap: base, costHistory: [
+    { t: '2026-06-01', id: 'shrimp', cost: 14 },
+    { t: '2026-07-01', id: 'shrimp', cost: 18 },
+    { t: '2026-07-01', id: 'saffron', cost: 99 }, // not in gumbo — must be ignored
+  ] });
+  const cot = gumboRep.costOverTimeFor('Large (~8-12)');
+  if (cot.historyPoints !== 2) F('report-cot', `gumbo should see 2 relevant points, got ${cot.historyPoints}`);
+  const series = cot.dishSeries;
+  if (!(series.length === 3 && series[2].rawCost > series[0].rawCost)) F('report-cot', `dish series should rise: ${JSON.stringify(series)}`);
+  const shrimpTrend = cot.ingredientTrends.find(t => t.id === 'shrimp');
+  if (!shrimpTrend || shrimpTrend.latest !== 18 || shrimpTrend.points.length !== 2) F('report-cot', JSON.stringify(shrimpTrend));
+
+  // 10. Under-floor flag + suggested price surface on the known warning dishes
+  // Floor convention parity: the engine must agree with the suite's accepted
+  // warnings. Bo Ssam Small is a known 41.7% (< 45) on the buffered basis.
+  const boRep = buildDishReport('Bo Ssam', { baseCostMap: base });
+  const boSmall = boRep.variants.find(v => v.label.includes('Small'));
+  if (!boSmall.underFloor) F('report-floor', `Bo Ssam Small must flag under-floor on the suite basis (got ${boSmall.marginLivePct.toFixed(1)}%)`);
+  if (!(boSmall.priceToHoldFloor && boSmall.priceToHoldFloor.suggested > boSmall.price)) {
+    F('report-floor', `Bo Ssam suggested hold price must exceed current $${boSmall.price}: ${JSON.stringify(boSmall.priceToHoldFloor)}`);
+  }
+  // And a comfortably-over dish must NOT flag: Mushroom Ragu (50%).
+  const mrRep = buildDishReport('Mushroom Ragu', { baseCostMap: base });
+  if (mrRep.variants.some(v => v.underFloor)) F('report-floor', 'Mushroom Ragu should not flag under-floor');
+
+  // 11. Reheat parity: the report's reheat text is the ORDER engine's, not a copy.
+  const porkReheat = buildDishReport('Pork with Mustard Tarragon Cream Sauce', { baseCostMap: base })
+    .reheatFor('Small (~3 servings)');
+  if (!(porkReheat.length === 1 && /medallions/.test(porkReheat[0].body))) F('report-reheat', JSON.stringify(porkReheat.map(b=>b.title)));
+  const mrPolReheat = mrRep.reheatFor('Small (~4-5 servings) + Polenta');
+  if (!mrPolReheat.some(b => /polenta bag/i.test(b.body))) F('report-reheat', 'Mushroom Ragu polenta variant must show the polenta card');
+
+  // 12. Portfolio summary: one row per dinner; the known under-floor dishes
+  // flag; Bo Ssam's worst variant is its Small.
+  const port = buildPortfolioSummary({ baseCostMap: base });
+  if (port.length !== DISHES.length) F('report-portfolio', `expected ${DISHES.length} rows, got ${port.length}`);
+  const boRow = port.find(r => r.name === 'Bo Ssam');
+  if (!boRow.underFloor || !/Small/.test(boRow.worstMarginVariant)) F('report-portfolio', JSON.stringify(boRow));
+  const mrRow = port.find(r => r.name === 'Mushroom Ragu');
+  if (mrRow.underFloor) F('report-portfolio', 'Mushroom Ragu must not flag in portfolio');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

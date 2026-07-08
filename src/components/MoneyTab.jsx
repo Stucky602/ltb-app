@@ -25,7 +25,7 @@ import {
   urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
-  orderTotal, repricePerLbItem, itemCost, orderCostInfo,
+  orderTotal, repricePerLbItem, orderCostInfo,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -125,7 +125,6 @@ export function MoneyTab({ orders, onUpdate }) {
   const [storage, setStorage] = useState(null);
   const [search, setSearch] = useState('');
   const [showChart, setShowChart] = useState(false);
-  const [showDishes, setShowDishes] = useState(false);
   const [showRecap, setShowRecap] = useState(false);
   const [weekNotes, setWeekNotes] = useState({});
   const [weekNotesDraft, setWeekNotesDraft] = useState('');
@@ -183,37 +182,6 @@ export function MoneyTab({ orders, onUpdate }) {
       costComplete,
       count: filtered.length,
     };
-  }, [filtered]);
-
-  // Per-dish economics over the filtered period. Enabled by per-item cost
-  // bases: revenue = item price + upcharges (BEFORE order-level discounts,
-  // surcharge, and custom charges, which can't be attributed to a dish);
-  // cost prefers each item's frozen basis. `est` marks rows that include
-  // backfilled (estimated) bases; `unknown` marks rows missing cost entirely.
-  const dishEcon = useMemo(() => {
-    const map = new Map();
-    filtered.forEach(o => (o.items || []).forEach(it => {
-      const qty = Number(it.qty) || 1;
-      const rev = (Number(it.price) || 0) * qty
-        + (it.upcharge && typeof it.upcharge.amount === 'number' ? it.upcharge.amount : 0) * qty;
-      const c = itemCost(it);
-      const e = map.get(it.name) || { name: it.name, units: 0, revenue: 0, cost: 0, est: false, unknown: false };
-      e.units += qty;
-      e.revenue += rev;
-      if (c === null) e.unknown = true;
-      else e.cost += c * qty;
-      if (it.costSource === 'backfilled') e.est = true;
-      map.set(it.name, e);
-    }));
-    return [...map.values()]
-      .map(e => ({
-        ...e,
-        revenue: round2(e.revenue),
-        cost: round2(e.cost),
-        profit: round2(e.revenue - e.cost),
-        margin: e.revenue > 0 ? Math.round(((e.revenue - e.cost) / e.revenue) * 100) : 0,
-      }))
-      .sort((a, b) => b.profit - a.profit);
   }, [filtered]);
 
   const sorted = useMemo(() => {
@@ -374,9 +342,9 @@ export function MoneyTab({ orders, onUpdate }) {
         <div style={styles.moneyCount}>{totals.count} order{totals.count !== 1 ? 's' : ''}</div>
       </div>
 
-      <div style={{ ...styles.moneySearchRow, flexWrap: 'wrap', rowGap: 8 }}>
+      <div style={styles.moneySearchRow}>
         <input
-          style={{ ...styles.moneySearchInput, flex: '1 1 160px', minWidth: 0 }}
+          style={styles.moneySearchInput}
           placeholder="Search by customer name..."
           value={search}
           onChange={e => setSearch(e.target.value)}
@@ -394,14 +362,6 @@ export function MoneyTab({ orders, onUpdate }) {
             {showChart ? 'Hide graph' : 'Graph'}
           </button>
         )}
-        {dishEcon.length > 0 && (
-          <button
-            style={{ ...styles.chartToggleBtn, ...(showDishes ? styles.chartToggleBtnActive : {}) }}
-            onClick={() => setShowDishes(v => !v)}
-          >
-            {showDishes ? 'Hide dishes' : 'Dishes'}
-          </button>
-        )}
         <button
           style={{ ...styles.chartToggleBtn, ...(showRecap ? styles.chartToggleBtnActive : {}) }}
           onClick={() => setShowRecap(true)}
@@ -411,36 +371,6 @@ export function MoneyTab({ orders, onUpdate }) {
       </div>
 
       {showChart && profitSeries.length >= 2 && <ProfitChart series={profitSeries} />}
-      {showDishes && dishEcon.length > 0 && (
-        <div style={styles.chartCard}>
-          <div style={styles.chartHeader}>
-            <span style={styles.chartTitle}>Dish economics</span>
-            <span style={styles.chartSubtitle}>sorted by profit</span>
-          </div>
-          {dishEcon.map(d => (
-            <div key={d.name} style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '5px 2px', borderBottom: '1px solid #2b3330' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#e8e2d4', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {d.name}{d.est ? ' ‡' : ''}{d.unknown ? ' *' : ''}
-                </div>
-                <div style={{ fontSize: 11, color: '#9aa5a0' }}>
-                  {d.units} sold · {currency(d.revenue)} rev · {currency(d.cost)} cost
-                </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: d.profit >= 0 ? '#5DCAA5' : '#e0828a' }}>
-                  {d.profit >= 0 ? '+' : ''}{currency(d.profit)}
-                </div>
-                <div style={{ fontSize: 11, color: '#9aa5a0' }}>{d.margin}% margin</div>
-              </div>
-            </div>
-          ))}
-          <div style={styles.chartLegend}>
-            Revenue is item price + upcharges, before order-level discounts and fees.
-            ‡ includes estimated (backfilled) costs · * some costs unknown
-          </div>
-        </div>
-      )}
       {showRecap && <WeeklySummaryModal orders={orders} onClose={() => setShowRecap(false)} />}
 
       {groups.map(group => {

@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, priceDriftReport } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -17,6 +17,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
   const [err, setErr] = useState('');
   const [imgB64, setImgB64] = useState(null);
   const [plan, setPlan] = useState(null);          // buildReviewPlan output
+  const [recon, setRecon] = useState(null);        // v3.4 sum-vs-printed-total check (paste path)
   const [rows, setRows] = useState([]);            // working review rows (mutable copy)
   const [localAliases, setLocalAliases] = useState(aliases || {}); // staged alias edits
   const [picker, setPicker] = useState(null);      // { rowIdx } -> disambiguation popup open
@@ -61,6 +62,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     }
     const p = buildReviewPlan(parsed, seed, aliases || {});
     setPlan(p);
+    setRecon(reconcileReceipt(parsed));
     setRows(planToRows(p));
     setStage('review');
     if (parsed.unparsed.length > 3) {
@@ -105,6 +107,10 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     const ing = seed.find(s => s.id === ingredientId);
     setRows(rs => rs.map((r, i) => {
       if (i !== idx) return r;
+      // v3.4 negative learning: remapping AWAY from a suggestion records the
+      // rejection so that candidate can't silently auto-win again.
+      const prevId = r.ingredientId || r.suggestedId || null;
+      const _rejectedId = prevId && prevId !== ingredientId ? prevId : (r._rejectedId || null);
       // re-derive price basis now that it's matched
       const line = r.line;
       let perUnit = null, basis = null, status = 'matched', accept = false;
@@ -118,7 +124,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
         const conv = convertPerUnit(perUnit, normalizeUnit(line.unit), ing ? ing.unit : null, ingredientId);
         if (conv) { perUnit = conv.perUnit; conversion = { fromUnit: conv.fromUnit, toUnit: conv.toUnit, factor: conv.factor, basis }; basis = 'converted'; }
       }
-      return { ...r, status, ingredientId, ingredient: ing, perUnit, basis, conversion, accept, acceptedPerUnit: accept ? perUnit : null };
+      return { ...r, status, ingredientId, ingredient: ing, perUnit, basis, conversion, accept, acceptedPerUnit: accept ? perUnit : null, _rejectedId };
     }));
     if (writeAlias) {
       const key = normalizeIngredientName(rows[idx].line.item_name);
@@ -141,7 +147,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     setRows(rs => rs.map((r, i) => {
       if (i !== idx) return r;
       const perUnit = r.line.line_total;
-      return { ...r, status: 'matched', basis: 'line_total', perUnit, accept: false, acceptedPerUnit: null };
+      return { ...r, status: 'matched', basis: 'line_total', perUnit, accept: false, acceptedPerUnit: null, _usedFlat: true };
     }));
     const key = normalizeIngredientName(rows[idx].line.item_name);
     setLocalAliases(a => ({ ...a, [key]: { ...(a[key] || {}), pricing: 'FLAT' } }));
@@ -199,9 +205,16 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     let learned = { ...localAliases };
     rows.forEach(r => {
       if ((r.status === 'matched' || r.status === 'needsPrice') && r.accept && r.ingredientId) {
-        learned = learnFromAcceptance({ ...r, perUnit: effectivePerUnit(r) }, learned);
+        learned = learnFromAcceptance({ ...r, perUnit: effectivePerUnit(r) }, learned,
+          { rejectedId: r._rejectedId || null, usedFlatPrice: !!r._usedFlat });
       }
     });
+    // v3.4 learned auto-ignore: items Kevin left unmapped count a sighting;
+    // after 3 receipts the classifier stops asking about them.
+    const unmappedNorms = rows
+      .filter(r => r.status === 'unmatched' && !r.ingredientId)
+      .map(r => normalizeIngredientName(r.line.item_name));
+    if (unmappedNorms.length) learned = learnFromIgnores(unmappedNorms, learned);
     onSaveAliases(learned);
     // commit costs stamped with purchase date (App handler handles new-ingredient ids via current map)
     onCommit(updates, plan ? plan.receipt_date : null, newIngredients);
@@ -260,6 +273,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
             patchRow={patchRow}
             onOpenPicker={(idx) => setPicker({ rowIdx: idx })}
             onUseFlatPrice={useFlatPrice}
+            recon={recon}
             acceptedCount={acceptedCount}
             onCommit={doCommit}
           />
@@ -311,7 +325,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
 }
 
 // ── review body ──────────────────────────────────────────────────────────────
-function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, acceptedCount, onCommit, costHistory }) {
+function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, acceptedCount, onCommit, costHistory, recon }) {
   const matched = rows.map((r, i) => ({ r, i })).filter(x => x.r.status === 'matched');
   const needs = rows.map((r, i) => ({ r, i })).filter(x => x.r.status === 'needsPrice');
   const unmatched = rows.map((r, i) => ({ r, i })).filter(x => x.r.status === 'unmatched');
@@ -319,6 +333,18 @@ function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, 
 
   return (
     <div>
+      {recon && (
+        <div style={{
+          fontSize: 12, lineHeight: 1.45, padding: '8px 10px', borderRadius: 8, marginBottom: 10,
+          background: recon.ok ? 'rgba(93,202,165,0.10)' : 'rgba(239,159,39,0.12)',
+          border: `1px solid ${recon.ok ? '#28483d' : '#4a3a1e'}`,
+          color: recon.ok ? '#5DCAA5' : '#EF9F27',
+        }}>
+          {recon.ok
+            ? `Lines sum to ${currency(recon.linesSum)} — matches the receipt ${recon.printedKind} (${currency(recon.printed)}).`
+            : `Lines sum to ${currency(recon.linesSum)} but the receipt ${recon.printedKind} is ${currency(recon.printed)} (gap ${currency(Math.abs(recon.gap))}). Small gaps come from discounts or skipped non-food lines; a big gap means an item line wasn't recognized.`}
+        </div>
+      )}
       <div style={S.metaLine}>
         {plan.store || 'Receipt'}{plan.receipt_date ? ` · ${plan.receipt_date}` : ' · date not found (uses today)'}
       </div>
@@ -393,6 +419,18 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
       <div style={S.mapLine}>
         → {ing ? ing.name : '—'} <button style={S.linkBtn} onClick={() => onOpenPicker(idx)}>change</button>
       </div>
+      {r.weightSuggestion && !r.accept && (
+        <div style={{ fontSize: 12, color: '#EF9F27', margin: '4px 0 2px', lineHeight: 1.4 }}>
+          No weight printed. At your current {currency(r.weightSuggestion.atPrice)}/lb this is ≈{r.weightSuggestion.lb} lb.{' '}
+          <button
+            style={{ ...S.linkBtn, color: '#5DCAA5', fontWeight: 700 }}
+            onClick={() => patchRow(idx, { perUnit: r.weightSuggestion.atPrice, basis: 'inferred_weight', accept: true, acceptedPerUnit: r.weightSuggestion.atPrice })}
+          >
+            Accept (price unchanged)
+          </button>
+          {' '}or edit the price if you have the actual weight.
+        </div>
+      )}
       <div style={S.reconcile}>
         <span style={S.curCost}>now {cur != null ? currency(cur) : '—'}{ing ? `/${ing.unit}` : ''}</span>
         <span style={S.arrow}>→</span>

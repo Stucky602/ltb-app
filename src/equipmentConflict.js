@@ -92,7 +92,7 @@ export function analyzeConflicts(selectedNames) {
     if (e.fixed && e.fixed.includes(res)) return 'hard';
     if (res === R.BACK_BURNER && e.polenta) return 'hard';
     if (res === R.BACK_BURNER && e.tofu) return 'conditional';
-    if (res === R.BACK_BURNER && e.backBurner) return 'conditional'; // soft always-on claim (quick sauce dishes) — yields yellow, not red
+    if (res === R.BACK_BURNER && e.backBurner) return 'soft'; // always-on but quick (sauce dishes) — yellow, and NOT a tofu-style variant claim
     if (e.flexible && e.flexible.includes(res)) return 'flex';
     return null;
   };
@@ -108,6 +108,7 @@ export function analyzeConflicts(selectedNames) {
     const hard = claimants.filter(c => c.type === 'hard');
     const flex = claimants.filter(c => c.type === 'flex');
     const cond = claimants.filter(c => c.type === 'conditional');
+    const soft = claimants.filter(c => c.type === 'soft');
     const dishes = claimants.map(c => c.name);
 
     // Fast-turnover resource (wok): sequential, not a true jam → yellow.
@@ -118,6 +119,24 @@ export function analyzeConflicts(selectedNames) {
         dishes,
         note: `${dishes.length} dishes use the ${RESOURCE_LABELS[res]}. These are quick in-and-out cooks, so you can run them back to back — the ${RESOURCE_LABELS[res]} clears fast. Just don't expect to do them simultaneously.`,
       });
+      return;
+    }
+
+    // Soft always-on claims (quick sauce dishes like the mustard-tarragon pan
+    // sauce). These genuinely use the burner every time, but only briefly, and
+    // they have NO variant to swap — so the note must NOT mention tofu or a
+    // "meat/shrimp version." When two hard claimants also coexist, the hard-vs-
+    // hard red below still fires; the soft dish just rides as a mild heads-up.
+    if (soft.length > 0 && hard.length < 2) {
+      const softNames = soft.map(c => c.name);
+      const others = claimants.filter(c => c.type !== 'soft').map(c => c.name);
+      let note = `${softNames.join(' and ')} use${softNames.length === 1 ? 's' : ''} the ${RESOURCE_LABELS[res]} for a quick sauce or reduction.`;
+      if (others.length > 0) {
+        note += ` ${others.join(', ')} also want${others.length === 1 ? 's' : ''} it, so just don't run them at the exact same moment — the sauce work clears fast.`;
+      } else {
+        note += ` More than one this week, so stagger the quick sauce steps rather than doing them simultaneously.`;
+      }
+      yellow.push({ resource: res, label: RESOURCE_LABELS[res], dishes, note });
       return;
     }
 

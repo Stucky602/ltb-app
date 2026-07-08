@@ -22,7 +22,7 @@ import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
-import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, priceDriftReport } from '../src/receiptMatch.js';
+import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -1090,6 +1090,107 @@ TAX  0.00
   const unkOrders = [{ createdAt: new Date().toISOString(), items: [{ name: 'Chili', qty: 1, price: 30 }] }];
   const unk = dishSalesHistory('Chili', unkOrders, () => null, 'all');
   if (!unk.unknown) F('sales', 'unknown-cost flag not set');
+}
+
+// ─── Receipt scanner v3.4: pooling, reconciliation, inference, learning ──────
+{
+  const seedIngs = [
+    { id: 'onion', name: 'Onion (yellow)', unit: 'lb', baseline: 0.6, current: 0.69 },
+    { id: 'mushrooms', name: 'Mushrooms (cremini)', unit: 'lb', baseline: 4.99, current: 8.99 },
+    { id: 'asparagus', name: 'Asparagus', unit: 'lb', baseline: 3.99, current: 4.0 },
+    { id: 'limes', name: 'Limes', unit: 'each', baseline: 0.33, current: 0.33 },
+  ];
+
+  // #4 POOLING: Kevin's real H-Mart case — two YELLOW ONION weighed lines.
+  // Pooled per-lb = quantity-weighted average, pooledWeight = total lb.
+  const pooled = buildReviewPlan({ store: 'H MART', lines: [
+    { item_name: 'YELLOW ONION', quantity: 2.95, unit: 'lb', unit_price: 0.69, line_total: 2.04, weighed: true },
+    { item_name: 'YELLOW ONION', quantity: 1.92, unit: 'lb', unit_price: 0.79, line_total: 1.52, weighed: true },
+  ] }, seedIngs, {});
+  const onionG = [...pooled.buckets.matched, ...pooled.buckets.review].find(g => g.ingredientId === 'onion');
+  if (!onionG) F('receipt-pool', 'pooled onion group missing');
+  else {
+    const expect = (0.69 * 2.95 + 0.79 * 1.92) / (2.95 + 1.92);
+    if (Math.abs(onionG.perUnit - expect) > 0.01) F('receipt-pool', `pooled per-lb ${onionG.perUnit}, want ~${expect.toFixed(3)}`);
+    if (Math.abs((onionG.pooledWeight || 0) - 4.87) > 0.01) F('receipt-pool', `pooledWeight ${onionG.pooledWeight}, want 4.87`);
+    if (Math.abs(onionG.totalSum - 3.56) > 0.01) F('receipt-pool', `totalSum ${onionG.totalSum}`);
+  }
+
+  // #2 RECONCILIATION: printed subtotal captured from a skipped line; the gap
+  // vs the parsed lines is reported, small gaps ok, big gaps flagged.
+  const pasteHEB = [
+    'PRODUCE',
+    'ASPARAGUS                2.53 F',
+    'Sale Subtotal 8.53',
+    'Total Sale*** 8.53',
+  ].join('\n');
+  const parsedHEB = parsePastedReceipt(pasteHEB);
+  if (parsedHEB.printed_subtotal !== 8.53) F('receipt-reconc', `subtotal not captured: ${parsedHEB.printed_subtotal}`);
+  const rec1 = reconcileReceipt(parsedHEB);
+  if (!rec1 || rec1.printedKind !== 'subtotal' || rec1.linesSum !== 2.53) F('receipt-reconc', JSON.stringify(rec1));
+  if (rec1.ok) F('receipt-reconc', 'a $6 gap on an $8.53 receipt must NOT be ok');
+  const rec2 = reconcileReceipt({ lines: [{ line_total: 8.5 }], printed_subtotal: 8.53 });
+  if (!rec2.ok) F('receipt-reconc', `3-cent gap should be ok: ${JSON.stringify(rec2)}`);
+  const balOnly = parsePastedReceipt('MUSHROOM\n4.99 F\nBALANCE 4.99');
+  if (balOnly.printed_total !== 4.99) F('receipt-reconc', `H-Mart BALANCE not captured: ${balOnly.printed_total}`);
+  if (reconcileReceipt({ lines: [] }) !== null) F('receipt-reconc', 'no printed number → null, not a fake report');
+
+  // #1 WEIGHT INFERENCE: H-Mart PREBAGGED veg — flat price, no weight printed,
+  // per-lb ingredient → propose weight = total ÷ current $/lb. Never auto.
+  const prebag = buildReviewPlan({ store: 'H MART', lines: [
+    { item_name: 'MUSHROOM', line_total: 4.99, weighed: false },
+  ] }, seedIngs, { 'mushroom': { ingredientId: 'mushrooms' } });
+  const mush = [...prebag.buckets.matched, ...prebag.buckets.review].find(g => g.ingredientId === 'mushrooms');
+  if (!mush || !mush.weightSuggestion) F('receipt-infer', `prebagged veg must get a weight suggestion: ${JSON.stringify(mush && { s: mush.status, w: mush.weightSuggestion })}`);
+  else {
+    if (Math.abs(mush.weightSuggestion.lb - 0.56) > 0.01) F('receipt-infer', `inferred ${mush.weightSuggestion.lb} lb, want ~0.56 (4.99/8.99)`);
+    if (mush.weightSuggestion.atPrice !== 8.99) F('receipt-infer', `atPrice ${mush.weightSuggestion.atPrice}`);
+    if (mush.defaultAccept) F('receipt-infer', 'inferred-weight lines must never default-accept');
+  }
+  // A line WITH a printed weight must NOT get a suggestion (loose H-Mart veg).
+  const loose = buildReviewPlan({ store: 'H MART', lines: [
+    { item_name: 'MUSHROOM', quantity: 0.62, unit: 'lb', unit_price: 8.99, line_total: 5.57, weighed: true },
+  ] }, seedIngs, { 'mushroom': { ingredientId: 'mushrooms' } });
+  const looseG = [...loose.buckets.matched, ...loose.buckets.review].find(g => g.ingredientId === 'mushrooms');
+  if (looseG && looseG.weightSuggestion) F('receipt-infer', 'weighed line must not get a suggestion');
+
+  // #3a LEARNED AUTO-IGNORE: 3 unmapped sightings → classifier stops asking.
+  let al = {};
+  al = learnFromIgnores(['modelo especial 12pk'], al);
+  al = learnFromIgnores(['modelo especial 12pk'], al);
+  let plan = buildReviewPlan({ store: 'HEB', lines: [{ item_name: 'MODELO ESPECIAL 12PK', line_total: 15.99 }] }, seedIngs, al);
+  if (plan.buckets.unmatched.length !== 1) F('receipt-learn', '2 sightings must still ask');
+  al = learnFromIgnores(['modelo especial 12pk'], al);
+  plan = buildReviewPlan({ store: 'HEB', lines: [{ item_name: 'MODELO ESPECIAL 12PK', line_total: 15.99 }] }, seedIngs, al);
+  if (plan.buckets.unmatched.length !== 0 || plan.buckets.ignored.length !== 1) F('receipt-learn', `3rd sighting should auto-ignore: unmatched=${plan.buckets.unmatched.length} ignored=${plan.buckets.ignored.length}`);
+  // Mapping overrides: an alias WITH ingredientId never auto-ignores.
+  const mappedAl = { 'modelo especial 12pk': { ingredientId: 'onion', seenUnmatched: 5 } };
+  plan = buildReviewPlan({ store: 'HEB', lines: [{ item_name: 'MODELO ESPECIAL 12PK', line_total: 15.99 }] }, seedIngs, mappedAl);
+  if (plan.buckets.ignored.length !== 0) F('receipt-learn', 'mapped alias must never auto-ignore');
+
+  // #3b NEGATIVE LEARNING: a rejected id is score-capped — it cannot auto-win.
+  let al2 = learnFromAcceptance(
+    { norm: 'green onion', ingredientId: 'asparagus', ingredient: seedIngs[2], lines: [{ line_total: 2.0 }] },
+    {}, { rejectedId: 'onion' }
+  );
+  if (!al2['green onion'].rejected || al2['green onion'].rejected[0] !== 'onion') F('receipt-learn', `rejection not recorded: ${JSON.stringify(al2['green onion'])}`);
+
+  // #3c LEARNED SOLD-BY-EACH: two flat-price acceptances of a weighed line for
+  // an each-ish ingredient → soldByEach learned → classifier prices per each.
+  let al3 = {};
+  const limeGroup = { norm: 'lime bagged', ingredientId: 'limes', ingredient: seedIngs[3], lines: [{ weighed: true, line_total: 0.33 }] };
+  al3 = learnFromAcceptance(limeGroup, al3, { usedFlatPrice: true });
+  if (al3['lime bagged'].soldByEach) F('receipt-learn', 'soldByEach must need 2 hits');
+  al3 = learnFromAcceptance(limeGroup, al3, { usedFlatPrice: true });
+  if (!al3['lime bagged'].soldByEach) F('receipt-learn', `soldByEach not learned after 2: ${JSON.stringify(al3['lime bagged'])}`);
+  // The learned-each payoff: a FLAT single price (prebagged limes, no qty, no
+  // weight) now prices per-each via the learned flag instead of asking.
+  const eachPlan = buildReviewPlan({ store: 'HEB', lines: [
+    { item_name: 'LIME BAGGED', line_total: 0.66 },
+  ] }, seedIngs, al3);
+  const limeG = [...eachPlan.buckets.matched, ...eachPlan.buckets.review].find(g => g.ingredientId === 'limes');
+  if (!limeG || limeG.conversion?.basis !== 'sold_by_each') F('receipt-learn', `learned soldByEach not applied: ${JSON.stringify(limeG && { b: limeG.conversion?.basis, p: limeG.perUnit })}`);
+  else if (Math.abs(limeG.perUnit - 0.66) > 0.005) F('receipt-learn', `learned-each perUnit ${limeG.perUnit}, want 0.66`);
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

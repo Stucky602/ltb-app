@@ -49,7 +49,7 @@ export const LINE_MAP = {
   'Crushed tomatoes':       { id: 'tomato_can', conv: q => q },
   'Homegrown tomatoes':     { id: 'homegrown_tomatoes', conv: () => 1 }, // fixed, no-drift
   'Tomatoes (pico)':        { id: 'fresh_tomatoes', conv: q => q },
-  'Tomato paste':           { id: 'tomato_paste', conv: q => q },
+  'Tomato paste':           { id: 'tomato_paste', conv: (q,u)=> u==='tbs'? q/12 : q }, // 6oz can ≈ 12 tbsp
 
   // Onions
   'Red onion':              { id: 'red_onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u==='lb'? q/LB_PER_ONION : q) },
@@ -200,7 +200,7 @@ export const LINE_MAP = {
   'House vanilla extract + beans': { id: 'vanilla', conv: () => 4 },
   'Brown + white sugar':    { id: 'white_sugar', conv: () => 1.5 },
   'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },
-  'Polenta + butter + parmesan (bagged)': { id: 'parm', conv: () => 0.1 },
+  'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.454 }, // ~1 cup dry = 0.454 lb (measured 0.795 lb = 1.75 cups) @ $5.99/lb ≈ $2.72; bag cost via wrap
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
   'Chickpeas': { id: 'chickpeas', conv: q => q },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },

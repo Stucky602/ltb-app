@@ -129,6 +129,7 @@ export const INGREDIENT_SEED = [
   { id: 'shallot', name: 'Shallot', unit: 'lb', baseline: 3.98, category: 'produce' },
   { id: 'whole_grain_mustard', name: 'Whole grain mustard', unit: 'oz', baseline: 0.17, category: 'pantry' },
   { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, category: 'pantry' },
+  { id: 'polenta', name: 'Polenta (dry cornmeal)', unit: 'lb', baseline: 5.99, category: 'pantry' }, // measured: 0.795 lb = 1.75 cups dry
   { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'bunch', baseline: 2.5, category: 'produce' },
   { id: 'bourbon', name: 'Bourbon', unit: 'cup', baseline: 6.4, category: 'pantry' },
   { id: 'espresso', name: 'Espresso', unit: 'shot', baseline: 1.5, category: 'pantry' },

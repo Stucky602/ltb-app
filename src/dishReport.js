@@ -393,3 +393,54 @@ export function buildPortfolioSummary(ctx = {}) {
 export function reportableDishes() {
   return DISHES.map(d => d.name);
 }
+
+// ── Per-dish sales history ───────────────────────────────────────────────────
+// Aggregates one dish's real sales from the order history over a rolling
+// period. Mirrors MoneyTab's dish-economics math (revenue = item price +
+// upcharges before order-level discounts/fees; cost prefers each item's frozen
+// basis) so the two never disagree. `period` is 'week' | 'month' | 'year' |
+// 'all'. costOf is injected (App passes utils.itemCost) to avoid a circular
+// import between dishReport and utils.
+const PERIOD_DAYS = { week: 7, month: 30, year: 365 };
+export function dishSalesHistory(dishName, orders, costOf, period = 'all') {
+  const days = PERIOD_DAYS[period];
+  const cutoff = days ? Date.now() - days * 86400000 : null;
+  let units = 0, revenue = 0, cost = 0, orderCount = 0, unknown = false, est = false;
+  for (const o of (orders || [])) {
+    const t = new Date(o.createdAt || 0).getTime();
+    if (cutoff && !(t >= cutoff)) continue;
+    let touched = false;
+    for (const it of (o.items || [])) {
+      if (it.name !== dishName) continue;
+      touched = true;
+      const qty = Number(it.qty) || 1;
+      const up = it.upcharge && typeof it.upcharge.amount === 'number' ? it.upcharge.amount : 0;
+      // Weighed per-lb items already bake the full amount into price; qty is a
+      // piece count that must not multiply. Match utils.itemUnitMultiplier by
+      // checking for a real weight.
+      const mult = (typeof it.weight === 'number' && it.weight > 0) ? 1 : qty;
+      units += qty;
+      revenue += (Number(it.price) || 0) * mult + up * qty;
+      const c = costOf ? costOf(it) : null;
+      if (c == null) unknown = true;
+      else cost += c * mult;
+      if (it.costSource === 'backfilled') est = true;
+    }
+    if (touched) orderCount += 1;
+  }
+  revenue = Math.round(revenue * 100) / 100;
+  cost = Math.round(cost * 100) / 100;
+  const profit = Math.round((revenue - cost) * 100) / 100;
+  return {
+    period,
+    units,
+    orderCount,
+    revenue,
+    cost,
+    profit,
+    marginPct: revenue > 0 ? Math.round(((revenue - cost) / revenue) * 100) : 0,
+    unknown,   // some items had no cost basis
+    est,       // some costs are backfilled estimates
+    hasData: units > 0,
+  };
+}

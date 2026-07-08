@@ -547,10 +547,10 @@ export const DISHES = [
     equipment: { flexible: ['dutch', 'largePot'] },
     options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] } }, // egg-papp variants ARE the pasta
     variants: [
-      { label: 'Small (split order, ~4)', price: 40, cost: 16.79 },
-      { label: 'Large (~8)', price: 70, cost: 32.57 },
-      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 50, cost: 26.79 },
-      { label: 'Large (~8) + Egg Pappardelle', price: 85, cost: 42.57 },
+      { label: 'Small (split order, ~4)', price: 45, cost: 22.58 },
+      { label: 'Large (~8)', price: 80, cost: 44.07 },
+      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 55, cost: 27.12 },
+      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 57.71 },
     ],
     recipe: {
       factors: {
@@ -642,8 +642,8 @@ export const DISHES = [
     variants: [
       { label: 'Small (~4 servings)', price: 35, cost: 16.79 },
       { label: 'Large (~8 servings)', price: 65, cost: 32.50 },
-      { label: 'Small (~4 servings) + Polenta', price: 43, cost: 17.11 },
-      { label: 'Large (~8 servings) + Polenta', price: 80, cost: 33.15 },
+      { label: 'Small (~4 servings) + Polenta', price: 43, cost: 17.57 },
+      { label: 'Large (~8 servings) + Polenta', price: 80, cost: 34.05 },
     ],
     recipe: {
       factors: {
@@ -680,8 +680,8 @@ export const DISHES = [
       // Single size only (expensive dish, no Large). Polenta sub is the SAME
       // price as pasta — the required egg pappardelle costs about what the
       // polenta does, so it's a wash (Kevin, Jul 2026).
-      { label: 'Small (~4-5 servings)', price: 60, cost: 32.50 },
-      { label: 'Small (~4-5 servings) + Polenta', price: 60, cost: 32.50 },
+      { label: 'Small (~4-5 servings)', price: 60, cost: 37.20 },
+      { label: 'Small (~4-5 servings) + Polenta', price: 60, cost: 31.05 },
     ],
     recipe: {
       factors: {
@@ -944,10 +944,8 @@ export const ALWAYS_ITEMS = {
       recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      // THIS WEEK'S SPECIAL — H-E-B Prime 1 NY Strip. Reverts to Select next
-      // week (pricePerLb 23 / costPerLb 17.49). See handoff for revert values.
-      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 22, costPerLb: 13.99, avgWeightLb: 0.75,
-      variants: [{ label: 'price by weight', price: 22, cost: 13.99 }],
+      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 26, costPerLb: 14.49, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 26, cost: 14.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {

@@ -358,6 +358,12 @@ function classifyLine(line, seed, aliases, store) {
   if (alias && alias.action === 'IGNORE_ALWAYS') {
     return { status: 'ignored', norm, line, reason: 'alias_ignore' };
   }
+  // v3.4 learned auto-ignore: an unmatched item Kevin has left unmapped on 3+
+  // receipts (MODELO ESPECIAL...) stops asking. Still mappable from the
+  // ignored list; never applies once a real mapping exists.
+  if (alias && !alias.ingredientId && (alias.seenUnmatched || 0) >= 3) {
+    return { status: 'ignored', norm, line, reason: 'learned_ignore' };
+  }
 
   const nameTokens = tokens(line.item_name);
   let ingredientId = null, candidates = [], via = null;
@@ -377,6 +383,14 @@ function classifyLine(line, seed, aliases, store) {
     const wine = wineHint(line.item_name);
     if (wine === 'red_wine' || wine === 'both') scoreById.red_wine = Math.max(scoreById.red_wine || 0, 0.9);
     if (wine === 'white_wine' || wine === 'both') scoreById.white_wine = Math.max(scoreById.white_wine || 0, 0.9);
+    // v3.4 negative learning: ingredients Kevin has re-mapped AWAY from for
+    // this exact item name never auto-match again — capped below the auto
+    // threshold so they stay visible in the picker but can't win silently.
+    if (alias && Array.isArray(alias.rejected)) {
+      for (const rid of alias.rejected) {
+        if (scoreById[rid] != null) scoreById[rid] = Math.min(scoreById[rid], 0.5);
+      }
+    }
     // family layer: any triggered family injects ALL its members as candidates
     const trigFams = familiesTriggeredByTokens(nameTokens);
     const famBonus = {};
@@ -472,7 +486,7 @@ function classifyLine(line, seed, aliases, store) {
   // (b2) v3 SOLD-BY-EACH: rings up with a weight flag (or no unit) but is sold
   // per piece/bunch — the one-pack price IS the per-each price. Direct when the
   // costing unit is each-ish; otherwise bridge through 'each' (avg-weight).
-  if (basis !== 'converted' && SOLD_BY_EACH.has(ingredientId)
+  if (basis !== 'converted' && (SOLD_BY_EACH.has(ingredientId) || (alias && alias.soldByEach))
       && (line.weighed || !fromUnit) && line.line_total != null
       && (basis === 'line_total' || basis === 'printed_unit_price')
       // An explicit size/count in the NAME (GARLIC PK 5PC) is more specific
@@ -572,10 +586,32 @@ function classifyLine(line, seed, aliases, store) {
     reasons.push(msg);
   }
 
-  return { status: 'matched', norm, line, ingredientId, ingredient: seedIng, via, perUnit, basis, conversion, candidates, confidence, reasons };
+  // v3.4 weight inference: a per-lb ingredient with only a flat line total
+  // (H-Mart prebagged veg, H-E-B produce with no printed weight) — the engine
+  // knows the total AND Kevin's current $/lb, so it proposes the weight:
+  // "$4.99 at your $8.99/lb is about 0.55 lb." Never auto-accepted; accepting
+  // records the purchase at the current price (price unchanged), or Kevin
+  // enters the actual weight if he has it.
+  let weightSuggestion = null;
+  const curForInfer = ref; // current price (falls back to baseline) computed above
+  if (basis === 'line_total' && toUnit === 'lb' && !(Number(line.quantity) > 0)
+      && line.line_total > 0 && curForInfer != null && curForInfer > 0) {
+    const onePackTotal = line.line_total / Math.max(1, Number(line.quantity) || 1);
+    const inferred = onePackTotal / curForInfer;
+    if (inferred >= 0.05 && inferred <= 25) {
+      weightSuggestion = { lb: Math.round(inferred * 100) / 100, atPrice: curForInfer };
+      reasons.push(`no weight printed — at your current $${curForInfer}/lb this is ≈${weightSuggestion.lb} lb`);
+    }
+  }
+
+  return { status: 'matched', norm, line, ingredientId, ingredient: seedIng, via, perUnit, basis, conversion, candidates, confidence, reasons, weightSuggestion };
 }
 
 // Group identical item_name lines on the SAME receipt into one entry.
+// v3.4: duplicate lines POOL their price math (weighted by quantity), instead
+// of silently keeping only the first line's numbers. Kevin's real H-Mart
+// receipt had two YELLOW ONION weighed lines (2.95 lb + 1.92 lb) — the pooled
+// per-lb price is the quantity-weighted average across both.
 function groupClassified(classified) {
   const groups = new Map();
   for (const c of classified) {
@@ -583,12 +619,24 @@ function groupClassified(classified) {
       ? 'IGNORE::' + c.norm
       : (c.ingredientId || 'UNMATCHED') + '::' + c.norm + '::' + c.status;
     if (!groups.has(key)) {
-      groups.set(key, { ...c, lines: [c.line], count: 1, totalSum: c.line.line_total || 0 });
+      groups.set(key, {
+        ...c, lines: [c.line], count: 1, totalSum: c.line.line_total || 0,
+        _poolW: Number(c.line.quantity) > 0 ? Number(c.line.quantity) : null,
+      });
     } else {
       const g = groups.get(key);
       g.lines.push(c.line);
       g.count++;
       g.totalSum = round(g.totalSum + (c.line.line_total || 0));
+      // Pool per-unit price when BOTH sides have a real per-unit and a real
+      // quantity to weight by. Falls back to first-line price otherwise
+      // (identical flat duplicates pool trivially to the same number).
+      const w = Number(c.line.quantity) > 0 ? Number(c.line.quantity) : null;
+      if (g.perUnit > 0 && c.perUnit > 0 && g._poolW != null && w != null) {
+        g.perUnit = round((g.perUnit * g._poolW + c.perUnit * w) / (g._poolW + w));
+        g._poolW = round(g._poolW + w);
+        g.pooledWeight = g._poolW;
+      }
     }
   }
   return [...groups.values()];
@@ -731,6 +779,11 @@ export function parsePastedReceipt(text) {
   const unparsed = [];
   let store = null;
   let receipt_date = null;
+  // v3.4: capture the printed subtotal/total BEFORE skipping those lines —
+  // it's the one number that can verify the whole extraction. Prefer the
+  // pre-tax subtotal (item lines sum to it); fall back to total/balance.
+  let printed_subtotal = null;
+  let printed_total = null;
 
   if (rawLines.some(l => /h[-\s]?e[-\s]?b/i.test(l))) store = 'H-E-B';
   if (rawLines.some(l => /h\s*mart|hmart/i.test(l))) store = 'H-Mart';
@@ -762,7 +815,15 @@ export function parsePastedReceipt(text) {
   });
 
   for (const l of rawLines) {
-    if (SKIP_LINE_RE.test(l)) { pendingName = null; continue; }
+    if (SKIP_LINE_RE.test(l)) {
+      const money = l.match(/(\d+\.\d{2})\s*$/);
+      if (money) {
+        const val = Number(money[1]);
+        if (/sale subtotal/i.test(l) && printed_subtotal == null) printed_subtotal = val;
+        else if (/total sale|balance/i.test(l) && printed_total == null) printed_total = val;
+      }
+      pendingName = null; continue;
+    }
 
     const w = l.match(hmWeight);
     if (w) { pendingWt = { qty: Number(w[1]), rate: Number(w[2]) }; continue; }
@@ -800,7 +861,26 @@ export function parsePastedReceipt(text) {
     unparsed.push(l);
   }
   if (pendingName) unparsed.push(pendingName);
-  return { store, receipt_date, lines, unparsed };
+  return { store, receipt_date, lines, unparsed, printed_subtotal, printed_total };
+}
+
+// v3.4: reconcile the parsed lines against the receipt's own printed number.
+// Small gaps are normal (discount lines, deliberately skipped items); a big
+// gap means a line was missed or misread. Informational, never blocking.
+export function reconcileReceipt(extracted) {
+  const linesSum = round((extracted.lines || []).reduce((s, l) => s + (Number(l.line_total) || 0), 0));
+  const printed = extracted.printed_subtotal != null ? extracted.printed_subtotal
+    : extracted.printed_total != null ? extracted.printed_total : null;
+  if (printed == null) return null;
+  const gap = round(printed - linesSum);
+  const tolerance = Math.max(1, printed * 0.02);
+  return {
+    linesSum,
+    printed,
+    printedKind: extracted.printed_subtotal != null ? 'subtotal' : 'total',
+    gap,
+    ok: Math.abs(gap) <= tolerance,
+  };
 }
 
 // ═══ v3.2: LEARNING-OVER-TIME HELPERS (engine side) ══════════════════════════
@@ -810,7 +890,7 @@ export function parsePastedReceipt(text) {
 // (b) Auto-promote: a review-band candidate Kevin has confirmed twice for the
 // same normalized string becomes an alias (auto next time). Confirm counts
 // ride the alias store under `confirms`.
-export function learnFromAcceptance(group, aliases) {
+export function learnFromAcceptance(group, aliases, opts = {}) {
   const out = { ...(aliases || {}) };
   const key = group.norm;
   if (!key || !group.ingredientId) return out;
@@ -824,7 +904,34 @@ export function learnFromAcceptance(group, aliases) {
   }
   // Confirm counting → auto-promote after 2 confirmations of a review pick
   entry.confirms = (prev.confirms || 0) + 1;
+  // v3.4 negative learning: Kevin re-mapped AWAY from a suggested ingredient —
+  // remember the rejection so it can't silently auto-win again (cap 3, deduped).
+  if (opts.rejectedId && opts.rejectedId !== group.ingredientId) {
+    const rej = Array.isArray(prev.rejected) ? prev.rejected : [];
+    if (!rej.includes(opts.rejectedId)) entry.rejected = [...rej, opts.rejectedId].slice(-3);
+  }
+  // v3.4 learned sold-by-each: a weighed/flat line accepted at FLAT price for
+  // an each-ish ingredient, twice → this item sells by the each at this store.
+  const eachish = group.ingredient && /^(each|head|bunch|pack|jar|can|bottle|loaf|dozen)$/.test(group.ingredient.unit || '');
+  if (opts.usedFlatPrice && eachish && group.lines && group.lines[0] && (group.lines[0].weighed || !group.lines[0].unit)) {
+    entry.eachHits = (prev.eachHits || 0) + 1;
+    if (entry.eachHits >= 2) entry.soldByEach = true;
+  }
   out[key] = entry;
+  return out;
+}
+
+// v3.4 learned auto-ignore: called at commit with the item names Kevin left
+// unmapped. After 3 sightings the classifier stops asking (reason
+// 'learned_ignore'); mapping the item later overrides via ingredientId.
+export function learnFromIgnores(unmatchedNorms, aliases) {
+  const out = { ...(aliases || {}) };
+  for (const norm of (unmatchedNorms || [])) {
+    if (!norm) continue;
+    const prev = out[norm] || {};
+    if (prev.ingredientId) continue; // mapped items never auto-ignore
+    out[norm] = { ...prev, seenUnmatched: (prev.seenUnmatched || 0) + 1 };
+  }
   return out;
 }
 

@@ -32,9 +32,8 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
-import { costDishVariant, driftBorder, trueRawCost, MARGIN_BUFFER } from '../dishCosting.js';
 
-export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory, dishNotes, onSaveDishNote, liveCostMap, baseCostMap, costHistory }) {
+export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory }) {
   const [input, setInput] = useState('');
   const [includeStaples, setIncludeStaples] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
@@ -42,10 +41,6 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
   // ── Single-dish test-run picker ───────────────────────────────────────────
   const [dishPickerOpen, setDishPickerOpen] = useState(false); // collapsed by default
   const [inventoryOpen, setInventoryOpen] = useState(false); // collapsed by default
-  const [refCardOpen, setRefCardOpen] = useState(false);      // collapsed by default
-  const [refDish, setRefDish] = useState('');                 // selected dish in dropdown
-  const [refData, setRefData] = useState(null);               // loaded card data
-  const [noteText, setNoteText] = useState('');               // draft note text
   const [pickerDish, setPickerDish] = useState(null);   // dish name selected in picker
   const [pickerVariant, setPickerVariant] = useState(''); // which variant/size
   const [pickerCount, setPickerCount] = useState(1);     // how many batches
@@ -219,190 +214,6 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
           })}
         </div>
         </>}
-      </div>
-
-      {/* ── Dish Reference Card ──────────────────────────────────────────── */}
-      <div style={styles.inventorySection}>
-        <button style={styles.collapsibleHeader} onClick={() => setRefCardOpen(o => !o)}>
-          <span style={styles.inventoryTitle}>Dish Reference Card</span>
-          <span style={styles.collapseChevron}>{refCardOpen ? '▲' : '▼'}</span>
-        </button>
-        {refCardOpen && (
-          <div>
-            <div style={styles.inventoryHint}>
-              Full ingredient breakdown, margins, and cook notes for any dish.
-            </div>
-            <div style={styles.refCardPickerRow}>
-              <select
-                style={styles.refCardSelect}
-                value={refDish}
-                onChange={e => { setRefDish(e.target.value); setRefData(null); }}
-              >
-                <option value="">Select a dish…</option>
-                {(() => {
-                  const thisWeek = new Set(weekDishes || []);
-                  const withRecipe = Object.keys(RECIPES);
-                  const thisWeekDishes = withRecipe.filter(d => thisWeek.has(d)).sort();
-                  const otherDishes = withRecipe.filter(d => !thisWeek.has(d)).sort();
-                  return [
-                    thisWeekDishes.length > 0 && (
-                      <optgroup key="week" label="This week">
-                        {thisWeekDishes.map(d => <option key={d} value={d}>{d}</option>)}
-                      </optgroup>
-                    ),
-                    otherDishes.length > 0 && (
-                      <optgroup key="other" label="Other dishes">
-                        {otherDishes.map(d => <option key={d} value={d}>{d}</option>)}
-                      </optgroup>
-                    ),
-                  ].filter(Boolean);
-                })()}
-              </select>
-              <button
-                style={{ ...styles.saveBtn, marginTop: 0, flexShrink: 0, opacity: refDish ? 1 : 0.4 }}
-                disabled={!refDish}
-                onClick={() => {
-                  if (!refDish) return;
-                  const recipe = RECIPES[refDish];
-                  const menuDish = ALL_DINNERS.find(d => d.name === refDish);
-                  const variants = menuDish?.variants || [];
-                  setNoteText((dishNotes || {})[refDish] || '');
-                  setRefData({ recipe, variants });
-                }}
-              >
-                Load
-              </button>
-            </div>
-
-            {refData && (
-              <div style={styles.refCardBody}>
-                {/* ── Margins table (live cost vs baseline) ── */}
-                {refData.variants.length > 0 && (
-                  <div style={styles.refCardSection}>
-                    <div style={styles.refCardSectionTitle}>Margins by variant</div>
-                    {refData.variants.map(v => {
-                      // Live (Option-B) cost: menu cost moved by current ingredient drift.
-                      const live = (liveCostMap && baseCostMap)
-                        ? costDishVariant(refDish, v.label, v.cost, liveCostMap, baseCostMap)
-                        : null;
-                      const liveCost = (live && live.adjustedCost != null) ? live.adjustedCost : v.cost;
-                      const margin = v.price - liveCost;
-                      const pct = v.price > 0 ? Math.round((margin / v.price) * 100) : 0;
-                      const color = pct >= 55 ? '#5a8f6a' : pct >= 40 ? GOLD : '#993556';
-                      const drift = live ? live.pctDrift : 0;
-                      const bdr = driftBorder(drift);
-                      const baseMargin = v.price - v.cost;
-                      const basePct = v.price > 0 ? Math.round((baseMargin / v.price) * 100) : 0;
-                      // True raw (un-buffered) cost: the operating cost is buffered
-                      // (×1.0825 baked into the anchor); divide it back out to show
-                      // Kevin his actual spend alongside the cushioned figure.
-                      const rawCost = trueRawCost(liveCost);
-                      return (
-                        <div
-                          key={v.label}
-                          style={{
-                            ...styles.refCardRow,
-                            ...(bdr.borderWidth ? { borderLeft: `3px solid ${bdr.borderColor}`, paddingLeft: 8 } : {}),
-                          }}
-                        >
-                          <span style={styles.refCardVariantLabel}>{v.label}</span>
-                          <span style={styles.refCardPrice}>{currency(v.price)}</span>
-                          <span style={styles.refCardCost}>
-                            cost {currency(liveCost)}
-                            {Math.abs(drift) >= 2 && (
-                              <span style={{ color: drift > 0 ? '#e0828a' : '#5DCAA5', fontWeight: 700 }}>
-                                {' '}{drift > 0 ? '↑' : '↓'}{Math.abs(drift).toFixed(0)}%
-                              </span>
-                            )}
-                          </span>
-                          <span style={{ ...styles.refCardMargin, color }}>
-                            {currency(margin)} · {pct}%
-                          </span>
-                          {rawCost != null && (
-                            <span style={{ flexBasis: '100%', fontSize: 10, color: '#7a857f', textAlign: 'right', marginTop: 2 }}>
-                              true cost ~{currency(rawCost)} (buffer ×{MARGIN_BUFFER})
-                            </span>
-                          )}
-                          {Math.abs(liveCost - v.cost) > 0.005 && (
-                            <span style={{ flexBasis: '100%', fontSize: 10, color: '#9aa5a0', textAlign: 'right', marginTop: 2 }}>
-                              baseline {currency(v.cost)} · {basePct}%
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <button
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                        width: '100%', marginTop: 8, padding: '9px 12px',
-                        background: 'transparent', border: '1px dashed #37403c',
-                        color: '#6b7570', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                        cursor: 'not-allowed',
-                      }}
-                      disabled
-                      title="Margin trend graph — available once a few weeks of cost history accumulate"
-                    >
-                      📈 Graph cost over time · coming soon
-                      {Array.isArray(costHistory) && costHistory.length > 0 && (
-                        <span style={{ opacity: 0.7 }}> ({costHistory.length} pts logged)</span>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {/* ── Ingredient list (base recipe, factor=1) ── */}
-                {refData.recipe && (
-                  <div style={styles.refCardSection}>
-                    <div style={styles.refCardSectionTitle}>Base ingredients (1× batch)</div>
-                    {refData.recipe.base.map((ing, i) => (
-                      <div key={i} style={styles.refCardIngRow}>
-                        <span style={{ ...styles.refCardIngName, ...(ing.staple ? styles.refCardIngStaple : {}) }}>
-                          {ing.name}{ing.staple ? ' ✦' : ''}
-                        </span>
-                        <span style={styles.refCardIngQty}>
-                          {ing.q} {ing.u}
-                        </span>
-                      </div>
-                    ))}
-                    {refData.recipe.extras && Object.keys(refData.recipe.extras).length > 0 && (
-                      <div style={{ marginTop: '8px' }}>
-                        <div style={{ ...styles.refCardSectionTitle, fontSize: '11px', opacity: 0.7 }}>Variant extras</div>
-                        {Object.entries(refData.recipe.extras).map(([vLabel, ings]) => (
-                          <div key={vLabel} style={{ marginBottom: '6px' }}>
-                            <div style={styles.refCardExtrasLabel}>{vLabel}</div>
-                            {ings.map((ing, i) => (
-                              <div key={i} style={styles.refCardIngRow}>
-                                <span style={styles.refCardIngName}>{ing.name}</span>
-                                <span style={styles.refCardIngQty}>{ing.q} {ing.u}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Cook notes ── */}
-                <div style={styles.refCardSection}>
-                  <div style={styles.refCardSectionTitle}>Cook notes</div>
-                  <textarea
-                    style={styles.refCardNotes}
-                    placeholder="Add notes about this dish — technique reminders, timing, substitutions, anything you want to remember…"
-                    value={noteText}
-                    onChange={e => setNoteText(e.target.value)}
-                  />
-                  <button
-                    style={{ ...styles.saveBtn, marginTop: '6px', width: '100%' }}
-                    onClick={() => onSaveDishNote(refDish, noteText)}
-                  >
-                    Save notes
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Single-dish ingredient list picker ───────────────────────────── */}

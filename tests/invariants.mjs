@@ -19,7 +19,7 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary } from '../src/dishReport.js';
 import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, priceDriftReport } from '../src/receiptMatch.js';
@@ -454,12 +454,32 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   const notRepriced = repricePerLbItem(unweighed);
   if (!notRepriced.weightPending || notRepriced.price !== 0) F('cost-basis', `repricePerLbItem fabricated a weight: ${JSON.stringify(notRepriced)}`);
 
-  // 10. With a real weight it prices correctly and tags the snapshot.
+  // 10. With a real weight it prices the MEAT ONLY (bag moved to the per-piece
+  //     upcharge) and tags the snapshot.
   const weighed = repricePerLbItem({ ...unweighed, weight: 0.8 });
-  const expPrice = Math.round((ratePrice * 0.8 + 1.5) * 100) / 100;
+  const expPrice = Math.round((ratePrice * 0.8) * 100) / 100; // meat only now
   const expCost = Math.round((rateCost * 0.8) * 100) / 100;
   if (weighed.weightPending || weighed.price !== expPrice || weighed.cost !== expCost || weighed.costSource !== 'snapshot')
     F('cost-basis', `repricePerLbItem wrong: ${JSON.stringify(weighed)}, expected price ${expPrice} cost ${expCost}`);
+
+  // 10b. The double-count fix: a weighed per-lb item with qty>1 must charge the
+  //      MEAT ONCE (weight already covers all pieces) and scale BAGS by
+  //      ceil(qty/2). Mom's bug: 2 steaks weighed together must not double.
+  const mom = repricePerLbItem({ name: 'NY Strip', variant: 'price by weight', weight: 1.5, qty: 2 });
+  const momBase = itemsBaseTotal([mom]);
+  const momUp = itemsUpchargeTotal([mom]);
+  const momCost = orderCostInfo({ items: [mom] }).cost;
+  if (Math.abs(momBase - ratePrice * 1.5) > 0.01) F('cost-basis', `per-lb qty>1 DOUBLE-COUNTED meat: base ${momBase}, want ${(ratePrice*1.5).toFixed(2)}`);
+  if (Math.abs(momUp - 1.5) > 0.01) F('cost-basis', `2 pieces should be 1 bag ($1.50), got ${momUp}`);
+  if (Math.abs(momCost - rateCost * 1.5) > 0.01) F('cost-basis', `per-lb qty>1 DOUBLE-COUNTED cost: ${momCost}, want ${(rateCost*1.5).toFixed(2)}`);
+  // Bag scaling: 2 per bag, ceil.
+  if (perLbBagCount(1) !== 1 || perLbBagCount(2) !== 1 || perLbBagCount(3) !== 2 || perLbBagCount(4) !== 2 || perLbBagCount(6) !== 3)
+    F('cost-basis', `bag count math wrong: ${[1,2,3,4,6].map(perLbBagCount).join(',')}`);
+  const four = repricePerLbItem({ name: 'NY Strip', variant: 'price by weight', weight: 1.5, qty: 4 });
+  if (Math.abs(itemsUpchargeTotal([four]) - 3.0) > 0.01) F('cost-basis', `4 pieces should be 2 bags ($3), got ${itemsUpchargeTotal([four])}`);
+  // A regular (non-per-lb) dish still multiplies by qty.
+  const reg = { name: 'Chili', variant: chiliLg.label, price: chiliLg.price, cost: chiliLg.cost, qty: 3 };
+  if (Math.abs(itemsBaseTotal([reg]) - chiliLg.price * 3) > 0.01) F('cost-basis', `regular dish qty multiply broke: ${itemsBaseTotal([reg])}`);
 
   // 11. stampItemCosts must NEVER stamp the $/lb RATE as a basis — not even
   //     with reStamp (the acceptance path) on the raw customer-form shape.

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { companionHtml } from './companion.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -35,7 +36,7 @@ import {
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { InvoiceModal, ReheatModal, WeightPhotoModal } from './Modals.jsx';
 
-export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit }) {
+export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -93,6 +94,15 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
   }, [regulars, order.regularId, order.customer]);
 
   const isRegular = !!matchedRegular;
+  // Make-a-regular star: shown when this order isn't linked to any regular.
+  // Near-miss names ("Jessica" when "Jessica Gardner" exists) offer a MERGE
+  // into the existing regular instead of creating a duplicate — same alias
+  // mechanism as the Regulars-tab merge, applied at the point of entry.
+  const [starOpen, setStarOpen] = useState(false);
+  const nearMisses = useMemo(() => {
+    if (isRegular || !regulars || !order.customer) return [];
+    return regulars.filter(r => regularMatchType(r, order.customer) === 'partial');
+  }, [isRegular, regulars, order.customer]);
   const regularDiscount = matchedRegular ? (matchedRegular.discountPercent || 0) : 0;
   // The discount toggle is "on" when the order currently carries the regular's percent
   const discountOn = order.discountType === 'percent' && order.discountValue === regularDiscount && regularDiscount > 0;
@@ -357,14 +367,61 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
               ))}
             </div>
 
+            {starOpen && nearMisses.length > 0 && (
+              <div style={{ background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 8, padding: 10, margin: '8px 0', fontSize: 12.5 }}>
+                <div style={{ color: '#9aa5a0', marginBottom: 6 }}>
+                  "{order.customer}" looks close to an existing regular. Link this order to them (adds "{order.customer}" as one of their names), or create a separate new regular.
+                </div>
+                {nearMisses.map(r => (
+                  <button key={r.id} style={{ ...styles.actionBtn, width: '100%', justifyContent: 'flex-start', marginBottom: 4 }}
+                    onClick={() => { onLinkRegular && onLinkRegular(r.id, order); setStarOpen(false); }}>
+                    Link to {regularDisplayName(r)}
+                  </button>
+                ))}
+                <button style={{ ...styles.actionBtn, width: '100%', justifyContent: 'flex-start' }}
+                  onClick={() => { onMakeRegular && onMakeRegular(order); setStarOpen(false); }}>
+                  It's someone new. Create a regular
+                </button>
+              </div>
+            )}
             <div style={styles.actionRow}>
               <button style={styles.actionBtn} onClick={onEdit}>
                 <Pencil size={14} />
                 Edit
               </button>
+              {!isRegular && onMakeRegular && (
+                <button style={styles.actionBtn} onClick={() => {
+                  if (nearMisses.length) setStarOpen(o => !o);
+                  else onMakeRegular(order);
+                }}>
+                  ★ Make regular
+                </button>
+              )}
               <button style={styles.actionBtn} onClick={doCopy}>
                 <Copy size={14} />
                 {copied ? 'Copied!' : 'Copy text'}
+              </button>
+              <button style={styles.actionBtn} onClick={() => {
+                // Kitchen companion. iOS Safari refuses clipboard writes after
+                // an awaited fetch (transient-activation rule), so: copy the
+                // link FIRST inside the tap gesture, then push the page. If
+                // the push fails, the copied link just 404s with a friendly
+                // message and we tell Kevin here too.
+                const cid = order.id + '-' + Math.random().toString(36).slice(2, 8);
+                const link = WORKER_BASE + '/k?id=' + cid;
+                navigator.clipboard.writeText(link).catch(() => {});
+                setCopyMsg('Kitchen link copied. Uploading the page…');
+                fetch(WORKER_BASE + '/companion', {
+                  method: 'POST', headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order) }),
+                }).then(res => {
+                  if (!res.ok) throw new Error('push failed');
+                  setCopyMsg('Kitchen link copied and live. Send it to ' + (order.customer || 'them') + '.');
+                }).catch(() => {
+                  setCopyMsg('Page upload failed (deploy the v6 worker?). The copied link will not work yet.');
+                }).finally(() => setTimeout(() => setCopyMsg(null), 5000));
+              }}>
+                🍳 Kitchen link
               </button>
               <button style={styles.actionBtn} onClick={() => setShowInvoice(true)}>
                 <FileText size={14} />

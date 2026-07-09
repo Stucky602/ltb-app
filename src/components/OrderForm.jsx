@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { attachRates } from '../regularsIntel.js';
+import { regularAllNames } from '../utils.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -94,9 +96,24 @@ function itemOptionDefs(menu, it) {
   return Object.keys(out).length ? out : null;
 }
 
-export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, onCancel }) {
+export function OrderForm({ menu, initial, recentCustomers, regulars, orders, weekDishes, onSave, onCancel }) {
   const isEdit = !!initial?.id;
   const [customer, setCustomer] = useState(initial?.customer || '');
+  // ── Order-entry guard: when the typed name matches a regular, surface their
+  // dietary/allergy note (so nothing they can't eat slips in) and a week-gated
+  // attach nudge ("orders X whenever it's on the menu — it's on this week").
+  const entryRegular = useMemo(() => {
+    const nm = customer.trim();
+    if (!nm) return null;
+    // Exact always wins. Partial only once a real name is typed (4+ chars) —
+    // containment matching means "Je" would match Jessica, and flashing the
+    // WRONG person's allergy banner mid-typing is worse than no banner.
+    const exact = (regulars || []).find(r => regularMatchType(r, nm) === 'exact');
+    if (exact) return exact;
+    if (nm.length < 4) return null;
+    return (regulars || []).find(r => regularMatchType(r, nm) === 'partial') || null;
+  }, [customer, regulars]);
+
   // Lift legacy note-embedded options ("Spice: 3. ...") into the structured
   // field when editing an old order, so the pickers show the real state and
   // the note stops carrying option text (Batch 3 migration-on-edit).
@@ -111,6 +128,16 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
     return { ...it, options, note: cleaned || undefined };
   });
   const [items, setItems] = useState(liftLegacyOptions(initial?.items) || []);
+  const entryNudges = useMemo(() => {
+    if (!entryRegular || !orders || !weekDishes || !weekDishes.length) return [];
+    const week = new Set(weekDishes);
+    const inDraft = new Set(items.map(it => it.name));
+    // Count the regular's WHOLE identity (names + merge aliases), so a
+    // merged Jessica's history under both names feeds one nudge.
+    return attachRates(orders, entryRegular ? regularAllNames(entryRegular) : customer.trim())
+      .filter(r => week.has(r.dish) && !inDraft.has(r.dish) && r.appearances >= 2 && r.attachPct >= 60)
+      .slice(0, 2);
+  }, [entryRegular, orders, weekDishes, customer, items]);
   const [jarSwaps, setJarSwaps] = useState(initial?.jarSwaps || 0);
   const [containerReturns, setContainerReturns] = useState(initial?.containerReturns || 0);
   const [notes, setNotes] = useState(initial?.notes || '');
@@ -324,6 +351,16 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, onSave, on
         onChange={e => setCustomer(e.target.value)}
         autoFocus={!isEdit && items.length > 0}
       />
+      {entryRegular && (entryRegular.dietary || (entryRegular.allergies || []).length > 0) && (
+        <div style={{ background: 'rgba(224,130,138,0.12)', border: '1px solid #5a3237', borderRadius: 8, padding: '7px 10px', margin: '4px 0', fontSize: 12.5, color: '#e0828a', fontWeight: 700 }}>
+          ⚠ {entryRegular.dietary || (entryRegular.allergies || []).join(', ')}
+        </div>
+      )}
+      {entryNudges.length > 0 && (
+        <div style={{ background: 'rgba(93,202,165,0.10)', border: '1px solid #28483d', borderRadius: 8, padding: '7px 10px', margin: '4px 0', fontSize: 12, color: '#5DCAA5' }}>
+          {entryNudges.map(n => `Orders ${n.dish} whenever it's on the menu (${n.ordered}/${n.appearances}). It's on this week.`).join(' ')}
+        </div>
+      )}
       {showChips && (
         <div style={styles.chipRow}>
           {recentCustomers.map(name => (

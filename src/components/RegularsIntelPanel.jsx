@@ -13,7 +13,7 @@ const S = {
 // Customer intel + the regulars maintenance tools (merge, backfill).
 // Merge is NON-DESTRUCTIVE: the source's names become the target's aliases,
 // original order records are never rewritten, and every merge is reversible.
-export function RegularsIntelPanel({ orders, regulars, weekDishes, onMerge, onUnmerge, onUpdateRegular, onBackfill }) {
+export function RegularsIntelPanel({ orders, regulars, weekDishes, onMerge, onUnmerge, onUpdateRegular, onBackfill, onLinkSuggestion }) {
   const [who, setWho] = useState('');
   const [mergeSource, setMergeSource] = useState('');
   const [mergeTarget, setMergeTarget] = useState('');
@@ -24,15 +24,32 @@ export function RegularsIntelPanel({ orders, regulars, weekDishes, onMerge, onUn
   // identity (names + merge aliases) — merges pay off in the intel too.
   const whoNames = useMemo(() => {
     if (!who) return null;
-    const reg = (regulars || []).find(r => regularMatchType(r, who) === 'exact');
+    // The dropdown shows regular DISPLAY names for merged people, so match on
+    // display name first, then fall back to name/alias matching.
+    const reg = (regulars || []).find(r => regularDisplayName(r) === who)
+      || (regulars || []).find(r => regularMatchType(r, who) === 'exact');
     return reg ? regularAllNames(reg) : who;
   }, [who, regulars]);
   const rates = useMemo(() => whoNames ? attachRates(orders || [], whoNames).slice(0, 8) : [], [orders, whoNames]);
   const usual = useMemo(() => whoNames ? usualOrder(orders || [], whoNames) : [], [orders, whoNames]);
+  // Dropdown identities: one entry per PERSON, not per order-name string. A
+  // name that is an alias of a merged regular collapses under that regular's
+  // display name, so "Jessica" and "Jessica Gardner" show as one entry after
+  // a merge. Names not tied to any regular show as themselves.
   const names = useMemo(() => {
-    const s = new Set(); (orders || []).forEach(o => { const n = o.customer || o.name; if (n) s.add(n); });
+    const claimed = new Map(); // lowercased order-name -> regular display name
+    for (const r of (regulars || [])) {
+      const disp = regularDisplayName(r);
+      for (const nm of regularAllNames(r)) claimed.set(String(nm).toLowerCase(), disp);
+    }
+    const s = new Set();
+    (orders || []).forEach(o => {
+      const raw = o.customer || o.name;
+      if (!raw) return;
+      s.add(claimed.get(String(raw).toLowerCase()) || raw);
+    });
     return [...s].sort();
-  }, [orders]);
+  }, [orders, regulars]);
   // Week-gated nudges: dishes this customer orders whenever offered, ON the menu now.
   const week = useMemo(() => new Set(weekDishes || []), [weekDishes]);
   const nudges = useMemo(() => rates.filter(r => week.has(r.dish) && r.appearances >= 2 && r.attachPct >= 60), [rates, week]);
@@ -123,8 +140,26 @@ export function RegularsIntelPanel({ orders, regulars, weekDishes, onMerge, onUn
           <div style={{ fontSize: 12, color: C.dim, marginTop: 8 }}>
             Linked {backfillResult.autoCount} order{backfillResult.autoCount !== 1 ? 's' : ''} automatically.
             {backfillResult.suggestions.length > 0 && (
-              <div style={{ marginTop: 4 }}>
-                {backfillResult.suggestions.length} near-miss name{backfillResult.suggestions.length !== 1 ? 's' : ''} need your call. Use the star on those orders, or merge above: {[...new Set(backfillResult.suggestions.map(s => s.name))].join(', ')}
+              <div style={{ marginTop: 8 }}>
+                <div style={{ marginBottom: 6 }}>
+                  {backfillResult.suggestions.length} order{backfillResult.suggestions.length !== 1 ? 's' : ''} are a close-but-not-exact name match. Link each to the right person, or leave it:
+                </div>
+                {backfillResult.suggestions.map(sg => (
+                  <div key={sg.orderId} style={{ padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ color: C.text, fontWeight: 700, marginBottom: 3 }}>"{sg.name}"</div>
+                    {sg.candidates.map(cand => (
+                      <button key={cand.id}
+                        style={{ ...S.btn, padding: '3px 9px', fontSize: 11.5, marginRight: 5, marginBottom: 4 }}
+                        onClick={() => {
+                          onLinkSuggestion && onLinkSuggestion(sg.orderId, cand.id);
+                          // Drop this suggestion from the list once handled.
+                          setBackfillResult(prev => prev ? { ...prev, suggestions: prev.suggestions.filter(x => x.orderId !== sg.orderId) } : prev);
+                        }}>
+                        Link to {cand.display}
+                      </button>
+                    ))}
+                  </div>
+                ))}
               </div>
             )}
           </div>

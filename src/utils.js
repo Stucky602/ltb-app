@@ -183,8 +183,36 @@ export function itemsUpchargeTotal(items) {
     // qty defaults to 1 like itemsBaseTotal — without this, 0 * undefined
     // is NaN, and ONE qty-less item poisoned the whole order total.
     // Found by the property suite (tests/property.mjs).
-    return sum + amt * (Number(it.qty) || 1);
+    let line = amt * (Number(it.qty) || 1);
+    // Weighed per-lb proteins: add the per-piece bag charge here (meat price
+    // is weight-only in itemsBaseTotal). Bags = ceil(pieces / 2).
+    if (isPerLbItem(it.name) && typeof it.weight === 'number' && it.weight > 0) {
+      line += perLbBagCharge(it.qty);
+    }
+    return sum + line;
   }, 0));
+}
+
+// ─── Per-lb (weighed protein) pricing helpers ───────────────────────────────
+// For a weighed per-lb item, the customer picks a piece COUNT (qty) but Kevin
+// weighs all pieces together ONCE. So `price`/`cost` are stamped from that one
+// total weight and must NOT be multiplied by qty (that was the double-count
+// bug: 2 pieces charged 2× the total weight). Bags DO scale with pieces:
+// each bag holds up to 2 pieces, so bags = ceil(qty / 2).
+const BAG_PRICE = 1.5;         // per bag: seasoning + packaging
+const PIECES_PER_BAG = 2;
+export function perLbBagCount(qty) {
+  const n = Math.max(1, Number(qty) || 1);
+  return Math.ceil(n / PIECES_PER_BAG);
+}
+export function perLbBagCharge(qty) {
+  return round2(perLbBagCount(qty) * BAG_PRICE);
+}
+// Effective multiplier for price/cost sums: 1 for a weighed per-lb item (the
+// weight already covers every piece), otherwise the piece/serving qty.
+export function itemUnitMultiplier(it) {
+  if (isPerLbItem(it.name) && typeof it.weight === 'number' && it.weight > 0) return 1;
+  return Number(it.qty) || 1;
 }
 
 // Sum of order-level custom charges (each {label, amount})
@@ -192,9 +220,11 @@ export function customChargesTotal(customCharges) {
   return round2((customCharges || []).reduce((sum, ch) => sum + (Number(ch.amount) || 0), 0));
 }
 
-// Base price of items only (before upcharges) — discount applies to this
+// Base price of items only (before upcharges) — discount applies to this.
+// Weighed per-lb items use a multiplier of 1 (weight already covers all pieces);
+// the per-piece bag charge is added separately in itemsUpchargeTotal.
 export function itemsBaseTotal(items) {
-  return round2((items || []).reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.qty) || 1), 0));
+  return round2((items || []).reduce((sum, it) => sum + (Number(it.price) || 0) * itemUnitMultiplier(it), 0));
 }
 
 export function orderTotal(items, jarSwaps, containerReturns, discountType, discountValue, customCharges, waiveSurcharge) {
@@ -219,11 +249,13 @@ export function repricePerLbItem(it) {
   if (!info) return it;
   if (!(typeof it.weight === 'number' && it.weight > 0)) return it; // not weighed yet
   const lbs = it.weight;
-  const BAG = 1.5; // per-bag surcharge baked into each protein bag
+  // price/cost are MEAT ONLY for the full weighed amount (all pieces weighed
+  // once). The bag charge is added per-piece in itemsUpchargeTotal
+  // (ceil(qty/2) bags), so it must NOT be baked in here anymore.
   return {
     ...it,
     weightPending: false,
-    price: round2(info.pricePerLb * lbs + BAG),
+    price: round2(info.pricePerLb * lbs),
     cost: round2(info.costPerLb * lbs),
     costSource: 'snapshot',
   };
@@ -401,7 +433,7 @@ export function orderCostInfo(order) {
   (order.items || []).forEach(it => {
     const c = itemCost(it);
     if (c === null) complete = false;
-    else cost += c * it.qty;
+    else cost += c * itemUnitMultiplier(it);
   });
   return { cost: round2(cost), complete };
 }

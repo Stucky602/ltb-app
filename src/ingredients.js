@@ -89,8 +89,8 @@ export const INGREDIENT_SEED = [
   { id: 'vanilla', name: 'Vanilla (imitation)', unit: 'tbs', baseline: 0.07, category: 'pantry' },
   { id: 'vanilla_extract', name: 'Vanilla extract (homemade)', unit: 'tbs', baseline: 1.5, category: 'pantry' },
   { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.0, category: 'pantry' },
-  { id: 'pasta', name: 'Pasta (dry)', unit: 'lb', baseline: 2.0, category: 'pantry' },
-  { id: 'egg_pappardelle', name: 'Egg pappardelle', unit: 'pack', baseline: 4.2, category: 'pantry' },
+  { id: 'pasta', name: 'Pasta (dry)', unit: 'lb', baseline: 2.0, category: 'pantry', passthrough: true }, // store-bought, sold at cost
+  { id: 'egg_pappardelle', name: 'Egg pappardelle', unit: 'pack', baseline: 4.2, category: 'pantry', passthrough: true }, // store-bought, sold at cost
   { id: 'noodles', name: 'Noodles (fresh)', unit: 'batch', baseline: 8.0, category: 'pantry' },
   { id: 'tortillas', name: 'Tortillas', unit: '10ct', baseline: 2.0, category: 'pantry' },
   { id: 'dried_kidney_beans', name: 'Dried kidney beans', unit: 'lb', baseline: 1.22, category: 'pantry' },
@@ -128,7 +128,7 @@ export const INGREDIENT_SEED = [
   { id: 'marsala', name: 'Marsala wine (dry or sweet)', unit: 'cup', baseline: 4.1, category: 'pantry' }, // $13/750ml ÷ 3.17 cups; dry & sweet priced the same (Kevin)
   { id: 'shallot', name: 'Shallot', unit: 'lb', baseline: 3.98, category: 'produce' },
   { id: 'whole_grain_mustard', name: 'Whole grain mustard', unit: 'oz', baseline: 0.17, category: 'pantry' },
-  { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, category: 'pantry' },
+  { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, category: 'pantry' , passthrough: true }, // store-bought, sold at cost
   { id: 'polenta', name: 'Polenta (dry cornmeal)', unit: 'lb', baseline: 5.99, category: 'pantry' }, // measured: 0.795 lb = 1.75 cups dry
   { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'bunch', baseline: 2.5, category: 'produce' },
   { id: 'bourbon', name: 'Bourbon', unit: 'cup', baseline: 6.4, category: 'pantry' },

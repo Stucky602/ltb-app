@@ -418,7 +418,7 @@ export const DISHES = [
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,
-    equipment: { fixed: ['wok', 'largePot'], tofu: true },
+    equipment: { fixed: ['wok'], tofu: true },
     variants: [
       { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 21.99 },
       { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 42.98 },
@@ -519,7 +519,7 @@ export const DISHES = [
     cuisine: 'Thai',
     reheat: 'bagged',
     rice: true,
-    equipment: { fixed: ['wok', 'largePot'] },
+    equipment: { fixed: ['wok'] },
     options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
       { label: 'Small (~3-4)', price: 35, cost: 14.45 },

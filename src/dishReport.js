@@ -31,7 +31,7 @@
 import { DISHES } from './dishes.js';
 import { RECIPES, DINNER_REHEAT_BUCKET, buildReheatBlocks } from './recipes.js';
 import {
-  resolveDishVariant, costDishVariant, MARGIN_BUFFER, trueRawCost, baselineCostMap,
+  resolveDishVariant, costDishVariant, MARGIN_BUFFER, trueRawCost, baselineCostMap, PASSTHROUGH_IDS,
 } from './dishCosting.js';
 import { INGREDIENT_SEED } from './ingredients.js';
 
@@ -119,12 +119,27 @@ function variantEconomics(dishName, v, liveCostMap, baseCostMap, floorPct) {
   // re-anchor radar (the standing "re-price 8 newer dishes" TODO made visible).
   const resolved = resolveDishVariant(dishName, v.label) || [];
   let recomputedRaw = 0;
+  let passthroughRaw = 0; // store-bought-at-cost portion (pasta)
   for (const line of resolved) {
     const ing = ING_BY_ID.get(line.id);
     const unitCost = (liveCostMap && liveCostMap[line.id] != null) ? liveCostMap[line.id] : (ing ? ing.baseline : 0);
-    recomputedRaw += line.qty * unitCost;
+    const lc = line.qty * unitCost;
+    recomputedRaw += lc;
+    if (PASSTHROUGH_IDS.has(line.id)) passthroughRaw += lc;
   }
   recomputedRaw = Math.round(recomputedRaw * 100) / 100;
+  passthroughRaw = Math.round(passthroughRaw * 100) / 100;
+  // VALUE-ADD economics: the pasta is bought and resold at cost, so it
+  // dilutes the blended margin without meaning anything about the cooking.
+  // Strip it from BOTH sides: revenue you cook for = price − pasta cost;
+  // cost you cook with = the SAME basis as the blended margin (the anchor-
+  // drift liveCost), minus the pasta, re-buffered. Sharing the basis keeps
+  // blended and value-add comparable and keeps garden-economics dishes
+  // (Homegrown: anchor deliberately excludes market tomato prices) honest
+  // without special-casing any dish name.
+  const vaRevenue = v.price - passthroughRaw;
+  const vaCost = Math.max(0, rawCost - passthroughRaw) * MARGIN_BUFFER;
+  const valueAddMarginPct = vaRevenue > 0 ? (1 - vaCost / vaRevenue) * 100 : 0;
   const anchorGapPct = rawCost > 0 ? Math.round(((recomputedRaw - rawCost) / rawCost) * 1000) / 10 : null;
   const servings = parseServings(v.label);
   const marginLive = v.price - liveCost;
@@ -153,7 +168,14 @@ function variantEconomics(dishName, v, liveCostMap, baseCostMap, floorPct) {
     recomputedRaw,               // today's ingredient reality (matches recipeFor)
     anchorGapPct,                // % the anchor has drifted from reality — re-anchor radar
     trueMarginTodayPct: v.price > 0 ? (1 - recomputedRaw / v.price) * 100 : 0,
-    underFloor: marginLivePct < floorPct,                     // suite basis (buffered)
+    passthroughRaw,              // $ of store-bought-at-cost items (pasta)
+    hasPassthrough: passthroughRaw > 0,
+    valueAddMarginPct,           // margin on the work Kevin actually does
+    underFloor: marginLivePct < floorPct,                     // blended, suite basis (buffered)
+    // The DISPLAY flag: pasta dishes are judged on value-add (blended dilution
+    // is by design); everything else on the blended basis — kills the
+    // false under-floor flags on pasta dishes without hiding real problems.
+    underFloorEffective: passthroughRaw > 0 ? valueAddMarginPct < floorPct : marginLivePct < floorPct,
     underFloorToday: v.price > 0 ? (1 - (recomputedRaw * MARGIN_BUFFER) / v.price) * 100 < floorPct : false,
     priceToHoldFloor: hold,      // { exact, suggested } — only meaningful when under/near floor
   };
@@ -376,13 +398,16 @@ export function buildPortfolioSummary(ctx = {}) {
     const worst = econ.reduce((a, b) => (b.marginLivePct < a.marginLivePct ? b : a), econ[0]);
     const gappiest = econ.reduce((a, b) => (Math.abs(b.anchorGapPct ?? 0) > Math.abs(a.anchorGapPct ?? 0) ? b : a), econ[0]);
     const driftiest = econ.reduce((a, b) => (Math.abs(b.driftPct) > Math.abs(a.driftPct) ? b : a), econ[0]);
+    const hasPT = econ.some(v => v.hasPassthrough);
     return {
       name: dish.name,
       cuisine: dish.cuisine,
       variantCount: dish.variants.length,
       worstMarginPct: Math.round(worst.marginLivePct * 10) / 10,
       worstMarginVariant: worst.label,
-      underFloor: econ.some(v => v.underFloor),
+      worstValueAddPct: hasPT ? Math.round(Math.min(...econ.map(v => v.valueAddMarginPct)) * 10) / 10 : null,
+      hasPassthrough: hasPT,
+      underFloor: econ.some(v => v.underFloorEffective), // pasta judged on value-add
       maxAnchorGapPct: gappiest.anchorGapPct,
       maxDriftPct: Math.round(driftiest.driftPct * 10) / 10,
     };

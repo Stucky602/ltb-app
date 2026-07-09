@@ -24,6 +24,12 @@ import { ALL_ALWAYS_ITEMS } from './dishes.js';
 import { RECIPES, RICE_DISHES } from './recipes.js';
 import { INGREDIENT_SEED } from './ingredients.js';
 
+// Ingredients Kevin buys and resells AT COST (no value-add markup) — pasta.
+// Blended margin includes them (the honest bottom line); value-add margin
+// excludes them from both cost and revenue to show the health of the dish
+// Kevin actually cooks. Derived from the seed's `passthrough` flags.
+export const PASSTHROUGH_IDS = new Set(INGREDIENT_SEED.filter(i => i.passthrough).map(i => i.id));
+
 // ── Unit conversion anchors (recipe unit -> purchase-unit quantity) ─────────
 const OZ_PER_LB = 16;
 const CLOVES_PER_HEAD = 20;

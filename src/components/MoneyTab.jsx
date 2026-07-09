@@ -32,6 +32,7 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { BooksPanel } from './BooksPanel.jsx';
 import { WeeklySummaryModal } from './WeeklySummary.jsx';
 
 export function ProfitChart({ series }) {
@@ -371,6 +372,7 @@ export function MoneyTab({ orders, onUpdate }) {
       </div>
 
       {showChart && profitSeries.length >= 2 && <ProfitChart series={profitSeries} />}
+      <BooksPanel orders={orders} />
       {showRecap && <WeeklySummaryModal orders={orders} onClose={() => setShowRecap(false)} />}
 
       {groups.map(group => {

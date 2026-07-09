@@ -201,9 +201,20 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
                 <span>{currency(econ.liveCost)}{Math.abs(econ.driftPct) >= 2 && <span style={{ color: econ.driftPct > 0 ? C.badText : C.good, fontWeight: 700 }}> {econ.driftPct > 0 ? '↑' : '↓'}{Math.abs(econ.driftPct).toFixed(0)}%</span>}</span>
               </div>
               <div style={S.row}>
-                <span style={{ color: C.dim }}>Margin</span>
-                <span style={{ color: marginColor(econ.marginLivePct), fontWeight: 700 }}>{currency(econ.marginLive)} · {econ.marginLivePct.toFixed(0)}%</span>
+                <span style={{ color: C.dim }}>Margin{econ.hasPassthrough ? ' (blended)' : ''}</span>
+                <span style={{ color: marginColor(econ.hasPassthrough ? econ.valueAddMarginPct : econ.marginLivePct), fontWeight: 700 }}>{currency(econ.marginLive)} · {econ.marginLivePct.toFixed(0)}%</span>
               </div>
+              {econ.hasPassthrough && (
+                <>
+                  <div style={S.row}>
+                    <span style={{ color: C.dim }}>Value-add margin</span>
+                    <span style={{ color: marginColor(econ.valueAddMarginPct), fontWeight: 700 }}>{econ.valueAddMarginPct.toFixed(0)}%</span>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: C.faint, padding: '2px 0' }}>
+                    {currency(econ.passthroughRaw)} of pasta sold at cost — value-add excludes it from both sides. Pasta dishes are judged on this number.
+                  </div>
+                </>
+              )}
               <div style={{ ...S.row, fontSize: 11, color: C.faint }}>
                 <span>True cost ~{currency(econ.rawCost)} (buffer ×{MARGIN_BUFFER})</span>
                 {econ.pricePerServing && <span>{currency(econ.pricePerServing)}/serving</span>}
@@ -213,9 +224,9 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
                   <span>Baseline anchor</span><span>{currency(econ.anchorCost)} · {econ.marginBasePct.toFixed(0)}%</span>
                 </div>
               )}
-              {econ.underFloor && (
+              {econ.underFloorEffective && (
                 <div style={S.banner('bad')}>
-                  Below the {report.floorPct}% floor. {econ.priceToHoldFloor ? `About ${currency(econ.priceToHoldFloor.suggested)} would hold it.` : ''}
+                  Below the {report.floorPct}% floor{econ.hasPassthrough ? ' on value-add basis (pasta already excluded)' : ''}. {econ.priceToHoldFloor && !econ.hasPassthrough ? `About ${currency(econ.priceToHoldFloor.suggested)} would hold it.` : ''}
                 </div>
               )}
             </div>

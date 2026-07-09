@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { companionHtml } from '../companion.js';
+import { companionHtml, companionContext } from '../companion.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -413,7 +413,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 setCopyMsg('Kitchen link copied. Uploading the page…');
                 fetch(WORKER_BASE + '/companion', {
                   method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order) }),
+                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid), context: companionContext(order) }),
                 }).then(res => {
                   if (!res.ok) throw new Error('push failed');
                   setCopyMsg('Kitchen link copied and live. Send it to ' + (order.customer || 'them') + '.');

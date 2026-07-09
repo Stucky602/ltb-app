@@ -53,6 +53,7 @@ import { RegularsIntelPanel } from './components/RegularsIntelPanel.jsx';
 import { LabelsSheet } from './components/LabelsSheet.jsx';
 import { DigestPanel } from './components/DigestPanel.jsx';
 import { SchedulePanel } from './components/SchedulePanel.jsx';
+import { VoiceMode } from './components/VoiceMode.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
@@ -824,6 +825,57 @@ export default function LTBOrderTracker() {
   }, []);
 
   // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
+  // Voice add-item: append a single-variant item to an order, repriced via
+  // the same math every other item flows through (stamp totals via updateOrder).
+  const voiceAddItem = useCallback((orderId, item) => {
+    setOrders(prev => {
+      const next = (prev || []).map(o => {
+        if (o.id !== orderId) return o;
+        const items = [...(o.items || []), item];
+        // Refresh the STORED total with the same math every surface uses —
+        // otherwise the card header shows the pre-voice total.
+        const total = orderTotal(items, o.jarSwaps, o.containerReturns, o.discountType, o.discountValue, o.customCharges, o.waiveSurcharge);
+        return { ...o, items, total };
+      });
+      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+
+  // ── Kitchen feedback sync (Option B: feedback lives ON the order) ──────────
+  // Pulls tapped verdicts from the worker, attaches each to the order whose
+  // kitchenPageId matches, persists, then clears the consumed KV keys. Pages
+  // with no matching order (expired/foreign) are cleared too, so they don't
+  // pile up forever.
+  const pullKitchenFeedback = useCallback(async () => {
+    const res = await fetch(WORKER_BASE + '/feedback/pending?token=' + encodeURIComponent(PUBLISH_TOKEN));
+    if (!res.ok) throw new Error('pull failed');
+    const { feedback } = await res.json();
+    if (!feedback || !feedback.length) return { attached: 0, orphaned: 0 };
+    // Compute attachment OUTSIDE the state updater: updaters can run twice
+    // under StrictMode (double-counting) and run AFTER this function returns
+    // (the toast would always read 0). Derive next from current orders, then
+    // dispatch it whole.
+    const byPage = new Map(feedback.map(f => [f.pageId, f]));
+    let attached = 0, orphaned = 0;
+    const next = (orders || []).map(o => {
+      const hit = o.kitchenPageId ? byPage.get(o.kitchenPageId) : null;
+      if (!hit) return o;
+      attached += hit.entries.length;
+      byPage.delete(o.kitchenPageId);
+      return { ...o, feedback: [...(o.feedback || []), ...hit.entries] };
+    });
+    for (const leftover of byPage.values()) orphaned += leftover.entries.length;
+    const consumed = feedback.map(f => f.pageId);
+    setOrders(next);
+    saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
+    await fetch(WORKER_BASE + '/feedback/clear', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ token: PUBLISH_TOKEN, pageIds: consumed }),
+    });
+    return { attached, orphaned };
+  }, [orders]);
+
   // Resolve a backfill near-miss inline: link an order (by id, archived or
   // not) to the chosen regular, reusing the alias-merge mechanism so the
   // order's name is remembered on that regular going forward.
@@ -1374,6 +1426,9 @@ export default function LTBOrderTracker() {
 
       <main style={styles.main}>
         {view === 'orders' && (
+          <VoiceMode orders={orders || []} onUpdate={updateOrder} onAddItem={voiceAddItem} onArchiveDelivered={archiveDelivered} />
+        )}
+        {view === 'orders' && (
           <>
             <StatsBar stats={stats} />
 
@@ -1644,7 +1699,7 @@ export default function LTBOrderTracker() {
         {view === 'money' && (
           <>
             <MoneyTab orders={orders || []} onUpdate={updateOrder} />
-            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} />
           </>
         )}
 

@@ -68,21 +68,21 @@ export function normalizeUnit(raw) {
 // jars, sauce bottles that come in three sizes…) is handled by the LEARNED
 // per-alias packQty instead — ask once, convert forever.
 const PACK_OVERRIDE = {
-  butter: { fromUnit: 'lb', perBase: 4 },              // 1 lb butter = 4 sticks
+  butter: { fromUnit: 'lb', perBase: 4, eachIsPack: true, matchNullUnit: true },  // 1 lb box = 4 sticks; boxes ring up Ea/flat, not by weight
   milk: { fromUnit: 'package', perBase: 16, eachIsPack: true, matchNullUnit: true },       // Kevin ALWAYS buys milk by the gallon = 16 cups (his rule, Jul 6)
   ground_lamb: { fromUnit: 'package', perBase: 1, eachIsPack: true, matchNullUnit: true }, // HEB ground lamb: always 1 lb packages sold each (Kevin, Jul 6)
   anchovies: { fromUnit: 'package', perBase: 20, eachIsPack: true, matchNullUnit: true },  // Kevin's jar: ALWAYS the same container, ~20 fillets (~$6.07 → $0.30/fillet) (Jul 9)
-  guittard_low: { fromUnit: 'package', perBase: 283 },
-  guittard_high: { fromUnit: 'package', perBase: 283 },
-  kosher_salt: { fromUnit: 'box', perBase: 90.7 },
-  garlic: { fromUnit: 'package', perBase: 5 },
-  chocolate_100: { fromUnit: 'package', perBase: 8, eachIsPack: true },
-  beef_stock: { fromUnit: 'package', perBase: 4, eachIsPack: true },
-  tofu: { fromUnit: 'package', perBase: 1, eachIsPack: true },
-  baby_gold_potatoes: { fromUnit: 'package', perBase: 1.5, eachIsPack: true }, // Kevin correction Jul 6: the bag is ALWAYS 1.5 lb (was seeded as 2)
+  guittard_low: { fromUnit: 'package', perBase: 283, eachIsPack: true, matchNullUnit: true },   // 10 oz bag = 283 g. FLAGS were missing — the conversion existed but never fired on flat lines (Jul 9 screenshot bug)
+  guittard_high: { fromUnit: 'package', perBase: 283, eachIsPack: true, matchNullUnit: true },
+  kosher_salt: { fromUnit: 'box', perBase: 90.7, eachIsPack: true, matchNullUnit: true },        // 3 lb Morton box ≈ 90.7 tbsp. Same missing-flags bug (Jul 9 screenshot)
+  garlic: { fromUnit: 'package', perBase: 5, eachIsPack: true, matchNullUnit: true },            // habitual 5-head pack; name-size alias also covers labeled lines
+  chocolate_100: { fromUnit: 'package', perBase: 8, eachIsPack: true, matchNullUnit: true },
+  beef_stock: { fromUnit: 'package', perBase: 4, eachIsPack: true, matchNullUnit: true },
+  tofu: { fromUnit: 'package', perBase: 1, eachIsPack: true, matchNullUnit: true },
+  baby_gold_potatoes: { fromUnit: 'package', perBase: 1.5, eachIsPack: true, matchNullUnit: true }, // Kevin correction Jul 6: the bag is ALWAYS 1.5 lb (was seeded as 2)
   red_wine: { fromUnit: 'package', perBase: 3.17, fixedCount: true, matchNullUnit: true, eachIsPack: true },
   // v2 additions — physical invariants:
-  eggs: { fromUnit: 'dozen', perBase: 12, eachIsPack: true },              // a dozen is 12
+  eggs: { fromUnit: 'dozen', perBase: 12, eachIsPack: true, matchNullUnit: true }, // a dozen is 12; carton rings up flat
   white_wine: { fromUnit: 'package', perBase: 3.17, matchNullUnit: true, eachIsPack: true }, // 750 ml ≈ 3.17 cups
   sherry: { fromUnit: 'package', perBase: 3.17, matchNullUnit: true, eachIsPack: true },
   bourbon: { fromUnit: 'package', perBase: 3.17, matchNullUnit: true, eachIsPack: true },
@@ -110,6 +110,28 @@ const PACK_OVERRIDE = {
   canola_oil: { fromUnit: 'package', perBase: 24, eachIsPack: true, matchNullUnit: true },   // Kevin buys neutral oil in 1.5-gal jugs = 24 cups
   vegetable_oil: { fromUnit: 'package', perBase: 24, eachIsPack: true, matchNullUnit: true },
   oil_generic: { fromUnit: 'package', perBase: 24, eachIsPack: true, matchNullUnit: true },
+  // ── Jul 9 resweep: portion-unit ingredients that had NO pack coverage ────
+  white_sugar: { fromUnit: 'package', perBase: 9, eachIsPack: true, matchNullUnit: true },        // 4 lb bag ≈ 9 cups
+  brown_sugar: { fromUnit: 'package', perBase: 4.1, eachIsPack: true, matchNullUnit: true },      // 2 lb bag ≈ 4.1 packed cups
+  dark_brown_sugar: { fromUnit: 'package', perBase: 4.1, eachIsPack: true, matchNullUnit: true },
+  honey: { fromUnit: 'package', perBase: 16, eachIsPack: true, matchNullUnit: true },             // 12 oz bear ≈ 16 tbsp
+  toasted_sesame: { fromUnit: 'package', perBase: 11, eachIsPack: true, matchNullUnit: true },    // Kadoya 5.5 fl oz = 11 tbsp
+  dark_soy: { fromUnit: 'package', perBase: 33.8, eachIsPack: true, matchNullUnit: true },        // 500 ml bottle = 33.8 tbsp
+  fermented_black_beans: { fromUnit: 'package', perBase: 22, eachIsPack: true, matchNullUnit: true }, // 8 oz bag ÷ ~10 g/tbsp ≈ 22 (approx — ask-once refines)
+  worcestershire: { fromUnit: 'package', perBase: 20, eachIsPack: true, matchNullUnit: true },    // 10 fl oz = 20 tbsp
+  marsala: { fromUnit: 'package', perBase: 3.17, eachIsPack: true, matchNullUnit: true },         // 750 ml = 3.17 cups
+  whole_grain_mustard: { fromUnit: 'package', perBase: 8, eachIsPack: true, matchNullUnit: true },// 8 oz jar
+  olive_oil: { fromUnit: 'package', perBase: 16.9, eachIsPack: true, matchNullUnit: true },       // Graza Drizzle 500 ml = 16.9 fl oz (documented habitual)
+  olive_oil_cooking: { fromUnit: 'package', perBase: 25.4, eachIsPack: true, matchNullUnit: true },// Graza Sizzle 750 ml = 25.4 fl oz (documented habitual)
+  fennel_seeds: { fromUnit: 'package', perBase: 27, eachIsPack: true, matchNullUnit: true },      // ~1.9 oz jar ÷ ~2 g/tsp ≈ 27 tsp (approx)
+  five_spice: { fromUnit: 'package', perBase: 21, eachIsPack: true, matchNullUnit: true },        // ~1.75 oz jar ≈ 21 tsp (approx)
+  sichuan_pepper: { fromUnit: 'package', perBase: 35, eachIsPack: true, matchNullUnit: true },    // H-Mart ~2 oz bag ≈ 35 tsp (approx)
+  chili_flakes: { fromUnit: 'package', perBase: 14, eachIsPack: true, matchNullUnit: true },      // 2.6 oz jar ≈ 14 tbsp (approx)
+  chicken_stock: { fromUnit: 'package', perBase: 4, eachIsPack: true, matchNullUnit: true },      // 32 oz carton = 4 cups (mirror of beef_stock)
+  // Deliberately ABSENT (variable containers — the ask-once flow is correct):
+  // sodium_citrate (bag sizes vary 100 g-500 g), peanut_butter (documented),
+  // vanilla_extract + chili_oil (house-made, never on receipts as themselves),
+  // espresso, bay_leaf (rare, trivial), lime_juice (rings up as LIMES).
 };
 
 // Average weights (lb per each) for produce that rings up EITHER per piece or
@@ -224,7 +246,7 @@ export function wineHint(itemName) {
 // priced per package can never be recorded per one of these without knowing
 // the pack size. Triggers the needsConversion prompt (unless a PACK_OVERRIDE
 // or learned alias.packQty already answers it).
-const PORTION_UNITS = new Set(['tbs', 'tbsp', 'tsp', 'cup', 'shot', 'square', 'stick', 'pinch', 'knob', 'clove', 'sprig', 'leaf', 'half-jar']);
+const PORTION_UNITS = new Set(['tbs', 'tbsp', 'tsp', 'cup', 'shot', 'square', 'stick', 'pinch', 'knob', 'clove', 'sprig', 'leaf', 'half-jar', 'g', 'fillet']); // g + fillet added Jul 9: gram-unit items (sodium citrate) were skipping the ask flow and landing as scary line-total prices
 
 // Convert a per-unit price FROM the receipt unit INTO the ingredient's costing
 // unit. Returns { perUnit, factor, fromUnit, toUnit } or null (not convertible
@@ -652,6 +674,17 @@ export const ALIAS_SEED = {
   'anchovy fillet': { ingredientId: 'anchovies' },
   'anchovie fillet': { ingredientId: 'anchovies' },
   'anchovie in olive oil': { ingredientId: 'anchovies' },
+  'shrimp gulf brn 31 40 hls': { ingredientId: 'shrimp' },       // HEB gulf brown shrimp 31/40 headless (exact norm, Jul 9 screenshot); weighed per-lb
+  'guittard akoma extra semi': { ingredientId: 'guittard_high' }, // Kevin's chocolate (exact norm, Jul 9 screenshot) — pack ÷283 g
+  'guittard akoma': { ingredientId: 'guittard_high' },
+  'guittard extra semi': { ingredientId: 'guittard_high' },
+  'habanero pepper': { ingredientId: 'habanero' },               // weighed per-lb; ambiguity-breaker (Jul 9 resweep)
+  'tomato paste': { ingredientId: 'tomato_paste' },              // vs tomato_can/peeled — exact wins
+  'morton kosher coarse salt': { ingredientId: 'kosher_salt' },  // exact norm from the Jul 9 receipt
+  'kadoya sesame oil': { ingredientId: 'toasted_sesame' },
+  'kadoya pure sesame oil': { ingredientId: 'toasted_sesame' },
+  'gulf shrimp': { ingredientId: 'shrimp' },
+  'shrimp gulf': { ingredientId: 'shrimp' },
   'heb si unsaltd butter qtr': { ingredientId: 'butter' },       // QTR box = 1 lb = 4 sticks (name-size + override)
   'heb si unsalted butter qtr': { ingredientId: 'butter' },
   'heb unsaltd butter qtr': { ingredientId: 'butter' },

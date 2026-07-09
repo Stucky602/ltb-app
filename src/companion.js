@@ -101,6 +101,14 @@ export function companionHtml(order, pageId = '') {
   p { margin: 6px 0; font-size: 13.5px; }
   .foot { color: #6b7570; font-size: 12px; margin-top: 26px; text-align: center; line-height: 1.7; }
   .foot .heart { color: #5DCAA5; }
+  .card.fb { border-color: #2f4a42; }
+  .fbrow { padding: 8px 0; border-bottom: 1px solid #26322e; }
+  .fbrow:last-child { border-bottom: none; }
+  .fbname { font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+  .fbbtns { display: flex; gap: 7px; flex-wrap: wrap; }
+  .fbbtn { border-radius: 9px; padding: 7px 11px; font-size: 12.5px; font-weight: 700; border: 1px solid #2d3a36; background: #14201d; color: #b7c4be; }
+  .fbbtn.good { color: #5DCAA5; } .fbbtn.meh { color: #EF9F27; } .fbbtn.bad { color: #e0828a; }
+  .fbdone { color: #5DCAA5; font-size: 12.5px; font-weight: 700; }
   .card.ask { border-color: #2f4a42; }
   .asknote { color: #9fb3ab; font-size: 12.5px; }
   .askrow { display: flex; gap: 8px; margin-top: 10px; }
@@ -125,6 +133,11 @@ export function companionHtml(order, pageId = '') {
   ${stepCards}
   ${frozenCard}
   ${noFussCard}
+  <div class="card fb">
+    <h3>How did everything come out?</h3>
+    <p class="asknote">One tap per dish tells Kevin what worked. It makes the food better for everyone.</p>
+    <div id="fbrows"></div>
+  </div>
   <div class="card ask">
     <h3>Ask about your order</h3>
     <p class="asknote">Not sure about a reheat, a swap, or how long something keeps? Ask here. <b>You get 5 questions on this page</b>, so make them count. For anything about allergies or ingredients, text Kevin directly.</p>
@@ -137,6 +150,34 @@ export function companionHtml(order, pageId = '') {
   </div>
   <div class="foot">Made with care <span class="heart">♥</span><br>Questions about anything? Just text Kevin.<br>This page is yours for 30 days.</div>
 </div><script>
+var FB_DISHES = ${JSON.stringify(items.map(it => it.name))};
+var fbSent = {};
+(function buildFb() {
+  var wrap = document.getElementById('fbrows');
+  FB_DISHES.forEach(function(d) {
+    var row = document.createElement('div'); row.className = 'fbrow';
+    var nm = document.createElement('div'); nm.className = 'fbname'; nm.textContent = d;
+    var btns = document.createElement('div'); btns.className = 'fbbtns';
+    [['Perfect','good'],['A little off','meh'],['Had trouble','bad']].forEach(function(pair) {
+      var b = document.createElement('button'); b.className = 'fbbtn ' + pair[1]; b.textContent = pair[0];
+      b.onclick = function() { sendFb(d, pair[1], row, pair[0]); };
+      btns.appendChild(b);
+    });
+    row.appendChild(nm); row.appendChild(btns); wrap.appendChild(row);
+  });
+})();
+function sendFb(dish, verdict, row, label) {
+  if (fbSent[dish]) return;
+  fbSent[dish] = true;
+  fetch('/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: PAGE_ID, dish: dish, verdict: verdict }) })
+    .then(function(r) {
+      var done = document.createElement('div'); done.className = 'fbdone';
+      done.textContent = r.ok ? ('Noted: ' + label + '. Thanks!') : 'That did not send. No worries.';
+      row.replaceChildren(row.firstChild, done);
+    })
+    .catch(function() { fbSent[dish] = false; });
+}
+</script><script>
 var PAGE_ID = "${esc(pageId)}";
 var remaining = 5;
 function el(t, c, txt) { var e = document.createElement(t); if (c) e.className = c; if (txt != null) e.textContent = txt; return e; }

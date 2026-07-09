@@ -62,6 +62,20 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
     .slice(0, 4)
     .map(r => ({ name: r.name, driftPct: r.maxDriftPct }));
 
+  // Reheat report: customer taps from kitchen pages, aggregated by dish.
+  // 'bad' verdicts on the same dish are a TECHNIQUE signal, not a customer one.
+  const fbByDish = new Map();
+  for (const o of (orders || [])) {
+    for (const f of (o.feedback || [])) {
+      const rec = fbByDish.get(f.dish) || { dish: f.dish, good: 0, meh: 0, bad: 0 };
+      rec[f.verdict] = (rec[f.verdict] || 0) + 1;
+      fbByDish.set(f.dish, rec);
+    }
+  }
+  const reheatReport = [...fbByDish.values()]
+    .sort((a, b) => (b.bad * 2 + b.meh) - (a.bad * 2 + a.meh))
+    .slice(0, 6);
+
   const proposal = composeWeek(orders, ctx);
 
   return {
@@ -72,5 +86,6 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
     marginWatch,
     drifters,
     proposal,
+    reheatReport,
   };
 }

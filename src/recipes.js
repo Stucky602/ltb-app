@@ -473,3 +473,96 @@ export function itemHandling(name, opts = {}) {
   // Unknown: safe default — no invented instructions, one package.
   return { reheatable: false, cue: '', packaging: 'single' };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHOPPING LIST MERGE ENGINE (Jul 9) — one ingredient, one line, always.
+// The list mixes two text formats ("Celery — 3 stalks" from the generator,
+// "3 stalks Celery" from the single-dish adder) and repeated adds used to
+// stack duplicate rows. This engine parses both formats, unifies quantities
+// across unit families (tsp→tbs→cup, oz→lb), and combines rows whose
+// ingredient names normalize to the same thing. Anything unparseable passes
+// through untouched — merging must never eat a note.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const VOL_TO_CUP = { cup: 1, cups: 1, c: 1, tbs: 1 / 16, tbsp: 1 / 16, tablespoon: 1 / 16, tsp: 1 / 48, teaspoon: 1 / 48 };
+const WT_TO_LB = { lb: 1, lbs: 1, pound: 1, oz: 1 / 16, ounce: 1 / 16, g: 1 / 453.592, gram: 1 / 453.592 };
+const singularizeUnit = (u) => (u.length > 3 && u.endsWith('s') && !u.endsWith('ss')) ? u.slice(0, -1) : u;
+
+// parseShoppingLine(text) → { name, qty, unit, staple } | { passthrough: text }
+export function parseShoppingLine(text) {
+  const t = String(text || '').trim();
+  if (!t || /^──/.test(t) || /^—/.test(t)) return { passthrough: text };
+  const staple = /\(staple\)\s*$/.test(t);
+  const body = t.replace(/\s*\(staple\)\s*$/, '');
+  // Format A (generator): "Name — 2 lb" / "Name — 3"
+  let m = body.match(/^(.+?)\s+—\s+([\d.]+)\s*(.*)$/);
+  if (m) return { name: m[1].trim(), qty: parseFloat(m[2]), unit: singularizeUnit(m[3].trim().toLowerCase()), staple };
+  // Format B (dish adder): "2 lb Name" / "3 Name"
+  m = body.match(/^([\d.]+)\s+([a-zA-Z]+)?\s*(.*)$/);
+  if (m && m[3]) {
+    const maybeUnit = (m[2] || '').toLowerCase();
+    const known = VOL_TO_CUP[maybeUnit] != null || WT_TO_LB[maybeUnit] != null ||
+      ['clove', 'cloves', 'stalk', 'stalks', 'bunch', 'bunches', 'each', 'can', 'cans', 'head', 'heads', 'fillet', 'fillets', 'ear', 'ears', 'stick', 'sticks', 'sprig', 'sprigs', 'knob', 'knobs', 'pinch', 'pinches', 'jar', 'jars', 'pack', 'packs', 'block', 'blocks', 'batch'].includes(maybeUnit);
+    if (known) return { name: m[3].trim(), qty: parseFloat(m[1]), unit: singularizeUnit(maybeUnit), staple };
+    // no unit — the second token is part of the name
+    return { name: `${m[2] || ''} ${m[3]}`.trim(), qty: parseFloat(m[1]), unit: '', staple };
+  }
+  return { passthrough: text };
+}
+
+const fmtQ = (q) => String(Math.round(q * 100) / 100);
+function renderQty(volCups, wtLb, plain, unit) {
+  if (volCups != null) {
+    if (volCups >= 0.25) return `${fmtQ(volCups)} cup`;
+    const tbs = volCups * 16;
+    if (tbs >= 1) return `${fmtQ(tbs)} tbs`;
+    return `${fmtQ(volCups * 48)} tsp`;
+  }
+  if (wtLb != null) {
+    if (wtLb >= 0.25) return `${fmtQ(wtLb)} lb`;
+    return `${fmtQ(wtLb * 16)} oz`;
+  }
+  return unit ? `${fmtQ(plain)} ${unit}` : fmtQ(plain);
+}
+
+// mergeShoppingRows(rows) — rows are the list's {id, text, checked} shape.
+// Same normalized ingredient + compatible units → ONE row, quantities summed
+// in the family base, rendered in the most readable unit. Headers ("── dish
+// ──") are dropped when a merge happens under them — a combined line can't
+// honestly belong to one dish's section. checked survives only if EVERY
+// merged constituent was checked (an unchecked need keeps the row open).
+export function mergeShoppingRows(rows) {
+  const groups = new Map(); // norm|family -> { name, vol, wt, plain, unit, checked, id, staple }
+  const out = [];
+  for (const row of (rows || [])) {
+    const p = parseShoppingLine(row.text);
+    if (p.passthrough !== undefined) {
+      // keep notes; drop dish section headers (they lie once rows combine)
+      if (!/^──/.test(String(row.text).trim())) out.push(row);
+      continue;
+    }
+    const norm = normalizeIngredientName(p.name);
+    const fam = VOL_TO_CUP[p.unit] != null ? 'vol' : WT_TO_LB[p.unit] != null ? 'wt' : `u:${p.unit}`;
+    const key = `${norm}|${fam}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { name: p.name, vol: null, wt: null, plain: 0, unit: p.unit, checked: true, id: row.id, staple: p.staple };
+      groups.set(key, g);
+      out.push(g); // placeholder keeps original ordering
+    }
+    if (fam === 'vol') g.vol = (g.vol || 0) + p.qty * VOL_TO_CUP[p.unit];
+    else if (fam === 'wt') g.wt = (g.wt || 0) + p.qty * WT_TO_LB[p.unit];
+    else g.plain += p.qty;
+    g.checked = g.checked && !!row.checked;
+    g.staple = g.staple && p.staple;
+  }
+  const PLURAL_OK = new Set(['stalk', 'clove', 'bunch', 'can', 'head', 'fillet', 'ear', 'stick', 'sprig', 'knob', 'pinch', 'jar', 'pack', 'block', 'cup']);
+  return out.map(r => {
+    if (r.text !== undefined) return r; // passthrough rows
+    let qty = renderQty(r.vol, r.wt, r.plain, r.unit);
+    const [num, ...uParts] = qty.split(' ');
+    const u = uParts.join(' ');
+    if (u && PLURAL_OK.has(u) && parseFloat(num) !== 1) qty = `${num} ${u}s`;
+    return { id: r.id, text: `${r.name} — ${qty}${r.staple ? ' (staple)' : ''}`, checked: r.checked };
+  });
+}

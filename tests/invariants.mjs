@@ -22,6 +22,10 @@ import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
+import { scoreWeekCandidates, dishRunStats } from '../src/weekPlanner.js';
+import { attachRates, usualOrder } from '../src/regularsIntel.js';
+import { buildLabelSheet } from '../src/labels.js';
+import { monthlyPnl, pnlToCsv } from '../src/books.js';
 import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
@@ -140,6 +144,15 @@ for (const d of DISHES) {
 // analyzeConflicts must actually see every dinner (functional check, not just map presence)
 const seen = analyzeConflicts(DISHES.map(d => d.name));
 if (!seen || !('red' in seen)) F('equipment-run', 'analyzeConflicts returned an unexpected shape');
+
+// Thai Basil Chicken is a WOK stir-fry — it must not claim largePot (a real
+// data bug Kevin caught: it was falsely conflicting on the large pot).
+{
+  const tb = DISH_EQUIPMENT['Thai Basil Chicken (Pad Krapow Gai)'];
+  const tbAll = [...(tb.fixed || []), ...(tb.flexible || [])];
+  if (tbAll.includes('largePot')) F('equipment', 'Thai Basil Chicken must not claim largePot — it uses a wok');
+  if (!tbAll.includes('wok')) F('equipment', 'Thai Basil Chicken should claim the wok');
+}
 
 // Soft back-burner claims (quick sauce dishes, e.g. Pork Mustard Tarragon) must
 // NOT emit tofu / "meat/shrimp version" advice — that language only applies to
@@ -1012,11 +1025,20 @@ TAX  0.00
   // A comfortably-over dish must NOT flag: Thai Basil Chicken (well over floor).
   const overRep = buildDishReport('Thai Basil Chicken (Pad Krapow Gai)', { baseCostMap: base });
   if (overRep.variants.some(v => v.underFloor)) F('report-floor', 'Thai Basil Chicken should not flag under-floor');
-  // Mushroom Ragu's pasta variant is honestly under floor now (38% after the
-  // anchor correction) — it SHOULD flag; the polenta variant is over.
+  // PASSTHROUGH ERA: Mushroom Ragu's pasta variant is 38% BLENDED (pasta
+  // dilution, by design) but healthy on VALUE-ADD — so the blended flag stays
+  // true, the EFFECTIVE flag (what the tab shows) must be false, and the
+  // value-add margin must clear the floor.
   const mrRep = buildDishReport('Mushroom Ragu', { baseCostMap: base });
   const mrPasta = mrRep.variants.find(v => !v.label.includes('Polenta'));
-  if (!mrPasta.underFloor) F('report-floor', `Mushroom Ragu pasta variant should flag under-floor (margin ${mrPasta.marginLivePct.toFixed(1)}%)`);
+  if (!mrPasta.underFloor) F('report-floor', `Ragu pasta blended flag should still be true (${mrPasta.marginLivePct.toFixed(1)}%)`);
+  if (!mrPasta.hasPassthrough || mrPasta.passthroughRaw < 8) F('report-floor', `Ragu pasta passthrough missing: ${JSON.stringify({ h: mrPasta.hasPassthrough, p: mrPasta.passthroughRaw })}`);
+  if (mrPasta.valueAddMarginPct < 45) F('report-floor', `Ragu value-add should clear the floor: ${mrPasta.valueAddMarginPct.toFixed(1)}%`);
+  if (mrPasta.underFloorEffective) F('report-floor', 'Ragu pasta must NOT flag on the effective (value-add) basis');
+  // A NON-passthrough dish: effective === blended, no VA divergence.
+  const boChk = buildDishReport('Bo Ssam', { baseCostMap: base }).variants[0];
+  if (boChk.hasPassthrough) F('report-floor', 'Bo Ssam has no passthrough items');
+  if (boChk.underFloorEffective !== boChk.underFloor) F('report-floor', 'non-passthrough effective flag must equal blended');
 
   // 11. Reheat parity: the report's reheat text is the ORDER engine's, not a copy.
   const porkReheat = buildDishReport('Pork with Mustard Tarragon Cream Sauce', { baseCostMap: base })
@@ -1032,7 +1054,8 @@ TAX  0.00
   const boRow = port.find(r => r.name === 'Bo Ssam');
   if (!boRow.underFloor || !/Small/.test(boRow.worstMarginVariant)) F('report-portfolio', JSON.stringify(boRow));
   const mrRow = port.find(r => r.name === 'Mushroom Ragu');
-  if (!mrRow.underFloor) F('report-portfolio', 'Mushroom Ragu should flag in portfolio (pasta variant under floor after anchor fix)');
+  if (mrRow.underFloor) F('report-portfolio', 'Mushroom Ragu must NOT flag in the radar anymore — pasta dishes are judged on value-add');
+  if (!mrRow.hasPassthrough || mrRow.worstValueAddPct == null) F('report-portfolio', `Ragu portfolio VA fields: ${JSON.stringify(mrRow)}`);
 }
 
 // ─── dishSalesHistory (Recipes-tab sales section, moved from Money) ──────────
@@ -1191,6 +1214,78 @@ TAX  0.00
   const limeG = [...eachPlan.buckets.matched, ...eachPlan.buckets.review].find(g => g.ingredientId === 'limes');
   if (!limeG || limeG.conversion?.basis !== 'sold_by_each') F('receipt-learn', `learned soldByEach not applied: ${JSON.stringify(limeG && { b: limeG.conversion?.basis, p: limeG.perUnit })}`);
   else if (Math.abs(limeG.perUnit - 0.66) > 0.005) F('receipt-learn', `learned-each perUnit ${limeG.perUnit}, want 0.66`);
+}
+
+// ─── Batch engines: planner, regulars intel, labels, books ───────────────────
+{
+  const now = Date.now(), day = 86400000;
+  const iso = (d) => new Date(now - d * day).toISOString();
+  const orders = [
+    { createdAt: iso(2), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 45, cost: 22.58 }] },
+    { createdAt: iso(16), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
+    { createdAt: iso(16), customer: 'Frances', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1, price: 55, cost: 25 }] },
+    { createdAt: iso(30), customer: 'Sara', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 2, price: 55, cost: 25 }] },
+    { createdAt: iso(30), customer: 'Frances', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
+    { createdAt: iso(1), customer: 'Mom', items: [{ name: 'NY Strip', variant: 'price by weight', qty: 2, price: 39, cost: 21.74, weight: 1.5 }] },
+  ];
+
+  // PLANNER: run stats count distinct weeks; candidates exclude picks; a pick
+  // that creates a red conflict is penalized.
+  const bstats = dishRunStats('Bolognese', orders);
+  if (bstats.runs !== 3 || bstats.weeksSinceLast > 1) F('planner', JSON.stringify(bstats)); // epoch-week buckets: 2 days ago can be last bucket
+  const cands = scoreWeekCandidates(orders, ['Bolognese'], {});
+  if (cands.some(c => c.name === 'Bolognese')) F('planner', 'picked dish must not be a candidate');
+  if (cands.length !== DISHES.length - 1) F('planner', `candidate count ${cands.length}`);
+  const gumbo = cands.find(c => c.name === 'Gumbo');
+  if (!gumbo || gumbo.runs !== 2) F('planner', `gumbo stats: ${JSON.stringify(gumbo)}`);
+  // Two polenta hard-claim dishes: picking Saffron then scoring Mushroom Ragu
+  // must show a new conflict penalty.
+  const withSaffron = scoreWeekCandidates(orders, ['Saffron Pork Ragu'], {});
+  const mr = withSaffron.find(c => c.name === 'Mushroom Ragu');
+  if (!mr || mr.newConflicts < 1) F('planner', `polenta clash not penalized: ${JSON.stringify(mr)}`);
+
+  // REGULARS INTEL: Bolognese appeared 3 distinct weeks; Sara ordered it in 2
+  // → 67%. Frances 1 of 3 → 33%. The usual for Sara: Bolognese small ×2 times.
+  const sara = attachRates(orders, 'Sara');
+  const sb = sara.find(r => r.dish === 'Bolognese');
+  if (!sb || sb.appearances !== 3 || sb.ordered !== 2 || sb.attachPct !== 67) F('regulars-intel', JSON.stringify(sb));
+  const fr = attachRates(orders, 'Frances').find(r => r.dish === 'Bolognese');
+  if (!fr || fr.attachPct !== 33) F('regulars-intel', JSON.stringify(fr));
+  const usual = usualOrder(orders, 'Sara');
+  if (!usual.length || usual[0].name !== 'Bolognese' || usual[0].times !== 2 || usual[0].usualQty !== 1) F('regulars-intel', JSON.stringify(usual));
+
+  // LABELS: qty expands to per-container labels with seq; weighed per-lb items
+  // get one label per BAG (2 pieces = 1 bag); reheat cue comes from the live
+  // order engine; packing rolls up per customer.
+  const sheet = buildLabelSheet([
+    { customer: 'Frances', items: [
+      { name: 'Gumbo', variant: 'Large (~8-12)', qty: 2 },
+      { name: 'NY Strip', variant: 'price by weight', qty: 2, weight: 1.5 },
+    ] },
+  ]);
+  const gumboLabels = sheet.labels.filter(l => l.dish === 'Gumbo');
+  if (gumboLabels.length !== 2 || gumboLabels[0].seq !== '1/2') F('labels', JSON.stringify(gumboLabels.map(l => l.seq)));
+  const nyLabels = sheet.labels.filter(l => l.dish === 'NY Strip');
+  if (nyLabels.length !== 1) F('labels', `2 weighed pieces = 1 bag = 1 label, got ${nyLabels.length}`);
+  if (nyLabels[0].weight !== '1.5 lb total') F('labels', nyLabels[0].weight);
+  if (!gumboLabels[0].cue || gumboLabels[0].cue.length < 4) F('labels', 'reheat cue missing');
+  if (sheet.packing.length !== 1 || sheet.packing[0].containers !== 3) F('labels', JSON.stringify(sheet.packing));
+
+  // BOOKS: months group by createdAt; revenue uses full order math (per-lb not
+  // doubled); csv shape sane. Cancelled orders excluded.
+  const pnl = monthlyPnl([...orders, { createdAt: iso(2), archived: true, customer: 'X', items: [{ name: 'Gumbo', qty: 9, price: 55, cost: 25 }] }]);
+  if (!pnl.length) F('books', 'no rows');
+  const total = pnl.reduce((s, r) => s + r.revenue, 0);
+  // Mom's per-lb order: 39 + 1.50 bag = 40.50, NOT 78+
+  // Item revenue + the app's standing per-order surcharge (orderTotal math,
+  // identical to the Money tab): 330.50 items + 6 × $2 = 342.50.
+  const expected = 45 + 40 + 55 + 110 + 40 + 40.5 + 6 * 2;
+  if (Math.abs(total - expected) > 0.01) F('books', `total revenue ${total}, want ${expected}`);
+  if (pnl.some(r => r.orders === 0)) F('books', 'empty month row');
+  // archived orders excluded (the +9 Gumbo above must not appear)
+  const csv = pnlToCsv(pnl);
+  if (!csv.startsWith('month,orders,revenue')) F('books', 'csv header');
+  if (csv.split('\n').length !== pnl.length + 1) F('books', 'csv row count');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

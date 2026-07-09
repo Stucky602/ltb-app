@@ -27,7 +27,7 @@ import { mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames, r
 import { itemHandling } from '../src/recipes.js';
 import { buildCookSchedule } from '../src/cookSchedule.js';
 import { buildWeeklyDigest } from '../src/digest.js';
-import { companionHtml } from '../src/companion.js';
+import { companionHtml, companionContext } from '../src/companion.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
@@ -1469,6 +1469,19 @@ TAX  0.00
   if (!/data:image\/png;base64/.test(branded)) F('companion', 'LTB logo must be embedded');
   if (!/feeds ~/.test(branded)) F('companion', 'serving-size chip must appear for dishes whose variant encodes servings');
   if ((branded.match(/class="card step sear"/g) || []).length !== 1) F('companion', 'exactly one sear step card');
+  // Ask-Kevin's-kitchen AI box: card present, the 5-question cap is stated
+  // BEFORE the first question, the page id is baked in for /ask, and answers
+  // render via textContent only (no innerHTML anywhere in the page script).
+  const withAsk = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }] }, 'pid-123');
+  if (!/Ask about your order/.test(withAsk)) F('companion-ask', 'ask card missing');
+  if (!/You get 5 questions on this page/.test(withAsk)) F('companion-ask', 'the cap must be stated upfront, before the first question');
+  if (!/pid-123/.test(withAsk)) F('companion-ask', 'page id must be baked into the page for /ask');
+  if (/innerHTML/.test(withAsk)) F('companion-ask', 'page script must render via textContent only');
+  // Grounding context: compact, carries the order and the canon instructions.
+  const ctx = companionContext({ customer: 'T', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }, { name: 'Garlic Confit', qty: 1 }] });
+  if (!/ORDER: 1x Gumbo/.test(ctx)) F('companion-ask', 'context must carry the order');
+  if (!/KEEP FROZEN/.test(ctx)) F('companion-ask', 'context must carry the confit frozen rule so the model can never contradict it');
+  if (ctx.length > 6000) F('companion-ask', `context too fat: ${ctx.length} chars — this is the per-question token bill`);
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

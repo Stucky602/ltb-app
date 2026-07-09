@@ -23,7 +23,7 @@ export function LabelsSheet({ orders, onClose }) {
             <div style={{ fontSize: 13, fontWeight: 600 }}>{l.dish}</div>
             {l.variant ? <div style={{ fontSize: 11.5, color: '#444' }}>{l.variant}</div> : null}
             {l.weight ? <div style={{ fontSize: 11.5, color: '#444' }}>{l.weight}</div> : null}
-            <div style={{ fontSize: 11, color: '#666', marginTop: 3, fontStyle: 'italic' }}>{l.cue}</div>
+            {l.cue ? <div style={{ fontSize: 11, color: '#666', marginTop: 3, fontStyle: 'italic' }}>{l.cue}</div> : null}
           </div>
         ))}
       </div>

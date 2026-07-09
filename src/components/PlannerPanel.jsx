@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { scoreWeekCandidates } from '../weekPlanner.js';
+import { scoreWeekCandidates, composeWeek } from '../weekPlanner.js';
 const C = { panel: '#1c2422', border: '#2d3a36', text: '#e8ede9', dim: '#9aa5a0', faint: '#6b7570', good: '#5DCAA5', warn: '#EF9F27', bad: '#e0828a' };
 const S = {
   section: { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, margin: '10px 14px' },
@@ -11,6 +11,7 @@ const S = {
 // #3 demand-aware week planner — lives under the Week tab's dish picker.
 export function PlannerPanel({ orders, weekDishes, liveCostMap, baseCostMap }) {
   const [open, setOpen] = useState(false);
+  const [composed, setComposed] = useState(null); // composer popup
   const ranked = useMemo(
     () => open ? scoreWeekCandidates(orders || [], weekDishes || [], { liveCostMap, baseCostMap }).slice(0, 10) : [],
     [open, orders, weekDishes, liveCostMap, baseCostMap]
@@ -40,6 +41,34 @@ export function PlannerPanel({ orders, weekDishes, liveCostMap, baseCostMap }) {
         </div>
       ))}
       {open && <div style={{ fontSize: 10.5, color: C.faint, marginTop: 6 }}>Score = time since last run + avg demand + margin health − equipment clashes with your current picks.</div>}
+      {open && (
+        <button
+          style={{ width: '100%', marginTop: 8, padding: '9px', borderRadius: 8, border: `1px solid ${C.border}`, background: '#232d2a', color: C.good, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+          onClick={() => setComposed(composeWeek(orders || [], { liveCostMap, baseCostMap }))}
+        >
+          Compose a week for me
+        </button>
+      )}
+      {composed && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 2500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setComposed(null)}>
+          <div style={{ background: C.panel, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, maxWidth: 420, width: '100%', maxHeight: '80vh', overflow: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ ...S.title, marginBottom: 8 }}>A week that balances — take it or leave it</div>
+            {composed.picks.map(p => (
+              <div key={p.name} style={{ padding: '7px 0', borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>{p.name} <span style={{ color: C.faint, fontWeight: 400, fontSize: 11 }}>({p.cuisine})</span></div>
+                <div style={{ fontSize: 11.5, color: C.dim }}>{p.why.join(' · ')}</div>
+              </div>
+            ))}
+            {composed.notes.map((n, i) => (
+              <div key={i} style={{ fontSize: 11.5, color: C.warn, marginTop: 8 }}>{n}</div>
+            ))}
+            <button style={{ width: '100%', marginTop: 12, padding: '9px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.dim, cursor: 'pointer' }}
+              onClick={() => setComposed(null)}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

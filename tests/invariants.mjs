@@ -1348,6 +1348,22 @@ TAX  0.00
   const bf = backfillRegularLinks(bfRegs, bfOrders);
   if (bf.auto.length !== 2 || !bf.auto.every(a => a.regularId === 'r9')) F('reg-backfill', JSON.stringify(bf.auto));
   if (bf.suggestions.length !== 1 || bf.suggestions[0].name !== 'Francis Day') F('reg-backfill', `partial must SUGGEST not link: ${JSON.stringify(bf.suggestions)}`);
+  // Backfill suggestions must carry linkable candidates (id + display) so the
+  // intel panel can resolve a near-miss INLINE — the archived order that the
+  // old "use the star" message pointed at is never rendered as a card.
+  if (!bf.suggestions[0].candidates || !bf.suggestions[0].candidates[0].id || !bf.suggestions[0].candidates[0].display) F('reg-backfill', 'suggestion needs {id,display} candidates for inline linking');
+
+  // DROPDOWN IDENTITY COLLAPSE: after a merge, an alias name must NOT appear as
+  // its own customer entry — it folds under the keeper's display name.
+  const dropRegs = [{ id: 'rd', names: ['Jessica Gardner'], aliases: ['Jessica'] }];
+  const dropOrders = [{ id: '1', customer: 'Jessica Gardner' }, { id: '2', customer: 'Jessica' }, { id: '3', customer: 'Walkup' }];
+  const claimed = new Map();
+  for (const r of dropRegs) { const disp = r.names.join(' & '); for (const nm of [...r.names, ...(r.aliases||[])]) claimed.set(nm.toLowerCase(), disp); }
+  const shown = new Set();
+  dropOrders.forEach(o => shown.add(claimed.get(o.customer.toLowerCase()) || o.customer));
+  const list = [...shown];
+  if (list.filter(n => /Jessica/.test(n)).length !== 1) F('reg-dropdown', `alias must collapse: ${JSON.stringify(list)}`);
+  if (!list.includes('Walkup')) F('reg-dropdown', 'unlinked names must still show');
 
   // CANONICAL ITEM HANDLING — the two label bugs, pinned forever:
   // (1) non-reheatables get NO cue; (2) single-package items never split.
@@ -1448,6 +1464,11 @@ TAX  0.00
   if (/<script>alert/.test(html)) F('companion', 'user text must be escaped');
   const noSear = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', qty: 1 }] });
   if (/Sear the proteins/.test(noSear)) F('companion', 'sear block must not appear without finish-at-home proteins');
+  // Branded page: logo embedded, serving chips from parseServings, one sear card.
+  const branded = companionHtml({ customer: 'Frances Day', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }, { name: 'NY Strip', variant: 'price by weight', qty: 2, weight: 1.5 }] });
+  if (!/data:image\/png;base64/.test(branded)) F('companion', 'LTB logo must be embedded');
+  if (!/feeds ~/.test(branded)) F('companion', 'serving-size chip must appear for dishes whose variant encodes servings');
+  if ((branded.match(/class="card step sear"/g) || []).length !== 1) F('companion', 'exactly one sear step card');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

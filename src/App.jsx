@@ -634,84 +634,6 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  // ── Make-a-regular star (OrderCard) ────────────────────────────────────────
-  const makeRegularFromOrder = useCallback((order) => {
-    const id = addRegular({
-      names: [order.customer || ''],
-      address: order.address || '',
-      phone: order.phone || '',
-      linkedOrderIds: [order.id],
-    });
-    updateOrder(order.id, { regularId: id });
-  }, [addRegular, updateOrder]);
-
-  // Link an order to an EXISTING regular from the star's near-miss chooser.
-  // The order's name becomes an alias on the regular (non-destructive merge
-  // mechanism) so all past and future orders under that name match too.
-  const linkOrderWithAlias = useCallback((regularId, order) => {
-    setRegulars(prev => {
-      const next = prev.map(r => {
-        if (r.id !== regularId) return r;
-        const has = regularAllNames(r).some(n => n.toLowerCase() === String(order.customer || '').toLowerCase());
-        return {
-          ...r,
-          aliases: has ? (r.aliases || []) : [...(r.aliases || []), order.customer],
-          linkedOrderIds: r.linkedOrderIds.includes(order.id) ? r.linkedOrderIds : [...r.linkedOrderIds, order.id],
-        };
-      });
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-    updateOrder(order.id, { regularId });
-  }, [updateOrder]);
-
-  // ── Merge / unmerge (non-destructive, reversible) ───────────────────────────
-  const doMergeRegulars = useCallback((targetId, sourceId) => {
-    setRegulars(prev => {
-      const { regulars: next, relinkOrderIds } = mergeRegulars(prev, targetId, sourceId);
-      if (relinkOrderIds.length) {
-        setOrders(po => {
-          const on = (po || []).map(o => (relinkOrderIds.includes(o.id) ? { ...o, regularId: targetId } : o));
-          saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
-          return on;
-        });
-      }
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
-
-  const doUnmergeRegular = useCallback((targetId, snapshotId) => {
-    setRegulars(prev => {
-      const next = unmergeRegular(prev, targetId, snapshotId);
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
-
-  // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
-  const runBackfill = useCallback(() => {
-    const { auto, suggestions } = backfillRegularLinks(regulars, orders || []);
-    if (auto.length) {
-      setOrders(po => {
-        const byId = new Map(auto.map(a => [a.orderId, a.regularId]));
-        const on = (po || []).map(o => (byId.has(o.id) ? { ...o, regularId: byId.get(o.id) } : o));
-        saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
-        return on;
-      });
-      setRegulars(prev => {
-        const next = prev.map(r => {
-          const mine = auto.filter(a => a.regularId === r.id).map(a => a.orderId);
-          if (!mine.length) return r;
-          return { ...r, linkedOrderIds: [...new Set([...(r.linkedOrderIds || []), ...mine])] };
-        });
-        saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-        return next;
-      });
-    }
-    return { autoCount: auto.length, suggestions };
-  }, [regulars, orders]);
-
   const linkOrderToRegular = useCallback((regularId, orderId) => {
     setRegulars(prev => {
       const next = prev.map(r => {
@@ -845,6 +767,84 @@ export default function LTBOrderTracker() {
       return next;
     });
   }, []);
+
+  // ── Make-a-regular star (OrderCard) ────────────────────────────────────────
+  const makeRegularFromOrder = useCallback((order) => {
+    const id = addRegular({
+      names: [order.customer || ''],
+      address: order.address || '',
+      phone: order.phone || '',
+      linkedOrderIds: [order.id],
+    });
+    updateOrder(order.id, { regularId: id });
+  }, [addRegular, updateOrder]);
+
+  // Link an order to an EXISTING regular from the star's near-miss chooser.
+  // The order's name becomes an alias on the regular (non-destructive merge
+  // mechanism) so all past and future orders under that name match too.
+  const linkOrderWithAlias = useCallback((regularId, order) => {
+    setRegulars(prev => {
+      const next = prev.map(r => {
+        if (r.id !== regularId) return r;
+        const has = regularAllNames(r).some(n => n.toLowerCase() === String(order.customer || '').toLowerCase());
+        return {
+          ...r,
+          aliases: has ? (r.aliases || []) : [...(r.aliases || []), order.customer],
+          linkedOrderIds: r.linkedOrderIds.includes(order.id) ? r.linkedOrderIds : [...r.linkedOrderIds, order.id],
+        };
+      });
+      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+    updateOrder(order.id, { regularId });
+  }, [updateOrder]);
+
+  // ── Merge / unmerge (non-destructive, reversible) ───────────────────────────
+  const doMergeRegulars = useCallback((targetId, sourceId) => {
+    setRegulars(prev => {
+      const { regulars: next, relinkOrderIds } = mergeRegulars(prev, targetId, sourceId);
+      if (relinkOrderIds.length) {
+        setOrders(po => {
+          const on = (po || []).map(o => (relinkOrderIds.includes(o.id) ? { ...o, regularId: targetId } : o));
+          saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
+          return on;
+        });
+      }
+      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
+  const doUnmergeRegular = useCallback((targetId, snapshotId) => {
+    setRegulars(prev => {
+      const next = unmergeRegular(prev, targetId, snapshotId);
+      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
+  // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
+  const runBackfill = useCallback(() => {
+    const { auto, suggestions } = backfillRegularLinks(regulars, orders || []);
+    if (auto.length) {
+      setOrders(po => {
+        const byId = new Map(auto.map(a => [a.orderId, a.regularId]));
+        const on = (po || []).map(o => (byId.has(o.id) ? { ...o, regularId: byId.get(o.id) } : o));
+        saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
+        return on;
+      });
+      setRegulars(prev => {
+        const next = prev.map(r => {
+          const mine = auto.filter(a => a.regularId === r.id).map(a => a.orderId);
+          if (!mine.length) return r;
+          return { ...r, linkedOrderIds: [...new Set([...(r.linkedOrderIds || []), ...mine])] };
+        });
+        saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+        return next;
+      });
+    }
+    return { autoCount: auto.length, suggestions };
+  }, [regulars, orders]);
 
   const deleteOrder = useCallback((id) => {
     setOrders(prev => {

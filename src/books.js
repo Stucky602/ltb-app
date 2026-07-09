@@ -17,7 +17,10 @@ export function monthlyPnl(orders, receiptLog = []) {
     return months.get(k);
   };
   for (const o of (orders || [])) {
-    if (!o.createdAt || o.archived) continue;
+    // Archived = Delivered + tidied away (the ONLY archive path requires
+    // Delivered status) — so archived orders are REAL completed sales and
+    // MUST count. There is no cancellation concept in the order model.
+    if (!o.createdAt) continue;
     const r = row(monthKey(o.createdAt));
     r.orders++;
     r.revenue += orderTotal(o.items, o.jarSwaps, o.containerReturns, o.discountType, o.discountValue, o.customCharges, o.waiveSurcharge);

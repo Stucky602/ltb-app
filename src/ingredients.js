@@ -61,7 +61,7 @@ export const INGREDIENT_SEED = [
   { id: 'shrimp', name: 'Shrimp', unit: 'lb', baseline: 14.0, category: 'protein' },
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },
-  { id: 'anchovies', name: 'Anchovies (fillet)', unit: 'fillet', baseline: 0.24, category: 'pantry' }, // Bellino 4.25oz tin $5.78 / ~24 fillets (per printed nutrition facts: 4 servings/tin x 6 pieces/serving)
+  { id: 'anchovies', name: 'Anchovies (fillet)', unit: 'fillet', baseline: 0.3, category: 'pantry' }, // Kevin's jar: $6.07 / ~20 fillets = $0.30/fillet. ALWAYS the same container — receipt scans convert jar price via packQty 20.
   { id: 'kimchi', name: 'Kimchi', unit: 'jar', baseline: 8.0, category: 'pantry' },
   { id: 'butter', name: 'Butter', unit: 'stick', baseline: 0.95, category: 'dairy' },
   { id: 'milk', name: 'Milk', unit: 'cup', baseline: 0.275, category: 'dairy' },

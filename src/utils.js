@@ -60,14 +60,92 @@ export function regularDisplayName(reg) {
 // names. Returns 'exact' if any name matches exactly, else 'partial' if any
 // partially matches, else null. This is what lets either person in a couple
 // auto-link to the same shared profile.
+// All names a regular answers to: their display names PLUS merge aliases.
+// Aliases come from non-destructive merges ("Jessica" folded into "Jessica
+// Gardner") — they match like names but never appear in the display name.
+export function regularAllNames(reg) {
+  const aliases = Array.isArray(reg && reg.aliases) ? reg.aliases.map(a => String(a || '').trim()).filter(Boolean) : [];
+  return [...regularNames(reg), ...aliases];
+}
+
 export function regularMatchType(reg, customerName) {
   let best = null;
-  for (const nm of regularNames(reg)) {
+  for (const nm of regularAllNames(reg)) {
     const m = nameMatchType(nm, customerName);
     if (m === 'exact') return 'exact';
     if (m === 'partial') best = 'partial';
   }
   return best;
+}
+
+// ─── Merge two regulars (NON-DESTRUCTIVE, reversible) ────────────────────────
+// The source's names become the target's ALIASES (so its orders keep matching),
+// linked orders re-point to the target, and a snapshot of the source is kept
+// on the target for unmerge. Original order records are never rewritten.
+// Returns { regulars, relinkOrderIds } — caller re-points those orders' regularId.
+export function mergeRegulars(regulars, targetId, sourceId) {
+  const list = regulars || [];
+  const target = list.find(r => r.id === targetId);
+  const source = list.find(r => r.id === sourceId);
+  if (!target || !source || targetId === sourceId) return { regulars: list, relinkOrderIds: [] };
+  const existing = new Set(regularAllNames(target).map(n => n.toLowerCase()));
+  const newAliases = regularAllNames(source).filter(n => !existing.has(n.toLowerCase()));
+  const merged = {
+    ...target,
+    aliases: [...(target.aliases || []), ...newAliases],
+    allergies: [...new Set([...(target.allergies || []), ...(source.allergies || [])])],
+    notes: [target.notes, source.notes].filter(Boolean).join(' | ') || target.notes || '',
+    mergedFrom: [...(target.mergedFrom || []), { at: new Date().toISOString(), snapshot: source }],
+  };
+  return {
+    regulars: list.filter(r => r.id !== sourceId).map(r => (r.id === targetId ? merged : r)),
+    relinkOrderIds: source.linkedOrderIds || [],
+  };
+}
+
+// Undo a merge: restore the snapshotted source, remove its names from the
+// target's aliases. (Orders relinked during merge stay pointed at the target;
+// the restored regular re-adopts them via backfill or manual link.)
+export function unmergeRegular(regulars, targetId, snapshotId) {
+  const list = regulars || [];
+  const target = list.find(r => r.id === targetId);
+  if (!target) return list;
+  const entry = (target.mergedFrom || []).find(m => m.snapshot && m.snapshot.id === snapshotId);
+  if (!entry) return list;
+  const srcNames = new Set(regularAllNames(entry.snapshot).map(n => n.toLowerCase()));
+  const restoredTarget = {
+    ...target,
+    aliases: (target.aliases || []).filter(a => !srcNames.has(String(a).toLowerCase())),
+    mergedFrom: (target.mergedFrom || []).filter(m => m !== entry),
+  };
+  // Orders relinked during the merge STAY with the target (documented) — so
+  // the restored profile must not claim them. It comes back with an empty
+  // linkedOrderIds; the backfill button re-adopts its orders by name match.
+  const restoredSource = { ...entry.snapshot, linkedOrderIds: [] };
+  return [...list.map(r => (r.id === targetId ? restoredTarget : r)), restoredSource];
+}
+
+// ─── Backfill: link pre-regulars-era orders by name/alias match ──────────────
+// Exact (incl. alias) matches auto-link; partial matches become suggestions —
+// NEVER automatic, per Kevin (it could genuinely be two different Jessicas).
+export function backfillRegularLinks(regulars, orders) {
+  const auto = [];
+  const suggestions = [];
+  for (const o of (orders || [])) {
+    if (!o || o.regularId) continue;
+    const nm = o.customer || o.name || '';
+    if (!nm) continue;
+    let exact = null;
+    const partials = [];
+    for (const r of (regulars || [])) {
+      const m = regularMatchType(r, nm);
+      if (m === 'exact') { exact = r; break; }
+      if (m === 'partial') partials.push(r);
+    }
+    if (exact) auto.push({ orderId: o.id, regularId: exact.id, name: nm });
+    else if (partials.length) suggestions.push({ orderId: o.id, name: nm, candidates: partials.map(r => ({ id: r.id, display: regularDisplayName(r) })) });
+  }
+  return { auto, suggestions };
 }
 
 // Build auto-insights from a regular's linked order history.

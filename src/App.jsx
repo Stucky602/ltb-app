@@ -33,6 +33,7 @@ import {
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
 } from './utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
@@ -50,6 +51,8 @@ import { RecipesTab } from './components/RecipesTab.jsx';
 import { PlannerPanel } from './components/PlannerPanel.jsx';
 import { RegularsIntelPanel } from './components/RegularsIntelPanel.jsx';
 import { LabelsSheet } from './components/LabelsSheet.jsx';
+import { DigestPanel } from './components/DigestPanel.jsx';
+import { SchedulePanel } from './components/SchedulePanel.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
@@ -630,6 +633,84 @@ export default function LTBOrderTracker() {
       return next;
     });
   }, []);
+
+  // ── Make-a-regular star (OrderCard) ────────────────────────────────────────
+  const makeRegularFromOrder = useCallback((order) => {
+    const id = addRegular({
+      names: [order.customer || ''],
+      address: order.address || '',
+      phone: order.phone || '',
+      linkedOrderIds: [order.id],
+    });
+    updateOrder(order.id, { regularId: id });
+  }, [addRegular, updateOrder]);
+
+  // Link an order to an EXISTING regular from the star's near-miss chooser.
+  // The order's name becomes an alias on the regular (non-destructive merge
+  // mechanism) so all past and future orders under that name match too.
+  const linkOrderWithAlias = useCallback((regularId, order) => {
+    setRegulars(prev => {
+      const next = prev.map(r => {
+        if (r.id !== regularId) return r;
+        const has = regularAllNames(r).some(n => n.toLowerCase() === String(order.customer || '').toLowerCase());
+        return {
+          ...r,
+          aliases: has ? (r.aliases || []) : [...(r.aliases || []), order.customer],
+          linkedOrderIds: r.linkedOrderIds.includes(order.id) ? r.linkedOrderIds : [...r.linkedOrderIds, order.id],
+        };
+      });
+      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+    updateOrder(order.id, { regularId });
+  }, [updateOrder]);
+
+  // ── Merge / unmerge (non-destructive, reversible) ───────────────────────────
+  const doMergeRegulars = useCallback((targetId, sourceId) => {
+    setRegulars(prev => {
+      const { regulars: next, relinkOrderIds } = mergeRegulars(prev, targetId, sourceId);
+      if (relinkOrderIds.length) {
+        setOrders(po => {
+          const on = (po || []).map(o => (relinkOrderIds.includes(o.id) ? { ...o, regularId: targetId } : o));
+          saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
+          return on;
+        });
+      }
+      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
+  const doUnmergeRegular = useCallback((targetId, snapshotId) => {
+    setRegulars(prev => {
+      const next = unmergeRegular(prev, targetId, snapshotId);
+      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
+  // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
+  const runBackfill = useCallback(() => {
+    const { auto, suggestions } = backfillRegularLinks(regulars, orders || []);
+    if (auto.length) {
+      setOrders(po => {
+        const byId = new Map(auto.map(a => [a.orderId, a.regularId]));
+        const on = (po || []).map(o => (byId.has(o.id) ? { ...o, regularId: byId.get(o.id) } : o));
+        saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
+        return on;
+      });
+      setRegulars(prev => {
+        const next = prev.map(r => {
+          const mine = auto.filter(a => a.regularId === r.id).map(a => a.orderId);
+          if (!mine.length) return r;
+          return { ...r, linkedOrderIds: [...new Set([...(r.linkedOrderIds || []), ...mine])] };
+        });
+        saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
+        return next;
+      });
+    }
+    return { autoCount: auto.length, suggestions };
+  }, [regulars, orders]);
 
   const linkOrderToRegular = useCallback((regularId, orderId) => {
     setRegulars(prev => {
@@ -1359,6 +1440,8 @@ export default function LTBOrderTracker() {
                 initial={formMode === 'new' ? null : formMode}
                 recentCustomers={recentCustomers}
                 regulars={regulars}
+                orders={orders || []}
+                weekDishes={weekDishes}
                 onSave={saveOrder}
                 onCancel={() => setFormMode(null)}
               />
@@ -1466,6 +1549,8 @@ export default function LTBOrderTracker() {
                   onUpdate={(patch) => updateOrder(order.id, patch)}
                   onDelete={() => deleteOrder(order.id)}
                   onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
+                  onMakeRegular={makeRegularFromOrder}
+                  onLinkRegular={linkOrderWithAlias}
                 />
               ))}
             </div>
@@ -1486,6 +1571,8 @@ export default function LTBOrderTracker() {
                       onUpdate={(patch) => updateOrder(order.id, patch)}
                       onDelete={() => deleteOrder(order.id)}
                       onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
+                      onMakeRegular={makeRegularFromOrder}
+                      onLinkRegular={linkOrderWithAlias}
                     />
                   ))}
                 </div>
@@ -1547,7 +1634,12 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'money' && (
-          <MoneyTab orders={orders || []} onUpdate={updateOrder} />
+          <>
+            <MoneyTab orders={orders || []} onUpdate={updateOrder} />
+            <div style={{ margin: '0 14px' }}>
+              <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+            </div>
+          </>
         )}
 
         {view === 'recipes' && (
@@ -1573,7 +1665,7 @@ export default function LTBOrderTracker() {
               onLink={linkOrderToRegular}
               onUnlink={unlinkOrderFromRegular}
             />
-            <RegularsIntelPanel orders={orders || []} />
+            <RegularsIntelPanel orders={orders || []} regulars={regulars} weekDishes={weekDishes} onMerge={doMergeRegulars} onUnmerge={doUnmergeRegular} onUpdateRegular={updateRegular} onBackfill={runBackfill} />
           </>
         )}
 
@@ -1581,6 +1673,7 @@ export default function LTBOrderTracker() {
           <>
             <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+            <SchedulePanel orders={orders || []} />
             <div style={{ margin: '0 14px 24px' }}>
               <button
                 onClick={() => setShowLabels(true)}

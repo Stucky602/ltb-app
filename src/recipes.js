@@ -394,3 +394,82 @@ export function buildReheatBlocks(order) {
   return blocks;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// CANONICAL ITEM HANDLING — the single source every surface (labels, cards,
+// future menu copy) consults for "how does this item reheat and package."
+// Wording drift across surfaces was a recurring bug (labels said one thing,
+// order cards another; cantaloupe got a reheat cue). Fix: derive everything
+// from registry data through ONE function, with ONE canonical phrase per
+// concept. Never write reheat wording anywhere else — reference these.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// The canonical short cues (label-length). The long-form order-card bodies in
+// buildReheatBlocks are composed views of the SAME concepts; if a cue concept
+// changes, change it here and the label + any consumer changes with it.
+export const REHEAT_CUES = {
+  simmerBag: 'Reheat sealed bag in simmering water',
+  simmerBagGentle: 'Reheat sealed bag in simmering water, briefly. Overcooks fast',
+  searProtein: 'Pat very dry, sear hard in a blazing-hot pan',
+  stovetop: 'Warm gently on the stovetop',
+  stovetopSplash: 'Warm gently on the stove, splash of water if thick',
+  cookFreshPasta: 'Cook pasta fresh, warm the sauce gently',
+  cookFreshNoodle: 'Cook noodles fresh, toss with warmed sauce',
+  keepFrozen: 'KEEP FROZEN until use. Thaw in fridge, use within 3 days',
+  toaster: 'Toast from frozen',
+  fridge: 'Keep refrigerated',
+};
+
+// Per-lb protein set (sear cues) — derived from menu data at call time via
+// the injected isPerLb, so this module stays free of menu.js imports.
+const SEAR_BUCKETS = new Set(['sear']);
+
+// itemHandling(name, { category, isPerLb }) →
+//   { reheatable, cue, packaging }
+//   packaging: 'per-qty'  → one container per unit of qty (dinners, SV veg, sauces)
+//              'per-bag'  → weighed per-lb items: one label per BAG (2 pieces/bag)
+//              'single'   → ONE package regardless of qty (cookies, fruit, syrups)
+// Category comes from the caller (labels knows it via ALWAYS_ITEMS/ALL_DINNERS);
+// unknown items default to a safe no-cue single package.
+export function itemHandling(name, opts = {}) {
+  const { category = null, isPerLb = false } = opts;
+
+  // Dinners: cue derives from the SAME bucket map the order card uses.
+  const bucket = DINNER_REHEAT_BUCKET[name];
+  if (bucket) {
+    const cue =
+      bucket === 'bagged' ? REHEAT_CUES.simmerBag
+      : bucket === 'pasta' ? REHEAT_CUES.cookFreshPasta
+      : bucket === 'noodle' ? REHEAT_CUES.cookFreshNoodle
+      : bucket === 'stovetop' ? REHEAT_CUES.stovetopSplash
+      : REHEAT_CUES.stovetop;
+    return { reheatable: true, cue, packaging: 'per-qty' };
+  }
+
+  // Named special cases from the bag section
+  if (name === 'Garlic Confit') return { reheatable: false, cue: REHEAT_CUES.keepFrozen, packaging: 'per-qty' };
+  if (name === 'Homemade Waffles') return { reheatable: true, cue: REHEAT_CUES.toaster, packaging: 'single' };
+  if (name === 'Queso') return { reheatable: true, cue: REHEAT_CUES.stovetopSplash, packaging: 'per-qty' };
+
+  // Per-lb proteins: customer sears; weighed → per-BAG labels.
+  if (isPerLb) return { reheatable: true, cue: REHEAT_CUES.searProtein, packaging: 'per-bag' };
+
+  // Category rules for everything else
+  if (category === 'bag') {
+    // Sous vide veg (non-perLb bag items): each qty is its own sealed bag.
+    const gentle = /asparagus/i.test(name);
+    return { reheatable: true, cue: gentle ? REHEAT_CUES.simmerBagGentle : REHEAT_CUES.simmerBag, packaging: 'per-qty' };
+  }
+  if (category === 'sauces') return { reheatable: false, cue: REHEAT_CUES.fridge, packaging: 'per-qty' };
+  // Fruit containers and addon jars are one PHYSICAL package per qty (two
+  // cantaloupe containers = two labels); only desserts and waffles ship as a
+  // genuinely single package however many you order (the cookies bug).
+  if (category === 'fruit' || category === 'addons') {
+    return { reheatable: false, cue: '', packaging: 'per-qty' };
+  }
+  if (category === 'desserts' || category === 'breakfast') {
+    return { reheatable: false, cue: '', packaging: 'single' };
+  }
+
+  // Unknown: safe default — no invented instructions, one package.
+  return { reheatable: false, cue: '', packaging: 'single' };
+}

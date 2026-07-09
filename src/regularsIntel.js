@@ -7,13 +7,18 @@
 const WEEK = 7 * 86400000;
 const weekKey = (t) => Math.floor(new Date(t).getTime() / WEEK);
 
+// customerName may be a single name OR an array of names (a merged regular's
+// names + aliases) — merges must pay off in the intel, not just the linking.
+const toNameSet = (n) => new Set((Array.isArray(n) ? n : [n]).map(x => String(x || '').trim().toLowerCase()).filter(Boolean));
+
 export function attachRates(orders, customerName) {
+  const nameSet = toNameSet(customerName);
   const dishWeeks = new Map();   // dish -> Set(weeks anyone ordered it)
   const custWeeks = new Map();   // dish -> Set(weeks THIS customer ordered it)
   for (const o of (orders || [])) {
     if (!o.createdAt) continue;
     const k = weekKey(o.createdAt);
-    const mine = (o.customer || o.name || '') === customerName;
+    const mine = nameSet.has(String(o.customer || o.name || '').trim().toLowerCase());
     for (const it of (o.items || [])) {
       if (!dishWeeks.has(it.name)) dishWeeks.set(it.name, new Set());
       dishWeeks.get(it.name).add(k);
@@ -39,9 +44,10 @@ export function attachRates(orders, customerName) {
 
 // The customer's usual: their most-repeated item+variant combos, for prefill.
 export function usualOrder(orders, customerName, limit = 4) {
+  const nameSet = toNameSet(customerName);
   const counts = new Map();
   for (const o of (orders || [])) {
-    if ((o.customer || o.name || '') !== customerName) continue;
+    if (!nameSet.has(String(o.customer || o.name || '').trim().toLowerCase())) continue;
     for (const it of (o.items || [])) {
       const key = it.name + '||' + (it.variant || '');
       const c = counts.get(key) || { name: it.name, variant: it.variant || '', times: 0, qtySum: 0 };

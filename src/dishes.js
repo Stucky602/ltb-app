@@ -114,7 +114,7 @@ export const DISHES = [
         I('Chicken broth', 4, 'cups'),
         I('Canned tomatoes', 1, '28oz can'),
         I('100% dark chocolate', 2, 'square'),
-        I('Anchovies', 3.5, 'fillet'), // Bellino 4.25oz tin ~24 fillets @ $5.78 = ~$0.24/fillet; Kevin uses 3-4/batch, midpoint 3.5
+        I('Anchovies', 3.5, 'fillet'), // Kevin's jar $6.07 / ~20 fillets = $0.30/fillet; uses 3-4 FILLETS/batch (never tins/jars), midpoint 3.5
         I('Tomato paste', 1, 'small can'),
         I('Limes', 1, ''),
         I('Espresso', 2, 'shot'),

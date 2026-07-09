@@ -71,6 +71,7 @@ const PACK_OVERRIDE = {
   butter: { fromUnit: 'lb', perBase: 4 },              // 1 lb butter = 4 sticks
   milk: { fromUnit: 'package', perBase: 16, eachIsPack: true, matchNullUnit: true },       // Kevin ALWAYS buys milk by the gallon = 16 cups (his rule, Jul 6)
   ground_lamb: { fromUnit: 'package', perBase: 1, eachIsPack: true, matchNullUnit: true }, // HEB ground lamb: always 1 lb packages sold each (Kevin, Jul 6)
+  anchovies: { fromUnit: 'package', perBase: 20, eachIsPack: true, matchNullUnit: true },  // Kevin's jar: ALWAYS the same container, ~20 fillets (~$6.07 → $0.30/fillet) (Jul 9)
   guittard_low: { fromUnit: 'package', perBase: 283 },
   guittard_high: { fromUnit: 'package', perBase: 283 },
   kosher_salt: { fromUnit: 'box', perBase: 90.7 },
@@ -647,6 +648,10 @@ export const ALIAS_SEED = {
   // ── Jul 6 batch: seeded from Kevin's real H-E-B / H-Mart receipts ─────────
   'heb whole milk': { ingredientId: 'milk' },
   'garlic pk 5pc': { ingredientId: 'garlic' },                   // H-Mart 5-piece pack (name-size divides by the 5)                    // + PACK_OVERRIDE milk: always a gallon
+  'anchovie flat fillet': { ingredientId: 'anchovies' },         // Kevin's usual jar — PACK_OVERRIDE converts jar price → per-fillet (÷20). Keys are NORMALIZED (singularized).
+  'anchovy fillet': { ingredientId: 'anchovies' },
+  'anchovie fillet': { ingredientId: 'anchovies' },
+  'anchovie in olive oil': { ingredientId: 'anchovies' },
   'heb si unsaltd butter qtr': { ingredientId: 'butter' },       // QTR box = 1 lb = 4 sticks (name-size + override)
   'heb si unsalted butter qtr': { ingredientId: 'butter' },
   'heb unsaltd butter qtr': { ingredientId: 'butter' },

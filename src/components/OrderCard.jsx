@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { companionHtml } from './companion.js';
+import { companionHtml } from '../companion.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,

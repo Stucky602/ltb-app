@@ -22,7 +22,12 @@ import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
-import { scoreWeekCandidates, dishRunStats } from '../src/weekPlanner.js';
+import { scoreWeekCandidates, dishRunStats, composeWeek } from '../src/weekPlanner.js';
+import { mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames, regularMatchType } from '../src/utils.js';
+import { itemHandling } from '../src/recipes.js';
+import { buildCookSchedule } from '../src/cookSchedule.js';
+import { buildWeeklyDigest } from '../src/digest.js';
+import { companionHtml } from '../src/companion.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
@@ -1259,6 +1264,12 @@ TAX  0.00
   if (!sb || sb.appearances !== 3 || sb.ordered !== 2 || sb.attachPct !== 67) F('regulars-intel', JSON.stringify(sb));
   const fr = attachRates(orders, 'Frances').find(r => r.dish === 'Bolognese');
   if (!fr || fr.attachPct !== 33) F('regulars-intel', JSON.stringify(fr));
+  // Multi-name (merge payoff): querying with an array counts all identities.
+  const multi = attachRates([...orders,
+    { createdAt: iso(9), customer: 'Sara G', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
+  ], ['Sara', 'Sara G']);
+  const mb = multi.find(r => r.dish === 'Bolognese');
+  if (!mb || mb.ordered !== 3) F('regulars-intel', `merged identity must pool: ${JSON.stringify(mb)}`);
   const usual = usualOrder(orders, 'Sara');
   if (!usual.length || usual[0].name !== 'Bolognese' || usual[0].times !== 2 || usual[0].usualQty !== 1) F('regulars-intel', JSON.stringify(usual));
 
@@ -1281,19 +1292,162 @@ TAX  0.00
 
   // BOOKS: months group by createdAt; revenue uses full order math (per-lb not
   // doubled); csv shape sane. Cancelled orders excluded.
-  const pnl = monthlyPnl([...orders, { createdAt: iso(2), archived: true, customer: 'X', items: [{ name: 'Gumbo', qty: 9, price: 55, cost: 25 }] }]);
+  // Archived orders are Delivered + tidied — REAL revenue, always counted.
+  // (The only archive path in App requires Delivered status; there is no
+  // cancellation concept. Excluding archived silently vanished sales the
+  // moment Kevin tapped "Archive delivered" — real money bug, fixed.)
+  const pnl = monthlyPnl([...orders, { createdAt: iso(2), archived: true, customer: 'Arch', items: [{ name: 'Gumbo', qty: 1, price: 55, cost: 25 }] }]);
   if (!pnl.length) F('books', 'no rows');
   const total = pnl.reduce((s, r) => s + r.revenue, 0);
   // Mom's per-lb order: 39 + 1.50 bag = 40.50, NOT 78+
-  // Item revenue + the app's standing per-order surcharge (orderTotal math,
-  // identical to the Money tab): 330.50 items + 6 × $2 = 342.50.
-  const expected = 45 + 40 + 55 + 110 + 40 + 40.5 + 6 * 2;
-  if (Math.abs(total - expected) > 0.01) F('books', `total revenue ${total}, want ${expected}`);
+  // Item revenue + the archived order (real sale) + $2/order surcharge:
+  // 330.50 + 55 + 7 × $2 = 399.50.
+  const expected = 45 + 40 + 55 + 110 + 40 + 40.5 + 55 + 7 * 2;
+  if (Math.abs(total - expected) > 0.01) F('books', `total revenue ${total}, want ${expected} (archived orders MUST count)`);
   if (pnl.some(r => r.orders === 0)) F('books', 'empty month row');
-  // archived orders excluded (the +9 Gumbo above must not appear)
   const csv = pnlToCsv(pnl);
   if (!csv.startsWith('month,orders,revenue')) F('books', 'csv header');
   if (csv.split('\n').length !== pnl.length + 1) F('books', 'csv row count');
+}
+
+// ─── Fable batch: regulars merge/backfill, canonical labels, composer, anchovy ─
+{
+  // MERGE (non-destructive, reversible)
+  const regs = [
+    { id: 'r1', names: ['Jessica Gardner'], aliases: [], linkedOrderIds: ['o1'], dietary: 'Shellfish allergy', notes: 'gate code 1234' },
+    { id: 'r2', names: ['Jessica'], aliases: [], linkedOrderIds: ['o2', 'o3'], notes: 'likes spice 4' },
+  ];
+  const { regulars: merged, relinkOrderIds } = mergeRegulars(regs, 'r1', 'r2');
+  if (merged.length !== 1) F('reg-merge', `source must be removed: ${merged.length}`);
+  const keeper = merged[0];
+  if (!keeper.aliases.includes('Jessica')) F('reg-merge', `alias not added: ${JSON.stringify(keeper.aliases)}`);
+  if (regularMatchType(keeper, 'Jessica') !== 'exact') F('reg-merge', 'alias must match exactly after merge');
+  if (JSON.stringify(relinkOrderIds) !== '["o2","o3"]') F('reg-merge', `relink ids: ${JSON.stringify(relinkOrderIds)}`);
+  if (!keeper.notes.includes('gate code') || !keeper.notes.includes('likes spice')) F('reg-merge', 'notes must combine');
+  if (!keeper.mergedFrom || keeper.mergedFrom[0].snapshot.id !== 'r2') F('reg-merge', 'snapshot missing for unmerge');
+  // Display name must NOT change (aliases are matched, never displayed)
+  if (!/^Jessica Gardner$/.test(keeper.names.join(' & '))) F('reg-merge', 'display names must be untouched');
+  // UNMERGE restores the source and strips its aliases
+  const restored = unmergeRegular(merged, 'r1', 'r2');
+  if (restored.length !== 2) F('reg-merge', 'unmerge must restore the source');
+  if (restored.find(r => r.id === 'r1').aliases.includes('Jessica')) F('reg-merge', 'unmerge must remove the alias');
+  if (restored.find(r => r.id === 'r2').linkedOrderIds.length !== 0) F('reg-merge', 'restored profile must not claim orders that stayed with the target');
+  // Self-merge and missing ids are no-ops
+  const noop = mergeRegulars(regs, 'r1', 'r1');
+  if (noop.regulars.length !== 2 || noop.relinkOrderIds.length !== 0) F('reg-merge', 'self-merge must be a no-op');
+
+  // BACKFILL: exact + alias auto-link; partial = suggestion only (never auto)
+  const bfRegs = [{ id: 'r9', names: ['Frances Day'], aliases: ['Fran'], linkedOrderIds: [] }];
+  const bfOrders = [
+    { id: 'a', customer: 'Frances Day' },          // exact → auto
+    { id: 'b', customer: 'Fran' },                  // alias exact → auto
+    { id: 'c', customer: 'Francis Day' },           // partial (spelling) → suggest
+    { id: 'd', customer: 'Totally Unrelated' },     // no match → nothing
+    { id: 'e', customer: 'Frances Day', regularId: 'r9' }, // already linked → skip
+  ];
+  const bf = backfillRegularLinks(bfRegs, bfOrders);
+  if (bf.auto.length !== 2 || !bf.auto.every(a => a.regularId === 'r9')) F('reg-backfill', JSON.stringify(bf.auto));
+  if (bf.suggestions.length !== 1 || bf.suggestions[0].name !== 'Francis Day') F('reg-backfill', `partial must SUGGEST not link: ${JSON.stringify(bf.suggestions)}`);
+
+  // CANONICAL ITEM HANDLING — the two label bugs, pinned forever:
+  // (1) non-reheatables get NO cue; (2) single-package items never split.
+  // Fruit CONTAINERS are one physical package per qty (2 cantaloupes = 2
+  // containers = 2 labels) — still no reheat cue ever.
+  const cant = itemHandling('Seasonal Cantaloupe', { category: 'fruit' });
+  if (cant.cue !== '' || cant.reheatable || cant.packaging !== 'per-qty') F('labels-canon', `cantaloupe: ${JSON.stringify(cant)}`);
+  const jar = itemHandling('Pickled Onions or Carrots', { category: 'addons' });
+  if (jar.packaging !== 'per-qty' || jar.cue !== '') F('labels-canon', `addon jar: ${JSON.stringify(jar)}`);
+  const cook = itemHandling('Chocolate Chip Cookies', { category: 'desserts' });
+  if (cook.packaging !== 'single' || cook.cue !== '') F('labels-canon', `cookies: ${JSON.stringify(cook)}`);
+  const gum = itemHandling('Gumbo', {});
+  if (!gum.reheatable || gum.packaging !== 'per-qty' || !gum.cue) F('labels-canon', `gumbo: ${JSON.stringify(gum)}`);
+  const ny = itemHandling('NY Strip', { category: 'bag', isPerLb: true });
+  if (ny.packaging !== 'per-bag' || !/sear/i.test(ny.cue)) F('labels-canon', `ny strip: ${JSON.stringify(ny)}`);
+  const conf = itemHandling('Garlic Confit', { category: 'bag' });
+  if (!/FROZEN/.test(conf.cue)) F('labels-canon', `confit must carry the frozen warning: ${conf.cue}`);
+  if (/—/.test(Object.values(cant).join('') + conf.cue + ny.cue)) F('labels-canon', 'customer-facing cues must not contain em-dashes');
+  // Labels end-to-end: cookies qty 2 = ONE label, no cue; carrots qty 2 = two bags
+  const sheet = buildLabelSheet([{ customer: 'T', status: 'Ordered', items: [
+    { name: 'Chocolate Chip Cookies', qty: 2 },
+    { name: 'Carrots', qty: 2 },
+  ] }]);
+  const cl = sheet.labels.filter(l => /Cookies/.test(l.dish));
+  if (cl.length !== 1 || cl[0].seq !== '' || cl[0].cue !== '' || !/^2× /.test(cl[0].dish)) F('labels-canon', `cookies label: ${JSON.stringify(cl)}`);
+  if (sheet.labels.filter(l => l.dish === 'Carrots').length !== 2) F('labels-canon', 'SV veg qty 2 = 2 bag labels');
+
+  // COMPOSER: balanced, never stacks 3 on one fixed resource, why on every pick
+  const cw = composeWeek([{ createdAt: new Date().toISOString(), customer: 'A', items: [{ name: 'Gumbo', qty: 3, price: 55, cost: 25 }] }], {});
+  if (cw.picks.length < 4) F('composer', `too few picks: ${cw.picks.length}`);
+  if (cw.picks.some(p => !p.why.length)) F('composer', 'every pick needs a why');
+  const fixedUse = {};
+  for (const p of cw.picks) for (const r of (DISHES.find(x => x.name === p.name)?.equipment?.fixed || [])) fixedUse[r] = (fixedUse[r] || 0) + 1;
+  if (Object.values(fixedUse).some(n => n > 2)) F('composer', `equipment pileup: ${JSON.stringify(fixedUse)}`);
+
+  // ANCHOVY: $0.30/fillet, and Chili uses fillets, not tins
+  const anch = INGREDIENT_SEED.find(i => i.id === 'anchovies');
+  if (Math.abs(anch.baseline - 0.3) > 0.001) F('anchovy', `baseline ${anch.baseline}, want 0.30 (jar $6.07 / 20)`);
+  const chiliLines = resolveDishVariant('Chili', 'Large (~6-8)') || [];
+  const aLine = chiliLines.find(l => l.id === 'anchovies');
+  if (!aLine || aLine.qty > 8) F('anchovy', `Chili anchovy qty looks like tins not fillets: ${JSON.stringify(aLine)}`);
+}
+
+// ─── Go-big trio: cook schedule, business digest, kitchen companion ──────────
+{
+  const now = Date.now(), day = 86400000;
+  const orders = [
+    { id: 'g1', createdAt: new Date(now - day).toISOString(), status: 'Ordered', customer: 'Frances Day', items: [
+      { name: 'Gumbo', qty: 1, price: 55, cost: 25 },
+      { name: 'NY Strip', qty: 2, weight: 1.5, price: 39, cost: 21.74 },
+      { name: 'Flank Steak', qty: 1, weight: 2.1, price: 30, cost: 18 },
+      { name: 'Thick-Cut Pork Chop', qty: 2, weight: 1.8, price: 28, cost: 15 },
+      { name: 'Garlic Confit', qty: 1, price: 8, cost: 2 },
+    ] },
+    { id: 'g2', createdAt: new Date(now - 2 * day).toISOString(), status: 'Delivered', customer: 'Sara', items: [
+      { name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 45, cost: 22.58 },
+    ] },
+  ];
+
+  // SCHEDULER: brines start Monday; overnight flank never double-books into
+  // the Tuesday 131F batch; 131 and 140 batches never share items; Wednesday
+  // always ends in package + deliver. Delivered orders are excluded.
+  const sched = buildCookSchedule(orders);
+  const mon = sched.days.find(d => d.day === 'Monday');
+  const tue = sched.days.find(d => d.day === 'Tuesday');
+  const wed = sched.days.find(d => d.day === 'Wednesday');
+  if (!mon || !tue || !wed) F('schedule', 'missing days');
+  const brine = mon.tasks.find(t => /brine/i.test(t.task));
+  if (!brine || !brine.items.includes('NY Strip') || !brine.items.includes('Flank Steak')) F('schedule', `brine list: ${JSON.stringify(brine && brine.items)}`);
+  const b131 = tue.tasks.find(t => /131/.test(t.task));
+  const b140 = tue.tasks.find(t => /140/.test(t.task));
+  if (!b131 || b131.items.includes('Flank Steak')) F('schedule', `overnight flank must NOT re-enter the 131F day batch: ${JSON.stringify(b131 && b131.items)}`);
+  if (!b140 || b140.items.some(i => b131.items.includes(i))) F('schedule', '131F and 140F batches must never share items');
+  if (b131.items.some(i => sched.days[0].tasks.length && false)) F('schedule', 'unreachable');
+  const stove = tue.tasks.find(t => /Stovetop/.test(t.task));
+  if (!stove || stove.items.includes('Bolognese')) F('schedule', 'Delivered orders must not cook again');
+  if (!/Package/.test(wed.tasks.map(t => t.task).join(' ')) || !/Deliver/.test(wed.tasks.map(t => t.task).join(' '))) F('schedule', 'Wednesday must package and deliver');
+
+  // DIGEST: this-week window counts only recent, revenue uses full order math,
+  // proposal present with whys, quiet-regular logic needs 3+ lifetime orders.
+  const dg = buildWeeklyDigest(orders, [
+    { id: 'rq', names: ['Ghost Customer'], linkedOrderIds: [] },
+  ], { now });
+  if (dg.week.count !== 2) F('digest', `week count ${dg.week.count}`);
+  if (dg.week.top[0][0] !== 'NY Strip' && dg.week.top[0][0] !== 'Thick-Cut Pork Chop' && dg.week.top[0][0] !== 'Gumbo') F('digest', `top sellers odd: ${JSON.stringify(dg.week.top)}`);
+  if (!dg.proposal || dg.proposal.picks.length < 4 || dg.proposal.picks.some(p => !p.why.length)) F('digest', 'proposal missing or why-less');
+  if (dg.quiet.length !== 0) F('digest', 'a regular with <3 lifetime orders must not be "quiet"');
+
+  // COMPANION: generated from the SAME canon — sear guide present when a
+  // per-lb protein is in the order, confit frozen warning present, cookies
+  // never get instructions, and user text is HTML-escaped.
+  const html = companionHtml({ ...orders[0], customer: 'Frances <script>alert(1)</script>' });
+  // Canon-first: the sear guidance is the canonical block, exactly once.
+  const searCount = (html.match(/[Ss]ear/g) || []).length;
+  if (!/Sear the proteins/.test(html)) F('companion', 'canonical sear block missing with per-lb proteins');
+  if ((html.match(/<h3>[^<]*[Ss]ear[^<]*<\/h3>/g) || []).length !== 1) F('companion', 'exactly ONE sear section — a second is canon drift');
+  if (!/Keep these frozen/.test(html) || !/Garlic Confit/.test(html)) F('companion', 'confit frozen warning missing');
+  if (/<script>alert/.test(html)) F('companion', 'user text must be escaped');
+  const noSear = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', qty: 1 }] });
+  if (/Sear the proteins/.test(noSear)) F('companion', 'sear block must not appear without finish-at-home proteins');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

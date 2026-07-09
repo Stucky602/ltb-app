@@ -427,16 +427,20 @@ export function reportableDishes() {
 // 'all'. costOf is injected (App passes utils.itemCost) to avoid a circular
 // import between dishReport and utils.
 const PERIOD_DAYS = { week: 7, month: 30, year: 365 };
+// Normalize a dish name for matching so trailing spaces, casing, or extra
+// internal whitespace in historical orders don't hide a dish's real sales.
+const normName = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 export function dishSalesHistory(dishName, orders, costOf, period = 'all') {
   const days = PERIOD_DAYS[period];
   const cutoff = days ? Date.now() - days * 86400000 : null;
+  const target = normName(dishName);
   let units = 0, revenue = 0, cost = 0, orderCount = 0, unknown = false, est = false;
   for (const o of (orders || [])) {
     const t = new Date(o.createdAt || 0).getTime();
     if (cutoff && !(t >= cutoff)) continue;
     let touched = false;
     for (const it of (o.items || [])) {
-      if (it.name !== dishName) continue;
+      if (normName(it.name) !== target) continue;
       touched = true;
       const qty = Number(it.qty) || 1;
       const up = it.upcharge && typeof it.upcharge.amount === 'number' ? it.upcharge.amount : 0;

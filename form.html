@@ -81,26 +81,8 @@
     var spiceSelections = {}; // key "gi_di" -> spice level (1-5)
     var pastaSelections = {}; // key "gi_di" -> pasta string
 
-    // Option pickers come from the PUBLISHED dish data (dish.options, declared
-    // in the app's registry) — no hardcoded dish-name lists here anymore.
-    // pastaAppliesTo: a pasta option hides for variants whose label contains
-    // any excludeVariants substring (Polenta replaces pasta; Egg Pappardelle
-    // IS the pasta) — so it only attaches to the variants it belongs to.
-    function dishOptions(dish) { return (dish && dish.options) || {}; }
-    function pastaAppliesTo(dish, variantLabel) {
-      var p = dishOptions(dish).pasta;
-      if (!p) return false;
-      var excl = p.excludeVariants || [];
-      for (var i = 0; i < excl.length; i++) {
-        if (String(variantLabel || '').indexOf(excl[i]) !== -1) return false;
-      }
-      return true;
-    }
-    function dishHasPastaQty(dish, gi, di) {
-      return (dish.variants || []).some(function (v, vi) {
-        return (cart[gi + '_' + di + '_' + vi] || 0) > 0 && pastaAppliesTo(dish, v.label);
-      });
-    }
+    var SPICE_DISHES = ['Indian Style Curry', 'Thai Basil Chicken (Pad Krapow Gai)'];
+    var PASTA_DISHES = ['Saffron Pork Ragu', 'Bolognese', 'Pasta with Homegrown Tomato Sauce'];
 
     function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
     function parseServings(label) {
@@ -164,9 +146,8 @@
         html += '<div class="section"><div class="section-title">' + group.title + '</div>';
         group.items.forEach(function (dish, di) {
           var dishKey = gi + '_' + di;
-          var opts = dishOptions(dish);
-          var isSpice = !!opts.spice;
-          var isPasta = !!opts.pasta;
+          var isSpice = SPICE_DISHES.indexOf(dish.name) !== -1;
+          var isPasta = PASTA_DISHES.indexOf(dish.name) !== -1;
           var dishHasQty = (dish.variants || []).some(function(v, vi) { return (cart[gi + '_' + di + '_' + vi] || 0) > 0; });
           html += '<div class="dish"><div class="dish-name">' + esc(dish.name) + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
@@ -189,12 +170,10 @@
           });
           if (isSpice) {
             var spiceVal = spiceSelections[dishKey] || 0;
-            var spMin = opts.spice.min || 1, spMax = opts.spice.max || 5;
             var spiceHtml = '<div class="picker-wrap" id="spice_' + dishKey + '" style="' + (dishHasQty ? '' : 'display:none;') + 'margin-top:8px;">' +
-              '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Spice level (' + spMin + '\u2013' + spMax + ')</div>' +
+              '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Spice level (1–5)</div>' +
               '<div style="display:flex;gap:6px;">';
-            for (var s = 0; s <= spMax; s++) {
-              if (s !== 0 && s < spMin) continue;
+            for (var s = 0; s <= 5; s++) {
               var slabel = s === 0 ? 'No spice' : String(s);
               spiceHtml += '<button onclick="setSpice(\'' + dishKey + '\',' + s + ')" style="' + (s === 0 ? 'flex:1.4;' : 'flex:1;') + 'padding:7px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-size:' + (s === 0 ? '11' : '14') + 'px;' +
                 (spiceVal === s ? 'background:var(--teal-light);color:#1a1a1a;' : 'background:#2a2f2d;color:#c8cfc9;') + '">' + slabel + '</button>';
@@ -204,10 +183,9 @@
           }
           if (isPasta) {
             var pastaVal = pastaSelections[dishKey] || '';
-            var pastaPh = opts.pasta.placeholder || 'e.g. rigatoni, pappardelle';
-            html += '<div class="picker-wrap" id="pasta_' + dishKey + '" style="' + (dishHasPastaQty(dish, gi, di) ? '' : 'display:none;') + 'margin-top:8px;">' +
+            html += '<div class="picker-wrap" id="pasta_' + dishKey + '" style="' + (dishHasQty ? '' : 'display:none;') + 'margin-top:8px;">' +
               '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Pasta shape (optional)</div>' +
-              '<input type="text" id="pastainput_' + dishKey + '" placeholder="' + esc(pastaPh) + '" value="' + esc(pastaVal) + '" oninput="setPasta(\'' + dishKey + '\', this.value)" style="margin-top:0;"></div>';
+              '<input type="text" id="pastainput_' + dishKey + '" placeholder="e.g. rigatoni, pappardelle" value="' + esc(pastaVal) + '" oninput="setPasta(\'' + dishKey + '\', this.value)" style="margin-top:0;"></div>';
           }
           html += '</div>';
         });
@@ -261,7 +239,7 @@
         var spiceEl = document.getElementById("spice_" + dishKey);
         if (spiceEl) spiceEl.style.display = dishHasQty ? "" : "none";
         var pastaEl = document.getElementById("pasta_" + dishKey);
-        if (pastaEl) pastaEl.style.display = dishHasPastaQty(dish, gi, di) ? "" : "none";
+        if (pastaEl) pastaEl.style.display = dishHasQty ? "" : "none";
       }
     }
 
@@ -301,20 +279,14 @@
         var v = (dish.variants || [])[vi];
         if (!v) return;
         var dishKey2 = gi + "_" + di;
-        var opts2 = dishOptions(dish);
-        var itemOptions = {};
-        var noteparts = []; // legacy note mirror — keeps pre-v9.20 apps showing the choice; remove once the app ships v9.20+
-        if (opts2.spice && spiceSelections[dishKey2]) {
-          itemOptions.spice = spiceSelections[dishKey2];
+        var noteparts = [];
+        if (SPICE_DISHES.indexOf(dish.name) !== -1 && spiceSelections[dishKey2]) {
           noteparts.push("Spice: " + spiceSelections[dishKey2]);
         }
-        if (opts2.pasta && pastaSelections[dishKey2] && pastaAppliesTo(dish, v.label)) {
-          itemOptions.pasta = pastaSelections[dishKey2];
+        if (PASTA_DISHES.indexOf(dish.name) !== -1 && pastaSelections[dishKey2]) {
           noteparts.push("Pasta: " + pastaSelections[dishKey2]);
         }
-        var item = { name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb };
-        if (itemOptions.spice || itemOptions.pasta) item.options = itemOptions;
-        items.push(item);
+        items.push({ name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb });
       });
       return items;
     }

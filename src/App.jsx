@@ -1644,9 +1644,7 @@ export default function LTBOrderTracker() {
         {view === 'money' && (
           <>
             <MoneyTab orders={orders || []} onUpdate={updateOrder} />
-            <div style={{ margin: '0 14px' }}>
-              <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
-            </div>
+            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
           </>
         )}
 
@@ -1682,7 +1680,7 @@ export default function LTBOrderTracker() {
             <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <SchedulePanel orders={orders || []} />
-            <div style={{ margin: '0 14px 24px' }}>
+            <div style={{ margin: '10px 0 24px' }}>
               <button
                 onClick={() => setShowLabels(true)}
                 style={{ width: '100%', padding: '11px', borderRadius: 10, border: '1px solid #2d3a36', background: '#1c2422', color: '#5DCAA5', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}

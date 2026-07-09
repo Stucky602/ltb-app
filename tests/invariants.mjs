@@ -20,14 +20,16 @@ import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
+import { readFileSync } from 'node:fs';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
 import { scoreWeekCandidates, dishRunStats, composeWeek } from '../src/weekPlanner.js';
 import { mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames, regularMatchType } from '../src/utils.js';
-import { itemHandling } from '../src/recipes.js';
+import { itemHandling, mergeShoppingRows, parseShoppingLine } from '../src/recipes.js';
 import { buildCookSchedule } from '../src/cookSchedule.js';
 import { buildWeeklyDigest } from '../src/digest.js';
 import { companionHtml, companionContext } from '../src/companion.js';
+import { parseVoiceCommand, matchItemName } from '../src/voiceCommands.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
@@ -397,15 +399,23 @@ for (const c of receiptCases) {
   if (onion.buckets.matched.length) F('receipt-v2', 'same-family onion tie was auto-matched');
   if (!onion.buckets.review.length) F('receipt-v2', 'onion tie did not land in review');
 
-  // 4. Portion-unit ingredient bought as a package → needsConversion prompt,
-  //    and a learned alias.packQty resolves it deterministically forever.
+  // 4. Portion-unit packages. BEHAVIOR FLIPPED Jul 9 (deliberate): fennel now
+  //    carries a PACK_OVERRIDE (~27 tsp/jar, approx) so it auto-converts
+  //    instead of asking. A learned alias.packQty still WINS over the
+  //    hardcoded estimate — ask-once correction is permanent.
   const fennelLine = { item_name: 'MCCORMICK FENNEL SEED', quantity: 1, unit: 'Ea', unit_price_printed: 3.99, line_total: 3.99 };
-  const ask = plan([fennelLine]);
-  const ag = ask.buckets.needsConversion[0];
-  if (!ag || ag.ingredientId !== 'fennel_seeds') F('receipt-v2', `fennel jar did not ask for pack size: ${JSON.stringify(ask.buckets)}`);
+  const auto = plan([fennelLine]);
+  const ag = [...auto.buckets.matched, ...auto.buckets.review].find(g => g.ingredientId === 'fennel_seeds');
+  if (!ag || Math.abs(ag.perUnit - 3.99 / 27) > 0.002) F('receipt-v2', `fennel must auto-convert via pack ÷27: ${JSON.stringify(ag && ag.perUnit)}`);
   const learned = plan([fennelLine], { [normalizeIngredientName('MCCORMICK FENNEL SEED')]: { ingredientId: 'fennel_seeds', packQty: 24 } });
   const lg = learned.buckets.matched[0];
-  if (!lg || Math.abs(lg.perUnit - 3.99 / 24) > 0.001 || lg.basis !== 'converted') F('receipt-v2', `learned packQty failed: ${JSON.stringify(lg)}`);
+  if (!lg || Math.abs(lg.perUnit - 3.99 / 24) > 0.001 || lg.basis !== 'converted') F('receipt-v2', `learned packQty must WIN over the hardcoded pack: ${JSON.stringify(lg)}`);
+  // The ask-once flow itself stays pinned on a DELIBERATELY uncovered
+  // ingredient (sodium citrate — bag sizes vary 100 g-500 g, a fixed divisor
+  // would lie).
+  const scLine = { item_name: 'SODIUM CITRATE', quantity: 1, unit: 'Ea', unit_price_printed: 12.99, line_total: 12.99 };
+  const scAsk = plan([scLine], { [normalizeIngredientName('SODIUM CITRATE')]: { ingredientId: 'sodium_citrate' } });
+  if (!scAsk.buckets.needsConversion.length) F('receipt-v2', 'sodium citrate must still ASK for pack size (variable containers by design)');
 
   // 5. Bidirectional weight bridge: a whole kabocha priced per-each converts to
   //    the per-lb costing unit via the 2.5 lb average.
@@ -1482,6 +1492,125 @@ TAX  0.00
   if (!/ORDER: 1x Gumbo/.test(ctx)) F('companion-ask', 'context must carry the order');
   if (!/KEEP FROZEN/.test(ctx)) F('companion-ask', 'context must carry the confit frozen rule so the model can never contradict it');
   if (ctx.length > 6000) F('companion-ask', `context too fat: ${ctx.length} chars — this is the per-question token bill`);
+}
+
+// ─── Fable trio 2: feedback loop, voice commands, content grounding ──────────
+{
+  // VOICE: the deterministic tier must nail the wet-hands commands and be
+  // HONEST about everything else (unparsed, never a guess).
+  const vOrders = [
+    { id: 'o1', customer: 'Frances Day', status: 'Ordered', items: [{ name: 'Gumbo', qty: 2 }] },
+    { id: 'o2', customer: 'Sara', status: 'Ordered', items: [{ name: 'Gumbo', qty: 1 }] },
+    { id: 'o3', customer: 'Sara Miller', status: 'Ordered', items: [] },
+  ];
+  const v1 = parseVoiceCommand('Mark Frances delivered', vOrders);
+  if (v1.kind !== 'update' || v1.patch.status !== 'Delivered' || v1.orderId !== 'o1') F('voice', JSON.stringify(v1));
+  const v2 = parseVoiceCommand('mark frances as paid', vOrders);
+  if (v2.kind !== 'update' || v2.patch.paid !== true) F('voice', 'paid patch: ' + JSON.stringify(v2));
+  const v3 = parseVoiceCommand('how many gumbo bags left', vOrders);
+  if (v3.kind !== 'count' || v3.units !== 3 || v3.ordersWith !== 2) F('voice', 'count: ' + JSON.stringify(v3));
+  const v4 = parseVoiceCommand('add two garlic confit to Frances order', vOrders);
+  if (v4.kind !== 'addItem' || v4.qty !== 2 || v4.item !== 'Garlic Confit') F('voice', 'addItem: ' + JSON.stringify(v4));
+  // Ambiguity must ASK, never pick: two Saras
+  const v5 = parseVoiceCommand('mark Sara delivered', vOrders);
+  if (v5.kind !== 'ambiguous' || v5.names.length !== 2) F('voice', 'two Saras must be ambiguous: ' + JSON.stringify(v5));
+  // Gibberish is unparsed, never guessed
+  const v6 = parseVoiceCommand('do a barrel roll', vOrders);
+  if (v6.kind !== 'unparsed') F('voice', 'gibberish must be unparsed');
+  // Longest-name fuzzy: pork chop → Thick-Cut Pork Chop, not Pork Tenderloin
+  if (matchItemName('pork chop') !== 'Thick-Cut Pork Chop') F('voice', 'fuzzy item: ' + matchItemName('pork chop'));
+
+  // COMPANION FEEDBACK CARD: present, dish list baked, before the ask card.
+  const fbHtml = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', qty: 1 }, { name: 'NY Strip', qty: 2 }] }, 'pid');
+  if (!/How did everything come out/.test(fbHtml)) F('feedback', 'feedback card missing');
+  if (!/\["Gumbo","NY Strip"\]/.test(fbHtml)) F('feedback', 'dish list must be baked into the page');
+  if (fbHtml.indexOf('How did everything come out') > fbHtml.indexOf('Ask about your order')) F('feedback', 'feedback card should come before the ask card');
+
+  // DIGEST REHEAT REPORT: aggregates order.feedback by dish, bad-first.
+  const dg2 = buildWeeklyDigest([
+    { createdAt: new Date().toISOString(), customer: 'A', items: [{ name: 'Gumbo', qty: 1, price: 55, cost: 25 }], feedback: [
+      { dish: 'Gumbo', verdict: 'good' }, { dish: 'Beurre Blanc', verdict: 'bad' }, { dish: 'Beurre Blanc', verdict: 'bad' } ] },
+    { createdAt: new Date().toISOString(), customer: 'B', items: [], feedback: [{ dish: 'Gumbo', verdict: 'meh' }] },
+  ], [], {});
+  if (!dg2.reheatReport || dg2.reheatReport.length !== 2) F('feedback', 'reheat report missing: ' + JSON.stringify(dg2.reheatReport));
+  if (dg2.reheatReport[0].dish !== 'Beurre Blanc' || dg2.reheatReport[0].bad !== 2) F('feedback', 'bad verdicts must sort first (technique signal)');
+  const gum = dg2.reheatReport.find(r => r.dish === 'Gumbo');
+  if (!gum || gum.good !== 1 || gum.meh !== 1) F('feedback', 'gumbo tally wrong: ' + JSON.stringify(gum));
+
+  // CONTENT GROUNDING: facts must carry ingredients + canon cue, never costs.
+  // (Prompt-side voice rules live in the worker; here we pin the app-side facts.)
+}
+
+// ─── Jul 9 receipt resweep: the missing-flags bug class, pinned forever ──────
+{
+  const seedR = INGREDIENT_SEED.map(i => ({ ...i, current: i.baseline }));
+  // THE EXACT SCREENSHOT RECEIPT: pack conversions existed for these but never
+  // fired because the entries lacked eachIsPack/matchNullUnit — real receipt
+  // lines are unit-less, so fromUnit:'package'/'box' alone can never match.
+  const plan = buildReviewPlan({ store: 'HEB', lines: [
+    { item_name: 'GUITTARD AKOMA EXTRA SEMI', line_total: 7.78 },
+    { item_name: 'MORTON KOSHER COARSE SALT', line_total: 3.50 },
+    { item_name: 'SHRIMP GULF BRN 31 40 HLS', line_total: 7.04, quantity: 0.94, unit: 'lb', weighed: true },
+    { item_name: 'ANCHOVIES FLAT FILLETS', line_total: 6.07 },
+    { item_name: 'HABANERO PEPPERS', line_total: 1.20, quantity: 0.30, unit: 'lb', weighed: true },
+    { item_name: 'KADOYA SESAME OIL', line_total: 4.98 },
+  ] }, seedR, {});
+  const all = [...plan.buckets.matched, ...plan.buckets.review];
+  const get = (id) => all.find(g => g.ingredientId === id);
+  const near = (a, b, tol) => Math.abs(a - b) <= tol;
+  const gu = get('guittard_high');
+  if (!gu || !near(gu.perUnit, 0.0275, 0.002)) F('resweep', `guittard: ${JSON.stringify(gu && gu.perUnit)} want ~0.0275/g (flat line ÷283)`);
+  const ks = get('kosher_salt');
+  if (!ks || !near(ks.perUnit, 0.0386, 0.003)) F('resweep', `kosher salt: ${ks && ks.perUnit} want ~0.039/tbs (flat line ÷90.7)`);
+  const sh = get('shrimp');
+  if (!sh || !near(sh.perUnit, 7.489, 0.02)) F('resweep', `shrimp: ${sh && sh.perUnit} want ~7.49/lb (weighed)`);
+  const an = get('anchovies');
+  if (!an || !near(an.perUnit, 0.304, 0.01)) F('resweep', `anchovies: ${an && an.perUnit} want ~0.30/fillet`);
+  const hb = get('habanero');
+  if (!hb || !near(hb.perUnit, 0.25, 0.01)) F('resweep', `habanero: ${hb && hb.perUnit} want 0.25/oz (lb→oz weight conversion)`);
+  const ts = get('toasted_sesame');
+  if (!ts || !near(ts.perUnit, 0.453, 0.01)) F('resweep', `sesame oil: ${ts && ts.perUnit} want ~0.45/tbs (bottle ÷11)`);
+  // Structural guard: every container-style PACK_OVERRIDE must carry the
+  // flags, or it silently never fires — the exact bug this sweep killed.
+  const src = readFileSync(new URL('../src/receiptMatch.js', import.meta.url), 'utf8');
+  const tbl = src.slice(src.indexOf('const PACK_OVERRIDE'), src.indexOf('const AVG_WEIGHT_LB'));
+  for (const m of tbl.matchAll(/^  (\w+): \{ fromUnit: '(package|box|jar|bottle|dozen|carton)'[^\n]*/gm)) {
+    if (!/matchNullUnit: true/.test(m[0])) F('resweep', `PACK_OVERRIDE.${m[1]} is container-style but lacks matchNullUnit — it will never fire on real (unit-less) receipt lines`);
+  }
+}
+
+// ─── Shopping list merge engine (Jul 9) ──────────────────────────────────────
+{
+  // Both text formats parse; cross-unit families combine; headers drop; notes
+  // survive; mixed-checked stays unchecked (an open need keeps the row open).
+  const merged = mergeShoppingRows([
+    { id: '1', text: 'Celery — 3 stalks', checked: true },
+    { id: 'h', text: '── Gumbo (Large (~8-12)) ──', checked: false },
+    { id: '2', text: '3 stalks Celery', checked: false },
+    { id: '3', text: '2 tbs Soy sauce', checked: false },
+    { id: '4', text: 'Soy sauce — 0.5 cup', checked: false },
+    { id: '5', text: 'Chicken thighs — 2 lb', checked: false },
+    { id: '6', text: '8 oz Chicken thighs', checked: false },
+    { id: '7', text: 'grab extra napkins', checked: false },
+  ]);
+  const txt = merged.map(r => r.text);
+  if (merged.length !== 4) F('shop-merge', `want 4 rows, got ${merged.length}: ${JSON.stringify(txt)}`);
+  if (!txt.some(x => /^Celery — 6 stalks$/.test(x))) F('shop-merge', `celery: ${JSON.stringify(txt)}`);
+  if (!txt.some(x => /^Soy sauce — 0.63 cup/.test(x))) F('shop-merge', `soy tbs+cup must combine: ${JSON.stringify(txt)}`);
+  if (!txt.some(x => /^Chicken thighs — 2.5 lb$/.test(x))) F('shop-merge', `lb+oz must combine: ${JSON.stringify(txt)}`);
+  if (!txt.includes('grab extra napkins')) F('shop-merge', 'notes must pass through untouched');
+  if (txt.some(x => /^──/.test(x))) F('shop-merge', 'dish headers must drop when rows merge');
+  const cel = merged.find(r => /Celery/.test(r.text));
+  if (cel.checked) F('shop-merge', 'mixed checked+unchecked must stay UNCHECKED (still needed)');
+  // Small quantities render readable: 2 tsp stays tsp, not 0.04 cup.
+  const tiny = mergeShoppingRows([{ id: 'a', text: '1 tsp Fennel seeds', checked: false }, { id: 'b', text: '1 tsp Fennel seeds', checked: false }]);
+  if (!/2 tsp/.test(tiny[0].text)) F('shop-merge', `tiny volumes keep their unit: ${tiny[0].text}`);
+  // Idempotent: merging a merged list changes nothing.
+  const again = mergeShoppingRows(merged);
+  if (JSON.stringify(again.map(r => r.text)) !== JSON.stringify(txt)) F('shop-merge', 'merge must be idempotent');
+  // Different ingredients NEVER combine.
+  const distinct = mergeShoppingRows([{ id: 'x', text: 'Dark soy — 2 tbs', checked: false }, { id: 'y', text: 'Soy sauce — 2 tbs', checked: false }]);
+  if (distinct.length !== 2) F('shop-merge', 'dark soy and soy sauce are different things');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

@@ -47,6 +47,9 @@ import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/C
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
+import { PlannerPanel } from './components/PlannerPanel.jsx';
+import { RegularsIntelPanel } from './components/RegularsIntelPanel.jsx';
+import { LabelsSheet } from './components/LabelsSheet.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
@@ -108,6 +111,7 @@ export default function LTBOrderTracker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('orders');
+  const [showLabels, setShowLabels] = useState(false); // bag-labels print sheet
   const [formMode, setFormMode] = useState(null);
   const [showPaste, setShowPaste] = useState(false);
   const [showAmend, setShowAmend] = useState(false);
@@ -1554,23 +1558,39 @@ export default function LTBOrderTracker() {
             dishNotes={dishNotes}
             onSaveDishNote={saveDishNote}
             weekDishes={weekDishes}
+            orders={orders || []}
           />
         )}
 
         {view === 'regulars' && (
-          <RegularsTab
-            regulars={regulars}
-            orders={orders || []}
-            onAdd={addRegular}
-            onUpdate={updateRegular}
-            onDelete={deleteRegular}
-            onLink={linkOrderToRegular}
-            onUnlink={unlinkOrderFromRegular}
-          />
+          <>
+            <RegularsTab
+              regulars={regulars}
+              orders={orders || []}
+              onAdd={addRegular}
+              onUpdate={updateRegular}
+              onDelete={deleteRegular}
+              onLink={linkOrderToRegular}
+              onUnlink={unlinkOrderFromRegular}
+            />
+            <RegularsIntelPanel orders={orders || []} />
+          </>
         )}
 
         {view === 'week' && (
-          <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+          <>
+            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+            <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+            <div style={{ margin: '0 14px 24px' }}>
+              <button
+                onClick={() => setShowLabels(true)}
+                style={{ width: '100%', padding: '11px', borderRadius: 10, border: '1px solid #2d3a36', background: '#1c2422', color: '#5DCAA5', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+              >
+                Print bag labels + packing slips
+              </button>
+            </div>
+            {showLabels && <LabelsSheet orders={orders || []} onClose={() => setShowLabels(false)} />}
+          </>
         )}
 
         {view === 'ingredients' && (

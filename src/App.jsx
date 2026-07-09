@@ -824,6 +824,14 @@ export default function LTBOrderTracker() {
   }, []);
 
   // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
+  // Resolve a backfill near-miss inline: link an order (by id, archived or
+  // not) to the chosen regular, reusing the alias-merge mechanism so the
+  // order's name is remembered on that regular going forward.
+  const linkSuggestionToRegular = useCallback((orderId, regularId) => {
+    const order = (orders || []).find(o => o.id === orderId);
+    if (order) linkOrderWithAlias(regularId, order);
+  }, [orders, linkOrderWithAlias]);
+
   const runBackfill = useCallback(() => {
     const { auto, suggestions } = backfillRegularLinks(regulars, orders || []);
     if (auto.length) {
@@ -1665,7 +1673,7 @@ export default function LTBOrderTracker() {
               onLink={linkOrderToRegular}
               onUnlink={unlinkOrderFromRegular}
             />
-            <RegularsIntelPanel orders={orders || []} regulars={regulars} weekDishes={weekDishes} onMerge={doMergeRegulars} onUnmerge={doUnmergeRegular} onUpdateRegular={updateRegular} onBackfill={runBackfill} />
+            <RegularsIntelPanel orders={orders || []} regulars={regulars} weekDishes={weekDishes} onMerge={doMergeRegulars} onUnmerge={doUnmergeRegular} onUpdateRegular={updateRegular} onBackfill={runBackfill} onLinkSuggestion={linkSuggestionToRegular} />
           </>
         )}
 

@@ -410,6 +410,9 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 const cid = order.id + '-' + Math.random().toString(36).slice(2, 8);
                 const link = WORKER_BASE + '/k?id=' + cid;
                 navigator.clipboard.writeText(link).catch(() => {});
+                // Remember the page id on the order so kitchen feedback can
+                // find its way home to this exact order record.
+                onUpdate && onUpdate({ kitchenPageId: cid });
                 setCopyMsg('Kitchen link copied. Uploading the page…');
                 fetch(WORKER_BASE + '/companion', {
                   method: 'POST', headers: { 'content-type': 'application/json' },

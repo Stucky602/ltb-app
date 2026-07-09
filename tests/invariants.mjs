@@ -1105,6 +1105,14 @@ TAX  0.00
   if (ny.revenue !== 39 || ny.cost !== 21.74) F('sales', `per-lb must not multiply by qty: ${JSON.stringify(ny)}`);
   if (ny.units !== 2) F('sales', `per-lb units still counts pieces: ${ny.units}`);
 
+  // Robust name matching: whitespace/case variations in historical orders
+  // must still count (real bug — brittle exact-match hid delivered sales).
+  const fuzzy = [
+    { createdAt: new Date().toISOString(), items: [{ name: 'Gumbo ', qty: 1, price: 55, cost: 25 }] },
+    { createdAt: new Date().toISOString(), items: [{ name: 'gumbo', qty: 1, price: 55, cost: 25 }] },
+  ];
+  const fz = dishSalesHistory('Gumbo', fuzzy, costOf, 'all');
+  if (fz.units !== 2) F('sales', `robust match failed: ${fz.units} units for whitespace/case variants`);
   // Empty period
   const none = dishSalesHistory('Bolognese', orders, costOf, 'week');
   if (none.hasData || none.units !== 0) F('sales', `no-data case: ${JSON.stringify(none)}`);

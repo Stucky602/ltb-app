@@ -1,1 +1,62 @@
+// syncMainMenu.mjs — #2 menu codegen (lean, price-drift killer)
+// dishes.js is the single source of truth for PRICES. This tool rewrites every
+// price span in main-menu.html from the registry. The invariant suite CATCHES
+// drift; this tool FIXES it. Idempotent: running twice changes nothing.
+//   node tools/syncMainMenu.mjs          → report drift (exit 1 if any)
+//   node tools/syncMainMenu.mjs --write  → rewrite main-menu.html in place
+import { readFileSync, writeFileSync } from 'fs';
+import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
 
+const PATH = new URL('../src/main-menu.html', import.meta.url).pathname;
+let html = readFileSync(PATH, 'utf8');
+const write = process.argv.includes('--write');
+
+const money = (n) => Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`;
+let drift = 0, patched = 0;
+
+function cardBounds(name) {
+  const tag = `<div class="dish-name">${name}</div>`;
+  const start = html.indexOf(tag);
+  if (start < 0) return null;
+  const next = html.indexOf('<div class="dish-name">', start + tag.length);
+  return { start, end: next < 0 ? html.length : next };
+}
+
+function syncCard(name, expected) {
+  const b = cardBounds(name);
+  if (!b) { console.log(`  MISSING card: ${name}`); drift++; return; }
+  let seg = html.slice(b.start, b.end);
+  const spanRe = /<span class="price-amt">([^<]*)<\/span>/g;
+  const found = [...seg.matchAll(spanRe)];
+  if (found.length < expected.length) {
+    console.log(`  ${name}: only ${found.length} price spans for ${expected.length} registry variants — fix by hand`);
+    drift++; return;
+  }
+  // A card's own prices always come first within its bounds; extra spans
+  // belong to sectioned items (veg lists) that follow without dish-name divs.
+  let i = 0, changed = false;
+  seg = seg.replace(spanRe, (m, cur) => {
+    if (i >= expected.length) return m; // past this card's own prices
+    const want = expected[i++];
+    if (cur.trim() === want) return m;
+    changed = true; drift++;
+    console.log(`  ${name}: "${cur.trim()}" → "${want}"`);
+    return `<span class="price-amt">${want}</span>`;
+  });
+  if (changed && write) { html = html.slice(0, b.start) + seg + html.slice(b.end); patched++; }
+}
+
+for (const d of DISHES) syncCard(d.name, d.variants.map(v => money(v.price)));
+// SCOPE: dinners + card-style bag items only. Veg/add-on SECTIONS use a
+// different HTML shape (no dish-name divs) — the invariant suite still guards
+// their prices; this tool reports them as out-of-scope instead of failing.
+const CARDLESS = new Set(['Homemade Waffles', 'Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Kabocha Squash', 'Parsnips', 'Asparagus', 'Garlic Confit']);
+for (const b of (ALL_ALWAYS_ITEMS || [])) {
+  if (CARDLESS.has(b.name)) continue;
+  if (b.perLb) syncCard(b.name, [`${money(b.pricePerLb)}/lb + $1.50 bag`]);
+  else if (b.variants && b.variants.length) syncCard(b.name, b.variants.map(v => money(v.price)));
+}
+
+if (write && patched) { writeFileSync(PATH, html); console.log(`WROTE main-menu.html (${patched} cards patched)`); }
+else if (drift) { console.log(`${drift} drift(s) found${write ? '' : ' — run with --write to fix'}`); process.exit(1); }
+else console.log('main-menu.html prices in sync with dishes.js ✓');

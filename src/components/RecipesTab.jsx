@@ -33,7 +33,7 @@ function Sparkline({ points, width = 120, height = 30 }) {
 }
 
 const S = {
-  wrap: { padding: '12px 14px 40px', color: C.text },
+  wrap: { padding: '12px 0 40px', color: C.text },
   h2: { fontSize: 16, fontWeight: 700, margin: '0 0 4px' },
   hint: { fontSize: 12, color: C.dim, margin: '0 0 12px', lineHeight: 1.4 },
   section: { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, marginBottom: 10 },

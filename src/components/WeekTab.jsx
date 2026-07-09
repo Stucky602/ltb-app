@@ -157,8 +157,8 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               <div style={styles.cookItemName}>{dish.name}</div>
               <div style={styles.cookItemVariant}>
                 {dish.variants.length} option{dish.variants.length !== 1 ? 's' : ''} · {priceLabel}
-                {isOn && worst !== null && Math.abs(worst) >= 2 && (
-                  <span style={{ color: worst > 0 ? '#e0828a' : '#5DCAA5', fontWeight: 700 }}>
+                {worst !== null && Math.abs(worst) >= 2 && (
+                  <span style={{ color: worst > 0 ? '#e0828a' : '#5DCAA5', fontWeight: 700, opacity: isOn ? 1 : 0.75 }}>
                     {' · '}{worst > 0 ? '↑' : '↓'}{Math.abs(worst).toFixed(0)}% vs base
                   </span>
                 )}

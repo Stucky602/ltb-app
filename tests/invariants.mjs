@@ -33,7 +33,7 @@ import { parseVoiceCommand, matchItemName } from '../src/voiceCommands.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
-import { buildReviewPlan, containerPriceCheck, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
+import { buildReviewPlan, containerPriceCheck, packShiftAlarm, learnStoreFact, habitualStore, offStoreHint, diceCoefficient, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -1641,6 +1641,39 @@ TAX  0.00
   if (containerPriceCheck('anchovies', 0.35, 0.30) !== null) F('container-guard', 'legit small edits must pass silently');
   if (!containerPriceCheck('kosher_salt', 3.50, 0.02)) F('container-guard', 'the guard must cover every PACK_OVERRIDE ingredient');
   if (containerPriceCheck('shrimp', 7.49, 7.49) !== null) F('container-guard', 'non-container ingredients never trigger');
+}
+
+// ─── Scanner intelligence upgrades (Jul 9, Opus) ────────────────────────────
+{
+  // #1 SELF-TUNING PACK SIZES: learn from a hardcoded-'pack' conversion, and
+  // smooth so an anomaly nudges rather than yanks.
+  const grp = (total, perUnit) => ({ norm: 'anchovies', ingredientId: 'anchovies', perUnit,
+    conversion: { basis: 'pack', factor: 20 }, lines: [{ line_total: total, quantity: 1 }] });
+  let a = learnFromAcceptance(grp(6.60, 0.30), {});            // implied 22
+  if (Math.abs(a.anchovies.packQty - 22) > 0.01) F('scanner#1', `first obs must adopt implied: ${a.anchovies.packQty}`);
+  if (a.anchovies.packObs !== 1) F('scanner#1', 'packObs must count');
+  a = learnFromAcceptance(grp(6.60, 0.30), a);                 // implied 22 again
+  a = learnFromAcceptance(grp(6.00, 0.60), a);                 // anomaly implies 10
+  if (a.anchovies.packQty < 17 || a.anchovies.packQty > 20) F('scanner#1', `anomaly must be dampened, not adopted: ${a.anchovies.packQty}`);
+
+  // #2 PACK-SHIFT ALARM: fires past threshold once established, quiet otherwise.
+  const est = { packQty: 20, packObs: 3 };
+  if (!packShiftAlarm({ perUnit: 0.50, lines: [{ line_total: 6.0, quantity: 1 }] }, est)) F('scanner#2', 'a 40% smaller jar must alarm');
+  if (packShiftAlarm({ perUnit: 0.30, lines: [{ line_total: 6.0, quantity: 1 }] }, est) !== null) F('scanner#2', 'a normal jar must stay quiet');
+  if (packShiftAlarm({ perUnit: 0.50, lines: [{ line_total: 6.0, quantity: 1 }] }, { packQty: 20, packObs: 1 }) !== null) F('scanner#2', 'must not alarm while still learning (obs<2)');
+
+  // #3 STORE FACTS: habitual store + off-store hint.
+  let sa = learnStoreFact({}, 'doubanjiang', 'doubanjiang', 'HMART');
+  sa = learnStoreFact(sa, 'doubanjiang', 'doubanjiang', 'HMART');
+  if (habitualStore(sa.doubanjiang) !== 'HMART') F('scanner#3', 'two H-Mart buys = habitual H-Mart');
+  if (!offStoreHint(sa.doubanjiang, 'HEB')) F('scanner#3', 'H-Mart item on an HEB receipt must hint');
+  if (offStoreHint(sa.doubanjiang, 'HMART')) F('scanner#3', 'same-store must not hint');
+  if (habitualStore({ storeSeen: { HEB: 2, HMART: 2 } }) !== null) F('scanner#3', 'a tie is not habitual');
+
+  // #4 DICE: closer string wins; unrelated scores low; identical is 1.
+  if (diceCoefficient('habanero pepper', 'habanero') <= diceCoefficient('habanero pepper', 'jalapeno')) F('scanner#4', 'habanero must out-score jalapeno for a habanero line');
+  if (diceCoefficient('gumbo', 'gumbo') !== 1) F('scanner#4', 'identical strings score 1');
+  if (diceCoefficient('', 'x') !== 0) F('scanner#4', 'empty scores 0');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

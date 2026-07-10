@@ -808,23 +808,109 @@ export function buildReviewPlan(extracted, seed, aliases) {
     const off = offStoreHint(alias, store);
     if (off) g.offStore = off;
   }
+  // UPGRADE #5 (merge polish): consolidate DIFFERENT receipt strings that
+  // matched the SAME ingredient into one review row ("YELLOW ONION" +
+  // "ONIONS YLW JUMBO" → one yellow_onion group, qty-weighted price pool).
+  // Guarded: if the two per-units disagree by more than MERGE_PRICE_TOL the
+  // groups stay separate and both get a priceSplit flag, because a big gap
+  // usually means one of them is a misparse or a different product.
+  const consolidated = consolidateByIngredient(grouped);
+  // UPGRADE #6: confidence tier per group — 'auto' (safe to commit blind),
+  // 'check' (fine but glance at it), 'attention' (something is off). The UI
+  // sorts by tier so the eyes land where they matter.
+  for (const g of consolidated) {
+    g.tier = confidenceTier(g, g.ingredient ? g.ingredient.current : null);
+  }
   return {
     store,
     receipt_date: extracted.receipt_date || null,
     buckets: {
-      matched: grouped.filter(g => g.status === 'matched'),
-      review: grouped.filter(g => g.status === 'review'),
-      needsConversion: grouped.filter(g => g.status === 'needsConversion'),
-      needsPrice: grouped.filter(g => g.status === 'needsPrice'),
-      unmatched: grouped.filter(g => g.status === 'unmatched'),
-      ignored: grouped.filter(g => g.status === 'ignored'),
+      matched: consolidated.filter(g => g.status === 'matched'),
+      review: consolidated.filter(g => g.status === 'review'),
+      needsConversion: consolidated.filter(g => g.status === 'needsConversion'),
+      needsPrice: consolidated.filter(g => g.status === 'needsPrice'),
+      unmatched: consolidated.filter(g => g.status === 'unmatched'),
+      ignored: consolidated.filter(g => g.status === 'ignored'),
     },
   };
 }
 
+// Merge tolerance: per-units within 35% of each other pool; beyond that the
+// groups stay separate (misparse / different product suspicion).
+export const MERGE_PRICE_TOL = 0.35;
+
+function consolidateByIngredient(groups) {
+  const out = [];
+  const byKey = new Map(); // ingredientId (matched only) → group already in out
+  for (const g of groups) {
+    if (g.status !== 'matched' || !g.ingredientId) { out.push(g); continue; }
+    const prev = byKey.get(g.ingredientId);
+    if (!prev) { byKey.set(g.ingredientId, g); out.push(g); continue; }
+    // Price-disagreement guard on real per-units.
+    if (prev.perUnit > 0 && g.perUnit > 0) {
+      const ratio = Math.max(prev.perUnit, g.perUnit) / Math.min(prev.perUnit, g.perUnit);
+      if (ratio > 1 + MERGE_PRICE_TOL) {
+        prev.priceSplit = { other: g.perUnit };
+        g.priceSplit = { other: prev.perUnit };
+        out.push(g);
+        continue;
+      }
+    }
+    // Merge g into prev. `parts` keeps the ORIGINAL groups so alias learning
+    // still runs per receipt string (each norm learns its own conversion).
+    if (!prev.parts) prev.parts = [{ ...prev, parts: undefined }];
+    prev.parts.push({ ...g });
+    prev.mergedFrom = prev.parts.map(p => p.norm);
+    prev.lines = prev.lines.concat(g.lines);
+    prev.count += g.count;
+    prev.totalSum = round(prev.totalSum + g.totalSum);
+    // Pool per-unit qty-weighted when both sides have real numbers; otherwise
+    // keep whichever side has one.
+    const wPrev = prev._poolW != null ? prev._poolW
+      : (Number(prev.lines[0] && prev.lines[0].quantity) > 0 ? Number(prev.lines[0].quantity) : null);
+    const wG = g._poolW != null ? g._poolW
+      : (Number(g.lines[0] && g.lines[0].quantity) > 0 ? Number(g.lines[0].quantity) : null);
+    if (prev.perUnit > 0 && g.perUnit > 0 && wPrev != null && wG != null) {
+      prev.perUnit = round((prev.perUnit * wPrev + g.perUnit * wG) / (wPrev + wG));
+      prev._poolW = round(wPrev + wG);
+      prev.pooledWeight = prev._poolW;
+    } else if (!(prev.perUnit > 0) && g.perUnit > 0) {
+      prev.perUnit = g.perUnit;
+      prev.basis = g.basis;
+      prev.conversion = g.conversion || prev.conversion;
+    }
+  }
+  return out;
+}
+
+// Confidence tier for a matched group. 'auto' = trustworthy basis AND price
+// within ±20% of the current cost (or first-ever buy with a clean basis is
+// still only 'check' — no history means no blind trust). 'attention' = any
+// soft alarm (pack shift, price split, outlier price, weak basis).
+export function confidenceTier(group, currentCost = null) {
+  if (group.status !== 'matched') return 'attention';
+  if (group.packShift || group.priceSplit) return 'attention';
+  if (!defaultAccept(group, currentCost)) return 'attention';
+  if (currentCost > 0 && group.perUnit > 0) {
+    const ratio = group.perUnit / currentCost;
+    if (ratio >= 0.8 && ratio <= 1.2) return 'auto';
+  }
+  return 'check';
+}
+
 // Default accept-toggle state for a matched group on the confirm screen.
-export function defaultAccept(group) {
-  return group.basis === 'total_div_weight' || group.basis === 'printed_unit_price' || group.basis === 'converted';
+// v3.5: a trustworthy BASIS is no longer enough — if the derived per-unit is a
+// price outlier vs the current cost (>2.5× or <0.4×, the same thresholds the
+// classifier uses), the row defaults UNCHECKED so a misparse can't slide into
+// the cost database on autopilot. currentCost optional for back-compat.
+export function defaultAccept(group, currentCost = null) {
+  const basisOk = group.basis === 'total_div_weight' || group.basis === 'printed_unit_price' || group.basis === 'converted';
+  if (!basisOk) return false;
+  if (currentCost > 0 && group.perUnit > 0) {
+    const ratio = group.perUnit / currentCost;
+    if (ratio > PRICE_OUTLIER_HI || ratio < PRICE_OUTLIER_LO) return false;
+  }
+  return true;
 }
 
 // ═══ v3.1: DETERMINISTIC PASTED-TEXT RECEIPT PARSER (Fable, Jul 6) ═══════════

@@ -38,41 +38,7 @@ export const I = (name, q, u, staple = false) => ({ name, q, u, staple });
 // ── DINNERS (order here = display order everywhere) ─────────────────────────
 export const DISHES = [
   // ── American / Southern / Tex-Mex ─────────────────────────────────────────
-  {
-    name: 'Boeuf Bourguignon (Beef Stew)',
-    cuisine: 'French',
-    reheat: 'stovetop',
-    equipment: { fixed: ['dutch', 'ovenLow'] },
-    variants: [
-      { label: '~4 servings', price: 100, cost: 44.18 },
-      { label: 'With 1 lb mushrooms', price: 112, cost: 50.18 },
-    ],
-    recipe: {
-      factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
-      base: [
-        I('Beef chuck roast', 2.5, 'lb'),
-        I('Red potatoes', 1.5, 'lb'),
-        I('Carrots', 1.5, 'lb'),
-        I('Red wine', 1, 'bottle'),
-        I('Beef stock', 8, 'cups'),
-        I('Fresh thyme', 1, 'bunch'),
-        I('Tomato paste', 1, 'small can'),
-        I('Onion', 1, 'lb'),
-        I('Bay + salt + pepper + vinegar', 1, 'batch', true),
-      ],
-      extras: {
-        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb')],
-      },
-    },
-    // Dedicated 2-paragraph reheat card (main + veg bag) — never combined
-    // with another dish on one card. Both veg paragraphs end with the same
-    // butter/drain line by design.
-    stewVegCopy: {
-      main: 'Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through, adding a splash of water if it looks thick. Great over mashed potatoes, egg noodles, or crusty bread.',
-      veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold the vegetables into the stew right before serving. The liquid contains butter, so avoid pouring it down the drain.',
-    },
-  },
-  {
+    {
     name: 'Brunswick Stew',
     cuisine: 'Southern',
     reheat: 'stovetop',
@@ -861,6 +827,41 @@ export const DISHES = [
         I('Shallot', 0.1, 'lb'),
         I('Garlic', 1, 'cloves'),
       ],
+    },
+  },
+{
+    name: 'Boeuf Bourguignon (Beef Stew)',
+    cuisine: 'Spotlight',
+    spotlight: true, // (Kevin, Jul 10): expensive enough to warrant it — joins the spotlight group
+    reheat: 'stovetop',
+    equipment: { fixed: ['dutch', 'ovenLow'] },
+    variants: [
+      { label: '~4 servings', price: 100, cost: 44.18 },
+      { label: 'With 1 lb mushrooms', price: 112, cost: 50.18 },
+    ],
+    recipe: {
+      factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
+      base: [
+        I('Beef chuck roast', 2.5, 'lb'),
+        I('Red potatoes', 1.5, 'lb'),
+        I('Carrots', 1.5, 'lb'),
+        I('Red wine', 1, 'bottle'),
+        I('Beef stock', 8, 'cups'),
+        I('Fresh thyme', 1, 'bunch'),
+        I('Tomato paste', 1, 'small can'),
+        I('Onion', 1, 'lb'),
+        I('Bay + salt + pepper + vinegar', 1, 'batch', true),
+      ],
+      extras: {
+        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb')],
+      },
+    },
+    // Dedicated 2-paragraph reheat card (main + veg bag) — never combined
+    // with another dish on one card. Both veg paragraphs end with the same
+    // butter/drain line by design.
+    stewVegCopy: {
+      main: 'Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through, adding a splash of water if it looks thick. Great over mashed potatoes, egg noodles, or crusty bread.',
+      veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold the vegetables into the stew right before serving. The liquid contains butter, so avoid pouring it down the drain.',
     },
   },
 ];

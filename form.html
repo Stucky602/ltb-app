@@ -118,6 +118,7 @@
     function allGroups() {
       var groups = [];
       if (config.dishes && config.dishes.length) groups.push({ title: "This Week's Dinners", items: config.dishes });
+      if (config.spotlight && config.spotlight.length) groups.push({ title: "Spotlight Dinner of the Week", items: config.spotlight });
       if (config.bag && config.bag.length) groups.push({ title: "Ready to Finish", items: config.bag });
       if (config.sauces && config.sauces.length) groups.push({ title: "Finishing Sauces", items: config.sauces });
       if (config.fruit && config.fruit.length) groups.push({ title: "Fresh Cut Fruit", items: config.fruit });

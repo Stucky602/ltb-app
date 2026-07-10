@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, X, RotateCcw, ArrowUpDown, Camera } from '../icon
 import {
   INGREDIENT_SEED, CATEGORY_ORDER, CATEGORY_LABELS_ING,
 } from '../ingredients.js';
+import { containerPriceCheck } from '../receiptMatch.js';
 
 // Divergence color: green as current drops below baseline, red as it rises above.
 // Intensity scales with % drift, capped at 40% for full saturation.
@@ -68,6 +69,7 @@ function Sparkline({ points, width = 56, height = 18 }) {
 export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // id being edited
+  const [containerAsk, setContainerAsk] = useState(null); // { id, entered, converted, message }
   const [editVal, setEditVal] = useState('');
   const [adding, setAdding] = useState(false);
   const [newIng, setNewIng] = useState({ name: '', unit: '', current: '', category: 'produce' });
@@ -129,12 +131,23 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
     setEditVal(String(ing.current));
   }, []);
 
+  const commitCost = useCallback((id, v) => {
+    onChange(list.map(i => i.id === id ? { ...i, current: v } : i));
+    setEditing(null);
+    setContainerAsk(null);
+  }, [list, onChange]);
+
   const saveEdit = useCallback((id) => {
     const v = parseFloat(editVal);
     if (isNaN(v) || v < 0) { setEditing(null); return; }
-    onChange(list.map(i => i.id === id ? { ...i, current: v } : i));
-    setEditing(null);
-  }, [editVal, list, onChange]);
+    // Container guard: catch a whole-jar/box price typed into a per-unit cost
+    // (the anchovy bug — $5.78 jar entered as $5.78/fillet). Propose the
+    // conversion instead of silently poisoning every dish that uses it.
+    const ing = list.find(i => i.id === id);
+    const check = ing ? containerPriceCheck(id, v, ing.baseline) : null;
+    if (check) { setContainerAsk({ id, entered: v, ...check }); return; }
+    commitCost(id, v);
+  }, [editVal, list, commitCost]);
 
   const resetToBaseline = useCallback((id) => {
     onChange(list.map(i => i.id === id ? { ...i, current: i.baseline } : i));
@@ -166,6 +179,22 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
 
   return (
     <div style={S.wrap}>
+      {containerAsk && (
+        <div style={S.askOverlay} onClick={() => setContainerAsk(null)}>
+          <div style={S.askCard} onClick={e => e.stopPropagation()}>
+            <div style={S.askTitle}>That looks like a container price</div>
+            <div style={S.askMsg}>{containerAsk.message}</div>
+            <div style={S.askBtns}>
+              <button style={S.askUse} onClick={() => commitCost(containerAsk.id, containerAsk.converted)}>
+                Use ${containerAsk.converted.toFixed(3)} per unit
+              </button>
+              <button style={S.askKeep} onClick={() => commitCost(containerAsk.id, containerAsk.entered)}>
+                No, keep ${containerAsk.entered.toFixed(2)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {onScanReceipt && (
         <button style={S.scanBtn} onClick={onScanReceipt}>
           <Camera size={16} /> Scan receipt to update costs
@@ -312,6 +341,13 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
 }
 
 const S = {
+  askOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  askCard: { background: '#1c2422', border: '1px solid #4a3a1e', borderRadius: 14, padding: '18px 18px 16px', maxWidth: 380, width: '100%' },
+  askTitle: { color: '#EF9F27', fontWeight: 800, fontSize: 15, marginBottom: 8 },
+  askMsg: { color: '#cbd4cf', fontSize: 13.5, lineHeight: 1.5, marginBottom: 14 },
+  askBtns: { display: 'flex', flexDirection: 'column', gap: 8 },
+  askUse: { background: '#1D9E75', color: '#0f1513', border: 'none', borderRadius: 9, padding: '11px', fontWeight: 800, fontSize: 13.5, cursor: 'pointer' },
+  askKeep: { background: 'transparent', color: '#9aa5a0', border: '1px solid #2d3a36', borderRadius: 9, padding: '10px', fontWeight: 700, fontSize: 13, cursor: 'pointer' },
   wrap: { padding: '12px 12px 40px' },
   scanBtn: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', background: '#2d6a6a', color: '#e8e2d4', border: 'none', borderRadius: 12, padding: 13, fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: 12 },
   topBar: { display: 'flex', gap: 8, marginBottom: 12 },

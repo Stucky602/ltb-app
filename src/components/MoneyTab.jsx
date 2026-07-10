@@ -37,7 +37,7 @@ import { WeeklySummaryModal } from './WeeklySummary.jsx';
 
 export function ProfitChart({ series }) {
   const W = 320, H = 160;
-  const padL = 8, padR = 8, padT = 14, padB = 26;
+  const padL = 40, padR = 8, padT = 14, padB = 26;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
 
@@ -48,6 +48,21 @@ export function ProfitChart({ series }) {
 
   const yFor = (p) => padT + plotH - ((p - minP) / range) * plotH;
   const zeroY = yFor(0);
+
+  // Y-axis ticks: pick a "nice" round step so labels read cleanly ($0, $250,
+  // $500...) instead of odd values, then place ticks across the actual range.
+  const niceStep = (raw) => {
+    if (raw <= 0) return 1;
+    const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw / pow;
+    const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+    return step * pow;
+  };
+  const step = niceStep(range / 4.5);
+  const tickStart = Math.ceil(minP / step) * step;
+  const yTicks = [];
+  for (let v = tickStart; v <= maxP + 0.001; v += step) yTicks.push(round2(v));
+  if (!yTicks.includes(0) && minP < 0 && maxP > 0) yTicks.push(0);
 
   const n = series.length;
   const slotW = plotW / n;
@@ -70,7 +85,23 @@ export function ProfitChart({ series }) {
         <span style={styles.chartSubtitle}>avg {currency(avgProfit)}/period</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} style={styles.chartSvg} preserveAspectRatio="xMidYMid meet">
-        <line x1={padL} y1={zeroY} x2={W - padR} y2={zeroY} stroke="#37403c" strokeWidth="1" strokeDasharray="3,3" />
+        {yTicks.map((v, i) => {
+          const y = yFor(v);
+          const isZero = v === 0;
+          return (
+            <g key={`yt${i}`}>
+              <line
+                x1={padL} y1={y} x2={W - padR} y2={y}
+                stroke={isZero ? '#4a5551' : '#2b322f'}
+                strokeWidth="1"
+                strokeDasharray={isZero ? '3,3' : undefined}
+              />
+              <text x={padL - 5} y={y + 3} textAnchor="end" fontSize="8" fill="#7a8480">
+                {compactMoney(v)}
+              </text>
+            </g>
+          );
+        })}
         {series.map((s, i) => {
           const cx = padL + slotW * i + slotW / 2;
           const y = yFor(s.profit);
@@ -114,6 +145,21 @@ export function ProfitChart({ series }) {
 export function shortLabel(label) {
   if (!label) return '';
   return label.replace(/^Week of /, '').replace(/^Week /, 'W').slice(0, 9);
+}
+
+// Compact dollar label for the Y axis, sized to fit a ~40px gutter.
+// $0, $250, $1.2k, -$500, etc.
+export function compactMoney(v) {
+  const neg = v < 0;
+  const abs = Math.abs(v);
+  let s;
+  if (abs >= 1000) {
+    const k = abs / 1000;
+    s = '$' + (k >= 10 ? Math.round(k) : Math.round(k * 10) / 10) + 'k';
+  } else {
+    s = '$' + Math.round(abs);
+  }
+  return neg ? '-' + s : s;
 }
 
 // ─── Money Tab ──────────────────────────────────────────────────────────────

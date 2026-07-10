@@ -303,9 +303,9 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
       </div>
 
       <div style={styles.genCard}>
-        <div style={styles.genTitle}>This week's list maintains itself</div>
+        <div style={styles.genTitle}>Build your shopping list</div>
         <div style={styles.genHint}>
-          The list rebuilds automatically whenever active orders change — a late order updates quantities on its own. Your manual items stay put, and checkmarks survive quantity changes. The button below is a manual refresh if you ever want one.
+          Tap the button below to build this week's list from your active orders. It only rebuilds when you tap it, so your progress is safe while you shop. Your manual items stay put, and checkmarks survive a rebuild. If a late order comes in, tap it again whenever you're ready to update.
         </div>
         <label style={styles.genToggleRow}>
           <input

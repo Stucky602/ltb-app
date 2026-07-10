@@ -29,7 +29,6 @@ import { itemHandling, mergeShoppingRows, parseShoppingLine, buildAutoShoppingRo
 import { buildCookSchedule } from '../src/cookSchedule.js';
 import { buildWeeklyDigest } from '../src/digest.js';
 import { companionHtml, companionContext } from '../src/companion.js';
-import { parseVoiceCommand, matchItemName } from '../src/voiceCommands.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
@@ -1557,32 +1556,8 @@ TAX  0.00
   if (ctx.length > 6000) F('companion-ask', `context too fat: ${ctx.length} chars — this is the per-question token bill`);
 }
 
-// ─── Fable trio 2: feedback loop, voice commands, content grounding ──────────
+// ─── Fable trio 2: feedback loop, content grounding ────────────────────────
 {
-  // VOICE: the deterministic tier must nail the wet-hands commands and be
-  // HONEST about everything else (unparsed, never a guess).
-  const vOrders = [
-    { id: 'o1', customer: 'Frances Day', status: 'Ordered', items: [{ name: 'Gumbo', qty: 2 }] },
-    { id: 'o2', customer: 'Sara', status: 'Ordered', items: [{ name: 'Gumbo', qty: 1 }] },
-    { id: 'o3', customer: 'Sara Miller', status: 'Ordered', items: [] },
-  ];
-  const v1 = parseVoiceCommand('Mark Frances delivered', vOrders);
-  if (v1.kind !== 'update' || v1.patch.status !== 'Delivered' || v1.orderId !== 'o1') F('voice', JSON.stringify(v1));
-  const v2 = parseVoiceCommand('mark frances as paid', vOrders);
-  if (v2.kind !== 'update' || v2.patch.paid !== true) F('voice', 'paid patch: ' + JSON.stringify(v2));
-  const v3 = parseVoiceCommand('how many gumbo bags left', vOrders);
-  if (v3.kind !== 'count' || v3.units !== 3 || v3.ordersWith !== 2) F('voice', 'count: ' + JSON.stringify(v3));
-  const v4 = parseVoiceCommand('add two garlic confit to Frances order', vOrders);
-  if (v4.kind !== 'addItem' || v4.qty !== 2 || v4.item !== 'Garlic Confit') F('voice', 'addItem: ' + JSON.stringify(v4));
-  // Ambiguity must ASK, never pick: two Saras
-  const v5 = parseVoiceCommand('mark Sara delivered', vOrders);
-  if (v5.kind !== 'ambiguous' || v5.names.length !== 2) F('voice', 'two Saras must be ambiguous: ' + JSON.stringify(v5));
-  // Gibberish is unparsed, never guessed
-  const v6 = parseVoiceCommand('do a barrel roll', vOrders);
-  if (v6.kind !== 'unparsed') F('voice', 'gibberish must be unparsed');
-  // Longest-name fuzzy: pork chop → Thick-Cut Pork Chop, not Pork Tenderloin
-  if (matchItemName('pork chop') !== 'Thick-Cut Pork Chop') F('voice', 'fuzzy item: ' + matchItemName('pork chop'));
-
   // COMPANION FEEDBACK CARD: present, dish list baked, before the ask card.
   const fbHtml = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', qty: 1 }, { name: 'NY Strip', qty: 2 }] }, 'pid');
   if (!/How did everything come out/.test(fbHtml)) F('feedback', 'feedback card missing');

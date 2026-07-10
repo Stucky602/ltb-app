@@ -1044,9 +1044,13 @@ TAX  0.00
   // dilution, by design) but healthy on VALUE-ADD — so the blended flag stays
   // true, the EFFECTIVE flag (what the tab shows) must be false, and the
   // value-add margin must clear the floor.
+  // Mushroom Ragu was repriced to $70 and promoted to Spotlight (Jul 9), so
+  // its blended margin now CLEARS the floor — it's no longer the sub-floor
+  // example it once was. What must still hold: it carries passthrough pasta,
+  // and both the blended and value-add margins are healthy.
   const mrRep = buildDishReport('Mushroom Ragu', { baseCostMap: base });
   const mrPasta = mrRep.variants.find(v => !v.label.includes('Polenta'));
-  if (!mrPasta.underFloor) F('report-floor', `Ragu pasta blended flag should still be true (${mrPasta.marginLivePct.toFixed(1)}%)`);
+  if (mrPasta.underFloor) F('report-floor', `Ragu at $70 should now clear the floor (${mrPasta.marginLivePct.toFixed(1)}%)`);
   if (!mrPasta.hasPassthrough || mrPasta.passthroughRaw < 8) F('report-floor', `Ragu pasta passthrough missing: ${JSON.stringify({ h: mrPasta.hasPassthrough, p: mrPasta.passthroughRaw })}`);
   if (mrPasta.valueAddMarginPct < 45) F('report-floor', `Ragu value-add should clear the floor: ${mrPasta.valueAddMarginPct.toFixed(1)}%`);
   if (mrPasta.underFloorEffective) F('report-floor', 'Ragu pasta must NOT flag on the effective (value-add) basis');

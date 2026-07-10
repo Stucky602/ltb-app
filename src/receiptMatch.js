@@ -434,6 +434,23 @@ function classifyLine(line, seed, aliases, store) {
       .sort((a, b) => b.score - a.score);
     candidates = scored.slice(0, 5);
 
+    // UPGRADE #4 (Jul 9): when the top two token scores are near-tied, break
+    // the tie with Dice character-bigram similarity to the raw receipt name.
+    // Token-containment says "habanero" and "tomato paste" both fit "HABANERO
+    // PEPPERS" equally; Dice sees "habanero" is far closer to the actual
+    // string and re-sorts. Only nudges within a genuine tie band so it never
+    // overrides a clear token winner.
+    if (candidates.length >= 2 && (candidates[0].score - candidates[1].score) < AUTO_MARGIN) {
+      const band = candidates.filter(c => candidates[0].score - c.score < AUTO_MARGIN);
+      if (band.length >= 2) {
+        band.forEach(c => { c.dice = diceCoefficient(line.item_name, c.name); });
+        band.sort((a, b) => (b.score + b.dice * 0.5) - (a.score + a.dice * 0.5));
+        // rebuild candidate order with the re-ranked band on top
+        const rest = candidates.filter(c => !band.includes(c));
+        candidates = [...band, ...rest].slice(0, 5);
+      }
+    }
+
     if (candidates.length) {
       const top = candidates[0];
       const runner = candidates[1];
@@ -779,6 +796,18 @@ export function buildReviewPlan(extracted, seed, aliases) {
   const merged = { ...ALIAS_SEED, ...(aliases || {}) };
   const classified = (extracted.lines || []).map(l => classifyLine(l, seed, merged, store));
   const grouped = groupClassified(classified);
+  // UPGRADES #2 + #3: annotate each group with a pack-shift alarm (implied
+  // container size diverges from the learned one) and an off-store hint (this
+  // ingredient is habitually bought elsewhere). Both are soft signals the
+  // review UI can surface; neither blocks a match.
+  for (const g of grouped) {
+    const alias = g.norm ? merged[g.norm] : null;
+    if (!alias) continue;
+    const shift = packShiftAlarm(g, alias);
+    if (shift) g.packShift = shift;
+    const off = offStoreHint(alias, store);
+    if (off) g.offStore = off;
+  }
   return {
     store,
     receipt_date: extracted.receipt_date || null,
@@ -934,11 +963,26 @@ export function learnFromAcceptance(group, aliases, opts = {}) {
   if (!key || !group.ingredientId) return out;
   const prev = out[key] || {};
   const entry = { ...prev, ingredientId: group.ingredientId };
-  // Persist the effective pack size when a conversion produced the accepted price
+  // Persist the effective pack size when a conversion produced the accepted
+  // price. UPGRADE #1 (Jul 9): learn from ALL conversion bases, including the
+  // hardcoded 'pack' override and prior 'learned_pack' — so accepting or
+  // editing an auto-converted price refines the remembered size toward YOUR
+  // real container. Smoothed (70/30 toward the established value) so one odd
+  // receipt nudges rather than yanks; the first observation sets it outright.
   const onePack = group.lines && group.lines[0] ? (group.lines[0].line_total != null ? group.lines[0].line_total / Math.max(1, Number(group.lines[0].quantity) || 1) : null) : null;
-  if (group.conversion && group.perUnit > 0 && onePack != null
-      && (group.conversion.basis === 'name_size' || group.conversion.basis === 'pack_conversion' || group.conversion.basis === 'sold_by_each')) {
-    entry.packQty = Math.round((onePack / group.perUnit) * 1000) / 1000;
+  const LEARNABLE_BASES = new Set(['name_size', 'pack_conversion', 'sold_by_each', 'pack', 'learned_pack']);
+  if (group.conversion && group.perUnit > 0 && onePack != null && LEARNABLE_BASES.has(group.conversion.basis)) {
+    const implied = Math.round((onePack / group.perUnit) * 1000) / 1000;
+    if (implied > 0 && isFinite(implied)) {
+      const priorSize = Number(prev.packQty) > 0 ? Number(prev.packQty) : null;
+      const priorObs = prev.packObs || 0;
+      // First real observation: adopt it. After that: exponential smoothing so
+      // an established size resists a single anomalous scan but still drifts to
+      // a genuine change over a few receipts.
+      entry.packQty = priorSize == null ? implied : Math.round((priorSize * 0.7 + implied * 0.3) * 1000) / 1000;
+      entry.packObs = priorObs + 1;
+      entry.packLastImplied = implied; // for the shift alarm below
+    }
   }
   // Confirm counting → auto-promote after 2 confirmations of a review pick
   entry.confirms = (prev.confirms || 0) + 1;
@@ -1032,4 +1076,81 @@ export function containerPriceCheck(ingredientId, enteredValue, referenceValue) 
     converted,
     message: `That looks like a whole-container price. This ingredient runs ${ov.perBase} per container, so $${entered.toFixed(2)} works out to $${converted.toFixed(3)} per unit. Use the converted price?`,
   };
+}
+
+// UPGRADE #2 (Jul 9): pack-shift detection. Given a review group and the
+// learned alias, return an alarm when the implied pack size diverges from the
+// established one past a threshold (default 30%). Only fires once a size is
+// actually established (>=2 observations) — no crying wolf while it's still
+// learning. Returns null when quiet.
+export function packShiftAlarm(group, alias, thresholdPct = 30) {
+  if (!group || !alias || !(alias.packQty > 0) || (alias.packObs || 0) < 2) return null;
+  const onePack = group.lines && group.lines[0] && group.lines[0].line_total != null
+    ? group.lines[0].line_total / Math.max(1, Number(group.lines[0].quantity) || 1) : null;
+  if (onePack == null || !(group.perUnit > 0)) return null;
+  const implied = onePack / group.perUnit;
+  if (!(implied > 0) || !isFinite(implied)) return null;
+  const pct = ((implied - alias.packQty) / alias.packQty) * 100;
+  if (Math.abs(pct) < thresholdPct) return null;
+  return {
+    learnedPack: alias.packQty,
+    impliedPack: Math.round(implied * 100) / 100,
+    pct: Math.round(pct),
+    direction: pct > 0 ? 'larger' : 'smaller',
+    message: pct > 0
+      ? `This implies a ${Math.round(implied)}-unit container, ${Math.round(pct)}% bigger than your usual ${Math.round(alias.packQty)}. Bigger pack, a sale, or a different product?`
+      : `This implies a ${Math.round(implied)}-unit container, ${Math.abs(Math.round(pct))}% smaller than your usual ${Math.round(alias.packQty)}. Shrunk pack, a different brand, or a misread?`,
+  };
+}
+
+// UPGRADE #3 (Jul 9): store-fact learning. Track which store each ingredient
+// is habitually bought from, so an off-store line becomes a soft signal that a
+// match might be wrong (and feeds store-split shopping later). Learned on the
+// alias under storeSeen: { HEB: n, HMART: n, ... }.
+export function learnStoreFact(aliases, norm, ingredientId, store) {
+  const out = { ...(aliases || {}) };
+  if (!norm || !ingredientId || !store) return out;
+  const prev = out[norm] || {};
+  const seen = { ...(prev.storeSeen || {}) };
+  seen[store] = (seen[store] || 0) + 1;
+  out[norm] = { ...prev, ingredientId, storeSeen: seen };
+  return out;
+}
+
+// The habitual store for an ingredient (the one seen most), or null if unknown
+// or too close to call.
+export function habitualStore(alias) {
+  const seen = alias && alias.storeSeen;
+  if (!seen) return null;
+  const entries = Object.entries(seen).sort((a, b) => b[1] - a[1]);
+  if (!entries.length || entries[0][1] < 2) return null;
+  if (entries[1] && entries[1][1] === entries[0][1]) return null; // tie
+  return entries[0][0];
+}
+
+// Off-store hint: this ingredient is habitually from a different store than the
+// receipt we're reading. A nudge that a match may be misread, not a block.
+export function offStoreHint(alias, receiptStore) {
+  const usual = habitualStore(alias);
+  if (!usual || !receiptStore || usual === receiptStore) return null;
+  return { usualStore: usual, thisStore: receiptStore,
+    message: `You usually get this at ${usual}, not ${receiptStore}. Double-check the match.` };
+}
+
+// UPGRADE #4 (Jul 9): Dice-coefficient string similarity on character bigrams.
+// Breaks the "a second ingredient scores nearly as high" ties that pure
+// token-containment leaves ambiguous, without a hardcoded alias for every
+// garbled line. Returns 0..1.
+export function diceCoefficient(a, b) {
+  const s1 = String(a || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const s2 = String(b || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!s1.length || !s2.length) return 0;
+  if (s1 === s2) return 1;
+  if (s1.length < 2 || s2.length < 2) return s1 === s2 ? 1 : 0;
+  const bigrams = (s) => { const m = new Map(); for (let i = 0; i < s.length - 1; i++) { const bg = s.slice(i, i + 2); m.set(bg, (m.get(bg) || 0) + 1); } return m; };
+  const b1 = bigrams(s1), b2 = bigrams(s2);
+  let overlap = 0;
+  for (const [bg, c1] of b1) { const c2 = b2.get(bg); if (c2) overlap += Math.min(c1, c2); }
+  const total = (s1.length - 1) + (s2.length - 1);
+  return (2 * overlap) / total;
 }

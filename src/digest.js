@@ -67,8 +67,9 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
   const fbByDish = new Map();
   for (const o of (orders || [])) {
     for (const f of (o.feedback || [])) {
-      const rec = fbByDish.get(f.dish) || { dish: f.dish, good: 0, meh: 0, bad: 0 };
+      const rec = fbByDish.get(f.dish) || { dish: f.dish, good: 0, meh: 0, bad: 0, notes: [] };
       rec[f.verdict] = (rec[f.verdict] || 0) + 1;
+      if (f.note) rec.notes.push({ verdict: f.verdict, note: f.note });
       fbByDish.set(f.dish, rec);
     }
   }

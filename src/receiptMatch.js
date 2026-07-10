@@ -1010,3 +1010,26 @@ export function priceDriftReport(ingredientId, newPerUnit, costHistory, seed, fl
   }
   return { pctChange, prevAvg: Math.round(base * 1000) / 1000, dishesUnderFloor };
 }
+
+// ═══ MANUAL-ENTRY CONTAINER GUARD (Jul 9 — the anchovy bug) ═════════════════
+// Kevin typed the JAR price ($5.78) into the per-FILLET anchovy cost, and
+// chili's costing dutifully charged $5.78 a fillet. The receipt path has pack
+// intelligence; the manual edit path had none. This helper gives ANY edit box
+// the same brain: if the ingredient has a known container size and the
+// entered price looks like a whole-container price, propose the division.
+export function containerPriceCheck(ingredientId, enteredValue, referenceValue) {
+  const ov = PACK_OVERRIDE[ingredientId];
+  const entered = Number(enteredValue);
+  if (!ov || !ov.perBase || !isFinite(entered) || entered <= 0) return null;
+  const ref = Number(referenceValue) > 0 ? Number(referenceValue) : null;
+  // Suspicion test: the entered price is at least 4x the known-good per-unit
+  // price (or, with no reference, at least 4x what one pack-unit would cost).
+  const suspicious = ref ? entered >= ref * 4 : entered >= ov.perBase;
+  if (!suspicious) return null;
+  const converted = Math.round((entered / ov.perBase) * 1000) / 1000;
+  return {
+    perBase: ov.perBase,
+    converted,
+    message: `That looks like a whole-container price. This ingredient runs ${ov.perBase} per container, so $${entered.toFixed(2)} works out to $${converted.toFixed(3)} per unit. Use the converted price?`,
+  };
+}

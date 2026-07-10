@@ -566,3 +566,27 @@ export function mergeShoppingRows(rows) {
     return { id: r.id, text: `${r.name} — ${qty}${r.staple ? ' (staple)' : ''}`, checked: r.checked };
   });
 }
+
+// ═══ SELF-MAINTAINING SHOPPING LIST (Jul 9 automation pass) ═════════════════
+// buildAutoShoppingRows(activeOrders, includeStaples, prevRows) → next rows.
+// The auto layer regenerates atomically from orders; manual rows pass through
+// untouched. Checkmarks survive by INGREDIENT NAME, not exact text — so
+// "Chicken thighs — 2 lb" staying checked when a late order makes it 3 lb.
+// (The old exact-text keying silently lost checkmarks whenever a quantity
+// moved, which is exactly mid-shop when it hurts most.)
+export function buildAutoShoppingRows(activeOrders, includeStaples, prevRows, mkId) {
+  const lines = generateShoppingItems(activeOrders, includeStaples);
+  const checkedByName = new Map();
+  for (const it of (prevRows || [])) {
+    if (!it.checked) continue;
+    const p = parseShoppingLine(it.text);
+    if (p.passthrough === undefined) checkedByName.set(normalizeIngredientName(p.name), true);
+  }
+  const manual = (prevRows || []).filter(it => !it.auto);
+  const autos = lines.map(text => {
+    const p = parseShoppingLine(text);
+    const key = p.passthrough === undefined ? normalizeIngredientName(p.name) : null;
+    return { id: mkId(), text, checked: key ? !!checkedByName.get(key) : false, auto: true };
+  });
+  return [...autos, ...manual];
+}

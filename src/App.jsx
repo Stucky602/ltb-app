@@ -11,7 +11,7 @@ import {
 import {
   RECIPES, INGREDIENT_SYNONYMS, SOUS_VIDE_VEG, DINNER_REHEAT_BUCKET,
   RICE_DISHES, PASTA_DISHES, NOODLE_DISHES,
-  normalizeIngredientName, generateShoppingItems, buildReheatBlocks,
+  normalizeIngredientName, generateShoppingItems, buildAutoShoppingRows, buildReheatBlocks,
 } from './recipes.js';
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
@@ -111,6 +111,8 @@ export default function LTBOrderTracker() {
   const [cookSubView, setCookSubView] = useState('cook');
   const [dishNotes, setDishNotes] = useState({});
   const [shopping, setShopping] = useState([]);
+  const [booted, setBooted] = useState(false);
+  const [includeStaples, setIncludeStaples] = useState(() => localStore.get('ltb_staples_pref') === '1');
   const [weekDishes, setWeekDishes] = useState(DEFAULT_WEEK);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -174,6 +176,7 @@ export default function LTBOrderTracker() {
       setDeliverChecks(loadedDeliverChecks || {});
       setDishNotes(loadedDishNotes || {});
       setShopping(loadedShopping || []);
+      setBooted(true);
       if (loadedWeek && Array.isArray(loadedWeek.selected)) {
         const valid = loadedWeek.selected.filter(n => ALL_DINNERS.some(d => d.name === n));
         setWeekDishes(valid.length > 0 ? valid : DEFAULT_WEEK);
@@ -635,6 +638,21 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
+  // ── STARTUP AUTOMATIONS (Jul 9): run once per session, silently. Feedback
+  // pull only fires when any order carries a kitchenPageId; backfill is safe
+  // by construction (exact/alias matches only — partials never auto-link).
+  const startupRan = useRef(false);
+  useEffect(() => {
+    if (!booted || startupRan.current) return;
+    startupRan.current = true;
+    if ((orders || []).some(o => o.kitchenPageId)) {
+      pullKitchenFeedback().catch(() => {}); // offline or v8 not deployed: silently skip
+    }
+    if ((regulars || []).length && (orders || []).some(o => !o.regularId)) {
+      try { runBackfill(); } catch (e) { /* silent */ }
+    }
+  }, [booted]);
+
   const linkOrderToRegular = useCallback((regularId, orderId) => {
     setRegulars(prev => {
       const next = prev.map(r => {
@@ -841,6 +859,16 @@ export default function LTBOrderTracker() {
       return next;
     });
   }, []);
+
+  // ── CLOSE OUT THE WEEK (one tap): pull any last kitchen feedback, then
+  // archive everything delivered. The ritual, automated.
+  const closeOutWeek = useCallback(async () => {
+    let fb = { attached: 0 };
+    try { fb = await pullKitchenFeedback(); } catch (e) { /* offline is fine */ }
+    const deliveredCount = (orders || []).filter(o => o.status === 'Delivered' && !o.archived).length;
+    archiveDelivered();
+    return { feedback: fb.attached || 0, archived: deliveredCount };
+  }, [orders]);
 
   // ── Kitchen feedback sync (Option B: feedback lives ON the order) ──────────
   // Pulls tapped verdicts from the worker, attaches each to the order whose
@@ -1280,22 +1308,27 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
-  const generateShopping = useCallback((includeStaples) => {
-    const lines = generateShoppingItems(activeOrders, includeStaples);
+  const generateShopping = useCallback((staples) => {
     setShopping(prev => {
-      const checkedByText = new Map(prev.filter(it => it.checked).map(it => [it.text, true]));
-      const manual = prev.filter(it => !it.auto);
-      const autos = lines.map(text => ({
-        id: uid(),
-        text,
-        checked: !!checkedByText.get(text),
-        auto: true,
-      }));
-      const next = [...autos, ...manual];
+      const next = buildAutoShoppingRows(activeOrders, staples, prev, uid);
       saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
       return next;
     });
   }, [activeOrders]);
+
+  // ── SELF-MAINTAINING LIST (Jul 9 automation): the auto layer regenerates
+  // whenever active orders change — a late order updates quantities by
+  // itself, no Generate tap, no single-dish picker workaround. Manual rows
+  // and checkmarks (keyed by ingredient NAME, so quantity changes don't
+  // uncheck things mid-shop) always survive.
+  const autoRegenRef = useRef('');
+  useEffect(() => {
+    if (!booted) return;
+    const sig = JSON.stringify(activeOrders.map(o => [o.id, (o.items || []).map(it => [it.name, it.variant, it.qty, it.weight])])) + '|' + includeStaples;
+    if (sig === autoRegenRef.current) return;
+    autoRegenRef.current = sig;
+    generateShopping(includeStaples);
+  }, [booted, activeOrders, includeStaples, generateShopping]);
 
   if (loading) {
     return (
@@ -1687,6 +1720,8 @@ export default function LTBOrderTracker() {
             items={shopping}
             onChange={persistShopping}
             onGenerate={generateShopping}
+            includeStaples={includeStaples}
+            onToggleStaples={(v) => { setIncludeStaples(v); localStore.set('ltb_staples_pref', v ? '1' : '0'); }}
             activeCount={activeOrders.length}
             estCost={activeFinancials.cost}
             weekDishes={weekDishes}
@@ -1699,7 +1734,7 @@ export default function LTBOrderTracker() {
         {view === 'money' && (
           <>
             <MoneyTab orders={orders || []} onUpdate={updateOrder} />
-            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} />
+            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} />
           </>
         )}
 

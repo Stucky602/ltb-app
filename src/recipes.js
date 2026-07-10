@@ -189,10 +189,10 @@ export function buildReheatBlocks(order) {
   // sous vide pork, warm the sauce, cook the taglierini fresh).
   let porkMustardOrdered = items.some(it => it.name === 'Pork with Mustard Tarragon Cream Sauce');
 
-  // Lamb Leg Steak (Spotlight) — dedicated two-part card: sear the lamb
+  // Coriander Lamb Steak over Gigantes Beans (Spotlight) — dedicated two-part card: sear the lamb
   // (remove bone, pat dry, hard sear, no rest — thin cut), warm the bean/leek
   // bag in simmering water, slice the lamb over the top.
-  let lambSpotlightOrdered = items.some(it => it.name === 'Lamb Leg Steak');
+  let lambSpotlightOrdered = items.some(it => it.name === 'Coriander Lamb Steak over Gigantes Beans');
 
   // Thick-Cut Pork Chop (Spotlight) — dedicated four-part card: sear the thick
   // pork (30+ min counter-warm), warm the purée + broccolini bags, gentle
@@ -334,11 +334,11 @@ export function buildReheatBlocks(order) {
     });
   }
 
-  // ── Lamb Leg Steak (Spotlight) — dedicated two-part card ──────────────
+  // ── Coriander Lamb Steak over Gigantes Beans (Spotlight) — dedicated two-part card ──────────────
   if (lambSpotlightOrdered) {
     blocks.push({
       title: 'Sear the lamb, warm the beans',
-      dishes: ['Lamb Leg Steak'],
+      dishes: ['Coriander Lamb Steak over Gigantes Beans'],
       body: 'Two parts: the lamb in a sealed bag, and the gigantes beans and leeks together in their own bag. Start with the lamb. Pull it out and remove the bone first so it sears clean, then pat it very dry. Sear hard in a blazing-hot pan with a little oil, just until deeply browned on each side. This is a thinner cut, so do not let it come to room temperature first, take it straight from cold to the hot pan. While it sears, warm the beans and leeks: drop the sealed bag into a pot of simmering water for a few minutes until hot, then spoon them onto the plate. Slice the lamb thin and lay it over the top.',
     });
   }

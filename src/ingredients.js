@@ -44,7 +44,7 @@ export const INGREDIENT_SEED = [
   { id: 'baby_gold_potatoes', name: 'Baby gold potatoes', unit: 'lb', baseline: 2.0, category: 'produce' },
   { id: 'apple', name: 'Apple', unit: 'each', baseline: 1.5, category: 'produce' },
   { id: 'lemon', name: 'Lemon', unit: 'each', baseline: 0.5, category: 'produce' },
-  // ── Spotlight dinner ingredients (Lamb Leg Steak, Jul 9) ──
+  // ── Spotlight dinner ingredients (Coriander Lamb Steak over Gigantes Beans, Jul 9) ──
   { id: 'lamb_leg_steak', name: 'Lamb leg steak (bone-in)', unit: 'lb', baseline: 18.99, category: 'meat' },
   { id: 'gigantes_beans', name: 'Gigantes beans', unit: 'oz', baseline: 0.92, category: 'pantry' }, // 12 oz package @ ~$11
   { id: 'leeks', name: 'Leeks', unit: 'bunch', baseline: 3.99, category: 'produce' },

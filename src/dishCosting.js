@@ -138,7 +138,7 @@ export const LINE_MAP = {
   'Good parm':              { id: 'parm', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : (u==='cup'? q*0.19 : q) }, // recipe gives oz, parm priced per lb
   'Heavy cream (oz)':       { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 oz = 1 cup
   'Cooking olive oil':      { id: 'olive_oil_cooking', conv: q => q }, // Graza Sizzle, priced per oz, recipe gives oz
-  // ── Spotlight: Lamb Leg Steak (Jul 9) ──
+  // ── Spotlight: Coriander Lamb Steak over Gigantes Beans (Jul 9) ──
   'Lamb leg steak (bone-in)': { id: 'lamb_leg_steak', conv: q => q },       // priced per lb, recipe gives lb
   'Gigantes beans':         { id: 'gigantes_beans', conv: q => q },         // priced per oz, recipe gives oz
   'Leeks':                  { id: 'leeks', conv: q => q },                  // priced per bunch, recipe gives bunch

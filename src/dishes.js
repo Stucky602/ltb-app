@@ -719,7 +719,7 @@ export const DISHES = [
   // week. Tagged spotlight:true so WeekTab/publish can route the selected one
   // to its own "Spotlight dinner of the week" header on the weekly menu.
   {
-    name: 'Lamb Leg Steak',
+    name: 'Coriander Lamb Steak over Gigantes Beans',
     cuisine: 'Spotlight',
     spotlight: true,
     reheat: 'lambSpotlight', // dedicated two-part card: sear the lamb, warm the beans

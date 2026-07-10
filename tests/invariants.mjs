@@ -33,7 +33,8 @@ import { parseVoiceCommand, matchItemName } from '../src/voiceCommands.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
-import { buildReviewPlan, containerPriceCheck, packShiftAlarm, learnStoreFact, habitualStore, offStoreHint, diceCoefficient, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
+import { preflightWeek } from '../src/publishPreflight.js';
+import { buildReviewPlan, defaultAccept, confidenceTier, containerPriceCheck, packShiftAlarm, learnStoreFact, habitualStore, offStoreHint, diceCoefficient, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -750,11 +751,16 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   if (!butter) F('rcpt-v3', `butter not auto-matched: ${JSON.stringify(find('HEB SI UNSALTD BUTTER QTR'))}`);
   else if (Math.abs(butter.perUnit - 0.995) > 0.002) F('rcpt-v3', `butter QTR conversion wrong: got ${butter.perUnit}/stick`);
 
-  // TORTILLAS: 10 CT = $1.98/10ct exactly; 20 CT = $1.98/10ct too (half of 3.96).
-  const t10 = matchedAs('10 CT FLOUR TORTILLA SCAN', 'tortillas');
-  if (!t10 || Math.abs(t10.perUnit - 1.98) > 0.001 || t10.conversion?.basis !== 'name_size') F('rcpt-v3', `10ct tortillas: ${JSON.stringify(t10 && { perUnit: t10.perUnit, conv: t10.conversion })}`);
-  const t20 = matchedAs('20 CT FLOUR TORTILLA SCAN', 'tortillas');
-  if (!t20 || Math.abs(t20.perUnit - 1.98) > 0.001) F('rcpt-v3', `20ct tortillas must halve: ${JSON.stringify(t20 && t20.perUnit)}`);
+  // TORTILLAS: 10 CT and 20 CT lines both resolve to $1.98/10ct — v3.5 merge
+  // polish consolidates them into ONE tortillas row (pooled 1.98) while parts
+  // keep BOTH name-size conversions so pack learning stays per-string.
+  const tor = all1.find(g => g.ingredientId === 'tortillas' && g.status === 'matched');
+  if (!tor || Math.abs(tor.perUnit - 1.98) > 0.001) F('rcpt-v3', `tortillas pooled: ${JSON.stringify(tor && tor.perUnit)}`);
+  else {
+    if (!tor.mergedFrom || tor.mergedFrom.length !== 2) F('rcpt-v3', `10ct+20ct must consolidate: ${JSON.stringify(tor.mergedFrom)}`);
+    const convs = (tor.parts || []).map(p => p.conversion && p.conversion.fromUnit).filter(Boolean);
+    if (convs.length !== 2 || convs[0] === convs[1]) F('rcpt-v3', `merge must be lossless — both pack conversions in parts: ${JSON.stringify(convs)}`);
+  }
 
   // SOLD-BY-EACH: cilantro $0.45/bunch auto (no 'confirm one bunch' friction).
   const cil = matchedAs('CILANTRO', 'cilantro');
@@ -1217,6 +1223,59 @@ TAX  0.00
   const mappedAl = { 'modelo especial 12pk': { ingredientId: 'onion', seenUnmatched: 5 } };
   plan = buildReviewPlan({ store: 'HEB', lines: [{ item_name: 'MODELO ESPECIAL 12PK', line_total: 15.99 }] }, seedIngs, mappedAl);
   if (plan.buckets.ignored.length !== 0) F('receipt-learn', 'mapped alias must never auto-ignore');
+
+  // ═══ v3.5 (Fable, Jul 10): merge polish + acceptance gating + tiers ═══════
+  // #5 CROSS-STRING MERGE: two DIFFERENT receipt strings aliased to the same
+  // ingredient consolidate into ONE row: qty-weighted pooled price, lines and
+  // totals combined, parts kept for per-string alias learning.
+  const onAl = { 'yellow onion': { ingredientId: 'onion' }, 'onion ylw jumbo': { ingredientId: 'onion' } };
+  const mkw = (name, qty, rate) => ({ item_name: name, quantity: qty, unit: 'lb', unit_price: rate, line_total: Math.round(qty * rate * 100) / 100, weighed: true });
+  const mplan = buildReviewPlan({ store: 'HEB', lines: [mkw('YELLOW ONION', 2, 0.99), mkw('ONIONS YLW JUMBO', 1, 1.09)] }, seedIngs, onAl);
+  const merged5 = mplan.buckets.matched.filter(g => g.ingredientId === 'onion');
+  if (merged5.length !== 1) F('receipt-merge', `expected 1 consolidated group, got ${merged5.length}`);
+  else {
+    const g = merged5[0];
+    if (!g.mergedFrom || g.mergedFrom.length !== 2) F('receipt-merge', `mergedFrom ${JSON.stringify(g.mergedFrom)}`);
+    if (!g.parts || g.parts.length !== 2) F('receipt-merge', 'parts must keep both originals for learning');
+    const want = (0.99 * 2 + 1.09 * 1) / 3;
+    if (Math.abs(g.perUnit - want) > 0.01) F('receipt-merge', `pooled ${g.perUnit}, want ~${want.toFixed(3)}`);
+    if (Math.abs(g.totalSum - 3.07) > 0.01) F('receipt-merge', `totalSum ${g.totalSum}`);
+  }
+  // Price-disagreement guard: a wild gap (>35%) must NOT merge — both rows
+  // survive with priceSplit flags and 'attention' tiers.
+  const splan = buildReviewPlan({ store: 'HEB', lines: [mkw('YELLOW ONION', 2, 0.99), mkw('ONIONS YLW JUMBO', 1, 4.50)] }, seedIngs, onAl);
+  const split5 = splan.buckets.matched.filter(g => g.ingredientId === 'onion');
+  if (split5.length !== 2) F('receipt-merge', `wild gap must stay split, got ${split5.length}`);
+  else if (!split5.every(g => g.priceSplit && g.tier === 'attention')) F('receipt-merge', 'split rows need priceSplit + attention tier');
+
+  // #6 ACCEPTANCE GATING: a trustworthy basis with an outlier price must NOT
+  // default-accept (misparse guard); in-band prices still do. Back-compat:
+  // no cost arg keeps the old basis-only behavior.
+  const dg = { status: 'matched', basis: 'printed_unit_price', perUnit: 5.0 };
+  if (!defaultAccept(dg)) F('receipt-accept', 'basis-only back-compat broke');
+  if (defaultAccept(dg, 1.0)) F('receipt-accept', '5x outlier must not default-accept');
+  if (!defaultAccept(dg, 4.8)) F('receipt-accept', 'in-band price must default-accept');
+
+  // #6b TIERS: ±20% of current = auto; no history = check; any alarm = attention.
+  if (confidenceTier({ status: 'matched', basis: 'converted', perUnit: 1.0 }, 0.95) !== 'auto') F('receipt-tier', 'in-band should be auto');
+  if (confidenceTier({ status: 'matched', basis: 'converted', perUnit: 1.0 }, null) !== 'check') F('receipt-tier', 'no history should be check');
+  if (confidenceTier({ status: 'matched', basis: 'converted', perUnit: 1.0, packShift: {} }, 0.95) !== 'attention') F('receipt-tier', 'packShift should be attention');
+  if (confidenceTier({ status: 'matched', basis: 'line_total', perUnit: 1.0 }, 0.95) !== 'attention') F('receipt-tier', 'weak basis should be attention');
+
+  // ═══ v3.5 PUBLISH PREFLIGHT (Fable, Jul 10) — the anti-July-10 audit ══════
+  // The spotlight pipeline was correct but the published week had no spotlight
+  // selected, and the miss was silent. These pin the audit that makes it loud.
+  {
+    const codes = (sel) => preflightWeek(sel).map(w => w.code);
+    if (!codes([]).includes('empty')) F('preflight', 'empty week must warn');
+    if (!codes(['Gumbo']).includes('no-spotlight')) F('preflight', 'spotlight-less week must warn');
+    if (codes(['Gumbo', 'Mushroom Ragu']).length !== 0) F('preflight', `clean week must be quiet: ${JSON.stringify(codes(['Gumbo', 'Mushroom Ragu']))}`);
+    if (!codes(['Mushroom Ragu', 'Steak au Poivre']).includes('multi-spotlight')) F('preflight', 'two spotlights should inform');
+    const bo = preflightWeek(['Bo Ssam', 'Mushroom Ragu']);
+    if (!bo.some(w => w.code === 'under-floor' && /Bo Ssam/.test(w.text))) F('preflight', 'Bo Ssam Small under-floor must be named');
+    if (bo.some(w => w.code === 'under-floor' && /Lamb Leg/.test(w.text))) F('preflight', 'unselected dishes must not be audited');
+  }
+
 
   // #3b NEGATIVE LEARNING: a rejected id is score-capped — it cannot auto-win.
   let al2 = learnFromAcceptance(

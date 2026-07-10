@@ -161,11 +161,11 @@ export const DISHES = [
     options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
       { label: 'Chickpea, Small (~4-5)', price: 25, cost: 12.71 },
-      { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.13 },
-      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 27.87 },
+      { label: 'Chicken, Small (~4-5)', price: 35, cost: 16.51 },
+      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 26.25 },
       { label: 'Chickpea, Large (~8-10)', price: 45, cost: 24.35 },
-      { label: 'Chicken, Large (~8-10)', price: 65, cost: 35.17 },
-      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 54.66 },
+      { label: 'Chicken, Large (~8-10)', price: 65, cost: 31.92 },
+      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 51.41 },
     ],
     recipe: {
       factors: {
@@ -179,13 +179,17 @@ export const DISHES = [
         I('Kitchen Basics chicken stock', 32, 'oz'),
         I('Limes', 2, ''),
         I('Asian greens', 1, 'lb'), // stand-in for "whatever's best this week" — priced at ~$2/lb per Kevin
-        I('Chickpeas', 2, 'lb'),
         I('Mix of spicy peppers', 1, 'handful'),
         I('Curry powder', 0.25, 'cup', true),
         I('Brown sugar', 2, 'tbsp', true),
         I('Rice (included with order)', 1, 'batch', true),
       ],
       extras: {
+        // Chickpeas are the protein ONLY on the chickpea variants. Scoped here
+        // (not base) so the chicken/shrimp variants don't double-load them.
+        // Scales with variant factor exactly like the meat proteins below.
+        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb')],
+        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb')],
         'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb')],
         'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb')],
         'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb')],
@@ -216,6 +220,7 @@ export const DISHES = [
         I('Beef stock', 8, 'cups'),
         I('100% dark chocolate', 2, 'square'),
         I('Espresso', 2, 'shot'),
+        I('Worcestershire', 2, 'tbs'), // scales: 1 tbs small (0.5×), 2 tbs large (1×)
         I('Curry spice blend', 1, 'batch', true),
         I('Honey + fish sauce + butter', 1, 'batch', true),
         I('Bay leaf', 1, '', true),

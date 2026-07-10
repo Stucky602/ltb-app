@@ -138,7 +138,7 @@ export const INGREDIENT_SEED = [
   { id: 'fish_sauce', name: 'Fish sauce', unit: 'tbs', baseline: 0.2, category: 'pantry' },
   { id: 'doubanjiang', name: 'Doubanjiang', unit: 'tbs', baseline: 1.0, category: 'pantry' },
   { id: 'fermented_black_beans', name: 'Fermented black beans', unit: 'tbs', baseline: 0.125, category: 'pantry' },
-  { id: 'worcestershire', name: 'Worcestershire', unit: 'tbs', baseline: 0.28, category: 'pantry' },
+  { id: 'worcestershire', name: 'Worcestershire', unit: 'tbs', baseline: 0.2485, category: 'pantry' }, // Lea & Perrins 10 fl oz (20 tbs) @ $4.97 = $0.2485/tbs
   { id: 'franks', name: 'Frank\'s hot sauce', unit: 'batch-use', baseline: 0.5, category: 'pantry' },
   { id: 'marmite', name: 'Marmite', unit: 'batch-use', baseline: 2.0, category: 'pantry' },
   { id: 'chinkiang', name: 'Chinkiang vinegar', unit: 'tbs', baseline: 0.083, category: 'pantry' },

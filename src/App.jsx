@@ -53,7 +53,6 @@ import { RegularsIntelPanel } from './components/RegularsIntelPanel.jsx';
 import { LabelsSheet } from './components/LabelsSheet.jsx';
 import { DigestPanel } from './components/DigestPanel.jsx';
 import { SchedulePanel } from './components/SchedulePanel.jsx';
-import { VoiceMode } from './components/VoiceMode.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
@@ -848,21 +847,6 @@ export default function LTBOrderTracker() {
   // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
   // Voice add-item: append a single-variant item to an order, repriced via
   // the same math every other item flows through (stamp totals via updateOrder).
-  const voiceAddItem = useCallback((orderId, item) => {
-    setOrders(prev => {
-      const next = (prev || []).map(o => {
-        if (o.id !== orderId) return o;
-        const items = [...(o.items || []), item];
-        // Refresh the STORED total with the same math every surface uses —
-        // otherwise the card header shows the pre-voice total.
-        const total = orderTotal(items, o.jarSwaps, o.containerReturns, o.discountType, o.discountValue, o.customCharges, o.waiveSurcharge);
-        return { ...o, items, total };
-      });
-      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
-      return next;
-    });
-  }, []);
-
   // ── CLOSE OUT THE WEEK (one tap): pull any last kitchen feedback, then
   // archive everything delivered. The ritual, automated.
   const closeOutWeek = useCallback(async () => {
@@ -1319,19 +1303,11 @@ export default function LTBOrderTracker() {
     });
   }, [activeOrders]);
 
-  // ── SELF-MAINTAINING LIST (Jul 9 automation): the auto layer regenerates
-  // whenever active orders change — a late order updates quantities by
-  // itself, no Generate tap, no single-dish picker workaround. Manual rows
-  // and checkmarks (keyed by ingredient NAME, so quantity changes don't
-  // uncheck things mid-shop) always survive.
-  const autoRegenRef = useRef('');
-  useEffect(() => {
-    if (!booted) return;
-    const sig = JSON.stringify(activeOrders.map(o => [o.id, (o.items || []).map(it => [it.name, it.variant, it.qty, it.weight])])) + '|' + includeStaples;
-    if (sig === autoRegenRef.current) return;
-    autoRegenRef.current = sig;
-    generateShopping(includeStaples);
-  }, [booted, activeOrders, includeStaples, generateShopping]);
+  // NOTE (Jul 10, Kevin's explicit request): the shopping list is MANUAL-REFRESH
+  // ONLY. Do NOT re-add any effect that auto-regenerates it when orders change.
+  // Auto-regen wiped his in-progress list mid-shop (find an item missing today,
+  // come back tomorrow, list rebuilt from scratch and lost his progress). The
+  // list rebuilds ONLY when he taps the Refresh button. Leave it that way.
 
   if (loading) {
     return (
@@ -1461,9 +1437,6 @@ export default function LTBOrderTracker() {
       )}
 
       <main style={styles.main}>
-        {view === 'orders' && (
-          <VoiceMode orders={orders || []} onUpdate={updateOrder} onAddItem={voiceAddItem} onArchiveDelivered={archiveDelivered} />
-        )}
         {view === 'orders' && (
           <>
             <StatsBar stats={stats} />

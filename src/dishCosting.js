@@ -217,6 +217,7 @@ export const LINE_MAP = {
   'Marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },
   'Tex-Mex spices':         { id: 'spices_generic', conv: () => 1 },
   'Worcestershire + vinegar + flour': { id: 'spices_generic', conv: () => 1 },
+  'Worcestershire':         { id: 'worcestershire', conv: q => q }, // 1 tbs recipe = 1 tbs ingredient ($0.2485/tbs)
   'Bay + salt + pepper + vinegar': { id: 'spices_generic', conv: () => 1 },
   'Cajun spices':           { id: 'spices_generic', conv: () => 1 },
   'Filé powder':            { id: 'spices_generic', conv: () => 0.5 },

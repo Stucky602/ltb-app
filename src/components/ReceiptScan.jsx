@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -205,6 +205,8 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     let learned = { ...localAliases };
     rows.forEach(r => {
       if ((r.status === 'matched' || r.status === 'needsPrice') && r.accept && r.ingredientId) {
+        // UPGRADE #3: remember which store this ingredient came from
+        if (r.ingredientId && plan && plan.store) learned = learnStoreFact(learned, r.norm, r.ingredientId, plan.store);
         learned = learnFromAcceptance({ ...r, perUnit: effectivePerUnit(r) }, learned,
           { rejectedId: r._rejectedId || null, usedFlatPrice: !!r._usedFlat });
       }
@@ -439,6 +441,16 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
       {r.conversion && (
         <div style={S.convNote}>
           Converted from receipt price per {r.conversion.fromUnit} ({r.conversion.factor % 1 === 0 ? `${r.conversion.factor} ${r.conversion.toUnit}s per ${r.conversion.fromUnit}` : `${round(r.conversion.factor)}× ${r.conversion.toUnit}`}).
+        </div>
+      )}
+      {r.packShift && (
+        <div style={{ background: '#3a2420', border: '1px solid #5a3a2a', borderRadius: 8, padding: '7px 9px', margin: '6px 0', fontSize: 12, color: '#EF9F27' }}>
+          ⚠ {r.packShift.message}
+        </div>
+      )}
+      {r.offStore && (
+        <div style={{ fontSize: 11.5, color: '#9aa5a0', margin: '4px 0' }}>
+          {r.offStore.message}
         </div>
       )}
       {mismatchRisk && (

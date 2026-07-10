@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { preflightWeek } from '../publishPreflight.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -36,6 +37,11 @@ import { costDishVariant, driftBorder } from '../dishCosting.js';
 import { ConflictModal } from './ConflictModal.jsx';
 
 export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap }) {
+  // Pre-publish audit (pure): warnings render above the button, never block.
+  const preflight = useMemo(
+    () => preflightWeek(selected, { liveCostMap, baseCostMap }),
+    [selected, liveCostMap, baseCostMap]
+  );
   const [copied, setCopied] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState(null);
@@ -179,6 +185,20 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
             Customers see the new menu the moment you publish. Optionally add the
             menu PDF link and a week label that show on the form.
           </div>
+          {preflight.length > 0 && (
+            <div style={{ margin: '8px 0 10px' }}>
+              {preflight.map((w, i) => (
+                <div key={i} style={{
+                  fontSize: 12, lineHeight: 1.4, padding: '7px 10px', borderRadius: 8, marginBottom: 5,
+                  background: w.level === 'warn' ? 'rgba(239,159,39,0.12)' : 'rgba(93,202,165,0.10)',
+                  border: `1px solid ${w.level === 'warn' ? '#4a3a1e' : '#28483d'}`,
+                  color: w.level === 'warn' ? '#EF9F27' : '#9aa5a0',
+                }}>
+                  {w.level === 'warn' ? '⚠ ' : ''}{w.text}
+                </div>
+              ))}
+            </div>
+          )}
           <div style={styles.conflictBtnRow}>
             <button
               style={{ ...styles.saveBtn, marginTop: 0, flex: 1, background: publishMsg?.ok ? '#1D9E75' : undefined }}

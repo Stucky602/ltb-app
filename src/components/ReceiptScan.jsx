@@ -8,6 +8,7 @@ import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePas
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
 const GOLD = '#c9a84c';
+const TIER_ORDER = { attention: 0, check: 1, auto: 2 }; // review sort: eyes-needed first
 
 // ── stages ──────────────────────────────────────────────────────────────────
 // capture -> extracting -> review (the work happens here) -> done
@@ -91,7 +92,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       ...g,
       status,
       // accept toggle: only meaningful for matched/needsPrice; default per basis
-      accept: status === 'matched' ? defaultAccept(g) : (status === 'needsPrice' ? false : false),
+      accept: status === 'matched' ? defaultAccept(g, g.ingredient ? g.ingredient.current : null) : (status === 'needsPrice' ? false : false),
       priceInput: '',          // for needsPrice: typed per-unit
       acceptedPerUnit: status === 'matched' ? g.perUnit : null,
     };
@@ -205,10 +206,15 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     let learned = { ...localAliases };
     rows.forEach(r => {
       if ((r.status === 'matched' || r.status === 'needsPrice') && r.accept && r.ingredientId) {
-        // UPGRADE #3: remember which store this ingredient came from
-        if (r.ingredientId && plan && plan.store) learned = learnStoreFact(learned, r.norm, r.ingredientId, plan.store);
-        learned = learnFromAcceptance({ ...r, perUnit: effectivePerUnit(r) }, learned,
-          { rejectedId: r._rejectedId || null, usedFlatPrice: !!r._usedFlat });
+        // UPGRADE #3: remember which store this ingredient came from.
+        // UPGRADE #5 (merge polish): a consolidated row learns PER PART, so
+        // "YELLOW ONION" and "ONIONS YLW JUMBO" each keep their own alias,
+        // pack size, and store fact even though they committed as one price.
+        for (const part of (r.parts || [r])) {
+          if (part.norm && plan && plan.store) learned = learnStoreFact(learned, part.norm, r.ingredientId, plan.store);
+          learned = learnFromAcceptance({ ...part, ingredientId: r.ingredientId, perUnit: part.perUnit > 0 ? part.perUnit : effectivePerUnit(r) }, learned,
+            { rejectedId: r._rejectedId || null, usedFlatPrice: !!r._usedFlat });
+        }
       }
     });
     // v3.4 learned auto-ignore: items Kevin left unmapped count a sighting;
@@ -359,7 +365,7 @@ function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, 
 
       {matched.length > 0 && (
         <Section title="Matched — confirm each">
-          {matched.map(({ r, i }) => <MatchedRow key={i} r={r} idx={i} patchRow={patchRow} onOpenPicker={onOpenPicker} costHistory={costHistory} seed={seed} />)}
+          {[...matched].sort((a, b) => (TIER_ORDER[a.r.tier] ?? 1) - (TIER_ORDER[b.r.tier] ?? 1)).map(({ r, i }) => <MatchedRow key={i} r={r} idx={i} patchRow={patchRow} onOpenPicker={onOpenPicker} costHistory={costHistory} seed={seed} />)}
         </Section>
       )}
 
@@ -413,7 +419,11 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
   return (
     <div style={{ ...S.row, ...(r.accept ? S.rowOn : {}) }}>
       <div style={S.rowTop}>
-        <div style={S.rowName}>{r.line.item_name}{r.count > 1 ? ` ×${r.count}` : ''}</div>
+        <div style={S.rowName}>
+          {r.line.item_name}{r.count > 1 ? ` ×${r.count}` : ''}
+          {r.tier === 'auto' && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: TEAL_LIGHT, border: `1px solid ${TEAL_LIGHT}`, borderRadius: 6, padding: '1px 5px' }}>auto</span>}
+          {r.mergedFrom && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, padding: '1px 5px' }}>merged ×{r.mergedFrom.length}</span>}
+        </div>
         <button style={S.acceptToggle(r.accept)} onClick={() => patchRow(idx, { accept: !r.accept })}>
           {r.accept ? <Check size={15} /> : null}
         </button>
@@ -441,6 +451,16 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
       {r.conversion && (
         <div style={S.convNote}>
           Converted from receipt price per {r.conversion.fromUnit} ({r.conversion.factor % 1 === 0 ? `${r.conversion.factor} ${r.conversion.toUnit}s per ${r.conversion.fromUnit}` : `${round(r.conversion.factor)}× ${r.conversion.toUnit}`}).
+        </div>
+      )}
+      {r.mergedFrom && (
+        <div style={{ fontSize: 11, color: GOLD, marginTop: 3 }}>
+          Merged {r.mergedFrom.length} receipt lines for this ingredient ({r.mergedFrom.join(' + ')}); price pooled by quantity.
+        </div>
+      )}
+      {r.priceSplit && (
+        <div style={{ fontSize: 11, color: RED, marginTop: 3 }}>
+          ⚠ Another line matched this ingredient at ${'{'}r.priceSplit.other{'}'} per unit — kept separate because the prices disagree. One may be a misparse.
         </div>
       )}
       {r.packShift && (

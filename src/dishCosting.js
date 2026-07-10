@@ -138,6 +138,28 @@ export const LINE_MAP = {
   'Good parm':              { id: 'parm', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : (u==='cup'? q*0.19 : q) }, // recipe gives oz, parm priced per lb
   'Heavy cream (oz)':       { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 oz = 1 cup
   'Cooking olive oil':      { id: 'olive_oil_cooking', conv: q => q }, // Graza Sizzle, priced per oz, recipe gives oz
+  // ── Spotlight: Lamb Leg Steak (Jul 9) ──
+  'Lamb leg steak (bone-in)': { id: 'lamb_leg_steak', conv: q => q },       // priced per lb, recipe gives lb
+  'Gigantes beans':         { id: 'gigantes_beans', conv: q => q },         // priced per oz, recipe gives oz
+  'Leeks':                  { id: 'leeks', conv: q => q },                  // priced per bunch, recipe gives bunch
+  'Preserved lemon':        { id: 'preserved_lemon', conv: q => q },        // priced per piece
+  'Coriander seed':         { id: 'coriander_seed', conv: q => q },         // priced per tbsp
+  // ── Spotlight: Thick-Cut Pork Chop (Jul 9) ──
+  'Bone-in pork rib chop':  { id: 'pork_rib_chop', conv: q => q },          // per lb
+  'Sweet potato':           { id: 'sweet_potato', conv: q => q },           // per each
+  'Cider':                  { id: 'cider', conv: q => q },                  // per oz (12 oz can)
+  'Broccolini':             { id: 'broccolini', conv: q => q },             // per bunch
+  'Sage':                   { id: 'sage', conv: q => q },                   // per pack (already ÷6 in seed)
+  'Cinnamon stick':         { id: 'cinnamon_stick', conv: q => q },
+  'Whole cloves':           { id: 'whole_cloves', conv: q => q },
+  'Allspice':               { id: 'allspice', conv: q => q },
+  // ── Spotlight: Steak au Poivre (Jul 9) ──
+  'Filet mignon':           { id: 'filet_mignon_dinner', conv: q => q },     // per lb (dinner cut, distinct from bag filet)
+  'Jumbo asparagus':        { id: 'jumbo_asparagus', conv: q => q },         // per lb
+  'Yukon gold potato':      { id: 'yukon_gold_potato', conv: q => q },       // per lb (distinct from baby golds)
+  'Cognac':                 { id: 'cognac', conv: q => q },                  // per oz (Courvoisier VS)
+  'Black pepper (oz)':      { id: 'black_pepper_oz', conv: q => q },
+  'Parsley':                { id: 'parsley', conv: q => q },                 // priced per bunch
   'Oaxaca cheese':          { id: 'oaxaca', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
   'Colby Jack':             { id: 'colby_jack', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
 

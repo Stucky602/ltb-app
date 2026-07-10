@@ -11,9 +11,13 @@ import { DISHES, ALWAYS_ITEMS } from './dishes.js';
 // options (spice level, pasta shape) carry them through — the publish
 // payload and both order forms read options from HERE, never from
 // hardcoded dish-name lists (Batch 3).
-export const ALL_DINNERS = DISHES.map(d => (d.options
-  ? { name: d.name, variants: d.variants, options: d.options }
-  : { name: d.name, variants: d.variants }));
+export const ALL_DINNERS = DISHES.map(d => {
+  const base = d.options
+    ? { name: d.name, variants: d.variants, options: d.options }
+    : { name: d.name, variants: d.variants };
+  if (d.spotlight) base.spotlight = true;
+  return base;
+});
 
 // Always-available items by category, same shapes as before (perLb items keep
 // their pricePerLb/costPerLb fields).

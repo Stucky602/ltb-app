@@ -468,10 +468,13 @@ export default function LTBOrderTracker() {
       return {
         name: item.name,
         variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })),
+        ...(item.spotlight ? { spotlight: true } : {}), // spotlight dinners route to their own form header
         ...(item.options ? { options: item.options } : {}), // form.html renders pickers from this (Batch 3)
       };
     };
-    const dishes = (activeMenu.dinner || []).map(toVariants);
+    const allDinners = (activeMenu.dinner || []).map(toVariants);
+    const dishes = allDinners.filter(d => !d.spotlight);
+    const spotlight = allDinners.filter(d => d.spotlight);
     const fruit = (activeMenu.fruit || []).map(toVariants);
     const desserts = (activeMenu.desserts || []).map(toVariants);
     const addons = (activeMenu.addons || []).map(toVariants);
@@ -479,7 +482,7 @@ export default function LTBOrderTracker() {
     const sauces = (activeMenu.sauces || []).map(toVariants);
     const payload = {
       token: PUBLISH_TOKEN,
-      dishes, fruit, desserts, addons, bag, sauces,
+      dishes, spotlight, fruit, desserts, addons, bag, sauces,
       menuPdfUrl: menuPdfUrl || '',
       weekLabel: weekLabel || '',
     };

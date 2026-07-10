@@ -23,8 +23,8 @@ export const INGREDIENT_SEED = [
   { id: 'chilis', name: 'Chilis (fresh mix)', unit: 'batch', baseline: 5.0, category: 'produce' },
   { id: 'cilantro', name: 'Cilantro', unit: 'bunch', baseline: 0.5, category: 'produce' },
   { id: 'basil', name: 'Thai basil', unit: 'bunch', baseline: 3.0, category: 'produce' },
-  { id: 'mint', name: 'Mint', unit: 'bunch', baseline: 2.5, category: 'produce' },
-  { id: 'thyme_fresh', name: 'Thyme (fresh)', unit: 'bunch', baseline: 1.0, category: 'produce' },
+  { id: 'mint', name: 'Mint', unit: 'bunch', baseline: 0.417, category: 'produce' },
+  { id: 'thyme_fresh', name: 'Thyme (fresh)', unit: 'bunch', baseline: 0.167, category: 'produce' },
   { id: 'fennel_bulb', name: 'Fennel bulb', unit: 'each', baseline: 4.2, category: 'produce' },
   { id: 'asparagus', name: 'Asparagus', unit: 'lb', baseline: 4.0, category: 'produce' },
   { id: 'chinese_broccoli', name: 'Chinese broccoli', unit: 'lb', baseline: 4.0, category: 'produce' },
@@ -44,6 +44,28 @@ export const INGREDIENT_SEED = [
   { id: 'baby_gold_potatoes', name: 'Baby gold potatoes', unit: 'lb', baseline: 2.0, category: 'produce' },
   { id: 'apple', name: 'Apple', unit: 'each', baseline: 1.5, category: 'produce' },
   { id: 'lemon', name: 'Lemon', unit: 'each', baseline: 0.5, category: 'produce' },
+  // ── Spotlight dinner ingredients (Lamb Leg Steak, Jul 9) ──
+  { id: 'lamb_leg_steak', name: 'Lamb leg steak (bone-in)', unit: 'lb', baseline: 18.99, category: 'meat' },
+  { id: 'gigantes_beans', name: 'Gigantes beans', unit: 'oz', baseline: 0.92, category: 'pantry' }, // 12 oz package @ ~$11
+  { id: 'leeks', name: 'Leeks', unit: 'bunch', baseline: 3.99, category: 'produce' },
+  { id: 'preserved_lemon', name: 'Preserved lemon', unit: 'piece', baseline: 0.5, category: 'pantry' }, // homemade, ~$0.50/piece
+  { id: 'coriander_seed', name: 'Coriander seed', unit: 'tbsp', baseline: 0.15, category: 'spice' },
+  { id: 'parsley', name: 'Parsley', unit: 'bunch', baseline: 1.0, category: 'produce' },
+  // ── Spotlight: Thick-Cut Pork Chop (Jul 9) ──
+  { id: 'pork_rib_chop', name: 'Bone-in pork rib chop', unit: 'lb', baseline: 5.24, category: 'meat' }, // HEB natural, ~1 lb/pack
+  { id: 'sweet_potato', name: 'Sweet potato', unit: 'each', baseline: 1.04, category: 'produce' }, // ~0.87 lb @ $1.21/lb
+  { id: 'cider', name: 'Cider', unit: 'oz', baseline: 0.208, category: 'pantry' }, // 12 oz can, 4-pack $10 = $2.50/can ÷ 12
+  { id: 'broccolini', name: 'Broccolini', unit: 'bunch', baseline: 3.99, category: 'produce' }, // aka baby broccoli
+  { id: 'sage', name: 'Sage', unit: 'pack', baseline: 0.417, category: 'produce' }, // $2.50 pack ÷ 6 (herb rule)
+  { id: 'cinnamon_stick', name: 'Cinnamon stick', unit: 'each', baseline: 0.2, category: 'spice' },
+  { id: 'whole_cloves', name: 'Whole cloves', unit: 'each', baseline: 0.03, category: 'spice' },
+  { id: 'allspice', name: 'Allspice', unit: 'each', baseline: 0.03, category: 'spice' },
+  // ── Spotlight: Steak au Poivre (Jul 9) ──
+  { id: 'filet_mignon_dinner', name: 'Filet mignon', unit: 'lb', baseline: 25.0, category: 'meat' }, // steak au poivre dinner cut (distinct from the bag Filet Mignon per-lb protein)
+  { id: 'jumbo_asparagus', name: 'Jumbo asparagus', unit: 'lb', baseline: 4.99, category: 'produce' }, // same price/parse as regular asparagus
+  { id: 'yukon_gold_potato', name: 'Yukon gold potato', unit: 'lb', baseline: 0.8, category: 'produce' }, // ~$0.05/oz = $0.80/lb; DISTINCT from baby golds
+  { id: 'cognac', name: 'Cognac', unit: 'oz', baseline: 1.102, category: 'pantry' }, // Courvoisier VS $28/750ml = $1.10/oz
+  { id: 'black_pepper_oz', name: 'Black pepper (oz)', unit: 'oz', baseline: 1.0, category: 'spice' }, // Kevin's standard spice cost (heavy backstock)
   { id: 'lime', name: 'Lime', unit: 'each', baseline: 0.25, category: 'produce' },
   { id: 'cantaloupe', name: 'Seasonal melon', unit: 'each', baseline: 3.0, category: 'produce' },
   { id: 'pineapple', name: 'Pineapple (per container)', unit: 'container', baseline: 2.5, category: 'produce' },
@@ -66,7 +88,7 @@ export const INGREDIENT_SEED = [
   { id: 'butter', name: 'Butter', unit: 'stick', baseline: 0.95, category: 'dairy' },
   { id: 'milk', name: 'Milk', unit: 'cup', baseline: 0.275, category: 'dairy' },
   { id: 'evaporated_milk', name: 'Evaporated milk', unit: 'cup', baseline: 1.53, category: 'dairy' },
-  { id: 'heavy_cream', name: 'Heavy cream', unit: 'cup', baseline: 3.0, category: 'dairy' },
+  { id: 'heavy_cream', name: 'Heavy cream', unit: 'cup', baseline: 1.5, category: 'dairy' },
   { id: 'eggs', name: 'Eggs', unit: 'each', baseline: 0.25, category: 'dairy' },
   { id: 'parm', name: 'Parmesan (good)', unit: 'lb', baseline: 23.0, category: 'dairy' },
   { id: 'oaxaca', name: 'Oaxaca cheese', unit: 'lb', baseline: 8.12, category: 'dairy' },
@@ -130,7 +152,7 @@ export const INGREDIENT_SEED = [
   { id: 'whole_grain_mustard', name: 'Whole grain mustard', unit: 'oz', baseline: 0.17, category: 'pantry' },
   { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, category: 'pantry' , passthrough: true }, // store-bought, sold at cost
   { id: 'polenta', name: 'Polenta (dry cornmeal)', unit: 'lb', baseline: 5.99, category: 'pantry' }, // measured: 0.795 lb = 1.75 cups dry
-  { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'bunch', baseline: 2.5, category: 'produce' },
+  { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'bunch', baseline: 0.417, category: 'produce' },
   { id: 'bourbon', name: 'Bourbon', unit: 'cup', baseline: 6.4, category: 'pantry' },
   { id: 'espresso', name: 'Espresso', unit: 'shot', baseline: 1.5, category: 'pantry' },
   { id: 'salt', name: 'Salt', unit: 'batch-use', baseline: 0.05, category: 'spice' },

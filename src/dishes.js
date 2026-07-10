@@ -44,8 +44,8 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: '~4 servings', price: 100, cost: 45.08 },
-      { label: 'With 1 lb mushrooms', price: 112, cost: 51.08 },
+      { label: '~4 servings', price: 100, cost: 44.18 },
+      { label: 'With 1 lb mushrooms', price: 112, cost: 50.18 },
     ],
     recipe: {
       factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
@@ -547,10 +547,10 @@ export const DISHES = [
     equipment: { flexible: ['dutch', 'largePot'] },
     options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] } }, // egg-papp variants ARE the pasta
     variants: [
-      { label: 'Small (split order, ~4)', price: 45, cost: 22.58 },
-      { label: 'Large (~8)', price: 80, cost: 44.07 },
-      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 55, cost: 27.12 },
-      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 57.71 },
+      { label: 'Small (split order, ~4)', price: 45, cost: 22.13 },
+      { label: 'Large (~8)', price: 80, cost: 43.17 },
+      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 55, cost: 26.67 },
+      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 56.81 },
     ],
     recipe: {
       factors: {
@@ -612,8 +612,8 @@ export const DISHES = [
     baggedPasta: true, // bagged dish finished by mixing with cooked pasta
     equipment: { fixed: ['wok'] },
     variants: [
-      { label: 'Small (~2-3)', price: 35, cost: 15.48 },
-      { label: 'Large (~5-6)', price: 65, cost: 30.96 },
+      { label: 'Small (~2-3)', price: 35, cost: 15.25 },
+      { label: 'Large (~5-6)', price: 65, cost: 30.51 },
     ],
     recipe: {
       factors: { 'Small (~2-3)': 0.5, 'Large (~5-6)': 1 },
@@ -669,19 +669,52 @@ export const DISHES = [
       },
     },
   },
+
   {
+    name: 'Pork with Mustard Tarragon Cream Sauce',
+    cuisine: 'German',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { backBurner: true }, // soft claim — quick sauce reduction, just be mindful (Kevin)
+    // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
+    variants: [
+      { label: 'Small (~3 servings)', price: 45, cost: 21.29 },
+      { label: 'Large (~6 servings)', price: 85, cost: 42.59 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~3 servings)': 1,
+        'Large (~6 servings)': 2,
+      },
+      base: [
+        I('Pork tenderloin (sous vide)', 1.25, 'lb'),
+        I('Sous vide bag + butter + herbs (costed)', 1, ''),
+        I('Butter', 2, 'tbsp'),
+        I('Shallot', 2, 'oz'),
+        I('Garlic', 2, 'cloves'),
+        I('White wine', 0.5, 'cup'),
+        I('Heavy cream', 1, 'cup'),
+        I('Whole grain mustard', 2, 'tbs'),
+        I('Fresh tarragon', 0.5, 'bunch'),
+        I('Egg taglierini', 1, 'pack'),
+      ],
+    },
+  },
+
+{
     name: 'Mushroom Ragu',
-    cuisine: 'Italian',
+    cuisine: 'Spotlight',
+    spotlight: true,
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
     options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variant replaces pasta; egg pappardelle is the default
     variants: [
-      // Single size only (expensive dish, no Large). Polenta sub is the SAME
-      // price as pasta — the required egg pappardelle costs about what the
-      // polenta does, so it's a wash (Kevin, Jul 2026).
-      { label: 'Small (~4-5 servings)', price: 60, cost: 37.20 },
-      { label: 'Small (~4-5 servings) + Polenta', price: 60, cost: 31.05 },
+      // Single size only (expensive dish, no Medium/Large — already 4-5
+      // servings). Promoted to Spotlight and repriced to $70 both variants
+      // (Kevin, Jul 9): fixes the tight margin and anchors the veg spotlight.
+      { label: 'Small (~4-5 servings)', price: 70, cost: 36.3 },
+      { label: 'Small (~4-5 servings) + Polenta', price: 70, cost: 30.15 },
     ],
     recipe: {
       factors: {
@@ -714,39 +747,123 @@ export const DISHES = [
       },
     },
   },
+
+  // ── SPOTLIGHT DINNERS (bottom of the dinner list, before the bag section) ──
+  // Higher-price plates built around pricier ingredients; one is featured per
+  // week. Tagged spotlight:true so WeekTab/publish can route the selected one
+  // to its own "Spotlight dinner of the week" header on the weekly menu.
   {
-    name: 'Pork with Mustard Tarragon Cream Sauce',
-    cuisine: 'German',
-    reheat: 'pasta',
-    pasta: true,
-    equipment: { backBurner: true }, // soft claim — quick sauce reduction, just be mindful (Kevin)
-    // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
+    name: 'Lamb Leg Steak',
+    cuisine: 'Spotlight',
+    spotlight: true,
+    reheat: 'lambSpotlight', // dedicated two-part card: sear the lamb, warm the beans
+    chillOnly: true,
+    equipment: { backBurner: true }, // soft claim — quick sear + a bag in simmering water
     variants: [
-      { label: 'Small (~3 servings)', price: 45, cost: 22.42 },
-      { label: 'Large (~6 servings)', price: 85, cost: 44.84 },
+      { label: 'Small (~2 servings)', price: 50, cost: 26.12 },
+      { label: 'Medium (~4 servings)', price: 90, cost: 52.24 },
+      { label: 'Large (~6 servings)', price: 135, cost: 78.36 },
     ],
     recipe: {
       factors: {
-        'Small (~3 servings)': 1,
-        'Large (~6 servings)': 2,
+        'Small (~2 servings)': 1,
+        'Medium (~4 servings)': 2,
+        'Large (~6 servings)': 3,
       },
       base: [
-        I('Pork tenderloin (sous vide)', 1.25, 'lb'),
-        I('Sous vide bag + butter + herbs (costed)', 1, ''),
-        I('Butter', 2, 'tbsp'),
-        I('Shallot', 2, 'oz'),
+        I('Lamb leg steak (bone-in)', 0.66, 'lb'),
+        I('Gigantes beans', 4, 'oz'),
+        I('Leeks', 1, 'bunch'),
+        I('Butter', 6, 'tbsp'),
+        I('Preserved lemon', 2, 'piece'),
+        I('Cooking olive oil', 1, 'oz'),
+        I('Coriander seed', 1, 'tbsp'),
+        I('Garlic', 3, 'cloves'),
+        I('Parsley', 0.5, 'bunch'),
+        I('Lemon', 1, ''),
+      ],
+    },
+  },
+  {
+    name: 'Bone-In Pork Rib Chop with All the Fixings',
+    cuisine: 'Spotlight',
+    spotlight: true,
+    reheat: 'porkChopSpotlight', // dedicated four-part card: sear pork, warm purée/broccolini bags, gentle sauce
+    chillOnly: true,
+    equipment: { backBurner: true }, // soft claim — sear + a couple bags in water + a gentle sauce reduction
+    // Wrap cost is deliberately ABSORBED on this dish (not costed): the pork,
+    // broccolini, and butter already make it expensive, so Kevin eats the
+    // container cost to keep the price sane (Kevin, Jul 9). Large runs thin on
+    // margin by design. Stabilizers (xanthan + soy lecithin) in the sauce are
+    // not costed (negligible) but drive the Soy allergen + reheat forgiveness.
+    variants: [
+      { label: 'Small (~2 servings)', price: 50, cost: 25.72 },
+      { label: 'Medium (~4 servings)', price: 95, cost: 51.45 },
+      { label: 'Large (~6 servings)', price: 130, cost: 77.17 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~2 servings)': 1,
+        'Medium (~4 servings)': 2,
+        'Large (~6 servings)': 3,
+      },
+      base: [
+        I('Bone-in pork rib chop', 2, 'lb'),
+        I('Sweet potato', 2, ''),
+        I('Cider', 12, 'oz'),
+        I('Butter', 2, 'stick'),
+        I('Broccolini', 1, 'bunch'),
+        I('Sage', 1, 'pack'),
+        I('Heavy cream', 0.33, 'cup'),
+        I('Brown sugar', 3, 'tbsp'),
+        I('Shallot', 0.1, 'lb'),
         I('Garlic', 2, 'cloves'),
-        I('White wine', 0.5, 'cup'),
-        I('Heavy cream', 1, 'cup'),
-        I('Whole grain mustard', 2, 'tbs'),
-        I('Fresh tarragon', 0.5, 'bunch'),
-        I('Egg taglierini', 1, 'pack'),
+        I('Fresh thyme', 1, 'bunch'),
+        I('Bay leaf', 1, ''),
+        I('Cinnamon stick', 1, ''),
+        I('Whole cloves', 3, ''),
+        I('Allspice', 3, ''),
+        I('Nutmeg', 1, 'pinch'),
+      ],
+    },
+  },
+  {
+    name: 'Steak au Poivre',
+    cuisine: 'Spotlight',
+    spotlight: true,
+    reheat: 'steakAuPoivreSpotlight', // four-part: sear filet (30 min warm), warm purée/asparagus bags, gentle sauce
+    chillOnly: true,
+    equipment: { backBurner: true },
+    // The most expensive dish on the menu, by design — real filet mignon ($25
+    // small) + a Courvoisier-and-cream sauce. Wrap cost absorbed. Large runs
+    // under floor (~42%) at Kevin's chosen $210. Stabilized sauce (xanthan +
+    // soy lecithin, uncosted) → Soy allergen + reheat forgiveness note.
+    variants: [
+      { label: 'Small (~2 servings)', price: 80, cost: 43.58 },
+      { label: 'Medium (~4 servings)', price: 150, cost: 87.15 },
+      { label: 'Large (~6 servings)', price: 210, cost: 130.73 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~2 servings)': 1,
+        'Medium (~4 servings)': 2,
+        'Large (~6 servings)': 3,
+      },
+      base: [
+        I('Filet mignon', 1, 'lb'),
+        I('Heavy cream', 2, 'cup'),
+        I('Jumbo asparagus', 0.66, 'lb'),
+        I('Yukon gold potato', 1, 'lb'),
+        I('Cognac', 2.67, 'oz'),
+        I('Butter', 4, 'tbsp'),
+        I('Black pepper (oz)', 1, 'oz'),
+        I('Fresh thyme', 1, 'bunch'),
+        I('Shallot', 0.1, 'lb'),
+        I('Garlic', 1, 'cloves'),
       ],
     },
   },
 ];
-
-// ── ALWAYS-MENU ITEMS (breakfast/fruit/desserts/addons/bag/sauces) ──────────
 // Same registry idea: each item's recipe/equipment/packaging lives on the
 // record. packaging: 'jar' → $2 wrap, 'none' → $0, absent → default $1.
 export const ALWAYS_ITEMS = {

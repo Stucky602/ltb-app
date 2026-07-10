@@ -189,6 +189,21 @@ export function buildReheatBlocks(order) {
   // sous vide pork, warm the sauce, cook the taglierini fresh).
   let porkMustardOrdered = items.some(it => it.name === 'Pork with Mustard Tarragon Cream Sauce');
 
+  // Lamb Leg Steak (Spotlight) — dedicated two-part card: sear the lamb
+  // (remove bone, pat dry, hard sear, no rest — thin cut), warm the bean/leek
+  // bag in simmering water, slice the lamb over the top.
+  let lambSpotlightOrdered = items.some(it => it.name === 'Lamb Leg Steak');
+
+  // Thick-Cut Pork Chop (Spotlight) — dedicated four-part card: sear the thick
+  // pork (30+ min counter-warm), warm the purée + broccolini bags, gentle
+  // reheat on the stabilized "beurre blanc," plate it all.
+  let porkChopSpotlightOrdered = items.some(it => it.name === 'Bone-In Pork Rib Chop with All the Fixings');
+
+  // Steak au Poivre (Spotlight) — dedicated four-part card: sear the thick
+  // filet (30 min counter-warm, 131°F no exceptions), warm the pommes purée +
+  // asparagus bags, gentle reheat on the stabilized peppercorn-cognac sauce.
+  let steakAuPoivreOrdered = items.some(it => it.name === 'Steak au Poivre');
+
   // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice: the Beef/Lamb
   // noodles for rice, so they need their own rice-cooking instructions
   // instead of being lumped into the shared noodle/pasta bucket text. Same
@@ -319,6 +334,33 @@ export function buildReheatBlocks(order) {
     });
   }
 
+  // ── Lamb Leg Steak (Spotlight) — dedicated two-part card ──────────────
+  if (lambSpotlightOrdered) {
+    blocks.push({
+      title: 'Sear the lamb, warm the beans',
+      dishes: ['Lamb Leg Steak'],
+      body: 'Two parts: the lamb in a sealed bag, and the gigantes beans and leeks together in their own bag. Start with the lamb. Pull it out and remove the bone first so it sears clean, then pat it very dry. Sear hard in a blazing-hot pan with a little oil, just until deeply browned on each side. This is a thinner cut, so do not let it come to room temperature first, take it straight from cold to the hot pan. While it sears, warm the beans and leeks: drop the sealed bag into a pot of simmering water for a few minutes until hot, then spoon them onto the plate. Slice the lamb thin and lay it over the top.',
+    });
+  }
+
+  // ── Steak au Poivre (Spotlight) — dedicated four-part card ───────────
+  if (steakAuPoivreOrdered) {
+    blocks.push({
+      title: 'Sear the steak, warm everything else',
+      dishes: ['Steak au Poivre'],
+      body: 'Four parts: the filet in a sealed bag, the pommes puree in a bag, the asparagus in a bag, and the peppercorn-cognac "beurre blanc" in a container. Start with the steak. This is a thick cut, so let it sit out on the counter for 30 minutes before searing, then pat it very dry and sear hard on each side in a blazing-hot pan until deeply browned, and rest it a few minutes before serving. It is cooked to 131F, a perfect medium rare. While it rests, reheat the puree bag in a pot of simmering water for a few minutes. The asparagus goes in the simmering water too, but go easy, it overcooks fast, so a minute is plenty. Warm the sauce gently in a small saucepan over low heat. It is stabilized to hold up to a home reheat, so you have some room, just do not rush it over high heat. To plate: spoon the puree down, lay the filet over it, the asparagus alongside, and pour the sauce over the steak.',
+    });
+  }
+
+  // ── Thick-Cut Pork Chop (Spotlight) — dedicated four-part card ────────
+  if (porkChopSpotlightOrdered) {
+    blocks.push({
+      title: 'Sear the pork, warm everything else',
+      dishes: ['Bone-In Pork Rib Chop with All the Fixings'],
+      body: 'Four parts: the pork in a sealed bag, the sweet potato puree in a bag, the broccolini in a bag, and the cider-thyme "beurre blanc" in a container. Start the pork first since it needs a head start. This is a very thick cut, so let it sit out on the counter for 30 minutes or more before searing, then pat it very dry and sear hard on each side in a blazing-hot pan until deeply browned. While it rests, reheat the puree and broccolini bags in a pot of simmering water for a few minutes each. Warm the sauce gently in a small saucepan over low heat. It is a "beurre blanc," so in theory it can break, but this one is stabilized to hold up to a home reheat, so you have some room. Just do not rush it over high heat. To plate: spread the puree down first, lay the pork chop on one side, the broccolini on the other, then drizzle the sauce over all of it.',
+    });
+  }
+
   // ── Pork with Mustard Tarragon Cream Sauce — dedicated 3-part card ─────
   if (porkMustardOrdered) {
     blocks.push({
@@ -441,6 +483,11 @@ export function itemHandling(name, opts = {}) {
       : bucket === 'pasta' ? REHEAT_CUES.cookFreshPasta
       : bucket === 'noodle' ? REHEAT_CUES.cookFreshNoodle
       : bucket === 'stovetop' ? REHEAT_CUES.stovetopSplash
+      // Spotlight multi-part dishes: the label must say SEAR, not "warm
+      // gently" — these are sear-to-finish plates with bagged sides.
+      : bucket === 'lambSpotlight' ? 'Sear the lamb (no rest, thin cut); beans reheat in the bag'
+      : bucket === 'porkChopSpotlight' ? 'Counter-warm 30+ min, then sear; sides reheat in their bags'
+      : bucket === 'steakAuPoivreSpotlight' ? 'Counter-warm 30 min, then sear to 131F; sides reheat in their bags'
       : REHEAT_CUES.stovetop;
     return { reheatable: true, cue, packaging: 'per-qty' };
   }

@@ -395,7 +395,13 @@ export function buildPortfolioSummary(ctx = {}) {
   const floorPct = ctx.floorPct ?? 45;
   return DISHES.map(dish => {
     const econ = dish.variants.map(v => variantEconomics(dish.name, v, liveCostMap, baseCostMap, floorPct));
-    const worst = econ.reduce((a, b) => (b.marginLivePct < a.marginLivePct ? b : a), econ[0]);
+    // Worst-margin and floor flags anchor to SMALL variants only (Kevin, Jul 9):
+    // Medium/Large carry deliberate volume discounts, so judging a dish by its
+    // big-size margin cries wolf. Falls back to all variants when no label
+    // says Small (single-size dishes, "~4 servings" style labels).
+    const smalls = econ.filter(v => /small/i.test(v.label));
+    const judged = smalls.length ? smalls : econ;
+    const worst = judged.reduce((a, b) => (b.marginLivePct < a.marginLivePct ? b : a), judged[0]);
     const gappiest = econ.reduce((a, b) => (Math.abs(b.anchorGapPct ?? 0) > Math.abs(a.anchorGapPct ?? 0) ? b : a), econ[0]);
     const driftiest = econ.reduce((a, b) => (Math.abs(b.driftPct) > Math.abs(a.driftPct) ? b : a), econ[0]);
     const hasPT = econ.some(v => v.hasPassthrough);
@@ -405,9 +411,9 @@ export function buildPortfolioSummary(ctx = {}) {
       variantCount: dish.variants.length,
       worstMarginPct: Math.round(worst.marginLivePct * 10) / 10,
       worstMarginVariant: worst.label,
-      worstValueAddPct: hasPT ? Math.round(Math.min(...econ.map(v => v.valueAddMarginPct)) * 10) / 10 : null,
+      worstValueAddPct: hasPT ? Math.round(Math.min(...judged.map(v => v.valueAddMarginPct)) * 10) / 10 : null,
       hasPassthrough: hasPT,
-      underFloor: econ.some(v => v.underFloorEffective), // pasta judged on value-add
+      underFloor: judged.some(v => v.underFloorEffective), // pasta judged on value-add; Smalls only
       maxAnchorGapPct: gappiest.anchorGapPct,
       maxDriftPct: Math.round(driftiest.driftPct * 10) / 10,
     };

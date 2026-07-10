@@ -25,7 +25,7 @@ import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
 import { scoreWeekCandidates, dishRunStats, composeWeek } from '../src/weekPlanner.js';
 import { mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames, regularMatchType } from '../src/utils.js';
-import { itemHandling, mergeShoppingRows, parseShoppingLine } from '../src/recipes.js';
+import { itemHandling, mergeShoppingRows, parseShoppingLine, buildAutoShoppingRows } from '../src/recipes.js';
 import { buildCookSchedule } from '../src/cookSchedule.js';
 import { buildWeeklyDigest } from '../src/digest.js';
 import { companionHtml, companionContext } from '../src/companion.js';
@@ -33,7 +33,7 @@ import { parseVoiceCommand, matchItemName } from '../src/voiceCommands.js';
 import { attachRates, usualOrder } from '../src/regularsIntel.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { monthlyPnl, pnlToCsv } from '../src/books.js';
-import { buildReviewPlan, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
+import { buildReviewPlan, containerPriceCheck, extractNameSizes, countBaseOf, wineHint, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, reconcileReceipt, priceDriftReport } from '../src/receiptMatch.js';
 import { normalizeIngredientName } from '../src/recipes.js';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -1611,6 +1611,36 @@ TAX  0.00
   // Different ingredients NEVER combine.
   const distinct = mergeShoppingRows([{ id: 'x', text: 'Dark soy — 2 tbs', checked: false }, { id: 'y', text: 'Soy sauce — 2 tbs', checked: false }]);
   if (distinct.length !== 2) F('shop-merge', 'dark soy and soy sauce are different things');
+}
+
+// ─── Self-maintaining shopping list (Jul 9 automation) ──────────────────────
+{
+  let n = 0; const mkId = () => 'sid' + (n++);
+  const o1 = [{ status: 'Ordered', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }] }];
+  const o2 = [...o1, { status: 'Ordered', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }] }];
+  const first = buildAutoShoppingRows(o1, false, [], mkId);
+  if (!first.length || !first.every(r => r.auto)) F('auto-shop', 'first build must be all auto rows');
+  // Check chicken mid-shop; add a manual row; a second order lands → regen:
+  const checked = first.map(r => /Chicken thighs/.test(r.text) ? { ...r, checked: true } : r);
+  const regen = buildAutoShoppingRows(o2, false, [...checked, { id: 'm', text: 'paper towels', checked: false }], mkId);
+  const chick = regen.filter(r => /Chicken thighs/.test(r.text));
+  if (chick.length !== 1) F('auto-shop', 'regen must not duplicate rows');
+  if (!/4 lb/.test(chick[0].text)) F('auto-shop', `qty must double with the second order: ${chick[0].text}`);
+  if (!chick[0].checked) F('auto-shop', 'checkmark must survive a QUANTITY change (keyed by name, not text)');
+  if (!regen.some(r => r.text === 'paper towels')) F('auto-shop', 'manual rows must survive regeneration');
+  // Orders emptying (all delivered/archived) empties the AUTO layer only.
+  const empty = buildAutoShoppingRows([], false, regen, mkId);
+  if (empty.some(r => r.auto)) F('auto-shop', 'no active orders = no auto rows');
+  if (!empty.some(r => r.text === 'paper towels')) F('auto-shop', 'manual rows persist even with zero orders');
+}
+
+// ─── Manual-entry container guard (the anchovy bug, Jul 9) ──────────────────
+{
+  const r = containerPriceCheck('anchovies', 5.78, 0.30);
+  if (!r || Math.abs(r.converted - 0.289) > 0.001) F('container-guard', `jar price must convert ÷20: ${JSON.stringify(r)}`);
+  if (containerPriceCheck('anchovies', 0.35, 0.30) !== null) F('container-guard', 'legit small edits must pass silently');
+  if (!containerPriceCheck('kosher_salt', 3.50, 0.02)) F('container-guard', 'the guard must cover every PACK_OVERRIDE ingredient');
+  if (containerPriceCheck('shrimp', 7.49, 7.49) !== null) F('container-guard', 'non-container ingredients never trigger');
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

@@ -154,25 +154,32 @@
     }
 
     // Dinners
+    var anyBagged = false;
     if (dishes.length){
       html += '<div class="section-head">This Week\'s Dinners</div>';
-      var anyBagged = false;
       dishes.forEach(function(d){
         html += renderDish(d, "dinner");
         var copy = lookupCopy(d.name, "dinner");
         if (copy && copy.bagged) anyBagged = true;
       });
-      if (anyBagged){
-        html += '<div class="info-card"><h4>A Note On Bagged Dishes</h4><p>'+esc(LIBRARY.static.baggedNote)+'</p></div>';
-      }
     }
 
     // Spotlight Dinner of the Week — same rendering as dinners, own header.
+    // Rendered right after the dinners, before the bagged-dishes note.
     if (spotlight.length){
       html += '<div class="section-head">Spotlight Dinner of the Week</div>';
       spotlight.forEach(function(d){
         html += renderDish(d, "dinner");
+        var scopy = lookupCopy(d.name, "dinner");
+        if (scopy && scopy.bagged) anyBagged = true;
       });
+    }
+
+    // Bagged-dishes note covers BOTH dinners and spotlight, so it comes after both.
+    if (dishes.length || spotlight.length){
+      if (anyBagged){
+        html += '<div class="info-card"><h4>A Note On Bagged Dishes</h4><p>'+esc(LIBRARY.static.baggedNote)+'</p></div>';
+      }
     }
 
     // Ready to Finish (bag category) — proteins, then vegetables as one consolidated entry

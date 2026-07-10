@@ -11,7 +11,8 @@ const S = {
 };
 
 // #6 The Monday briefing — everything the app knows, in one read.
-export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap }) {
+export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut }) {
+  const [fbMsg, setFbMsg] = useState(null);
   const [open, setOpen] = useState(false);
   const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
     [open, orders, regulars, liveCostMap, baseCostMap]);
@@ -43,6 +44,53 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap }) {
             <div style={S.h}>Cost movers</div>
             {d.drifters.map(m => <div key={m.name} style={S.p}>{m.name}: costs {m.driftPct > 0 ? 'up' : 'down'} {Math.abs(m.driftPct)}% vs anchor.</div>)}
           </>)}
+
+          {d.reheatReport && d.reheatReport.length > 0 && (<>
+            <div style={S.h}>Reheat report (from kitchen pages)</div>
+            {d.reheatReport.map(r => (
+              <div key={r.dish} style={{ ...S.p, color: r.bad > 0 ? C.bad : r.meh > 0 ? C.warn : C.text }}>
+                {r.dish}: {r.good > 0 ? `${r.good} perfect` : ''}{r.meh > 0 ? `${r.good > 0 ? ', ' : ''}${r.meh} a little off` : ''}{r.bad > 0 ? `${(r.good > 0 || r.meh > 0) ? ', ' : ''}${r.bad} had trouble` : ''}
+                {r.bad >= 2 ? ' — same dish, multiple kitchens. That is a technique signal, not a customer one.' : ''}
+                {(r.notes || []).slice(-3).map((n, i) => (
+                  <div key={i} style={{ fontSize: 12, color: C.dim, marginLeft: 10, marginTop: 2, fontStyle: 'italic' }}>
+                    "{n.note}"
+                  </div>
+                ))}
+              </div>
+            ))}
+          </>)}
+
+          {onCloseOut && (
+            <button
+              style={{ width: '100%', marginTop: 12, padding: '10px', borderRadius: 8, border: '1px solid #3d4a2e', background: '#232d2a', color: '#EF9F27', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}
+              onClick={async () => {
+                setFbMsg('Closing out…');
+                try {
+                  const r = await onCloseOut();
+                  setFbMsg(`Week closed: ${r.archived} order${r.archived !== 1 ? 's' : ''} archived${r.feedback ? `, ${r.feedback} kitchen tap${r.feedback !== 1 ? 's' : ''} pulled` : ''}.`);
+                } catch (e) { setFbMsg('Close-out hit a snag. Orders are untouched.'); }
+                setTimeout(() => setFbMsg(null), 5000);
+              }}
+            >
+              Close out the week
+            </button>
+          )}
+          {onPullFeedback && (
+            <button
+              style={{ width: '100%', marginTop: 12, padding: '9px', borderRadius: 8, border: `1px solid ${C.border}`, background: '#232d2a', color: C.good, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+              onClick={async () => {
+                setFbMsg('Pulling…');
+                try {
+                  const r = await onPullFeedback();
+                  setFbMsg(r.attached ? `Attached ${r.attached} tap${r.attached !== 1 ? 's' : ''} to orders.` : 'No new feedback yet.');
+                } catch (e) { setFbMsg('Pull failed. Is the v8 worker deployed?'); }
+                setTimeout(() => setFbMsg(null), 4000);
+              }}
+            >
+              Pull kitchen feedback
+            </button>
+          )}
+          {fbMsg && <div style={{ fontSize: 12, color: C.dim, marginTop: 6, textAlign: 'center' }}>{fbMsg}</div>}
 
           <div style={S.h}>A week that would balance</div>
           {d.proposal.picks.slice(0, 6).map(p => (

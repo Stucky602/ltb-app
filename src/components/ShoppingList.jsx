@@ -9,6 +9,7 @@ import {
   isPerLbItem, buildMenu, CATEGORY_LABELS, STATUSES, STATUS_COLORS,
 } from '../menu.js';
 import {
+  mergeShoppingRows,
   RECIPES, INGREDIENT_SYNONYMS, SOUS_VIDE_VEG, DINNER_REHEAT_BUCKET,
   RICE_DISHES, PASTA_DISHES, NOODLE_DISHES,
   normalizeIngredientName, generateShoppingItems, buildReheatBlocks,
@@ -33,9 +34,9 @@ import {
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 
-export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory }) {
+export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost, weekDishes, inventory, onAdjustInventory, onSetInventory, includeStaples, onToggleStaples }) {
   const [input, setInput] = useState('');
-  const [includeStaples, setIncludeStaples] = useState(false);
+
   const [confirmClear, setConfirmClear] = useState(false);
 
   // ── Single-dish test-run picker ───────────────────────────────────────────
@@ -99,7 +100,10 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
       lines.push({ id: uid(), text: `${qtyStr}${ing.u ? ' ' + ing.u : ''} ${ing.name}`, checked: false });
     });
 
-    onChange([...items, ...lines]);
+    // Auto-merge: the new dish's ingredients combine with anything already on
+    // the list (Kevin's rule: merge whenever it can). The section header is
+    // consumed by the merge — combined rows can't honestly sit under one dish.
+    onChange(mergeShoppingRows([...items, ...lines]));
     setPickerDish(null);
   };
 
@@ -111,7 +115,7 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
       .filter(Boolean);
     if (lines.length === 0) return;
     const additions = lines.map(text => ({ id: uid(), text, checked: false }));
-    onChange([...items, ...additions]);
+    onChange(mergeShoppingRows([...items, ...additions])); // pasted lines combine with what's already listed
     setInput('');
   };
 
@@ -299,15 +303,15 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
       </div>
 
       <div style={styles.genCard}>
-        <div style={styles.genTitle}>Build list from this week's orders</div>
+        <div style={styles.genTitle}>This week's list maintains itself</div>
         <div style={styles.genHint}>
-          Reads every active order and adds up the ingredients per recipe. Re-tap any time orders change — your manual items and checkmarks stay put.
+          The list rebuilds automatically whenever active orders change — a late order updates quantities on its own. Your manual items stay put, and checkmarks survive quantity changes. The button below is a manual refresh if you ever want one.
         </div>
         <label style={styles.genToggleRow}>
           <input
             type="checkbox"
             checked={includeStaples}
-            onChange={e => setIncludeStaples(e.target.checked)}
+            onChange={e => onToggleStaples(e.target.checked)}
             style={styles.genCheckbox}
           />
           Include pantry staples (soy, spices, oils, etc.)
@@ -317,7 +321,7 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
           onClick={() => onGenerate(includeStaples)}
           disabled={activeCount === 0}
         >
-          {activeCount === 0 ? 'No active orders yet' : `Generate from ${activeCount} active order${activeCount !== 1 ? 's' : ''}`}
+          {activeCount === 0 ? 'No active orders yet' : `Refresh from ${activeCount} active order${activeCount !== 1 ? 's' : ''}`}
         </button>
       </div>
 
@@ -353,6 +357,9 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
         <>
           <div style={styles.cookHeader}>
             <div style={styles.cookSummary}>{doneCount}/{items.length} in the cart</div>
+            <button style={styles.resetBtn} onClick={() => onChange(mergeShoppingRows(items))}>
+              Combine duplicates
+            </button>
             {doneCount > 0 && (
               <button style={styles.resetBtn} onClick={uncheckAll}>
                 <RotateCcw size={13} />

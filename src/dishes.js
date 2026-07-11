@@ -1072,9 +1072,14 @@ export const ALWAYS_ITEMS = {
     // form.html render, so this array IS the customer-facing order.
     // ── BEEF (alphabetical) ──────────────────────────────────────────────────
     {
-      name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 25, avgWeightLb: 0.5,
-      variants: [{ label: 'price by weight', price: 34, cost: 25 }],
+      name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 23.49, avgWeightLb: 0.5,
+      variants: [{ label: 'price by weight', price: 34, cost: 23.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Filet Mignon - Prime', packaging: 'none', perLb: true, pricePerLb: 55, costPerLb: 34.99, avgWeightLb: 0.5,
+      variants: [{ label: 'price by weight', price: 55, cost: 34.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       name: 'Flank Steak', packaging: 'none', perLb: true, pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
@@ -1087,9 +1092,21 @@ export const ALWAYS_ITEMS = {
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 19, avgWeightLb: 0.75,
-      variants: [{ label: 'price by weight', price: 30, cost: 19 }],
+      name: 'NY Strip - Prime', packaging: 'none', perLb: true, pricePerLb: 32, costPerLb: 17.99, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 32, cost: 17.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 16.49, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 30, cost: 16.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      // Prime line: renders directly under the regular Ribeye. Separate perLb
+      // item (name-keyed pricing) so the whole weight pipeline works unchanged.
+      name: 'Ribeye - Prime', packaging: 'none', perLb: true, pricePerLb: 35, costPerLb: 19.99, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 35, cost: 19.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── PORK (alphabetical) ──────────────────────────────────────────────────
     {
@@ -1167,5 +1184,16 @@ export const ALL_ALWAYS_ITEMS = Object.values(ALWAYS_ITEMS).flat();
 // focused — not every jarred add-on needs a report.
 const REPORTABLE_ALWAYS_NAMES = ['Queso', 'Chocolate Chip Cookies', 'Peanut Butter Fudge'];
 export const REPORTABLE_ALWAYS_ITEMS = ALL_ALWAYS_ITEMS.filter(it => REPORTABLE_ALWAYS_NAMES.includes(it.name));
-// The full universe the Recipes tab reports on: dinners + those always-items.
-export const REPORTABLE_DISHES = [...DISHES, ...REPORTABLE_ALWAYS_ITEMS];
+
+// The "Ready to Finish" (sous vide proteins) and "Sous Vide Vegetables" bag
+// items are cost/margin-tracked in the Recipes tab too, but behind their own
+// collapsed dropdowns (Kevin looks at them rarely). Split the bag category by
+// whether an item is a vegetable (isSousVideVeg copy flag would be ideal, but
+// the registry doesn't carry copy — so we split by an explicit veg-name set).
+const SOUS_VIDE_VEG_NAMES = new Set(['Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Kabocha Squash', 'Parsnips', 'Asparagus', 'Garlic Confit']);
+const BAG_ITEMS = ALWAYS_ITEMS.bag || [];
+export const REPORTABLE_BAG_PROTEINS = BAG_ITEMS.filter(it => !SOUS_VIDE_VEG_NAMES.has(it.name));
+export const REPORTABLE_BAG_VEG = BAG_ITEMS.filter(it => SOUS_VIDE_VEG_NAMES.has(it.name));
+
+// Full reporting universe: dinners + queso/desserts + bag proteins + bag veg.
+export const REPORTABLE_DISHES = [...DISHES, ...REPORTABLE_ALWAYS_ITEMS, ...REPORTABLE_BAG_PROTEINS, ...REPORTABLE_BAG_VEG];

@@ -28,7 +28,7 @@
 // The decomposition is TOTAL and COLLISION-FREE by invariant: every variant
 // maps to exactly one (flavor, size) cell and no cell holds two variants.
 // ═══════════════════════════════════════════════════════════════════════════
-import { DISHES, REPORTABLE_DISHES } from './dishes.js';
+import { DISHES, REPORTABLE_DISHES, REPORTABLE_ALWAYS_ITEMS, REPORTABLE_BAG_PROTEINS, REPORTABLE_BAG_VEG } from './dishes.js';
 import { RECIPES, DINNER_REHEAT_BUCKET, buildReheatBlocks } from './recipes.js';
 import {
   resolveDishVariant, costDishVariant, MARGIN_BUFFER, trueRawCost, baselineCostMap, PASSTHROUGH_IDS,
@@ -421,8 +421,17 @@ export function buildPortfolioSummary(ctx = {}) {
 }
 
 // All dinner names in registry (display) order — the tab's dropdown source.
+// Main Recipes dropdown: dinners + queso/desserts only (Kevin's core list).
+// The bag proteins and sous-vide veg live behind their own collapsed dropdowns
+// via reportableProteins()/reportableVeg() so they don't clutter this one.
 export function reportableDishes() {
-  return REPORTABLE_DISHES.map(d => d.name);
+  return [...DISHES, ...REPORTABLE_ALWAYS_ITEMS].map(d => d.name);
+}
+export function reportableProteins() {
+  return REPORTABLE_BAG_PROTEINS.map(d => d.name);
+}
+export function reportableVeg() {
+  return REPORTABLE_BAG_VEG.map(d => d.name);
 }
 
 // ── Per-dish sales history ───────────────────────────────────────────────────

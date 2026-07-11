@@ -17,7 +17,7 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
-  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
+  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
 } from './config.js';
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 const COST_HISTORY_KEY = 'ltb_cost_history_v1';
@@ -29,7 +29,7 @@ import {
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
   orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
-  optionsSummary, noteWithoutOptions,
+  optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons, applyFeedbackSave,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -49,6 +49,7 @@ import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/C
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
+import { FeedbackCard } from './components/FeedbackCard.jsx';
 import { PlannerPanel } from './components/PlannerPanel.jsx';
 import { RegularsIntelPanel } from './components/RegularsIntelPanel.jsx';
 import { LabelsSheet } from './components/LabelsSheet.jsx';
@@ -110,6 +111,12 @@ export default function LTBOrderTracker() {
   const [deliverChecks, setDeliverChecks] = useState({});
   const [cookSubView, setCookSubView] = useState('cook');
   const [dishNotes, setDishNotes] = useState({});
+  // Per-dish feedback store (persistent) + incoming triage queue (transient).
+  // Feedback is dish-linked only — never attached to orders. Queue entries
+  // keep their worker pageId; a pageId is cleared from KV only once ALL its
+  // entries are triaged, so closing the app mid-triage loses nothing.
+  const [dishFeedback, setDishFeedback] = useState({});
+  const [pendingFeedback, setPendingFeedback] = useState([]);
   const [shopping, setShopping] = useState([]);
   const [booted, setBooted] = useState(false);
   const [includeStaples, setIncludeStaples] = useState(() => localStore.get('ltb_staples_pref') === '1');
@@ -139,13 +146,14 @@ export default function LTBOrderTracker() {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes] = await Promise.all([
+      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
         loadJSON(SHOPPING_KEY, []),
         loadJSON(WEEK_KEY, null),
         loadJSON(DELIVER_CHECKS_KEY, {}),
         loadJSON(DISH_NOTES_KEY, {}),
+        loadJSON(FEEDBACK_KEY, {}),
       ]);
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
@@ -175,6 +183,7 @@ export default function LTBOrderTracker() {
       setCookChecks(loadedChecks || {});
       setDeliverChecks(loadedDeliverChecks || {});
       setDishNotes(loadedDishNotes || {});
+      setDishFeedback(loadedDishFeedback || {});
       setShopping(loadedShopping || []);
       setBooted(true);
       if (loadedWeek && Array.isArray(loadedWeek.selected)) {
@@ -425,6 +434,10 @@ export default function LTBOrderTracker() {
               // These were being dropped here, so spice/pasta never reached the
               // order card even though the form sent them correctly.
               ...(it.options ? { options: it.options } : {}),
+              // At-cost add-on requests (parm block, fixings): normalize to
+              // pending line items — cost unknown until Kevin shops, exactly
+              // like the weight system. normalizeAddons dedupes + sanitizes.
+              ...((() => { const a = normalizeAddons(it.addons); return a ? { addons: a } : {}; })()),
               ...(it.perLb ? { perLb: it.perLb } : {}),
               ...(it.avgWeightLb != null ? { avgWeightLb: it.avgWeightLb } : {}),
             })) : [],
@@ -655,9 +668,7 @@ export default function LTBOrderTracker() {
   useEffect(() => {
     if (!booted || startupRan.current) return;
     startupRan.current = true;
-    if ((orders || []).some(o => o.kitchenPageId)) {
-      pullKitchenFeedback().catch(() => {}); // offline or v8 not deployed: silently skip
-    }
+    pullKitchenFeedback().catch(() => {}); // offline or v8 not deployed: silently skip
     if ((regulars || []).length && (orders || []).some(o => !o.regularId)) {
       try { runBackfill(); } catch (e) { /* silent */ }
     }
@@ -862,42 +873,67 @@ export default function LTBOrderTracker() {
     try { fb = await pullKitchenFeedback(); } catch (e) { /* offline is fine */ }
     const deliveredCount = (orders || []).filter(o => o.status === 'Delivered' && !o.archived).length;
     archiveDelivered();
-    return { feedback: fb.attached || 0, archived: deliveredCount };
+    return { feedback: fb.pulled || 0, archived: deliveredCount };
   }, [orders]);
 
-  // ── Kitchen feedback sync (Option B: feedback lives ON the order) ──────────
-  // Pulls tapped verdicts from the worker, attaches each to the order whose
-  // kitchenPageId matches, persists, then clears the consumed KV keys. Pages
-  // with no matching order (expired/foreign) are cleared too, so they don't
-  // pile up forever.
+  // ── Kitchen feedback sync (triage flow, Jul 11) ────────────────────────────
+  // Pulls tapped verdicts from the worker into a TRIAGE QUEUE (pendingFeedback).
+  // Nothing is attached to orders and nothing is cleared on pull — each entry
+  // is cleared from KV only when Kevin Saves or Ignores it (and only once all
+  // entries sharing its pageId are triaged), so mid-triage app closes are safe.
   const pullKitchenFeedback = useCallback(async () => {
     const res = await fetch(WORKER_BASE + '/feedback/pending?token=' + encodeURIComponent(PUBLISH_TOKEN));
     if (!res.ok) throw new Error('pull failed');
     const { feedback } = await res.json();
-    if (!feedback || !feedback.length) return { attached: 0, orphaned: 0 };
-    // Compute attachment OUTSIDE the state updater: updaters can run twice
-    // under StrictMode (double-counting) and run AFTER this function returns
-    // (the toast would always read 0). Derive next from current orders, then
-    // dispatch it whole.
-    const byPage = new Map(feedback.map(f => [f.pageId, f]));
-    let attached = 0, orphaned = 0;
-    const next = (orders || []).map(o => {
-      const hit = o.kitchenPageId ? byPage.get(o.kitchenPageId) : null;
-      if (!hit) return o;
-      attached += hit.entries.length;
-      byPage.delete(o.kitchenPageId);
-      return { ...o, feedback: [...(o.feedback || []), ...hit.entries] };
+    if (!feedback || !feedback.length) return { pulled: 0 };
+    const incoming = [];
+    for (const page of feedback) {
+      (page.entries || []).forEach((e, i) => {
+        incoming.push({ id: page.pageId + ':' + i, pageId: page.pageId, dish: e.dish, verdict: e.verdict, note: e.note || '', at: e.at });
+      });
+    }
+    let pulled = 0;
+    setPendingFeedback(prev => {
+      const have = new Set(prev.map(e => e.id));
+      const fresh = incoming.filter(e => !have.has(e.id));
+      pulled = fresh.length;
+      return fresh.length ? [...prev, ...fresh] : prev;
     });
-    for (const leftover of byPage.values()) orphaned += leftover.entries.length;
-    const consumed = feedback.map(f => f.pageId);
-    setOrders(next);
-    saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
-    await fetch(WORKER_BASE + '/feedback/clear', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ token: PUBLISH_TOKEN, pageIds: consumed }),
+    return { pulled: incoming.length };
+  }, []);
+
+  // Clear a pageId from worker KV once no queued entries reference it.
+  const clearPageIfDone = useCallback(async (queue, pageId) => {
+    if (queue.some(e => e.pageId === pageId)) return;
+    try {
+      await fetch(WORKER_BASE + '/feedback/clear', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: PUBLISH_TOKEN, pageIds: [pageId] }),
+      });
+    } catch (e) { /* offline: KV entry lingers, harmless — dedupe by id on next pull */ }
+  }, []);
+
+  // Save one triaged entry to the per-dish store. mode: 'tally' | 'tallyNote'.
+  const saveFeedbackEntry = useCallback((entry, mode) => {
+    setDishFeedback(prev => {
+      const next = applyFeedbackSave(prev, entry, mode);
+      saveJSON(FEEDBACK_KEY, next).then(r => setError(saveError(r)));
+      return next;
     });
-    return { attached, orphaned };
-  }, [orders]);
+    setPendingFeedback(prev => {
+      const next = prev.filter(e => e.id !== entry.id);
+      clearPageIfDone(next, entry.pageId);
+      return next;
+    });
+  }, [clearPageIfDone]);
+
+  const ignoreFeedbackEntry = useCallback((entry) => {
+    setPendingFeedback(prev => {
+      const next = prev.filter(e => e.id !== entry.id);
+      clearPageIfDone(next, entry.pageId);
+      return next;
+    });
+  }, [clearPageIfDone]);
 
   // Resolve a backfill near-miss inline: link an order (by id, archived or
   // not) to the chosen regular, reusing the alias-merge mechanism so the
@@ -1534,6 +1570,18 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
+            {pendingFeedback.length > 0 && !formMode && !showPaste && !showCsv && (
+              <div style={styles.pendingSection}>
+                <div style={styles.pendingSectionHeader}>
+                  <span style={{ ...styles.pendingBadge, background: GOLD, color: '#1a1a1a' }}>{pendingFeedback.length}</span>
+                  <span style={styles.pendingSectionTitle}>Dish feedback</span>
+                </div>
+                {pendingFeedback.map(entry => (
+                  <FeedbackCard key={entry.id} entry={entry} onSave={saveFeedbackEntry} onIgnore={ignoreFeedbackEntry} />
+                ))}
+              </div>
+            )}
+
             {pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && (
               <div style={styles.pendingSection}>
                 <div style={styles.pendingSectionHeader}>
@@ -1561,6 +1609,11 @@ export default function LTBOrderTracker() {
                             <span style={styles.pendingItemPrice}> ${it.price.toFixed(2)}</span>
                             {optionsSummary(it) && <span style={{ ...styles.pendingItemVariant, color: TEAL_LIGHT, fontWeight: 700 }}> · {optionsSummary(it)}</span>}
                             {noteWithoutOptions(it.note) && <span style={styles.pendingItemVariant}> · “{noteWithoutOptions(it.note)}”</span>}
+                            {itemAddons(it).map((a, ai) => (
+                              <div key={ai} style={{ ...styles.pendingItemVariant, display: 'block', marginLeft: 10, color: GOLD }}>
+                                + {a.request} <span style={{ fontStyle: 'italic', opacity: 0.85 }}>(at cost, price pending)</span>
+                              </div>
+                            ))}
                           </div>
                         ))}
                         {p.notes && (
@@ -1726,6 +1779,7 @@ export default function LTBOrderTracker() {
 
         {view === 'recipes' && (
           <RecipesTab
+            dishFeedback={dishFeedback}
             liveCostMap={liveCostMap}
             baseCostMap={baseCostMap}
             costHistory={costHistory}

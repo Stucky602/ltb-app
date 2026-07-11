@@ -308,13 +308,17 @@ export function itemsBaseTotal(items) {
 export function orderTotal(items, jarSwaps, containerReturns, discountType, discountValue, customCharges, waiveSurcharge) {
   const base = itemsBaseTotal(items);
   const upcharges = itemsUpchargeTotal(items);
+  // At-cost add-ons (parm blocks, fixings): flat resolved amounts, OUTSIDE the
+  // discount base — they're passed through at cost, so discounting them would
+  // put Kevin underwater on them. Pending ones contribute 0 until priced.
+  const addons = itemsAddonsTotal(items);
   const custom = customChargesTotal(customCharges);
   const disc = discountAmount(base, discountType, discountValue);
   const surcharge = waiveSurcharge ? 0 : SURCHARGE;
   // Floored at $0: over-crediting container returns or jar swaps can reduce
   // an order to free, never to Kevin owing money on it. Property-suite
   // invariant I1 (tests/property.mjs).
-  return Math.max(0, round2(base + upcharges - disc + custom + surcharge - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1));
+  return Math.max(0, round2(base + upcharges + addons - disc + custom + surcharge - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1));
 }
 
 // Recompute a per-lb item's price and cost from its weight (rounded to cents).
@@ -398,6 +402,66 @@ export function optionsSummary(it) {
   if (o.spice != null) bits.push(`Spice ${o.spice}`);
   if (o.pasta) bits.push(o.pasta);
   return bits.join(' · ');
+}
+
+// ─── Customer add-on requests (at-cost extras: parm block, chili fixings) ───
+// Shape on an item: it.addons = [{ id, request, cost, pending }].
+// The form sends [{ request }]; ingest normalizes to pending (cost unknown
+// until Kevin shops, exactly like the weight system). Costs are FLAT per
+// line — a block of parm is one block regardless of qty — and charged AT
+// COST, so the same number feeds both the price and the cost side.
+export function itemAddons(it) {
+  return Array.isArray(it && it.addons) ? it.addons : [];
+}
+export function normalizeAddons(raw) {
+  if (!Array.isArray(raw)) return null;
+  const out = [];
+  const seen = new Set();
+  for (const a of raw.slice(0, 8)) {
+    const request = String((a && a.request) || '').replace(/[\x00-\x1f]/g, ' ').trim().slice(0, 80);
+    if (!request) continue;
+    const k = request.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    const cost = typeof (a && a.cost) === 'number' && a.cost >= 0 ? round2(a.cost) : null;
+    out.push({
+      id: (a && a.id) || ('ad_' + Math.random().toString(36).slice(2, 9)),
+      request,
+      cost,
+      pending: cost == null,
+    });
+  }
+  return out.length ? out : null;
+}
+// Flat sum of RESOLVED addon costs on one item (pending contribute 0).
+export function itemAddonsTotal(it) {
+  return round2(itemAddons(it).reduce((s, a) => s + (!a.pending && typeof a.cost === 'number' ? a.cost : 0), 0));
+}
+export function itemsAddonsTotal(items) {
+  return round2((items || []).reduce((s, it) => s + itemAddonsTotal(it), 0));
+}
+export function anyAddonPending(items) {
+  return (items || []).some(it => itemAddons(it).some(a => a.pending));
+}
+
+// ─── Dish feedback store (triage flow, Jul 11) ──────────────────────────────
+// Persistent per-DISH feedback: { [dish]: { tally: {good,meh,bad}, notes: [...] } }.
+// Feedback is never attached to orders — it outlives them on the dish itself.
+// Pure reducer so the invariant suite can hit it directly.
+export const FEEDBACK_VERDICTS = ['good', 'meh', 'bad'];
+export function applyFeedbackSave(store, entry, mode) {
+  const dish = String((entry && entry.dish) || '').trim();
+  const verdict = FEEDBACK_VERDICTS.includes(entry && entry.verdict) ? entry.verdict : null;
+  if (!dish || !verdict) return store || {};
+  const prev = (store && store[dish]) || {};
+  const tally = { good: 0, meh: 0, bad: 0, ...(prev.tally || {}) };
+  tally[verdict] += 1;
+  const notes = Array.isArray(prev.notes) ? [...prev.notes] : [];
+  const noteText = String((entry && entry.note) || '').trim().slice(0, 240);
+  if (mode === 'tallyNote' && noteText) {
+    notes.push({ verdict, note: noteText, at: entry.at || new Date().toISOString() });
+  }
+  return { ...(store || {}), [dish]: { tally, notes } };
 }
 
 export const DISH_RENAMES = {
@@ -512,6 +576,9 @@ export function orderCostInfo(order) {
     const c = itemCost(it);
     if (c === null) complete = false;
     else cost += c * itemUnitMultiplier(it);
+    // At-cost add-ons: the price IS the cost (zero margin, deliberately).
+    // Keeps the Money tab honest — add-on revenue never inflates margin.
+    cost += itemAddonsTotal(it);
   });
   return { cost: round2(cost), complete };
 }
@@ -559,6 +626,9 @@ export function orderToText(order) {
       lines.push(`   + ${it.upcharge.label || 'Upcharge'} (+${currency(it.upcharge.amount)} ea)`);
     const optLine = optionsSummary(it);
     if (optLine) lines.push(`   ${optLine}`);
+    itemAddons(it).forEach(a => {
+      lines.push(`   + ${a.request} — ${a.pending ? 'price pending (at cost)' : currency(a.cost)}`);
+    });
     const cleanNote = noteWithoutOptions(it.note);
     if (cleanNote) lines.push(`   note: ${cleanNote}`);
   });
@@ -1395,6 +1465,8 @@ export async function parseAmendment(order, messageText, menu) {
     const cleanNote = noteWithoutOptions(it.note);
     if (cleanNote) bits.push(`note: ${cleanNote}`);
     if (it.upcharge && it.upcharge.label) bits.push(`upcharge: ${it.upcharge.label}${it.upcharge.amount ? ` $${it.upcharge.amount}` : ' (unpriced)'}`);
+    const ads = itemAddons(it);
+    if (ads.length) bits.push(`add-ons: ${ads.map(a => a.request + (a.pending ? ' (price pending)' : ` $${a.cost}`)).join('; ')}`);
     return '  - ' + bits.join(', ');
   }).join('\n');
   const currentExtras = [];

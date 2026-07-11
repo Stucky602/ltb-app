@@ -9,6 +9,7 @@ export const WEEK_NOTES_KEY = 'ltb-week-notes';
 export const SHOPPING_KEY = 'ltb-shopping';
 export const WEEK_KEY = 'ltb-week';
 export const PENDING_KEY = 'ltb-pending-orders';
+export const FEEDBACK_KEY = 'ltb_dish_feedback_v1'; // per-dish feedback: { [dish]: { tally: {good,meh,bad}, notes: [...] } }
 export const SEEN_ROWS_KEY = 'ltb-seen-rows';
 export const REGULARS_KEY = 'ltb-regulars';
 export const INVENTORY_KEY = 'ltb-inventory';

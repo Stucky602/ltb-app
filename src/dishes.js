@@ -64,6 +64,7 @@ export const DISHES = [
   },
   {
     name: 'Chili',
+    options: { fixings: { prompt: 'Need some fixings at cost? Chips, sour cream, cheese, etc.', placeholder: 'e.g. tortilla chips, sour cream, cheddar' } },
     cuisine: 'American',
     reheat: 'stovetop',
     equipment: { fixed: ['largePot'] },
@@ -117,6 +118,7 @@ export const DISHES = [
   },
   {
     name: 'Tex-Mex Kit',
+    options: { fixings: { prompt: 'Need extras at cost? Avocados, more tortillas, etc.', placeholder: 'e.g. 3 avocados, extra tortillas' } },
     cuisine: 'Tex-Mex',
     reheat: 'kit',
     equipment: { fixed: ['dutch', 'largePot', 'ovenLow'] },
@@ -516,7 +518,7 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'] },
-    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] } }, // egg-papp variants ARE the pasta
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] }, parmOffer: true }, // egg-papp variants ARE the pasta
     variants: [
       { label: 'Small (split order, ~4)', price: 45, cost: 22.13 },
       { label: 'Large (~8)', price: 80, cost: 43.17 },
@@ -554,7 +556,7 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { fixed: [] }, // saucier, exclusive — never conflicts
-    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle' } },
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle' }, parmOffer: true },
     variants: [
       { label: 'Base (~4)', price: 20, cost: 7.24 },
       { label: 'With Beef or Turkey', price: 35, cost: 14.24 },
@@ -578,6 +580,7 @@ export const DISHES = [
   },
   {
     name: 'Pappardelle with Vegetables and Mint',
+    options: { parmOffer: true }, // finished with parm; offer a block at cost
     cuisine: 'Italian',
     reheat: 'bagged',
     baggedPasta: true, // bagged dish finished by mixing with cooked pasta
@@ -609,7 +612,7 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
-    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variants replace pasta
+    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] }, parmOffer: true }, // polenta variants replace pasta
     variants: [
       { label: 'Small (~4 servings)', price: 35, cost: 16.79 },
       { label: 'Large (~8 servings)', price: 65, cost: 32.50 },
@@ -683,6 +686,7 @@ export const DISHES = [
     // the Polenta variant), never a customer-chosen dry pasta shape. The shape
     // picker only belongs on dishes where "Pasta" is a raw choose-your-shape
     // ingredient (Bolognese base, Homegrown Tomato, Saffron Pork Ragu).
+    options: { parmOffer: true }, // parm-at-cost yes/no on the form (uses parm; offer stands even without a shape picker)
     variants: [
       // Single size only (expensive dish, no Medium/Large — already 4-5
       // servings). Promoted to Spotlight and repriced to $70 both variants

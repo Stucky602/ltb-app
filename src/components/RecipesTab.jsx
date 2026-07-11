@@ -209,6 +209,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const dishes = useMemo(() => reportableDishes(), []);
   const [showProteins, setShowProteins] = useState(false); // collapsed by default
   const [showVeg, setShowVeg] = useState(false);           // collapsed by default
+  const [showDesserts, setShowDesserts] = useState(false); // collapsed by default
   const thisWeek = useMemo(() => new Set(weekDishes || []), [weekDishes]);
 
   // Reset flavor/size when the dish changes; seed notes.
@@ -385,6 +386,40 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
               </thead>
               <tbody>
                 {sortedPortfolio.filter(r => r.group === 'veg').map(r => (
+                  <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
+                    <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
+                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    </td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
+                      {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desserts (cookies, fudge, brownies) — own collapsed margin radar ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowDesserts(o => !o)}>
+          <span>Desserts</span>
+          <span>{showDesserts ? '▲' : '▼'}</span>
+        </button>
+        {showDesserts && (
+          <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPortfolio.filter(r => r.group === 'dessert').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>

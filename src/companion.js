@@ -6,7 +6,7 @@
 import { buildReheatBlocks, itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
 import { ALWAYS_ITEMS } from './dishes.js';
-import { LTB_LOGO } from './ltbLogo.js';
+import { activeLogo } from './holidayLogo.js';
 import { parseServings } from './dishReport.js';
 
 const CATEGORY_OF = {};
@@ -128,7 +128,7 @@ export function companionHtml(order, pageId = '') {
   .qa .err { color: #e0828a; font-size: 13px; }
 </style></head><body><div class="wrap">
   <div class="brand">
-    <img src="${LTB_LOGO}" alt="Lettuce, Turnip, The Beet">
+    <img src="${activeLogo()}" alt="Lettuce, Turnip, The Beet">
     <div class="name">Lettuce, Turnip, The Beet</div>
   </div>
   <h1>${firstName}, here's your kitchen page</h1>
@@ -140,7 +140,7 @@ export function companionHtml(order, pageId = '') {
   ${noFussCard}
   <div class="card fb">
     <h3>How did everything come out?</h3>
-    <p class="asknote">One tap per dish tells Kevin what worked, and a line about why helps even more. It makes the food better for everyone.</p>
+    <p class="asknote">One tap per dish tells Kevin what worked, and a line about why helps even more. It makes the food better for everyone. You can submit feedback once per dish for this order.</p>
     <div id="fbrows"></div>
   </div>
   <div class="card ask">
@@ -156,12 +156,38 @@ export function companionHtml(order, pageId = '') {
   <div class="foot">Made with care <span class="heart">♥</span><br>Questions about anything? Just text Kevin.<br>This page is yours for 30 days.</div>
 </div><script>
 var FB_DISHES = ${JSON.stringify(items.map(it => it.name))};
+var FB_PAGE = "${esc(pageId)}";
 var fbSent = {};
+// Feedback is once-per-dish PER ORDER. We remember what was already submitted
+// in this browser (keyed by this page's id) so a reload can't double-submit —
+// the row locks to a read-only "You said: X" state instead of live buttons.
+var FB_STORE = 'ltb_fb_' + FB_PAGE;
+function fbLoad() {
+  try { return JSON.parse(localStorage.getItem(FB_STORE) || '{}') || {}; } catch (e) { return {}; }
+}
+function fbRemember(dish, label) {
+  try {
+    var cur = fbLoad();
+    cur[dish] = label;
+    localStorage.setItem(FB_STORE, JSON.stringify(cur));
+  } catch (e) { /* storage off (private mode): in-memory fbSent still guards this session */ }
+}
 (function buildFb() {
   var wrap = document.getElementById('fbrows');
+  var already = fbLoad();
   FB_DISHES.forEach(function(d) {
     var row = document.createElement('div'); row.className = 'fbrow';
     var nm = document.createElement('div'); nm.className = 'fbname'; nm.textContent = d;
+
+    // Already submitted for this order (persisted): render a locked confirmation.
+    if (already[d]) {
+      fbSent[d] = true;
+      var done = document.createElement('div'); done.className = 'fbdone';
+      done.textContent = 'You said: ' + already[d] + ' \\u2713';
+      row.appendChild(nm); row.appendChild(done); wrap.appendChild(row);
+      return;
+    }
+
     var btns = document.createElement('div'); btns.className = 'fbbtns';
     var noteWrap = document.createElement('div'); noteWrap.className = 'fbnotewrap'; noteWrap.style.display = 'none';
     var note = document.createElement('input'); note.type = 'text'; note.maxLength = 240; note.className = 'fbnote';
@@ -184,11 +210,19 @@ var fbSent = {};
     send.onclick = function() {
       if (fbSent[d] || !picked) return;
       fbSent[d] = true;
+      var chosenLabel = picked[0];
       fetch('/feedback', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: PAGE_ID, dish: d, verdict: picked[1], note: (note.value || '').trim() }) })
         .then(function(r) {
           var done = document.createElement('div'); done.className = 'fbdone';
-          done.textContent = r.ok ? ('Noted: ' + picked[0] + '. Thanks!') : 'That did not send. No worries.';
-          row.replaceChildren(nm, done);
+          if (r.ok) {
+            fbRemember(d, chosenLabel); // persist so a reload keeps it locked
+            done.textContent = 'Noted: ' + chosenLabel + '. Thanks!';
+            row.replaceChildren(nm, done);
+          } else {
+            fbSent[d] = false;
+            done.textContent = 'That did not send. No worries.';
+            row.replaceChildren(nm, done);
+          }
         })
         .catch(function() { fbSent[d] = false; });
     };

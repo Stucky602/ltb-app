@@ -5,7 +5,7 @@ import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { itemHandling } from '../recipes.js';
 import { MARGIN_BUFFER } from '../dishCosting.js';
 import {
-  buildDishReport, buildPortfolioSummary, reportableDishes, dishSalesHistory,
+  buildDishReport, buildPortfolioSummary, reportableDishes, reportableProteins, reportableVeg, dishSalesHistory,
 } from '../dishReport.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
@@ -207,6 +207,10 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const portfolio = useMemo(() => buildPortfolioSummary(ctx), [ctx]);
 
   const dishes = useMemo(() => reportableDishes(), []);
+  const proteins = useMemo(() => reportableProteins(), []);
+  const veg = useMemo(() => reportableVeg(), []);
+  const [showProteins, setShowProteins] = useState(false); // collapsed by default
+  const [showVeg, setShowVeg] = useState(false);           // collapsed by default
   const thisWeek = useMemo(() => new Set(weekDishes || []), [weekDishes]);
 
   // Reset flavor/size when the dish changes; seed notes.
@@ -330,6 +334,40 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
           {dishes.filter(d => !thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
         </optgroup>
       </select>
+
+      {/* ── Ready to Finish (sous vide proteins) — own collapsed dropdown ── */}
+      <div style={{ marginTop: 8 }}>
+        <button
+          onClick={() => setShowProteins(v => !v)}
+          style={{ ...S.select, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.panelAlt }}
+        >
+          <span>Ready to Finish (sous vide proteins)</span>
+          <span style={{ color: C.dim }}>{showProteins ? '▾' : '▸'}</span>
+        </button>
+        {showProteins && (
+          <select style={{ ...S.select, marginTop: 6 }} value={proteins.includes(dish) ? dish : ''} onChange={e => setDish(e.target.value)}>
+            <option value="">Select a protein…</option>
+            {proteins.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
+      </div>
+
+      {/* ── Sous Vide Vegetables — own collapsed dropdown ── */}
+      <div style={{ marginTop: 8 }}>
+        <button
+          onClick={() => setShowVeg(v => !v)}
+          style={{ ...S.select, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.panelAlt }}
+        >
+          <span>Sous Vide Vegetables</span>
+          <span style={{ color: C.dim }}>{showVeg ? '▾' : '▸'}</span>
+        </button>
+        {showVeg && (
+          <select style={{ ...S.select, marginTop: 6 }} value={veg.includes(dish) ? dish : ''} onChange={e => setDish(e.target.value)}>
+            <option value="">Select a vegetable…</option>
+            {veg.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        )}
+      </div>
 
       {report && (
         <>

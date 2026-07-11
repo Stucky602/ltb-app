@@ -490,6 +490,7 @@ export default function LTBOrderTracker() {
         variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })),
         ...(item.spotlight ? { spotlight: true } : {}), // spotlight dinners route to their own form header
         ...(item.options ? { options: item.options } : {}), // form.html renders pickers from this (Batch 3)
+        ...(item.diet ? { diet: item.diet } : {}), // menu.html dietary filter reads veg/pesc tags from this
       };
     };
     const allDinners = (activeMenu.dinner || []).map(toVariants);

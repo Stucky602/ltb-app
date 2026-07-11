@@ -19,7 +19,7 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, normalizeAddons, itemAddonsTotal, anyAddonPending, orderTotal, applyFeedbackSave, FEEDBACK_VERDICTS, resetDishFeedback, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, normalizeAddons, itemAddonsTotal, anyAddonPending, orderTotal, applyFeedbackSave, FEEDBACK_VERDICTS, resetDishFeedback, dietMatch, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { readFileSync } from 'node:fs';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
@@ -1359,6 +1359,30 @@ TAX  0.00
     // reset with nothing to archive is a no-op
     const noopBefore = JSON.stringify(resetDishFeedback({}, 'Nope'));
     if (noopBefore !== '{}') F('feedback', 'reset of unknown dish must be a no-op');
+  }
+
+  // ═══ DIETARY FILTER (Jul 11): veg/pesc from explicit tags, not ingredients ══
+  {
+    const byName = (n) => DISHES.find(d => d.name === n);
+    // whole-dish veg
+    if (dietMatch(byName('Mushroom Ragu'), 'veg') !== 'all') F('diet', 'Mushroom Ragu must be all-veg');
+    if (dietMatch(byName('Mushroom Ragu'), 'pesc') !== 'all') F('diet', 'veg dish must also be all-pesc');
+    if (dietMatch(byName('Pappardelle with Vegetables and Mint'), 'veg') !== 'all') F('diet', 'Pappardelle must be all-veg');
+    // variant-scoped veg
+    if (dietMatch(byName('Indian Style Curry'), 'veg') !== 'some') F('diet', 'Curry veg must be some (chickpea only)');
+    if (dietMatch(byName('Indian Style Curry'), 'pesc') !== 'some') F('diet', 'Curry pesc must be some (chickpea + shrimp, not chicken)');
+    if (dietMatch(byName('Pasta with Homegrown Tomato Sauce'), 'veg') !== 'some') F('diet', 'Tomato pasta veg must be some (base/mushroom only)');
+    // dishes where every variant is tofu-or-shrimp: all-pesc, some-veg
+    if (dietMatch(byName('Shrimp or Tofu with Asparagus in Black Bean Sauce'), 'pesc') !== 'all') F('diet', 'Shrimp/Tofu asparagus must be all-pesc');
+    if (dietMatch(byName('Shrimp or Tofu with Asparagus in Black Bean Sauce'), 'veg') !== 'some') F('diet', 'Shrimp/Tofu asparagus veg must be some (tofu only)');
+    // hard nones (Kevin confirmed)
+    if (dietMatch(byName('Saffron Pork Ragu'), 'veg') !== 'none') F('diet', 'Saffron Ragu is never veg');
+    if (dietMatch(byName('Mapo Eggplant'), 'veg') !== 'none') F('diet', 'Mapo has pork, never veg');
+    if (dietMatch(byName('Gumbo'), 'pesc') !== 'none') F('diet', 'Gumbo has chicken, not pesc');
+    if (dietMatch(byName('Steak au Poivre'), 'veg') !== 'none') F('diet', 'Steak is never veg');
+    // untagged dish + missing diet arg
+    if (dietMatch(byName('Chili'), 'veg') !== 'none') F('diet', 'untagged dish must be none');
+    if (dietMatch(byName('Mushroom Ragu'), null) !== 'none') F('diet', 'no diet arg must be none');
   }
 
 

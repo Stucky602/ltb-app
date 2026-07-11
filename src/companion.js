@@ -6,7 +6,7 @@
 import { buildReheatBlocks, itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
 import { ALWAYS_ITEMS } from './dishes.js';
-import { activeLogo } from './holidayLogo.js';
+import { LTB_LOGO } from './ltbLogo.js';
 import { parseServings } from './dishReport.js';
 
 const CATEGORY_OF = {};
@@ -128,7 +128,7 @@ export function companionHtml(order, pageId = '') {
   .qa .err { color: #e0828a; font-size: 13px; }
 </style></head><body><div class="wrap">
   <div class="brand">
-    <img src="${activeLogo()}" alt="Lettuce, Turnip, The Beet">
+    <img src="${LTB_LOGO}" alt="Lettuce, Turnip, The Beet">
     <div class="name">Lettuce, Turnip, The Beet</div>
   </div>
   <h1>${firstName}, here's your kitchen page</h1>

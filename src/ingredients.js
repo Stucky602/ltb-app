@@ -103,6 +103,7 @@ export const INGREDIENT_SEED = [
   { id: 'white_karo', name: 'White Karo syrup', unit: 'cup', baseline: 1.6, category: 'pantry' },
   { id: 'honey', name: 'Honey', unit: 'tbs', baseline: 0.2, category: 'pantry' },
   { id: 'cocoa', name: 'Cocoa powder', unit: 'tbs', baseline: 0.19, category: 'pantry' },
+  { id: 'delallo_espresso', name: 'DeLallo instant espresso', unit: 'tsp', baseline: 0.26, category: 'pantry' }, // $5.47/55g jar, ~2.6g/tsp
   { id: 'chocolate_100', name: '100% chocolate', unit: 'square', baseline: 0.5, category: 'pantry' },
   { id: 'guittard_low', name: 'Guittard chocolate (low %)', unit: 'g', baseline: 0.02749, category: 'pantry' },
   { id: 'guittard_high', name: 'Guittard chocolate (high %)', unit: 'g', baseline: 0.02749, category: 'pantry', priceLink: 'guittard_low' },

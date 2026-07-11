@@ -954,6 +954,24 @@ export const ALWAYS_ITEMS = {
         ],
       },
     },
+    {
+      name: 'Brownies',
+      equipment: { fixed: ['ovenNormal'] },
+      variants: [{ label: '1 Batch', price: 25, cost: 10.46 }],
+      recipe: {
+        factors: { '1 Batch': 1 },
+        base: [
+          I('Butter (browned)', 2, 'sticks'),
+          I('Dutch cocoa', 16, 'tbsp'),
+          I('Guittard chocolate (semisweet)', 113, 'g'),
+          I('DeLallo instant espresso', 1, 'tsp'),
+          I('Sugar (white + brown)', 1, 'batch', true),
+          I('Eggs', 4, '', true),
+          I('Flour', 120, 'g', true),
+          I('Kosher salt + vanilla', 1, 'batch', true),
+        ],
+      },
+    },
   ],
   addons: [
     {
@@ -1182,7 +1200,7 @@ export const ALL_ALWAYS_ITEMS = Object.values(ALWAYS_ITEMS).flat();
 // Always-menu items Kevin wants cost/margin/drift tracking on in the Recipes
 // tab (they have real, driftable recipes). Kept explicit so the tab stays
 // focused — not every jarred add-on needs a report.
-const REPORTABLE_ALWAYS_NAMES = ['Queso', 'Chocolate Chip Cookies', 'Peanut Butter Fudge'];
+const REPORTABLE_ALWAYS_NAMES = ['Queso', 'Chocolate Chip Cookies', 'Peanut Butter Fudge', 'Brownies'];
 export const REPORTABLE_ALWAYS_ITEMS = ALL_ALWAYS_ITEMS.filter(it => REPORTABLE_ALWAYS_NAMES.includes(it.name));
 
 // The "Ready to Finish" (sous vide proteins) and "Sous Vide Vegetables" bag

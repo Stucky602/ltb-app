@@ -229,6 +229,13 @@ export const LINE_MAP = {
   'House vanilla extract + beans': { id: 'vanilla', conv: () => 4 },
   'Brown + white sugar':    { id: 'white_sugar', conv: () => 1.5 },
   'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },
+  // ── Brownies (per-batch dessert, Jul 2026) ──
+  'Butter (browned)':       { id: 'butter', conv: (q,u)=> u==='sticks'? q : (u==='tbsp'? q/TBSP_PER_STICK : q) },
+  'Dutch cocoa':            { id: 'cocoa', conv: (q,u)=> u==='tbsp'? q : q }, // cocoa priced per tbsp
+  'Guittard chocolate (semisweet)': { id: 'guittard_high', conv: (q,u)=> q }, // priced per gram
+  'DeLallo instant espresso': { id: 'delallo_espresso', conv: (q,u)=> q }, // priced per tsp
+  'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // 1.5c white ($0.60) + 0.5c brown ($0.28) = $0.88 ÷ $0.40/cup = 2.2 cup-equiv
+  'Kosher salt + vanilla':  { id: 'vanilla', conv: () => 1 }, // 1 tbsp imitation vanilla (~$0.07); 1 tsp salt (~$0.01) negligible
   'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.454 }, // ~1 cup dry = 0.454 lb (measured 0.795 lb = 1.75 cups) @ $5.99/lb ≈ $2.72; bag cost via wrap
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
   'Chickpeas': { id: 'chickpeas', conv: q => q },

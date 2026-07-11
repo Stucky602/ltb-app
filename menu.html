@@ -96,10 +96,15 @@
     return pool[name] || null;
   }
 
-  function priceRows(dish){
+  function priceRows(dish, primeDish){
     var html = '<div class="prices">';
     if (dish && dish.perLb) {
       html += '<div class="price-row"><span class="price-label">By weight</span><span class="price-amt">'+money(dish.pricePerLb)+'/lb + $1.50 bag</span></div>';
+      // Prime line: renders directly under the regular weight line for the three
+      // steaks that offer a Prime grade (NY Strip, Ribeye, Filet).
+      if (primeDish && primeDish.perLb) {
+        html += '<div class="price-row"><span class="price-label">Prime, by weight</span><span class="price-amt">'+money(primeDish.pricePerLb)+'/lb + $1.50 bag</span></div>';
+      }
       if (dish.avgWeightLb) {
         html += '<div class="price-row"><span class="price-label" style="font-size:11px;color:var(--dim);font-style:italic;">Averages approx. '+(+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/,'')+' lb per piece</span></div>';
       }
@@ -126,7 +131,7 @@
     return (LIBRARY.bag || {})[name] || null;
   }
 
-  function renderDish(dish, kind){
+  function renderDish(dish, kind, primeDish){
     var copy = kind === 'bag' ? (lookupBagCopy(dish.name) || {}) : (lookupCopy(dish.name, kind) || {});
     var html = '<div class="dish"><div class="dish-name">'+esc(dish.name)+'</div>';
     if (kind === 'dinner') html += dietTagHtml(dish);
@@ -135,7 +140,7 @@
     if (copy.spice) html += '<div class="dish-spice">Spice: '+esc(copy.spice)+'</div>';
     if (copy.note) html += '<div class="dish-note">'+esc(copy.note)+'</div>';
     if (copy.bagCharge) html += '<div class="dish-meta">+ $1.50 per bag for seasoning and packaging</div>';
-    html += priceRows(dish);
+    html += priceRows(dish, primeDish);
     if (copy.contains) html += '<div class="contains">Contains: '+esc(copy.contains)+'</div>';
     return html + '</div>';
   }
@@ -259,9 +264,19 @@
         if (LIBRARY.static.dryBrineNote) html += '<div class="info-card"><h4>The 24-Hour Dry Brine</h4><p>'+esc(LIBRARY.static.dryBrineNote)+'</p></div>';
         if (LIBRARY.static.finishingProtein) html += '<div class="info-card"><h4>Finishing Your Protein</h4><p>'+esc(LIBRARY.static.finishingProtein)+'</p></div>';
       }
-      // Proteins — individual entries
+      // Proteins — individual entries. Prime steaks ("X (Prime)") are not shown
+      // as their own cards; instead their price is attached as a sub-line under
+      // the matching regular steak via renderDish's primeDish argument.
       var proteins = bag.filter(function(d){ var c=lookupBagCopy(d.name); return !c || !c.isSousVideVeg; });
-      proteins.forEach(function(d){ html += renderDish(d, "bag"); });
+      var primeByBase = {};
+      proteins.forEach(function(d){
+        var m = /^(.*) - Prime$/.exec(d.name);
+        if (m) primeByBase[m[1]] = d;
+      });
+      proteins.forEach(function(d){
+        if (/ - Prime$/.test(d.name)) return; // skip standalone Prime cards
+        html += renderDish(d, "bag", primeByBase[d.name]);
+      });
       // Sous Vide Vegetables — single consolidated block
       var vegs = bag.filter(function(d){ var c=lookupBagCopy(d.name); return c && c.isSousVideVeg; });
       if (vegs.length){

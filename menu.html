@@ -28,6 +28,12 @@
   .dish { padding:16px 0; border-bottom:1px solid #2d3a36; }
   .dish:last-child { border-bottom:none; }
   .dish-name { font-size:17px; font-weight:700; color:var(--cream); margin-bottom:5px; }
+  .diet-filter { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:14px 0 4px; }
+  .diet-filter-label { font-size:13px; color:var(--dim); font-weight:600; }
+  .diet-chip { background:#2a2f2d; color:#c8cfc9; border:1px solid #3a4441; border-radius:16px; padding:6px 14px; font-size:13px; font-weight:700; cursor:pointer; }
+  .diet-chip.on { background:var(--teal-light); color:#1a1a1a; border-color:var(--teal-light); }
+  .diet-chip.clear { background:none; border-color:#3a4441; color:var(--dim); font-weight:600; }
+  .diet-tag { display:inline-block; font-size:11px; font-weight:700; color:#1a1a1a; background:var(--teal-light); border-radius:5px; padding:2px 7px; margin-bottom:6px; }
   .dish-desc { font-size:13.5px; line-height:1.55; color:var(--body); margin-bottom:8px; }
   .dish-meta { font-size:12px; line-height:1.5; color:var(--dim); font-style:italic; margin-bottom:4px; }
   .dish-spice { font-size:12px; color:#EF9F27; font-weight:600; margin-bottom:4px; }
@@ -123,6 +129,7 @@
   function renderDish(dish, kind){
     var copy = kind === 'bag' ? (lookupBagCopy(dish.name) || {}) : (lookupCopy(dish.name, kind) || {});
     var html = '<div class="dish"><div class="dish-name">'+esc(dish.name)+'</div>';
+    if (kind === 'dinner') html += dietTagHtml(dish);
     if (copy.desc) html += '<div class="dish-desc">'+esc(copy.desc)+'</div>';
     if (copy.reheat) html += '<div class="dish-meta">'+esc(copy.reheat)+'</div>';
     if (copy.spice) html += '<div class="dish-spice">Spice: '+esc(copy.spice)+'</div>';
@@ -133,7 +140,55 @@
     return html + '</div>';
   }
 
+  // ── Dietary filter (veg / pesc), driven by explicit dish.diet tags from the
+  // published config — never inferred from ingredients (Kevin swaps meat stock
+  // for the veg protein, so recipe text can't be trusted for this).
+  var ACTIVE_DIET = null; // null | 'veg' | 'pesc'
+  var LAST_CONFIG = null;
+  function dietMatch(dish, diet){
+    if (!dish || !diet || !dish.diet) return 'none';
+    var tag = dish.diet, variants = dish.variants || [];
+    function labelsFor(key){
+      if (tag[key] === true) return variants.map(function(v){ return v.label; });
+      if (Array.isArray(tag[key])) return tag[key];
+      return [];
+    }
+    var qualifying;
+    if (diet === 'veg') qualifying = labelsFor('veg');
+    else if (diet === 'pesc') qualifying = labelsFor('veg').concat(labelsFor('pesc'));
+    else return 'none';
+    if (!qualifying.length) return 'none';
+    var set = {}; qualifying.forEach(function(l){ set[l] = 1; });
+    if (variants.length && variants.every(function(v){ return set[v.label]; })) return 'all';
+    return 'some';
+  }
+  function dietTagHtml(dish){
+    if (!ACTIVE_DIET) return '';
+    var m = dietMatch(dish, ACTIVE_DIET);
+    if (m === 'some') {
+      var word = ACTIVE_DIET === 'veg' ? 'Vegetarian' : 'Pescatarian';
+      return '<div class="diet-tag">' + word + ' option available</div>';
+    }
+    return '';
+  }
+  function setDiet(diet){
+    ACTIVE_DIET = (ACTIVE_DIET === diet) ? null : diet;
+    if (LAST_CONFIG) render(LAST_CONFIG);
+  }
+  function dietChips(){
+    function chip(diet, label){
+      var on = ACTIVE_DIET === diet;
+      return '<button class="diet-chip' + (on ? ' on' : '') + '" onclick="setDiet(\'' + diet + '\')">' + label + '</button>';
+    }
+    return '<div class="diet-filter">' +
+      '<span class="diet-filter-label">Show:</span>' +
+      chip('veg', 'Vegetarian') + chip('pesc', 'Pescatarian') +
+      (ACTIVE_DIET ? '<button class="diet-chip clear" onclick="setDiet(\'' + ACTIVE_DIET + '\')">Clear</button>' : '') +
+      '</div>';
+  }
+
   function render(config){
+    LAST_CONFIG = config;
     if (config.weekLabel) document.getElementById("weekLabel").textContent = config.weekLabel;
     var dishes = config.dishes || [];
     var spotlight = config.spotlight || [];
@@ -147,17 +202,23 @@
     }
 
     var html = '<div class="intro">'+esc(LIBRARY.static.intro)+'</div>';
+    html += dietChips();
     // Optional weekly-special banner: add a `primeBanner` (or rename) string to
     // LIBRARY.static to show it. Dormant when absent. (NY Strip special ended.)
     if (LIBRARY.static.primeBanner) {
       html += '<div class="info-card" style="border-color:var(--gold);"><h4>This Week\'s Special</h4><p>'+esc(LIBRARY.static.primeBanner)+'</p></div>';
     }
 
+    // Diet filter: keep a dish if any orderable variant qualifies (match !== 'none').
+    function dietKeep(d){ return !ACTIVE_DIET || dietMatch(d, ACTIVE_DIET) !== 'none'; }
+    var dinnersShown = dishes.filter(dietKeep);
+    var spotlightShown = spotlight.filter(dietKeep);
+
     // Dinners
     var anyBagged = false;
-    if (dishes.length){
+    if (dinnersShown.length){
       html += '<div class="section-head">This Week\'s Dinners</div>';
-      dishes.forEach(function(d){
+      dinnersShown.forEach(function(d){
         html += renderDish(d, "dinner");
         var copy = lookupCopy(d.name, "dinner");
         if (copy && copy.bagged) anyBagged = true;
@@ -166,9 +227,9 @@
 
     // Spotlight Dinner of the Week — same rendering as dinners, own header.
     // Rendered right after the dinners, before the bagged-dishes note.
-    if (spotlight.length){
+    if (spotlightShown.length){
       html += '<div class="section-head">Spotlight Dinner of the Week</div>';
-      spotlight.forEach(function(d){
+      spotlightShown.forEach(function(d){
         html += renderDish(d, "dinner");
         var scopy = lookupCopy(d.name, "dinner");
         if (scopy && scopy.bagged) anyBagged = true;

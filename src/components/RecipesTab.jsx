@@ -5,7 +5,7 @@ import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { itemHandling } from '../recipes.js';
 import { MARGIN_BUFFER } from '../dishCosting.js';
 import {
-  buildDishReport, buildPortfolioSummary, reportableDishes, reportableProteins, reportableVeg, dishSalesHistory,
+  buildDishReport, buildPortfolioSummary, reportableDishes, dishSalesHistory,
 } from '../dishReport.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
@@ -207,8 +207,6 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const portfolio = useMemo(() => buildPortfolioSummary(ctx), [ctx]);
 
   const dishes = useMemo(() => reportableDishes(), []);
-  const proteins = useMemo(() => reportableProteins(), []);
-  const veg = useMemo(() => reportableVeg(), []);
   const [showProteins, setShowProteins] = useState(false); // collapsed by default
   const [showVeg, setShowVeg] = useState(false);           // collapsed by default
   const thisWeek = useMemo(() => new Set(weekDishes || []), [weekDishes]);
@@ -305,7 +303,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 </tr>
               </thead>
               <tbody>
-                {sortedPortfolio.map(r => (
+                {sortedPortfolio.filter(r => (r.group || 'main') === 'main').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>
                       {thisWeek.has(r.name) ? '● ' : ''}{r.name}
@@ -335,37 +333,71 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         </optgroup>
       </select>
 
-      {/* ── Ready to Finish (sous vide proteins) — own collapsed dropdown ── */}
-      <div style={{ marginTop: 8 }}>
-        <button
-          onClick={() => setShowProteins(v => !v)}
-          style={{ ...S.select, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.panelAlt }}
-        >
-          <span>Ready to Finish (sous vide proteins)</span>
-          <span style={{ color: C.dim }}>{showProteins ? '▾' : '▸'}</span>
+      {/* ── Ready to Finish (sous vide proteins) — own collapsed margin radar ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowProteins(o => !o)}>
+          <span>Ready to Finish · sous vide proteins</span>
+          <span>{showProteins ? '▲' : '▼'}</span>
         </button>
         {showProteins && (
-          <select style={{ ...S.select, marginTop: 6 }} value={proteins.includes(dish) ? dish : ''} onChange={e => setDish(e.target.value)}>
-            <option value="">Select a protein…</option>
-            {proteins.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+          <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPortfolio.filter(r => r.group === 'protein').map(r => (
+                  <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
+                    <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
+                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    </td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
+                      {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* ── Sous Vide Vegetables — own collapsed dropdown ── */}
-      <div style={{ marginTop: 8 }}>
-        <button
-          onClick={() => setShowVeg(v => !v)}
-          style={{ ...S.select, textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: C.panelAlt }}
-        >
+      {/* ── Sous Vide Vegetables — own collapsed margin radar ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowVeg(o => !o)}>
           <span>Sous Vide Vegetables</span>
-          <span style={{ color: C.dim }}>{showVeg ? '▾' : '▸'}</span>
+          <span>{showVeg ? '▲' : '▼'}</span>
         </button>
         {showVeg && (
-          <select style={{ ...S.select, marginTop: 6 }} value={veg.includes(dish) ? dish : ''} onChange={e => setDish(e.target.value)}>
-            <option value="">Select a vegetable…</option>
-            {veg.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
+          <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPortfolio.filter(r => r.group === 'veg').map(r => (
+                  <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
+                    <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
+                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    </td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
+                      {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 

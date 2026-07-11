@@ -29,6 +29,7 @@ import {
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
   orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
+  optionsSummary, noteWithoutOptions,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -1558,6 +1559,8 @@ export default function LTBOrderTracker() {
                             <span style={styles.pendingItemName}>{it.name}</span>
                             {it.variant && <span style={styles.pendingItemVariant}> — {it.variant}</span>}
                             <span style={styles.pendingItemPrice}> ${it.price.toFixed(2)}</span>
+                            {optionsSummary(it) && <span style={{ ...styles.pendingItemVariant, color: TEAL_LIGHT, fontWeight: 700 }}> · {optionsSummary(it)}</span>}
+                            {noteWithoutOptions(it.note) && <span style={styles.pendingItemVariant}> · “{noteWithoutOptions(it.note)}”</span>}
                           </div>
                         ))}
                         {p.notes && (

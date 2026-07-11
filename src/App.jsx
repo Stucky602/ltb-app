@@ -418,7 +418,14 @@ export default function LTBOrderTracker() {
             phone: s.phone || '',
             items: Array.isArray(s.items) ? s.items.map(it => ({
               name: it.name, variant: it.variant, qty: it.qty || 1,
-              price: it.price, cost: it.cost || 0, note: '', hasPhoto: false,
+              price: it.price, cost: it.cost || 0,
+              note: it.note || '', hasPhoto: false,
+              // Preserve customer-selected options (spice level, pasta shape).
+              // These were being dropped here, so spice/pasta never reached the
+              // order card even though the form sent them correctly.
+              ...(it.options ? { options: it.options } : {}),
+              ...(it.perLb ? { perLb: it.perLb } : {}),
+              ...(it.avgWeightLb != null ? { avgWeightLb: it.avgWeightLb } : {}),
             })) : [],
             notes: s.notes || '',
           }));

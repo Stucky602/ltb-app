@@ -87,6 +87,13 @@
     // any excludeVariants substring (Polenta replaces pasta; Egg Pappardelle
     // IS the pasta) — so it only attaches to the variants it belongs to.
     function dishOptions(dish) { return (dish && dish.options) || {}; }
+    // Picker state (spice/pasta) is keyed by DISH NAME, never by menu position.
+    // Position keys (gi_di) silently lost selections when the menu re-rendered
+    // in a different order between selecting and submitting (a spotlight or new
+    // dish shifting positions moved the key out from under the saved value).
+    // Name keys are stable across any re-render. slugKey() makes a safe DOM id.
+    function dishStateKey(dish) { return String((dish && dish.name) || '').replace(/[^a-zA-Z0-9]/g, '_'); }
+    function slugKey(dish) { return dishStateKey(dish); }
     function pastaAppliesTo(dish, variantLabel) {
       var p = dishOptions(dish).pasta;
       if (!p) return false;
@@ -164,7 +171,8 @@
       groups.forEach(function (group, gi) {
         html += '<div class="section"><div class="section-title">' + group.title + '</div>';
         group.items.forEach(function (dish, di) {
-          var dishKey = gi + '_' + di;
+          var dishKey = dishStateKey(dish);
+          var dishSlug = slugKey(dish);
           var opts = dishOptions(dish);
           var isSpice = !!opts.spice;
           var isPasta = !!opts.pasta;
@@ -252,16 +260,16 @@
       if (el) { el.textContent = next; el.className = "qty-num" + (next === 0 ? " zero" : ""); }
       // Show/hide pickers based on whether any variant of this dish has qty > 0
       var parts = key.split("_"); // gi_di_vi
-      var dishKey = parts[0] + "_" + parts[1];
       var groups = allGroups();
       var gi = +parts[0], di = +parts[1];
       var group = groups[gi];
       var dish = group ? group.items[di] : null;
       if (dish) {
+        var dishSlug = slugKey(dish); // name-based id, matches render + gather
         var dishHasQty = (dish.variants || []).some(function(v, vi) { return (cart[gi + "_" + di + "_" + vi] || 0) > 0; });
-        var spiceEl = document.getElementById("spice_" + dishKey);
+        var spiceEl = document.getElementById("spice_" + dishSlug);
         if (spiceEl) spiceEl.style.display = dishHasQty ? "" : "none";
-        var pastaEl = document.getElementById("pasta_" + dishKey);
+        var pastaEl = document.getElementById("pasta_" + dishSlug);
         if (pastaEl) pastaEl.style.display = dishHasPastaQty(dish, gi, di) ? "" : "none";
       }
     }
@@ -301,11 +309,11 @@
         if (!dish) return;
         var v = (dish.variants || [])[vi];
         if (!v) return;
-        var dishKey2 = gi + "_" + di;
+        var dishKey2 = slugKey(dish); // name-based, matches the picker state written at selection time
         var opts2 = dishOptions(dish);
         var itemOptions = {};
         var noteparts = []; // legacy note mirror — keeps pre-v9.20 apps showing the choice; remove once the app ships v9.20+
-        if (opts2.spice && spiceSelections[dishKey2]) {
+        if (opts2.spice && spiceSelections[dishKey2] != null) {
           itemOptions.spice = spiceSelections[dishKey2];
           noteparts.push("Spice: " + spiceSelections[dishKey2]);
         }
@@ -314,7 +322,7 @@
           noteparts.push("Pasta: " + pastaSelections[dishKey2]);
         }
         var item = { name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb };
-        if (itemOptions.spice || itemOptions.pasta) item.options = itemOptions;
+        if (itemOptions.spice != null || itemOptions.pasta) item.options = itemOptions;
         items.push(item);
       });
       return items;

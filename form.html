@@ -78,8 +78,11 @@
     var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
     var config = null;
     var cart = {}; // key "dishIdx:variantIdx" -> qty
-    var spiceSelections = {}; // key "gi_di" -> spice level (1-5)
-    var pastaSelections = {}; // key "gi_di" -> pasta string
+    var spiceSelections = {};  // variantKey -> spice level (0-5; 0 = No spice)
+    var pastaSelections = {};  // variantKey -> pasta shape string
+    var parmSelections = {};   // variantKey -> true/false (parm block at cost)
+    var fixSelections = {};    // variantKey -> true/false (fixings yes/no)
+    var fixTexts = {};         // variantKey -> free text of requested fixings
 
     // Option pickers come from the PUBLISHED dish data (dish.options, declared
     // in the app's registry) — no hardcoded dish-name lists here anymore.
@@ -91,9 +94,29 @@
     // Position keys (gi_di) silently lost selections when the menu re-rendered
     // in a different order between selecting and submitting (a spotlight or new
     // dish shifting positions moved the key out from under the saved value).
-    // Name keys are stable across any re-render. slugKey() makes a safe DOM id.
-    function dishStateKey(dish) { return String((dish && dish.name) || '').replace(/[^a-zA-Z0-9]/g, '_'); }
-    function slugKey(dish) { return dishStateKey(dish); }
+    // Name-based keys are stable across any re-render.
+    // Per-VARIANT option keys: "small chickpea at spice 1 + large chicken at
+    // spice 2" needs independent state per size row, so keys are dish+variant.
+    // Name-based (never position-based) so a menu re-render can't orphan them.
+    function variantKey(dish, v) {
+      return (String((dish && dish.name) || '') + '__' + String((v && v.label) || '')).replace(/[^a-zA-Z0-9]/g, '_');
+    }
+    // Split a free-text fixings request into discrete line items:
+    // "chips, sour cream and cheese" -> ["chips","sour cream","cheese"].
+    // Deterministic on purpose — the form knows what was asked; no guessing.
+    function splitRequests(txt) {
+      var parts = String(txt || '').split(/,|;|\n|\band\b|&|\+/i);
+      var out = [], seen = {};
+      for (var i = 0; i < parts.length && out.length < 8; i++) {
+        var p = parts[i].trim();
+        if (!p) continue;
+        var k = p.toLowerCase();
+        if (seen[k]) continue;
+        seen[k] = 1;
+        out.push(p);
+      }
+      return out;
+    }
     function pastaAppliesTo(dish, variantLabel) {
       var p = dishOptions(dish).pasta;
       if (!p) return false;
@@ -102,11 +125,6 @@
         if (String(variantLabel || '').indexOf(excl[i]) !== -1) return false;
       }
       return true;
-    }
-    function dishHasPastaQty(dish, gi, di) {
-      return (dish.variants || []).some(function (v, vi) {
-        return (cart[gi + '_' + di + '_' + vi] || 0) > 0 && pastaAppliesTo(dish, v.label);
-      });
     }
 
     function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
@@ -171,12 +189,7 @@
       groups.forEach(function (group, gi) {
         html += '<div class="section"><div class="section-title">' + group.title + '</div>';
         group.items.forEach(function (dish, di) {
-          var dishKey = dishStateKey(dish);
-          var dishSlug = slugKey(dish);
           var opts = dishOptions(dish);
-          var isSpice = !!opts.spice;
-          var isPasta = !!opts.pasta;
-          var dishHasQty = (dish.variants || []).some(function(v, vi) { return (cart[gi + '_' + di + '_' + vi] || 0) > 0; });
           html += '<div class="dish"><div class="dish-name">' + esc(dish.name) + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
             var key = gi + "_" + di + "_" + vi;
@@ -188,37 +201,63 @@
               (dish.perLb && dish.avgWeightLb ? '<span class="variant-per-serving">approx. ' + (+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/, '') + ' lb per piece</span>' : '') +
               '</div>' +
               '<div class="qty-control">' +
-              '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">−</button>' +
+              '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">&minus;</button>' +
               '<div style="display:flex;flex-direction:column;align-items:center;">' +
               '<span class="qty-num' + (qty === 0 ? ' zero' : '') + '" id="qty_' + key + '">' + qty + '</span>' +
               (dish.perLb ? '<span style="font-size:10px;color:var(--dim);line-height:1;">pieces</span>' : '') +
               '</div>' +
               '<button class="qty-btn" onclick="changeQty(\'' + key + '\', 1)">+</button>' +
               '</div></div>';
-          });
-          if (isSpice) {
-            var spiceVal = spiceSelections[dishKey] || 0;
-            var spMin = opts.spice.min || 1, spMax = opts.spice.max || 5;
-            var spiceHtml = '<div class="picker-wrap" id="spice_' + dishKey + '" style="' + (dishHasQty ? '' : 'display:none;') + 'margin-top:8px;">' +
-              '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Spice level (' + spMin + '\u2013' + spMax + ')</div>' +
-              '<div style="display:flex;gap:6px;">';
-            for (var s = 0; s <= spMax; s++) {
-              if (s !== 0 && s < spMin) continue;
-              var slabel = s === 0 ? 'No spice' : String(s);
-              spiceHtml += '<button onclick="setSpice(\'' + dishKey + '\',' + s + ')" style="' + (s === 0 ? 'flex:1.4;' : 'flex:1;') + 'padding:7px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-size:' + (s === 0 ? '11' : '14') + 'px;' +
-                (spiceVal === s ? 'background:var(--teal-light);color:#1a1a1a;' : 'background:#2a2f2d;color:#c8cfc9;') + '">' + slabel + '</button>';
+
+            // ── Per-variant option panel: renders directly under THIS size row
+            // and only while THIS variant is in the cart. Each variant keeps
+            // its own spice/pasta/parm/fixings state (independent line items).
+            var vk = variantKey(dish, v);
+            var panel = '';
+            if (opts.spice) {
+              var spiceVal = spiceSelections[vk] != null ? spiceSelections[vk] : -1;
+              var spMin = opts.spice.min || 1, spMax = opts.spice.max || 5;
+              panel += '<div id="spice_' + vk + '" style="margin-top:6px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Spice level (' + spMin + '\u2013' + spMax + ')</div>' +
+                '<div style="display:flex;gap:6px;">';
+              for (var sp = 0; sp <= spMax; sp++) {
+                if (sp !== 0 && sp < spMin) continue;
+                var slabel = sp === 0 ? 'No spice' : String(sp);
+                panel += '<button onclick="setSpice(\'' + vk + '\',' + sp + ')" data-lvl="' + sp + '" style="' + (sp === 0 ? 'flex:1.4;' : 'flex:1;') + 'padding:7px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-size:' + (sp === 0 ? '11' : '14') + 'px;' +
+                  (spiceVal === sp ? 'background:var(--teal-light);color:#1a1a1a;' : 'background:#2a2f2d;color:#c8cfc9;') + '">' + slabel + '</button>';
+              }
+              panel += '</div></div>';
             }
-            spiceHtml += '</div></div>';
-            html += spiceHtml;
-          }
-          if (isPasta) {
-            var pastaVal = pastaSelections[dishKey] || '';
-            var pastaPh = opts.pasta.placeholder || 'e.g. rigatoni, pappardelle';
-            html += '<div class="picker-wrap" id="pasta_' + dishKey + '" style="' + (dishHasPastaQty(dish, gi, di) ? '' : 'display:none;') + 'margin-top:8px;">' +
-              '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Pasta shape (optional)</div>' +
-              '<input type="text" id="pastainput_' + dishKey + '" placeholder="' + esc(pastaPh) + '" value="' + esc(pastaVal) + '" oninput="setPasta(\'' + dishKey + '\', this.value)" style="margin-top:0;"></div>';
-          }
-          html += '</div>';
+            if (opts.pasta && pastaAppliesTo(dish, v.label)) {
+              var pastaVal = pastaSelections[vk] || '';
+              var pastaPh = opts.pasta.placeholder || 'e.g. rigatoni, pappardelle';
+              panel += '<div style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Pasta shape (optional)</div>' +
+                '<input type="text" placeholder="' + esc(pastaPh) + '" value="' + esc(pastaVal) + '" oninput="setPasta(\'' + vk + '\', this.value)" style="margin-top:0;"></div>';
+            }
+            if (opts.parmOffer) {
+              panel += '<div id="parm_' + vk + '" style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Want me to grab a block of good parm for you at cost ($10\u201315 on avg)?</div>' +
+                '<div style="display:flex;gap:6px;">' +
+                yesNoBtn(vk, 'parm', true, parmSelections[vk] === true) +
+                yesNoBtn(vk, 'parm', false, parmSelections[vk] === false) +
+                '</div></div>';
+            }
+            if (opts.fixings) {
+              var fixOn = fixSelections[vk] === true;
+              panel += '<div id="fix_' + vk + '" style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">' + esc(opts.fixings.prompt || 'Need extras at cost?') + '</div>' +
+                '<div style="display:flex;gap:6px;">' +
+                yesNoBtn(vk, 'fix', true, fixOn) +
+                yesNoBtn(vk, 'fix', false, fixSelections[vk] === false) +
+                '</div>' +
+                '<input type="text" id="fixtext_' + vk + '" placeholder="' + esc(opts.fixings.placeholder || 'e.g. chips, sour cream') + '" value="' + esc(fixTexts[vk] || '') + '" oninput="setFixText(\'' + vk + '\', this.value)" style="margin-top:6px;' + (fixOn ? '' : 'display:none;') + '"></div>';
+            }
+            if (panel) {
+              html += '<div class="picker-wrap" id="opt_' + vk + '" style="' + (qty > 0 ? '' : 'display:none;') + 'margin:2px 0 10px;padding:8px 10px;background:#202623;border-radius:8px;border-left:2px solid var(--teal-light);">' + panel + '</div>';
+            }
+          });
+                    html += '</div>';
         });
         html += '</div>';
       });
@@ -258,37 +297,67 @@
       if (next === 0) delete cart[key]; else cart[key] = next;
       var el = document.getElementById("qty_" + key);
       if (el) { el.textContent = next; el.className = "qty-num" + (next === 0 ? " zero" : ""); }
-      // Show/hide pickers based on whether any variant of this dish has qty > 0
+      // Show/hide THIS variant's option panel (per-variant, not per-dish).
       var parts = key.split("_"); // gi_di_vi
       var groups = allGroups();
-      var gi = +parts[0], di = +parts[1];
+      var gi = +parts[0], di = +parts[1], vi = +parts[2];
       var group = groups[gi];
       var dish = group ? group.items[di] : null;
-      if (dish) {
-        var dishSlug = slugKey(dish); // name-based id, matches render + gather
-        var dishHasQty = (dish.variants || []).some(function(v, vi) { return (cart[gi + "_" + di + "_" + vi] || 0) > 0; });
-        var spiceEl = document.getElementById("spice_" + dishSlug);
-        if (spiceEl) spiceEl.style.display = dishHasQty ? "" : "none";
-        var pastaEl = document.getElementById("pasta_" + dishSlug);
-        if (pastaEl) pastaEl.style.display = dishHasPastaQty(dish, gi, di) ? "" : "none";
+      var v = dish ? (dish.variants || [])[vi] : null;
+      if (dish && v) {
+        var panelEl = document.getElementById('opt_' + variantKey(dish, v));
+        if (panelEl) panelEl.style.display = next > 0 ? '' : 'none';
       }
     }
 
-    function setSpice(dishKey, level) {
-      spiceSelections[dishKey] = level;
-      // Re-render just the spice buttons
-      var spiceEl = document.getElementById("spice_" + dishKey);
-      if (!spiceEl) return;
-      var btns = spiceEl.querySelectorAll("button");
-      btns.forEach(function(btn, i) {
-        var l = i; // 0 = No spice, 1-5 = levels
-        btn.style.background = (l === level) ? "var(--teal-light)" : "#2a2f2d";
-        btn.style.color = (l === level) ? "#1a1a1a" : "#c8cfc9";
+    // Yes/No toggle button HTML for parm + fixings prompts.
+    function yesNoBtn(vk, kind, yes, active) {
+      return '<button onclick="' + (kind === 'parm' ? 'setParm' : 'setFix') + '(\'' + vk + '\',' + (yes ? 'true' : 'false') + ')" style="flex:1;padding:7px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-size:13px;' +
+        (active ? 'background:var(--teal-light);color:#1a1a1a;' : 'background:#2a2f2d;color:#c8cfc9;') + '">' + (yes ? 'Yes' : 'No') + '</button>';
+    }
+    function restyleToggle(containerId, activeYes) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      var btns = el.querySelectorAll('button');
+      if (btns.length < 2) return;
+      // btns[0] = Yes, btns[1] = No
+      btns[0].style.background = activeYes === true ? 'var(--teal-light)' : '#2a2f2d';
+      btns[0].style.color = activeYes === true ? '#1a1a1a' : '#c8cfc9';
+      btns[1].style.background = activeYes === false ? 'var(--teal-light)' : '#2a2f2d';
+      btns[1].style.color = activeYes === false ? '#1a1a1a' : '#c8cfc9';
+    }
+
+    function setSpice(vk, level) {
+      spiceSelections[vk] = level;
+      var wrap = document.getElementById('spice_' + vk);
+      if (!wrap) return;
+      var btns = wrap.querySelectorAll('button');
+      btns.forEach(function (btn) {
+        var l = Number(btn.getAttribute('data-lvl'));
+        btn.style.background = (l === level) ? 'var(--teal-light)' : '#2a2f2d';
+        btn.style.color = (l === level) ? '#1a1a1a' : '#c8cfc9';
       });
     }
 
-    function setPasta(dishKey, val) {
-      pastaSelections[dishKey] = val;
+    function setPasta(vk, val) {
+      pastaSelections[vk] = val;
+    }
+
+    function setParm(vk, yes) {
+      parmSelections[vk] = yes;
+      restyleToggle('parm_' + vk, yes);
+    }
+
+    function setFix(vk, yes) {
+      fixSelections[vk] = yes;
+      restyleToggle('fix_' + vk, yes);
+      var input = document.getElementById('fixtext_' + vk);
+      if (input) input.style.display = yes ? '' : 'none';
+      if (yes && input) input.focus();
+    }
+
+    function setFixText(vk, val) {
+      fixTexts[vk] = val;
     }
 
     function esc(s) {
@@ -309,20 +378,33 @@
         if (!dish) return;
         var v = (dish.variants || [])[vi];
         if (!v) return;
-        var dishKey2 = slugKey(dish); // name-based, matches the picker state written at selection time
+        var vk2 = variantKey(dish, v); // per-variant: each size row keeps its own options
         var opts2 = dishOptions(dish);
         var itemOptions = {};
-        var noteparts = []; // legacy note mirror — keeps pre-v9.20 apps showing the choice; remove once the app ships v9.20+
-        if (opts2.spice && spiceSelections[dishKey2] != null) {
-          itemOptions.spice = spiceSelections[dishKey2];
-          noteparts.push("Spice: " + spiceSelections[dishKey2]);
+        var noteparts = []; // note mirror — human-readable copy of every choice
+        if (opts2.spice && spiceSelections[vk2] != null) {
+          itemOptions.spice = spiceSelections[vk2];
+          noteparts.push("Spice: " + spiceSelections[vk2]);
         }
-        if (opts2.pasta && pastaSelections[dishKey2] && pastaAppliesTo(dish, v.label)) {
-          itemOptions.pasta = pastaSelections[dishKey2];
-          noteparts.push("Pasta: " + pastaSelections[dishKey2]);
+        if (opts2.pasta && pastaSelections[vk2] && pastaAppliesTo(dish, v.label)) {
+          itemOptions.pasta = pastaSelections[vk2];
+          noteparts.push("Pasta: " + pastaSelections[vk2]);
+        }
+        // At-cost add-on requests: structured line items, priced by Kevin
+        // after shopping (the app renders each as its own pending sub-charge).
+        var addons = [];
+        if (opts2.parmOffer && parmSelections[vk2] === true) {
+          addons.push({ request: "Block of good parm" });
+        }
+        if (opts2.fixings && fixSelections[vk2] === true) {
+          splitRequests(fixTexts[vk2]).forEach(function (r) { addons.push({ request: r }); });
+        }
+        if (addons.length) {
+          noteparts.push("Add-ons at cost: " + addons.map(function (a) { return a.request; }).join("; "));
         }
         var item = { name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb };
         if (itemOptions.spice != null || itemOptions.pasta) item.options = itemOptions;
+        if (addons.length) item.addons = addons;
         items.push(item);
       });
       return items;

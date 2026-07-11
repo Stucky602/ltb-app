@@ -28,7 +28,7 @@
 // The decomposition is TOTAL and COLLISION-FREE by invariant: every variant
 // maps to exactly one (flavor, size) cell and no cell holds two variants.
 // ═══════════════════════════════════════════════════════════════════════════
-import { DISHES } from './dishes.js';
+import { DISHES, REPORTABLE_DISHES } from './dishes.js';
 import { RECIPES, DINNER_REHEAT_BUCKET, buildReheatBlocks } from './recipes.js';
 import {
   resolveDishVariant, costDishVariant, MARGIN_BUFFER, trueRawCost, baselineCostMap, PASSTHROUGH_IDS,
@@ -352,7 +352,7 @@ export function equipmentSummary(dish) {
 // ctx: { liveCostMap, baseCostMap, costHistory, floorPct } — all optional;
 // missing maps default to baselines so the report ALWAYS builds.
 export function buildDishReport(dishName, ctx = {}) {
-  const dish = DISHES.find(d => d.name === dishName);
+  const dish = REPORTABLE_DISHES.find(d => d.name === dishName);
   if (!dish) return null;
   const baseCostMap = ctx.baseCostMap || baselineCostMap();
   const liveCostMap = ctx.liveCostMap || baseCostMap;
@@ -393,7 +393,7 @@ export function buildPortfolioSummary(ctx = {}) {
   const baseCostMap = ctx.baseCostMap || baselineCostMap();
   const liveCostMap = ctx.liveCostMap || baseCostMap;
   const floorPct = ctx.floorPct ?? 45;
-  return DISHES.map(dish => {
+  return REPORTABLE_DISHES.map(dish => {
     const econ = dish.variants.map(v => variantEconomics(dish.name, v, liveCostMap, baseCostMap, floorPct));
     // Worst-margin and floor flags anchor to SMALL variants only (Kevin, Jul 9):
     // Medium/Large carry deliberate volume discounts, so judging a dish by its
@@ -422,7 +422,7 @@ export function buildPortfolioSummary(ctx = {}) {
 
 // All dinner names in registry (display) order — the tab's dropdown source.
 export function reportableDishes() {
-  return DISHES.map(d => d.name);
+  return REPORTABLE_DISHES.map(d => d.name);
 }
 
 // ── Per-dish sales history ───────────────────────────────────────────────────

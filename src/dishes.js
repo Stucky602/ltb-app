@@ -1161,3 +1161,11 @@ export const ALWAYS_ITEMS = {
 
 // Flat list of every always-menu item (order preserved within categories).
 export const ALL_ALWAYS_ITEMS = Object.values(ALWAYS_ITEMS).flat();
+
+// Always-menu items Kevin wants cost/margin/drift tracking on in the Recipes
+// tab (they have real, driftable recipes). Kept explicit so the tab stays
+// focused — not every jarred add-on needs a report.
+const REPORTABLE_ALWAYS_NAMES = ['Queso', 'Chocolate Chip Cookies', 'Peanut Butter Fudge'];
+export const REPORTABLE_ALWAYS_ITEMS = ALL_ALWAYS_ITEMS.filter(it => REPORTABLE_ALWAYS_NAMES.includes(it.name));
+// The full universe the Recipes tab reports on: dinners + those always-items.
+export const REPORTABLE_DISHES = [...DISHES, ...REPORTABLE_ALWAYS_ITEMS];

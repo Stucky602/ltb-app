@@ -1421,8 +1421,8 @@ export default function LTBOrderTracker() {
             {[
               ['money', 'Money'],
               ['regulars', 'Regulars'],
-              ['week', 'Week'],
               ['recipes', 'Recipes'],
+              ['week', 'Week'],
             ].map(([key, label]) => (
               <button
                 key={key}

@@ -19,7 +19,7 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, normalizeAddons, itemAddonsTotal, anyAddonPending, orderTotal, applyFeedbackSave, FEEDBACK_VERDICTS, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, normalizeAddons, itemAddonsTotal, anyAddonPending, orderTotal, applyFeedbackSave, FEEDBACK_VERDICTS, resetDishFeedback, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { readFileSync } from 'node:fs';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
@@ -1341,6 +1341,24 @@ TAX  0.00
     // note cap at 240
     st = applyFeedbackSave(st, { dish: 'Chili', verdict: 'good', note: 'y'.repeat(500) }, 'tallyNote');
     if (st.Chili.notes[1].note.length !== 240) F('feedback', 'note must cap at 240 chars');
+
+    // RESET: archives current tally+notes to history, zeroes the live tally.
+    let rs = {};
+    rs = applyFeedbackSave(rs, { dish: 'Gumbo', verdict: 'good', note: 'loved it' }, 'tallyNote');
+    rs = applyFeedbackSave(rs, { dish: 'Gumbo', verdict: 'bad', note: '' }, 'tally');
+    rs = resetDishFeedback(rs, 'Gumbo', '2026-07-11T00:00:00Z');
+    if (rs.Gumbo.tally.good !== 0 || rs.Gumbo.tally.bad !== 0 || rs.Gumbo.notes.length !== 0) F('feedback', 'reset must zero the live tally + notes');
+    if (!rs.Gumbo.history || rs.Gumbo.history.length !== 1) F('feedback', 'reset must archive one history entry');
+    if (rs.Gumbo.history[0].tally.good !== 1 || rs.Gumbo.history[0].tally.bad !== 1) F('feedback', 'archived tally must match pre-reset counts');
+    // saving after reset keeps history and starts a fresh count
+    rs = applyFeedbackSave(rs, { dish: 'Gumbo', verdict: 'good', note: 'fixed' }, 'tallyNote');
+    if (rs.Gumbo.history.length !== 1 || rs.Gumbo.tally.good !== 1) F('feedback', 'post-reset save must keep history + fresh tally');
+    // second reset stacks a new history entry at the front
+    rs = resetDishFeedback(rs, 'Gumbo', '2026-07-12T00:00:00Z');
+    if (rs.Gumbo.history.length !== 2 || rs.Gumbo.history[0].archivedAt !== '2026-07-12T00:00:00Z') F('feedback', 'second reset must prepend history');
+    // reset with nothing to archive is a no-op
+    const noopBefore = JSON.stringify(resetDishFeedback({}, 'Nope'));
+    if (noopBefore !== '{}') F('feedback', 'reset of unknown dish must be a no-op');
   }
 
 

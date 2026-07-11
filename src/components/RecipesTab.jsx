@@ -62,39 +62,119 @@ const FB_META = [
   ['meh', 'A little off', '#D9B36C'],
   ['bad', 'Had trouble', '#d98a7e'],
 ];
-function FeedbackStrip({ fb }) {
+function FeedbackStrip({ fb, dish, onReset }) {
   const [open, setOpen] = React.useState(false);
+  const [histOpen, setHistOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
   if (!fb || !fb.tally) return null;
   const total = FB_META.reduce((n, [k]) => n + (fb.tally[k] || 0), 0);
-  if (total === 0) return null;
   const notes = Array.isArray(fb.notes) ? fb.notes : [];
+  const history = Array.isArray(fb.history) ? fb.history : [];
+  if (total === 0 && notes.length === 0 && history.length === 0) return null;
+
+  const hasLive = total > 0 || notes.length > 0;
+
   return (
     <div style={{ margin: '0 0 14px', padding: '10px 12px', background: '#202623', borderRadius: 10, border: '1px solid #2d3a36' }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#D9B36C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
-        Customer feedback
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#D9B36C', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Customer feedback
+        </span>
+        {hasLive && !confirming && (
+          <button
+            style={{ background: 'none', border: '1px solid #3a4441', color: '#8a938e', fontSize: 11, fontWeight: 700, cursor: 'pointer', borderRadius: 6, padding: '3px 8px' }}
+            onClick={() => setConfirming(true)}
+          >
+            Reset tally
+          </button>
+        )}
       </div>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
-        {FB_META.map(([k, label, color]) => (
-          <span key={k} style={{ color: (fb.tally[k] || 0) > 0 ? color : '#5a635e', fontWeight: 700 }}>
-            {label} ×{fb.tally[k] || 0}
-          </span>
-        ))}
-      </div>
-      {notes.length > 0 && (
-        <div style={{ marginTop: 8 }}>
+
+      {confirming && (
+        <div style={{ margin: '0 0 10px', padding: '9px 11px', background: '#2a211f', border: '1px solid #6b4a3f', borderRadius: 8 }}>
+          <div style={{ fontSize: 12.5, color: '#e8c9bf', marginBottom: 8 }}>
+            Reset this dish&rsquo;s feedback? The current tally and notes get archived to history, and the live count starts fresh.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              style={{ background: '#c25f4a', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              onClick={() => { onReset(dish); setConfirming(false); setOpen(false); }}
+            >
+              Yes, reset
+            </button>
+            <button
+              style={{ background: '#2a2f2d', color: '#c8cfc9', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+              onClick={() => setConfirming(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {hasLive ? (
+        <>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
+            {FB_META.map(([k, label, color]) => (
+              <span key={k} style={{ color: (fb.tally[k] || 0) > 0 ? color : '#5a635e', fontWeight: 700 }}>
+                {label} ×{fb.tally[k] || 0}
+              </span>
+            ))}
+          </div>
+          {notes.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                style={{ background: 'none', border: 'none', color: '#8a938e', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                onClick={() => setOpen(o => !o)}
+              >
+                {open ? '▾' : '▸'} Notes ({notes.length})
+              </button>
+              {open && notes.map((n, i) => {
+                const meta = FB_META.find(m => m[0] === n.verdict) || FB_META[0];
+                return (
+                  <div key={i} style={{ marginTop: 6, fontSize: 13, color: '#c8cfc9' }}>
+                    <span style={{ color: meta[2], fontWeight: 700 }}>●</span>{' '}
+                    <span style={{ fontStyle: 'italic' }}>&ldquo;{n.note}&rdquo;</span>
+                    {n.at && <span style={{ color: '#5a635e', fontSize: 11 }}> · {new Date(n.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: 12.5, color: '#5a635e', fontStyle: 'italic' }}>No feedback since the last reset.</div>
+      )}
+
+      {history.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #2d3a36' }}>
           <button
             style={{ background: 'none', border: 'none', color: '#8a938e', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}
-            onClick={() => setOpen(o => !o)}
+            onClick={() => setHistOpen(o => !o)}
           >
-            {open ? '▾' : '▸'} Notes ({notes.length})
+            {histOpen ? '▾' : '▸'} History ({history.length} reset{history.length !== 1 ? 's' : ''})
           </button>
-          {open && notes.map((n, i) => {
-            const meta = FB_META.find(m => m[0] === n.verdict) || FB_META[0];
+          {histOpen && history.map((h, i) => {
+            const ht = FB_META.reduce((n, [k]) => n + (h.tally[k] || 0), 0);
             return (
-              <div key={i} style={{ marginTop: 6, fontSize: 13, color: '#c8cfc9' }}>
-                <span style={{ color: meta[2], fontWeight: 700 }}>●</span>{' '}
-                <span style={{ fontStyle: 'italic' }}>&ldquo;{n.note}&rdquo;</span>
-                {n.at && <span style={{ color: '#5a635e', fontSize: 11 }}> · {new Date(n.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>}
+              <div key={i} style={{ marginTop: 8, paddingLeft: 8, borderLeft: '2px solid #2d3a36' }}>
+                <div style={{ fontSize: 11, color: '#5a635e', marginBottom: 3 }}>
+                  Archived {h.archivedAt ? new Date(h.archivedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''} · {ht} total
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12 }}>
+                  {FB_META.map(([k, label, color]) => (
+                    <span key={k} style={{ color: (h.tally[k] || 0) > 0 ? color : '#5a635e' }}>
+                      {label} ×{h.tally[k] || 0}
+                    </span>
+                  ))}
+                </div>
+                {Array.isArray(h.notes) && h.notes.length > 0 && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#8a938e' }}>
+                    {h.notes.map((n, j) => (
+                      <div key={j} style={{ fontStyle: 'italic' }}>&ldquo;{n.note}&rdquo;</div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -104,7 +184,7 @@ function FeedbackStrip({ fb }) {
   );
 }
 
-export function RecipesTab({ dishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders }) {
+export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders }) {
   const [dish, setDish] = useState('');
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [size, setSize] = useState('small'); // 'small' | 'large' | 'only'
@@ -254,7 +334,7 @@ export function RecipesTab({ dishFeedback, liveCostMap, baseCostMap, costHistory
       {report && (
         <>
           {/* ── Customer feedback (dish-linked, saved via the Orders-page triage) ── */}
-          <FeedbackStrip fb={(dishFeedback || {})[dish]} />
+          <FeedbackStrip fb={(dishFeedback || {})[dish]} dish={dish} onReset={onResetDishFeedback} />
 
           {/* ── Flavor + size ── */}
           {(report.decomposition.groups.length > 1 || report.decomposition.hasSizeToggle) && (

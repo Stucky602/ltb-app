@@ -14,7 +14,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { DISHES, ALL_ALWAYS_ITEMS, ALWAYS_ITEMS } from '../src/dishes.js';
+import { DISHES, ALL_ALWAYS_ITEMS, ALWAYS_ITEMS, REPORTABLE_DISHES } from '../src/dishes.js';
 import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.js';
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
@@ -998,7 +998,9 @@ TAX  0.00
       // Homegrown Tomato is priced on garden economics (tomatoes ~free), so
       // its recomputation-at-market gap is huge AND honest — the report
       // surfaces it as "what this costs if you had to buy the tomatoes."
-      if (name !== 'Pasta with Homegrown Tomato Sauce'
+      const isDinner = DISHES.some(d => d.name === name);
+      if (isDinner
+          && name !== 'Pasta with Homegrown Tomato Sauce'
           && v.anchorGapPct != null && Math.abs(v.anchorGapPct) > 45) {
         F('report-reconcile', `"${name}" / "${v.label}" anchor gap ${v.anchorGapPct}% — beyond stale-anchor territory, check LINE_MAP/recipe`);
       }
@@ -1074,7 +1076,7 @@ TAX  0.00
   // 12. Portfolio summary: one row per dinner; the known under-floor dishes
   // flag; Bo Ssam's worst variant is its Small.
   const port = buildPortfolioSummary({ baseCostMap: base });
-  if (port.length !== DISHES.length) F('report-portfolio', `expected ${DISHES.length} rows, got ${port.length}`);
+  if (port.length !== REPORTABLE_DISHES.length) F('report-portfolio', `expected ${REPORTABLE_DISHES.length} rows, got ${port.length}`);
   const boRow = port.find(r => r.name === 'Bo Ssam');
   if (!boRow.underFloor || !/Small/.test(boRow.worstMarginVariant)) F('report-portfolio', JSON.stringify(boRow));
   const mrRow = port.find(r => r.name === 'Mushroom Ragu');

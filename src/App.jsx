@@ -29,7 +29,7 @@ import {
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
   orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
-  optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons, applyFeedbackSave,
+  optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons, applyFeedbackSave, resetDishFeedback,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -935,6 +935,15 @@ export default function LTBOrderTracker() {
     });
   }, [clearPageIfDone]);
 
+  // Reset one dish's live tally (archives current tally+notes to history first).
+  const resetDishFeedbackTally = useCallback((dish) => {
+    setDishFeedback(prev => {
+      const next = resetDishFeedback(prev, dish);
+      saveJSON(FEEDBACK_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+
   // Resolve a backfill near-miss inline: link an order (by id, archived or
   // not) to the chosen regular, reusing the alias-merge mechanism so the
   // order's name is remembered on that regular going forward.
@@ -1780,6 +1789,7 @@ export default function LTBOrderTracker() {
         {view === 'recipes' && (
           <RecipesTab
             dishFeedback={dishFeedback}
+            onResetDishFeedback={resetDishFeedbackTally}
             liveCostMap={liveCostMap}
             baseCostMap={baseCostMap}
             costHistory={costHistory}

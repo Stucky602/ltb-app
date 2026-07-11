@@ -461,7 +461,27 @@ export function applyFeedbackSave(store, entry, mode) {
   if (mode === 'tallyNote' && noteText) {
     notes.push({ verdict, note: noteText, at: entry.at || new Date().toISOString() });
   }
-  return { ...(store || {}), [dish]: { tally, notes } };
+  return { ...(store || {}), [dish]: { tally, notes, ...(Array.isArray(prev.history) ? { history: prev.history } : {}) } };
+}
+
+// Reset one dish's live tally to zero, archiving the current tally+notes into
+// its history so nothing is lost. Used after Kevin fixes an issue and wants a
+// clean feedback slate for that dish. No-op if there's nothing to archive.
+export function resetDishFeedback(store, dish, now) {
+  const prev = (store && store[dish]) || null;
+  if (!prev || !prev.tally) return store || {};
+  const total = ['good', 'meh', 'bad'].reduce((n, k) => n + (prev.tally[k] || 0), 0);
+  if (total === 0 && (!prev.notes || prev.notes.length === 0)) return store || {}; // nothing to reset
+  const history = Array.isArray(prev.history) ? [...prev.history] : [];
+  history.unshift({
+    tally: { good: prev.tally.good || 0, meh: prev.tally.meh || 0, bad: prev.tally.bad || 0 },
+    notes: Array.isArray(prev.notes) ? prev.notes : [],
+    archivedAt: now || new Date().toISOString(),
+  });
+  return {
+    ...(store || {}),
+    [dish]: { tally: { good: 0, meh: 0, bad: 0 }, notes: [], history },
+  };
 }
 
 export const DISH_RENAMES = {

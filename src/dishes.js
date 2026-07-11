@@ -156,6 +156,7 @@ export const DISHES = [
   // ── Curry ──────────────────────────────────────────────────────────────────
   {
     name: 'Indian Style Curry',
+    diet: { veg: ['Chickpea, Small (~4-5)', 'Chickpea, Large (~8-10)'], pesc: ['Shrimp, Small (~4-5)', 'Shrimp, Large (~8-10)'] },
     cuisine: 'Indian',
     reheat: 'stovetop',
     rice: true,
@@ -274,6 +275,7 @@ export const DISHES = [
   },
   {
     name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    diet: { veg: ['Mushroom, Small (~3-4)', 'Mushroom, Large (~6-8)', 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)', 'Mushroom, Large (~6-8) + Asian Greens (1 lb)'] },
     cuisine: 'Chinese',
     reheat: 'pasta',
     noodle: true, // the noodle variants; rice surcharge for Beef/Lamb variants
@@ -388,6 +390,7 @@ export const DISHES = [
   },
   {
     name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce',
+    diet: { veg: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], pesc: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,
@@ -421,6 +424,7 @@ export const DISHES = [
   },
   {
     name: 'Stir Fried Long Beans with Ground Pork or Tofu',
+    diet: { veg: ['Tofu, Small (~4)', 'Tofu, Large (~8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,
@@ -454,6 +458,7 @@ export const DISHES = [
   },
   {
     name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
+    diet: { veg: ['Tofu, Small Batch (~4)', 'Tofu, Large Batch (~8)'], pesc: ['Shrimp, Small Batch (~4)', 'Shrimp, Large Batch (~8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,
@@ -552,6 +557,7 @@ export const DISHES = [
   },
   {
     name: 'Pasta with Homegrown Tomato Sauce',
+    diet: { veg: ['Base (~4)', 'With Mushrooms'] },
     cuisine: 'Italian',
     reheat: 'pasta',
     pasta: true,
@@ -580,6 +586,7 @@ export const DISHES = [
   },
   {
     name: 'Pappardelle with Vegetables and Mint',
+    diet: { veg: true },
     options: { parmOffer: true }, // finished with parm; offer a block at cost
     cuisine: 'Italian',
     reheat: 'bagged',
@@ -677,6 +684,7 @@ export const DISHES = [
 
 {
     name: 'Mushroom Ragu',
+    diet: { veg: true },
     cuisine: 'Spotlight',
     spotlight: true,
     reheat: 'pasta',

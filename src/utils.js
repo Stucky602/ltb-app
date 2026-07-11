@@ -444,6 +444,42 @@ export function anyAddonPending(items) {
   return (items || []).some(it => itemAddons(it).some(a => a.pending));
 }
 
+// ─── Dietary filter (vegetarian / pescatarian) ──────────────────────────────
+// Driven by explicit per-dish/per-variant `diet` tags, NEVER inferred from the
+// ingredient list — Kevin swaps meat stock for the veg protein, so the recipe
+// text can show chicken stock on a dish that's genuinely vegetarian as ordered.
+// diet shape: { veg: true | [labels], pesc: true | [labels] }
+//   - true  = whole dish qualifies
+//   - array = only those variant labels qualify
+// Pescatarian is a SUPERSET of vegetarian: any veg variant is also pesc.
+// Returns for a dish + diet: 'all' (every variant qualifies), 'some' (a
+// variant qualifies — show with an "option available" note), or 'none'.
+export function dietMatch(dish, diet) {
+  if (!dish || !diet) return 'none';
+  const tag = dish.diet;
+  if (!tag) return 'none';
+  const variants = dish.variants || [];
+
+  const labelsFor = (key) => {
+    if (tag[key] === true) return variants.map(v => v.label);
+    if (Array.isArray(tag[key])) return tag[key];
+    return [];
+  };
+
+  let qualifying;
+  if (diet === 'veg') {
+    qualifying = new Set(labelsFor('veg'));
+  } else if (diet === 'pesc') {
+    // pescatarian = vegetarian variants + explicit pesc (fish/shellfish) variants
+    qualifying = new Set([...labelsFor('veg'), ...labelsFor('pesc')]);
+  } else {
+    return 'none';
+  }
+  if (qualifying.size === 0) return 'none';
+  if (variants.length > 0 && variants.every(v => qualifying.has(v.label))) return 'all';
+  return 'some';
+}
+
 // ─── Dish feedback store (triage flow, Jul 11) ──────────────────────────────
 // Persistent per-DISH feedback: { [dish]: { tally: {good,meh,bad}, notes: [...] } }.
 // Feedback is never attached to orders — it outlives them on the dish itself.

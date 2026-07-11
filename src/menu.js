@@ -16,6 +16,7 @@ export const ALL_DINNERS = DISHES.map(d => {
     ? { name: d.name, variants: d.variants, options: d.options }
     : { name: d.name, variants: d.variants };
   if (d.spotlight) base.spotlight = true;
+  if (d.diet) base.diet = d.diet; // dietary filter (veg/pesc), read by both menus
   return base;
 });
 

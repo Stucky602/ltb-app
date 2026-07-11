@@ -1,5 +1,5 @@
 import React from 'react';
-import { GOLD, TEAL_LIGHT, styles } from './styles.js';
+import { GOLD, TEAL_LIGHT, styles } from '../styles.js';
 
 // ─── Dish feedback triage card (Jul 11) ─────────────────────────────────────
 // Renders one incoming feedback entry on the Orders page, visually distinct

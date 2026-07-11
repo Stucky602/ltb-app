@@ -21,7 +21,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
 import {
-  uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
+  uid, currency, round2, itemAddons, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
   urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
@@ -51,6 +51,10 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
   const hasReheatable = useMemo(() => buildReheatBlocks(order).length > 0, [order]);
   // Weight-entry popup: null when closed, or { mode: 'single'|'walk', queue: [idx...], pos: 0 }
   const [weightFlow, setWeightFlow] = useState(null);
+  // At-cost add-on price editor: null, or { itemIdx, addonId, val } — the
+  // add-on twin of the weight flow: request known at order time, price set
+  // after shopping, resolved cost folds into the total via orderTotal.
+  const [addonEdit, setAddonEdit] = useState(null);
 
   const perLbIdxs = (order.items || [])
     .map((it, i) => (isPerLbItem(it.name) ? i : -1))
@@ -78,6 +82,21 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
       const nextPos = prev.pos + 1;
       return nextPos < prev.queue.length ? { ...prev, pos: nextPos } : null;
     });
+  };
+
+  // Commit a priced add-on: same patch pattern as the weight commit — new
+  // items array, orderTotal recomputed, one onUpdate.
+  const applyAddonCost = (itemIdx, addonId, costNum) => {
+    const items = order.items.map((it, i) => {
+      if (i !== itemIdx) return it;
+      const addons = itemAddons(it).map(a => (a.id === addonId ? { ...a, cost: round2(costNum), pending: false } : a));
+      return { ...it, addons };
+    });
+    onUpdate({
+      items,
+      total: orderTotal(items, order.jarSwaps, order.containerReturns, order.discountType, order.discountValue, order.customCharges, order.waiveSurcharge),
+    });
+    setAddonEdit(null);
   };
 
   const itemsTotal = (order.items || []).reduce((s, it) => s + it.price * it.qty, 0);
@@ -215,6 +234,33 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                     <div style={styles.orderItemSub}>+ {it.upcharge.label} ({currency(it.upcharge.amount)} ea)</div>
                   ) : null}
                   {optionsSummary(it) && <div style={styles.orderItemSub}>{optionsSummary(it)}</div>}
+                  {itemAddons(it).map(a => (
+                    <div key={a.id} style={{ ...styles.orderItemSub, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span>
+                        + {a.request}{' '}
+                        {a.pending
+                          ? <span style={styles.pendingPrice}>price pending (at cost)</span>
+                          : <span>({currency(a.cost)} at cost)</span>}
+                      </span>
+                      {addonEdit && addonEdit.itemIdx === idx && addonEdit.addonId === a.id ? (
+                        <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input
+                            type="number" inputMode="decimal" step="0.01" min="0"
+                            value={addonEdit.val}
+                            onChange={e => setAddonEdit({ ...addonEdit, val: e.target.value })}
+                            style={{ width: 72, padding: '4px 6px', borderRadius: 6, border: '1px solid #3a4441', background: '#202623', color: '#e8ede9', fontSize: 13 }}
+                            autoFocus
+                          />
+                          <button style={styles.setWeightBtn} onClick={() => { const n = parseFloat(addonEdit.val); if (!(n >= 0)) return; applyAddonCost(idx, a.id, n); }}>Save</button>
+                          <button style={{ ...styles.setWeightBtn, opacity: 0.7 }} onClick={() => setAddonEdit(null)}>✕</button>
+                        </span>
+                      ) : (
+                        <button style={styles.setWeightBtn} onClick={() => setAddonEdit({ itemIdx: idx, addonId: a.id, val: a.pending ? '' : String(a.cost) })}>
+                          {a.pending ? 'Set price' : 'Edit price'}
+                        </button>
+                      )}
+                    </div>
+                  ))}
                   {noteWithoutOptions(it.note) && <div style={styles.orderItemNote}>“{noteWithoutOptions(it.note)}”</div>}
                   {perLb && (
                     <button

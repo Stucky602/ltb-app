@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD } from '../styles.js';
-import { currency, itemCost } from '../utils.js';
+import { currency, itemCost, copyText } from '../utils.js';
+import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
+import { itemHandling } from '../recipes.js';
 import { MARGIN_BUFFER } from '../dishCosting.js';
 import {
   buildDishReport, buildPortfolioSummary, reportableDishes, dishSalesHistory,
@@ -52,7 +54,57 @@ const S = {
   portTd: { fontSize: 12, padding: '5px 6px', borderTop: `1px solid ${C.border}` },
 };
 
-export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders }) {
+// ── Customer feedback tally + kept notes for one dish ────────────────────────
+// Reads the per-dish store written by the Orders-page triage flow. Tally shows
+// all three verdicts; notes are collapsed by default so they never overwhelm.
+const FB_META = [
+  ['good', 'Perfect', '#5DCAA5'],
+  ['meh', 'A little off', '#D9B36C'],
+  ['bad', 'Had trouble', '#d98a7e'],
+];
+function FeedbackStrip({ fb }) {
+  const [open, setOpen] = React.useState(false);
+  if (!fb || !fb.tally) return null;
+  const total = FB_META.reduce((n, [k]) => n + (fb.tally[k] || 0), 0);
+  if (total === 0) return null;
+  const notes = Array.isArray(fb.notes) ? fb.notes : [];
+  return (
+    <div style={{ margin: '0 0 14px', padding: '10px 12px', background: '#202623', borderRadius: 10, border: '1px solid #2d3a36' }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#D9B36C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+        Customer feedback
+      </div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
+        {FB_META.map(([k, label, color]) => (
+          <span key={k} style={{ color: (fb.tally[k] || 0) > 0 ? color : '#5a635e', fontWeight: 700 }}>
+            {label} ×{fb.tally[k] || 0}
+          </span>
+        ))}
+      </div>
+      {notes.length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <button
+            style={{ background: 'none', border: 'none', color: '#8a938e', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+            onClick={() => setOpen(o => !o)}
+          >
+            {open ? '▾' : '▸'} Notes ({notes.length})
+          </button>
+          {open && notes.map((n, i) => {
+            const meta = FB_META.find(m => m[0] === n.verdict) || FB_META[0];
+            return (
+              <div key={i} style={{ marginTop: 6, fontSize: 13, color: '#c8cfc9' }}>
+                <span style={{ color: meta[2], fontWeight: 700 }}>●</span>{' '}
+                <span style={{ fontStyle: 'italic' }}>&ldquo;{n.note}&rdquo;</span>
+                {n.at && <span style={{ color: '#5a635e', fontSize: 11 }}> · {new Date(n.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function RecipesTab({ dishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders }) {
   const [dish, setDish] = useState('');
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [size, setSize] = useState('small'); // 'small' | 'large' | 'only'
@@ -64,6 +116,14 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
 
   const ctx = useMemo(() => ({ liveCostMap, baseCostMap, costHistory }), [liveCostMap, baseCostMap, costHistory]);
   const report = useMemo(() => (dish ? buildDishReport(dish, ctx) : null), [dish, ctx]);
+  // ── Content studio state ──
+  const [draft, setDraft] = useState(null);
+  const [drafting, setDrafting] = useState(false);
+  const [draftErr, setDraftErr] = useState(null);
+  const [copiedDraft, setCopiedDraft] = useState(false);
+  useEffect(() => { setDraft(null); setDraftErr(null); }, [dish]);
+
+
   const portfolio = useMemo(() => buildPortfolioSummary(ctx), [ctx]);
 
   const dishes = useMemo(() => reportableDishes(), []);
@@ -87,6 +147,36 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
   }, [group, size]);
   const econ = (report && currentVariant) ? report.variantByLabel.get(currentVariant.label) : null;
   const recipe = (report && currentVariant) ? report.recipeFor(currentVariant.label) : null;
+
+  // Grounding facts for the studio: ingredient names (NEVER costs), the canon
+  // reheat approach, and Kevin's own cook notes. Only what's true.
+  const contentFacts = useMemo(() => {
+    if (!dish || !recipe) return '';
+    const ings = (recipe.displayLines || []).map(l => l.name).filter(Boolean).join(', ');
+    const h = itemHandling(dish, {});
+    const notes = (dishNotes || {})[dish] || '';
+    return [
+      `Ingredients: ${ings}`,
+      h.cue ? `Customer finish: ${h.cue}` : '',
+      notes ? `Kevin's cook notes: ${notes}` : '',
+    ].filter(Boolean).join('\n');
+  }, [dish, recipe, dishNotes]);
+
+  const makeDraft = async (angle) => {
+    setDrafting(true); setDraftErr(null); setDraft(null);
+    try {
+      const res = await fetch(WORKER_BASE + '/content', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token: PUBLISH_TOKEN, dish, angle, facts: contentFacts }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.draft) throw new Error(j.error || 'failed');
+      setDraft(j.draft);
+    } catch (e) {
+      setDraftErr('Draft failed. Is the v8 worker deployed and the API key set?');
+    }
+    setDrafting(false);
+  };
   const cot = (report && currentVariant) ? report.costOverTimeFor(currentVariant.label) : null;
   const reheat = (report && currentVariant) ? report.reheatFor(currentVariant.label) : [];
   const scaleForFlavor = (report && group) ? report.scaling.find(s => s.flavor === group.flavor) : null;
@@ -163,6 +253,9 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
 
       {report && (
         <>
+          {/* ── Customer feedback (dish-linked, saved via the Orders-page triage) ── */}
+          <FeedbackStrip fb={(dishFeedback || {})[dish]} />
+
           {/* ── Flavor + size ── */}
           {(report.decomposition.groups.length > 1 || report.decomposition.hasSizeToggle) && (
             <div style={S.section}>
@@ -398,6 +491,29 @@ export function RecipesTab({ liveCostMap, baseCostMap, costHistory, dishNotes, o
               onChange={e => setNoteText(e.target.value)}
             />
             <button style={S.saveBtn} onClick={() => onSaveDishNote(dish, noteText)}>Save notes</button>
+          </div>
+
+          {/* ── Content studio: this dish, told well, in Kevin's voice ── */}
+          <div style={S.section}>
+            <div style={S.sectionTitle}>Content studio</div>
+            <div style={{ fontSize: 12, color: '#8a958f', marginBottom: 8, lineHeight: 1.45 }}>
+              Turn this dish into a post. Grounded in the real recipe and your cook notes, written in your voice. Each draft is one small Sonnet call.
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[['science', 'Food science'], ['technique', 'Technique'], ['story', 'Behind the dish'], ['caption', 'IG caption']].map(([k, label]) => (
+                <button key={k} style={{ ...S.chip(false), opacity: drafting ? 0.5 : 1 }} disabled={drafting} onClick={() => makeDraft(k)}>{label}</button>
+              ))}
+            </div>
+            {drafting && <div style={{ fontSize: 12.5, color: '#9aa5a0', marginTop: 10 }}>Writing…</div>}
+            {draftErr && <div style={S.banner('warn')}>{draftErr}</div>}
+            {draft && (
+              <>
+                <div style={{ marginTop: 10, padding: '11px 13px', background: '#14201d', border: '1px solid #2d3a36', borderRadius: 8, fontSize: 13.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{draft}</div>
+                <button style={S.saveBtn} onClick={async () => { await copyText(draft); setCopiedDraft(true); setTimeout(() => setCopiedDraft(false), 2000); }}>
+                  {copiedDraft ? '✓ Copied' : 'Copy draft'}
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

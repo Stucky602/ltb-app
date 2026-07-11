@@ -19,7 +19,7 @@ import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.j
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
-import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
+import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, normalizeAddons, itemAddonsTotal, anyAddonPending, orderTotal, applyFeedbackSave, FEEDBACK_VERDICTS, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { readFileSync } from 'node:fs';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
@@ -567,7 +567,7 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
 // choices in item.options. itemOptions() must prefer the structured field
 // and fall back to legacy "Spice: N" / "Pasta: x" note prefixes forever.
 {
-  const KNOWN_OPTION_KEYS = new Set(['spice', 'pasta']);
+  const KNOWN_OPTION_KEYS = new Set(['spice', 'pasta', 'parmOffer', 'fixings']); // parmOffer/fixings: at-cost add-on prompts (Jul 11)
   for (const d of DISHES) {
     if (!d.options) continue;
     for (const [k, def] of Object.entries(d.options)) {
@@ -1273,6 +1273,74 @@ TAX  0.00
     const bo = preflightWeek(['Bo Ssam', 'Mushroom Ragu']);
     if (!bo.some(w => w.code === 'under-floor' && /Bo Ssam/.test(w.text))) F('preflight', 'Bo Ssam Small under-floor must be named');
     if (bo.some(w => w.code === 'under-floor' && /Lamb Leg/.test(w.text))) F('preflight', 'unselected dishes must not be audited');
+  }
+
+  // ═══ AT-COST ADD-ONS (Fable, Jul 11): parm blocks + fixings ═══════════════
+  // The add-on twin of the weight system: request known at order time, cost
+  // set after shopping, flat per line (never × qty), charged AT COST.
+  {
+    // normalizeAddons: sanitize, trim, dedupe (case-insensitive), cap 8, pending until priced.
+    const n1 = normalizeAddons([{ request: ' chips ' }, { request: 'Chips' }, { request: 'sour cream' }, { request: '' }, { request: 'x'.repeat(200) }]);
+    if (!n1 || n1.length !== 3) F('addons', `normalize dedupe/cap: ${JSON.stringify(n1 && n1.map(a => a.request))}`);
+    else {
+      if (n1[0].request !== 'chips' || !n1.every(a => a.pending && a.cost === null)) F('addons', 'normalized addons must be pending with null cost');
+      if (n1[2].request.length > 80) F('addons', 'request must be capped at 80 chars');
+    }
+    if (normalizeAddons('nope') !== null || normalizeAddons([]) !== null) F('addons', 'non-arrays/empty must normalize to null');
+
+    // Money math: pending contributes 0; resolved adds FLAT (not × qty);
+    // add-ons sit OUTSIDE the discount base; cost side mirrors price (zero margin).
+    const it = { name: 'Chili', variant: 'Large (~6-8)', price: 60, cost: 30, qty: 2, addons: [
+      { id: 'a1', request: 'chips', cost: 4.99, pending: false },
+      { id: 'a2', request: 'sour cream', cost: null, pending: true },
+    ] };
+    if (itemAddonsTotal(it) !== 4.99) F('addons', `flat resolved total: ${itemAddonsTotal(it)}`);
+    if (!anyAddonPending([it])) F('addons', 'pending flag must surface');
+    // qty 2 × $60 = 120 base; +4.99 addon; no surcharge/discount → 124.99
+    const t = orderTotal([it], 0, 0, null, 0, [], true);
+    if (t !== 124.99) F('addons', `orderTotal with addon: ${t} (want 124.99 — addon must be flat, not ×qty)`);
+    // 50% discount applies to the 120 base ONLY, never the at-cost addon: 60 + 4.99
+    const td = orderTotal([it], 0, 0, 'percent', 50, [], true);
+    if (td !== 64.99) F('addons', `discount must exclude addons: ${td} (want 64.99)`);
+    // cost side: 2×30 + 4.99 = 64.99 (addon at cost = zero margin)
+    const ci = orderCostInfo({ items: [it] });
+    if (ci.cost !== 64.99) F('addons', `orderCostInfo must include addon at cost: ${ci.cost}`);
+
+    // Registry config: the offer set is deliberate — pin it so a future edit
+    // can't silently drop a prompt off the form.
+    const parmSet = ALL_DINNERS.filter(d => d.options && d.options.parmOffer).map(d => d.name).sort();
+    const wantParm = ['Bolognese', 'Mushroom Ragu', 'Pappardelle with Vegetables and Mint', 'Pasta with Homegrown Tomato Sauce', 'Saffron Pork Ragu'];
+    if (JSON.stringify(parmSet) !== JSON.stringify(wantParm)) F('addons', `parmOffer set drifted: ${JSON.stringify(parmSet)}`);
+    const fixSet = ALL_DINNERS.filter(d => d.options && d.options.fixings).map(d => d.name).sort();
+    if (JSON.stringify(fixSet) !== JSON.stringify(['Chili', 'Tex-Mex Kit'])) F('addons', `fixings set drifted: ${JSON.stringify(fixSet)}`);
+  }
+
+  // ═══ DISH FEEDBACK TRIAGE (Jul 11): per-dish store, never on orders ═══════
+  {
+    // Verdict key set is pinned: companion page sends exactly these three.
+    if (JSON.stringify(FEEDBACK_VERDICTS) !== JSON.stringify(['good', 'meh', 'bad'])) F('feedback', `verdict keys drifted: ${JSON.stringify(FEEDBACK_VERDICTS)}`);
+
+    let st = {};
+    // tally-only: count bumps, note dropped
+    st = applyFeedbackSave(st, { dish: 'Gumbo', verdict: 'good', note: 'omg so good' }, 'tally');
+    if (st.Gumbo.tally.good !== 1 || st.Gumbo.notes.length !== 0) F('feedback', `tally-only must drop the note: ${JSON.stringify(st.Gumbo)}`);
+    // tally+note: count bumps AND note kept
+    st = applyFeedbackSave(st, { dish: 'Gumbo', verdict: 'good', note: 'sear tip was clutch', at: '2026-07-11T00:00:00Z' }, 'tallyNote');
+    if (st.Gumbo.tally.good !== 2 || st.Gumbo.notes.length !== 1 || st.Gumbo.notes[0].note !== 'sear tip was clutch') F('feedback', `tally+note: ${JSON.stringify(st.Gumbo)}`);
+    // tallyNote with an EMPTY note still bumps but keeps nothing
+    st = applyFeedbackSave(st, { dish: 'Gumbo', verdict: 'meh', note: '' }, 'tallyNote');
+    if (st.Gumbo.tally.meh !== 1 || st.Gumbo.notes.length !== 1) F('feedback', 'empty note must not be kept');
+    // multi-dish isolation + accumulation
+    st = applyFeedbackSave(st, { dish: 'Chili', verdict: 'bad', note: 'too hot' }, 'tallyNote');
+    if (st.Chili.tally.bad !== 1 || st.Gumbo.tally.good !== 2) F('feedback', 'dishes must accumulate independently');
+    // garbage in: unknown verdict or empty dish is a no-op
+    const before = JSON.stringify(st);
+    st = applyFeedbackSave(st, { dish: 'Gumbo', verdict: 'amazing', note: 'x' }, 'tallyNote');
+    st = applyFeedbackSave(st, { dish: '', verdict: 'good' }, 'tally');
+    if (JSON.stringify(st) !== before) F('feedback', 'invalid entries must be no-ops');
+    // note cap at 240
+    st = applyFeedbackSave(st, { dish: 'Chili', verdict: 'good', note: 'y'.repeat(500) }, 'tallyNote');
+    if (st.Chili.notes[1].note.length !== 240) F('feedback', 'note must cap at 240 chars');
   }
 
 

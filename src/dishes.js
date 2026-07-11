@@ -679,7 +679,10 @@ export const DISHES = [
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
-    options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Polenta'] } }, // polenta variant replaces pasta; egg pappardelle is the default
+    // No pasta-shape option: this dish always comes with egg pappardelle (or
+    // the Polenta variant), never a customer-chosen dry pasta shape. The shape
+    // picker only belongs on dishes where "Pasta" is a raw choose-your-shape
+    // ingredient (Bolognese base, Homegrown Tomato, Saffron Pork Ragu).
     variants: [
       // Single size only (expensive dish, no Medium/Large — already 4-5
       // servings). Promoted to Spotlight and repriced to $70 both variants

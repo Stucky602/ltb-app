@@ -424,6 +424,90 @@ export function buildPortfolioSummary(ctx = {}) {
   });
 }
 
+// ── Serving-size check (lightweight, opportunistic) ──────────────────────────
+// Goal: a small should honestly feed 4, a large 8, UNLESS the dish is bound by
+// a fixed construct (egg-pasta packs, can sizes) — those carry a per-dish
+// `servings` override in the registry. The claimed count is parsed straight
+// from each variant label's "~N" text (the number the customer sees), so the
+// check can never silently disagree with the menu.
+//
+// Two modes:
+//   • Label sanity: does the label's claim match the dish's target (4/8 or
+//     override)? Flags drift so a mislabeled variant gets caught.
+//   • Reality check (only when a real `cookedWeightG` is entered on the dish):
+//     computes ACTUAL servings = cookedWeightG / portionTargetG, where
+//     portionTargetG is derived from the target (cookedWeightG ÷ targetServings
+//     for the size you weighed). If actual can't hit the claimed count, flags an
+//     overclaim. This is the one that would've caught Mapo.
+//
+// Everything is optional: a dish with no `servings` override uses 4/8; a dish
+// with no `cookedWeightG` simply skips the reality check. Grows as Kevin weighs
+// batches over time (same opportunistic pattern as the receipt-scan costs).
+
+// Parse the "~N" or "~N-M" serving hint from a variant label. Returns the
+// midpoint (e.g. "~3-4" → 3.5, "~4" → 4), or null if no hint present.
+export function parseClaimedServings(label) {
+  const m = String(label || '').match(/~\s*(\d+)(?:\s*-\s*(\d+))?/);
+  if (!m) return null;
+  const lo = Number(m[1]);
+  const hi = m[2] ? Number(m[2]) : lo;
+  return (lo + hi) / 2;
+}
+
+// Classify a variant label as 'small' | 'large' | null (for target lookup).
+function sizeOfLabel(label) {
+  const l = String(label || '').toLowerCase();
+  if (/\blarge\b/.test(l)) return 'large';
+  if (/\bsmall\b|\bbase\b/.test(l)) return 'small';
+  return null;
+}
+
+// Build a serving-size report for one dish. `opts.tolerance` is the allowed
+// fractional drift before flagging (default 0.2 = 20%).
+export function buildServingCheck(dish, opts = {}) {
+  if (!dish) return null;
+  const tolerance = opts.tolerance ?? 0.2;
+  const target = { small: 4, large: 8, ...(dish.servings || {}) };
+  const bound = !!(dish.servings && dish.servings.bound); // dish is package/can-bound
+  const cookedWeightG = dish.cookedWeightG || null;       // real weighed batch (optional)
+  const cookedWeightSize = dish.cookedWeightSize || 'large'; // which size was weighed
+
+  // Portion target derived from the weighed batch, if we have one:
+  //   portion = cookedWeightG / target[weighedSize]
+  const portionTargetG = cookedWeightG ? cookedWeightG / (target[cookedWeightSize] || 8) : null;
+
+  const rows = (dish.variants || []).map(v => {
+    const size = sizeOfLabel(v.label);
+    const claimed = parseClaimedServings(v.label);
+    const tgt = size ? target[size] : null;
+    let labelDrift = null, labelFlag = false;
+    if (claimed != null && tgt != null) {
+      labelDrift = (claimed - tgt) / tgt;
+      // Bound dishes are EXPECTED to deviate from 4/8, so don't flag those.
+      labelFlag = !bound && Math.abs(labelDrift) > tolerance;
+    }
+    return { label: v.label, size, claimed, target: tgt, labelDrift, labelFlag };
+  });
+
+  return {
+    name: dish.name,
+    target,
+    bound,
+    cookedWeightG,
+    cookedWeightSize,
+    portionTargetG: portionTargetG ? Math.round(portionTargetG) : null,
+    rows,
+    anyFlag: rows.some(r => r.labelFlag),
+  };
+}
+
+// Portfolio-level serving audit: run the check across all dinners, return only
+// dishes with a flag (or all, if opts.all). Feeds a Recipes-tab table.
+export function buildServingAudit(opts = {}) {
+  const out = DISHES.map(d => buildServingCheck(d, opts)).filter(Boolean);
+  return opts.all ? out : out.filter(r => r.anyFlag);
+}
+
 // All dinner names in registry (display) order — the tab's dropdown source.
 // Main Recipes dropdown: dinners + queso/desserts only (Kevin's core list).
 // The bag proteins and sous-vide veg live behind their own collapsed dropdowns

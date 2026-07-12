@@ -534,6 +534,14 @@ export const VARIANT_RENAMES = {
     '~6 servings': '~4 servings',
     'With 1 lb mushrooms (~6 servings)': 'With 1 lb mushrooms',
   },
+  'Mapo Eggplant': {
+    'Small (~5-6 servings)': 'Small (~4-5 servings)',
+    'Large (~10-12 servings)': 'Large (~8-10 servings)',
+  },
+  'Gumbo': {
+    'Small (split order, ~3-6)': 'Small (split order, ~4)',
+    'Large (~8-12)': 'Large (~8)',
+  },
 };
 
 // Find the current registry variant for an item, surviving dish/variant

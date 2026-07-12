@@ -96,12 +96,13 @@ export const DISHES = [
     reheat: 'stovetop',
     rice: true,
     equipment: { fixed: ['dutch'] },
+    servings: { small: 4, large: 8 },
     variants: [
-      { label: 'Small (split order, ~3-6)', price: 50, cost: 23.33 },
-      { label: 'Large (~8-12)', price: 90, cost: 46.66 },
+      { label: 'Small (split order, ~4)', price: 50, cost: 23.33 },
+      { label: 'Large (~8)', price: 90, cost: 46.66 },
     ],
     recipe: {
-      factors: { 'Small (split order, ~3-6)': 0.5, 'Large (~8-12)': 1 },
+      factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
       base: [
         I('Chicken thighs', 2, 'lb'),
         I('Texas Gulf Shrimp', 2, 'lb'),
@@ -122,6 +123,7 @@ export const DISHES = [
     cuisine: 'Tex-Mex',
     reheat: 'kit',
     equipment: { fixed: ['dutch', 'largePot', 'ovenLow'] },
+    servings: { small: 5.5, large: 9.5, bound: true },
     variants: [
       { label: 'Pulled Pork, Small (~5-6)', price: 42, cost: 19.21 },
       { label: 'Pulled Pork, Large (~9-10)', price: 80, cost: 37.42 },
@@ -370,11 +372,11 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch'] }, // no tofu
     variants: [
-      { label: 'Small (~5-6 servings)', price: 35, cost: 14.75 },
-      { label: 'Large (~10-12 servings)', price: 65, cost: 29.51 },
+      { label: 'Small (~4-5 servings)', price: 35, cost: 14.75 },
+      { label: 'Large (~8-10 servings)', price: 65, cost: 29.51 },
     ],
     recipe: {
-      factors: { 'Small (~5-6 servings)': 1, 'Large (~10-12 servings)': 2 },
+      factors: { 'Small (~4-5 servings)': 1, 'Large (~8-10 servings)': 2 },
       base: [
         I('Chinese eggplant', 2, 'lb'),
         I('Ground chicken', 0.5, 'lb'),
@@ -592,6 +594,7 @@ export const DISHES = [
     reheat: 'bagged',
     baggedPasta: true, // bagged dish finished by mixing with cooked pasta
     equipment: { fixed: ['wok'] },
+    servings: { small: 2.5, large: 5.5, bound: true },
     variants: [
       { label: 'Small (~2-3)', price: 35, cost: 15.25 },
       { label: 'Large (~5-6)', price: 65, cost: 30.51 },
@@ -658,6 +661,7 @@ export const DISHES = [
     pasta: true,
     equipment: { backBurner: true }, // soft claim — quick sauce reduction, just be mindful (Kevin)
     // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
+    servings: { small: 3, large: 6, bound: true },
     variants: [
       { label: 'Small (~3 servings)', price: 45, cost: 21.29 },
       { label: 'Large (~6 servings)', price: 85, cost: 42.59 },
@@ -745,6 +749,7 @@ export const DISHES = [
     reheat: 'lambSpotlight', // dedicated two-part card: sear the lamb, warm the beans
     chillOnly: true,
     equipment: { backBurner: true }, // soft claim — quick sear + a bag in simmering water
+    servings: { small: 2, large: 6, bound: true },
     variants: [
       { label: 'Small (~2 servings)', price: 50, cost: 26.12 },
       { label: 'Medium (~4 servings)', price: 90, cost: 52.24 },
@@ -782,6 +787,7 @@ export const DISHES = [
     // container cost to keep the price sane (Kevin, Jul 9). Large runs thin on
     // margin by design. Stabilizers (xanthan + soy lecithin) in the sauce are
     // not costed (negligible) but drive the Soy allergen + reheat forgiveness.
+    servings: { small: 2, large: 6, bound: true },
     variants: [
       { label: 'Small (~2 servings)', price: 50, cost: 25.72 },
       { label: 'Medium (~4 servings)', price: 95, cost: 51.45 },
@@ -824,6 +830,7 @@ export const DISHES = [
     // small) + a Courvoisier-and-cream sauce. Wrap cost absorbed. Large runs
     // under floor (~42%) at Kevin's chosen $210. Stabilized sauce (xanthan +
     // soy lecithin, uncosted) → Soy allergen + reheat forgiveness note.
+    servings: { small: 2, large: 6, bound: true },
     variants: [
       { label: 'Small (~2 servings)', price: 80, cost: 43.58 },
       { label: 'Medium (~4 servings)', price: 150, cost: 87.15 },

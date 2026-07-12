@@ -5,7 +5,7 @@ import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { itemHandling } from '../recipes.js';
 import { MARGIN_BUFFER } from '../dishCosting.js';
 import {
-  buildDishReport, buildPortfolioSummary, reportableDishes, dishSalesHistory,
+  buildDishReport, buildPortfolioSummary, reportableDishes, buildServingAudit, dishSalesHistory,
 } from '../dishReport.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
@@ -210,6 +210,9 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const [showProteins, setShowProteins] = useState(false); // collapsed by default
   const [showVeg, setShowVeg] = useState(false);           // collapsed by default
   const [showDesserts, setShowDesserts] = useState(false); // collapsed by default
+  const [showServings, setShowServings] = useState(false); // collapsed by default
+  const servingAudit = useMemo(() => buildServingAudit({ all: true }), []);
+  const servingFlags = useMemo(() => servingAudit.filter(d => d.anyFlag), [servingAudit]);
   const thisWeek = useMemo(() => new Set(weekDishes || []), [weekDishes]);
 
   // Reset flavor/size when the dish changes; seed notes.
@@ -432,6 +435,58 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Serving-size check — flags label/yield drift from the 4/8 baseline ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowServings(o => !o)}>
+          <span>Serving-size check{servingFlags.length ? ` · ${servingFlags.length} ⚠` : ' · all clear'}</span>
+          <span>{showServings ? '▲' : '▼'}</span>
+        </button>
+        {showServings && (
+          <div style={{ marginTop: 8 }}>
+            <p style={{ ...S.hint, marginTop: 0 }}>
+              Target: a small feeds 4, a large 8. Dishes bound by a fixed construct (egg pasta, can/pack sizes, plated cuts) carry an override and are marked <span style={{ color: C.dim }}>bound</span>. A ⚠ means a label drifts from its target by more than 20%. Enter a real cooked batch weight on a dish (cookedWeightG) to also check the claim against actual yield.
+            </p>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={S.portTh}>Dish</th>
+                    <th style={{ ...S.portTh, textAlign: 'right' }}>Claim (S / L)</th>
+                    <th style={{ ...S.portTh, textAlign: 'right' }}>Target</th>
+                    <th style={{ ...S.portTh, textAlign: 'right' }}>Yield*</th>
+                    <th style={{ ...S.portTh, textAlign: 'right' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {servingAudit.map(d => {
+                    const small = d.rows.find(r => r.size === 'small');
+                    const large = d.rows.find(r => r.size === 'large');
+                    const claimS = small && small.claimed != null ? small.claimed : '—';
+                    const claimL = large && large.claimed != null ? large.claimed : '—';
+                    const realYield = d.cookedWeightG && d.portionTargetG
+                      ? Math.round(d.cookedWeightG / d.portionTargetG) : null;
+                    return (
+                      <tr key={d.name} style={{ cursor: 'pointer' }} onClick={() => setDish(d.name)}>
+                        <td style={{ ...S.portTd, color: d.name === dish ? C.good : C.text }}>
+                          {d.name}{d.bound ? <span style={{ color: C.faint, fontSize: 11 }}> · bound</span> : ''}
+                        </td>
+                        <td style={{ ...S.portTd, textAlign: 'right' }}>{claimS} / {claimL}</td>
+                        <td style={{ ...S.portTd, textAlign: 'right', color: C.dim }}>{d.target.small} / {d.target.large}</td>
+                        <td style={{ ...S.portTd, textAlign: 'right', color: C.faint }}>{realYield != null ? realYield : '—'}</td>
+                        <td style={{ ...S.portTd, textAlign: 'right', color: d.anyFlag ? C.badText : C.faint, fontWeight: d.anyFlag ? 700 : 400 }}>
+                          {d.anyFlag ? '⚠' : (d.bound ? 'bound' : 'ok')}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p style={{ ...S.hint, fontSize: 11, color: C.faint }}>*Yield shows real servings only for dishes where you've entered a weighed batch; blank until then.</p>
           </div>
         )}
       </div>

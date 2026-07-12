@@ -627,7 +627,7 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   if (!(a.type === 'set-option' && a.value === null && a.suggest >= 1 && a.auto === false)) F('router', `vague spice must prompt: ${JSON.stringify(a)}`);
 
   // Tier 2 — option-ish ask on a dish WITHOUT the option → prompt, never silent
-  items = mk('Gumbo', 'Small (split order, ~3-6)');
+  items = mk('Gumbo', 'Small (split order, ~4)');
   a = routeItemRequest(M, items, 0, 'make it spicy');
   if (!(a.type === 'add-item-note' && a.tier2 === 'spice' && a.auto === false)) F('router', `tier-2 spice must prompt a note: ${JSON.stringify(a)}`);
 
@@ -652,7 +652,7 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   const parsed = {
     items: [
       { category: 'dinner', name: 'Indian Style Curry', variant: curryVar.label, qty: 1, requests: ['spice 3', 'no cilantro'] },
-      { category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 1, requests: ['make it spicy'] },
+      { category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 1, requests: ['make it spicy'] },
     ],
     serviceRequests: ['can you cut up some strawberries'],
     jarSwaps: 0, containerReturns: 0, notes: '', reviewReasons: [],
@@ -671,25 +671,25 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   // Merge guard: same item twice, one carrying requests → NOT merged
   const parsed2 = {
     items: [
-      { category: 'dinner', name: 'Mapo Eggplant', variant: 'Small (~5-6 servings)', qty: 1 },
-      { category: 'dinner', name: 'Mapo Eggplant', variant: 'Small (~5-6 servings)', qty: 1, requests: ['extra sauce'] },
+      { category: 'dinner', name: 'Mapo Eggplant', variant: 'Small (~4-5 servings)', qty: 1 },
+      { category: 'dinner', name: 'Mapo Eggplant', variant: 'Small (~4-5 servings)', qty: 1, requests: ['extra sauce'] },
     ], jarSwaps: 0, containerReturns: 0, notes: '',
   };
   const v2 = validateParsedOrder(parsed2, M);
   if (v2.items.length !== 2) F('router-merge', `request-carrying duplicate must not merge: got ${v2.items.length} items`);
 
   // Qty range check flags, never mutates
-  const v3 = validateParsedOrder({ items: [{ category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 30 }], jarSwaps: 0, containerReturns: 0 }, M);
+  const v3 = validateParsedOrder({ items: [{ category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 30 }], jarSwaps: 0, containerReturns: 0 }, M);
   if (v3.items[0].qty !== 30) F('qty-check', 'qty must not be mutated');
   if (!v3.reviewReasons.some(r => /Quantity looks off/.test(r))) F('qty-check', `huge qty must be flagged: ${JSON.stringify(v3.reviewReasons)}`);
 
   // ── diffOrders fixtures ──
   const before = { items: [
-    { name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 1 },
+    { name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 1 },
     { name: 'Chili', variant: 'Large (~6-8)', qty: 2, note: 'no beans' },
   ], jarSwaps: 0, containerReturns: 0, notes: '' };
   const after = { items: [
-    { name: 'Gumbo', variant: 'Small (split order, ~3-6)', qty: 2 },
+    { name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 2 },
     { name: 'Bo Ssam', variant: 'Small (~4 servings)', qty: 1 },
   ], jarSwaps: 1, containerReturns: 0, notes: '' };
   const d = diffOrders(before, after);
@@ -962,7 +962,7 @@ TAX  0.00
   // 5. Servings parsing
   const sv = [
     ['Small (~4-5 servings)', 4.5], ['Large (~8-12)', 10], ['~4 servings', 4],
-    ['Small (split order, ~3-6)', 4.5], ['With 1 lb mushrooms', null], ['price by weight', null],
+    ['Large (~8)', 8], ['Small (split order, ~4)', 4], ['With 1 lb mushrooms', null], ['price by weight', null],
   ];
   for (const [label, want] of sv) {
     const got = parseServings(label);
@@ -1028,7 +1028,7 @@ TAX  0.00
     { t: '2026-07-01', id: 'shrimp', cost: 18 },
     { t: '2026-07-01', id: 'saffron', cost: 99 }, // not in gumbo — must be ignored
   ] });
-  const cot = gumboRep.costOverTimeFor('Large (~8-12)');
+  const cot = gumboRep.costOverTimeFor('Large (~8)');
   if (cot.historyPoints !== 2) F('report-cot', `gumbo should see 2 relevant points, got ${cot.historyPoints}`);
   const series = cot.dishSeries;
   if (!(series.length === 3 && series[2].rawCost > series[0].rawCost)) F('report-cot', `dish series should rise: ${JSON.stringify(series)}`);
@@ -1420,8 +1420,8 @@ TAX  0.00
   const orders = [
     { createdAt: iso(2), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 45, cost: 22.58 }] },
     { createdAt: iso(16), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
-    { createdAt: iso(16), customer: 'Frances', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1, price: 55, cost: 25 }] },
-    { createdAt: iso(30), customer: 'Sara', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 2, price: 55, cost: 25 }] },
+    { createdAt: iso(16), customer: 'Frances', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1, price: 55, cost: 25 }] },
+    { createdAt: iso(30), customer: 'Sara', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 2, price: 55, cost: 25 }] },
     { createdAt: iso(30), customer: 'Frances', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
     { createdAt: iso(1), customer: 'Mom', items: [{ name: 'NY Strip', variant: 'price by weight', qty: 2, price: 39, cost: 21.74, weight: 1.5 }] },
   ];
@@ -1462,7 +1462,7 @@ TAX  0.00
   // order engine; packing rolls up per customer.
   const sheet = buildLabelSheet([
     { customer: 'Frances', items: [
-      { name: 'Gumbo', variant: 'Large (~8-12)', qty: 2 },
+      { name: 'Gumbo', variant: 'Large (~8)', qty: 2 },
       { name: 'NY Strip', variant: 'price by weight', qty: 2, weight: 1.5 },
     ] },
   ]);
@@ -1649,20 +1649,20 @@ TAX  0.00
   const noSear = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', qty: 1 }] });
   if (/Sear the proteins/.test(noSear)) F('companion', 'sear block must not appear without finish-at-home proteins');
   // Branded page: logo embedded, serving chips from parseServings, one sear card.
-  const branded = companionHtml({ customer: 'Frances Day', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }, { name: 'NY Strip', variant: 'price by weight', qty: 2, weight: 1.5 }] });
+  const branded = companionHtml({ customer: 'Frances Day', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1 }, { name: 'NY Strip', variant: 'price by weight', qty: 2, weight: 1.5 }] });
   if (!/data:image\/png;base64/.test(branded)) F('companion', 'LTB logo must be embedded');
   if (!/feeds ~/.test(branded)) F('companion', 'serving-size chip must appear for dishes whose variant encodes servings');
   if ((branded.match(/class="card step sear"/g) || []).length !== 1) F('companion', 'exactly one sear step card');
   // Ask-Kevin's-kitchen AI box: card present, the 5-question cap is stated
   // BEFORE the first question, the page id is baked in for /ask, and answers
   // render via textContent only (no innerHTML anywhere in the page script).
-  const withAsk = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }] }, 'pid-123');
+  const withAsk = companionHtml({ customer: 'T', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1 }] }, 'pid-123');
   if (!/Ask about your order/.test(withAsk)) F('companion-ask', 'ask card missing');
   if (!/You get 5 questions on this page/.test(withAsk)) F('companion-ask', 'the cap must be stated upfront, before the first question');
   if (!/pid-123/.test(withAsk)) F('companion-ask', 'page id must be baked into the page for /ask');
   if (/innerHTML/.test(withAsk)) F('companion-ask', 'page script must render via textContent only');
   // Grounding context: compact, carries the order and the canon instructions.
-  const ctx = companionContext({ customer: 'T', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }, { name: 'Garlic Confit', qty: 1 }] });
+  const ctx = companionContext({ customer: 'T', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1 }, { name: 'Garlic Confit', qty: 1 }] });
   if (!/ORDER: 1x Gumbo/.test(ctx)) F('companion-ask', 'context must carry the order');
   if (!/KEEP FROZEN/.test(ctx)) F('companion-ask', 'context must carry the confit frozen rule so the model can never contradict it');
   if (ctx.length > 6000) F('companion-ask', `context too fat: ${ctx.length} chars — this is the per-question token bill`);
@@ -1735,7 +1735,7 @@ TAX  0.00
   // survive; mixed-checked stays unchecked (an open need keeps the row open).
   const merged = mergeShoppingRows([
     { id: '1', text: 'Celery — 3 stalks', checked: true },
-    { id: 'h', text: '── Gumbo (Large (~8-12)) ──', checked: false },
+    { id: 'h', text: '── Gumbo (Large (~8)) ──', checked: false },
     { id: '2', text: '3 stalks Celery', checked: false },
     { id: '3', text: '2 tbs Soy sauce', checked: false },
     { id: '4', text: 'Soy sauce — 0.5 cup', checked: false },
@@ -1766,8 +1766,8 @@ TAX  0.00
 // ─── Self-maintaining shopping list (Jul 9 automation) ──────────────────────
 {
   let n = 0; const mkId = () => 'sid' + (n++);
-  const o1 = [{ status: 'Ordered', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }] }];
-  const o2 = [...o1, { status: 'Ordered', items: [{ name: 'Gumbo', variant: 'Large (~8-12)', qty: 1 }] }];
+  const o1 = [{ status: 'Ordered', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1 }] }];
+  const o2 = [...o1, { status: 'Ordered', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1 }] }];
   const first = buildAutoShoppingRows(o1, false, [], mkId);
   if (!first.length || !first.every(r => r.auto)) F('auto-shop', 'first build must be all auto rows');
   // Check chicken mid-shop; add a manual row; a second order lands → regen:

@@ -1746,7 +1746,8 @@ TAX  0.00
   const txt = merged.map(r => r.text);
   if (merged.length !== 4) F('shop-merge', `want 4 rows, got ${merged.length}: ${JSON.stringify(txt)}`);
   if (!txt.some(x => /^Celery — 6 stalks$/.test(x))) F('shop-merge', `celery: ${JSON.stringify(txt)}`);
-  if (!txt.some(x => /^Soy sauce — 0.63 cup/.test(x))) F('shop-merge', `soy tbs+cup must combine: ${JSON.stringify(txt)}`);
+  // Jul 13: volume >= 2 oz renders in OUNCES by design (0.5 cup + 2 tbs = 0.625 cup = 5 oz)
+  if (!txt.some(x => /^Soy sauce — 5 oz/.test(x))) F('shop-merge', `soy tbs+cup must combine (rendered in oz): ${JSON.stringify(txt)}`);
   if (!txt.some(x => /^Chicken thighs — 2.5 lb$/.test(x))) F('shop-merge', `lb+oz must combine: ${JSON.stringify(txt)}`);
   if (!txt.includes('grab extra napkins')) F('shop-merge', 'notes must pass through untouched');
   if (txt.some(x => /^──/.test(x))) F('shop-merge', 'dish headers must drop when rows merge');

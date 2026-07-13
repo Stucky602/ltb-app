@@ -154,6 +154,17 @@ const AVG_WEIGHT_LB = {
 };
 const EACHISH_UNITS = new Set(['each', 'head', 'container']);
 
+// Jul 13: JUMBO produce weighs more than the standard AVG_WEIGHT_LB entry —
+// a jumbo onion ≈ 0.85 lb vs 0.6 standard (Kevin default, Jul 13). Applied
+// ONLY when the receipt NAME says JUMBO, and ONLY in the per-each → per-lb
+// direction (the "JUMBO RED ONION 2 Ea @ 2.99 recorded as $2.99/each" bug):
+// an each-priced jumbo divides by its real weight so the derived per-lb
+// tracks whatever the receipt each-price is (2.99 / 0.85 ≈ $3.52/lb). The
+// lb → each direction keeps the standard weight so existing weighed-line
+// behavior is untouched. Bridges the UNIT, never hardcodes a price.
+const JUMBO_AVG_WEIGHT_LB = { onion: 0.85, red_onion: 0.85 };
+const JUMBO_NAME_RE = /\bjumbo\b/i;
+
 // ═══ v3: NAME-SIZE EXTRACTION ═══════════════════════════════════════════════
 // Receipts constantly put the pack size IN THE NAME while printing only a
 // line total: "10 CT FLOUR TORTILLA", "POTATO BABY MEDLEY 1.5LB",
@@ -251,7 +262,7 @@ const PORTION_UNITS = new Set(['tbs', 'tbsp', 'tsp', 'cup', 'shot', 'square', 's
 // Convert a per-unit price FROM the receipt unit INTO the ingredient's costing
 // unit. Returns { perUnit, factor, fromUnit, toUnit } or null (not convertible
 // or not needed).
-export function convertPerUnit(perUnit, fromUnit, toUnit, ingredientId) {
+export function convertPerUnit(perUnit, fromUnit, toUnit, ingredientId, opts = {}) {
   if (perUnit == null) return null;
   // 1) fixed pack override
   const ov = ingredientId && PACK_OVERRIDE[ingredientId];
@@ -263,8 +274,15 @@ export function convertPerUnit(perUnit, fromUnit, toUnit, ingredientId) {
   if (w && toUnit && EACHISH_UNITS.has(toUnit) && fromUnit === 'lb') {
     return { perUnit: round3(perUnit * w), factor: w, fromUnit, toUnit };
   }
-  if (w && toUnit === 'lb' && fromUnit && EACHISH_UNITS.has(fromUnit)) {
-    return { perUnit: round3(perUnit / w), factor: 1 / w, fromUnit, toUnit };
+  // each → lb: jumbo-aware (see JUMBO_AVG_WEIGHT_LB). opts.itemName is the
+  // raw receipt name; absent or non-jumbo falls back to the standard weight.
+  let wEachToLb = w;
+  if (ingredientId && opts && opts.itemName && JUMBO_NAME_RE.test(String(opts.itemName))
+      && JUMBO_AVG_WEIGHT_LB[ingredientId] != null) {
+    wEachToLb = JUMBO_AVG_WEIGHT_LB[ingredientId];
+  }
+  if (wEachToLb && toUnit === 'lb' && fromUnit && EACHISH_UNITS.has(fromUnit)) {
+    return { perUnit: round3(perUnit / wEachToLb), factor: 1 / wEachToLb, fromUnit, toUnit };
   }
   if (!fromUnit || !toUnit || fromUnit === toUnit) return null;
   const fam = UNIT_FAMILY[fromUnit];
@@ -330,12 +348,18 @@ export function scoreNamePair(receiptName, ingredientName) {
   let inter = 0;
   for (const t of a) if (b.has(t)) inter++;
   const dice = (2 * inter) / (a.size + b.size);
+  // Jul 13 (3b): the prefix bonus is GATED behind a shared full token. An OCR
+  // fragment that only prefix-overlaps a real ingredient ("MUSHRO…") must
+  // score 0, not 0.15 — prefix-only overlap can no longer nudge junk toward
+  // the review band. With a real shared token the bonus works as before.
   let prefixHit = 0;
-  for (const ra of a) {
-    for (const ib of b) {
-      if (ra.length >= 3 && (ib.startsWith(ra) || ra.startsWith(ib))) { prefixHit = 0.15; break; }
+  if (inter > 0) {
+    for (const ra of a) {
+      for (const ib of b) {
+        if (ra.length >= 3 && (ib.startsWith(ra) || ra.startsWith(ib))) { prefixHit = 0.15; break; }
+      }
+      if (prefixHit) break;
     }
-    if (prefixHit) break;
   }
   return Math.min(1, dice + prefixHit);
 }
@@ -351,22 +375,51 @@ export const AUTO_MARGIN = 0.15;   // …AND daylight over the runner-up
 export const PRICE_OUTLIER_HI = 2.5; // derived per-unit > 2.5× current → suspicious
 export const PRICE_OUTLIER_LO = 0.4; // < 0.4× current → suspicious
 
+// Jul 13 (3a): FUSED-LINE GUARD. OCR / photo extraction sometimes welds two
+// physical receipt lines into one item_name ("HEB WHOLE PEELED TOMATOES 4 LA
+// VAQUITA OAXACA" — a tomato line plus line #4, the Oaxaca cheese). The tell:
+// a 1-2 digit H-E-B line number sitting MID-name, followed by two or more
+// product words. Wrong cost data is the cardinal sin, so a fused name routes
+// to UNMATCHED for manual mapping instead of letting the fuzzy matcher bind
+// half of a chimera. Size/unit tokens after the digits (CT/PK/OZ/LB…) are
+// exempt — those are pack sizes, not line numbers — and digit-digit runs
+// ("SHRIMP … 31 40 HLS") never match because the word after the number must
+// start with a letter.
+const FUSED_LINE_RE = /\S\s+\d{1,2}\s+(?!(?:CT|COUNT|PK|PACK|PC|PIECE|OZ|LB|LBS|POUND|POUNDS|EA|EACH|PT|PINT|QT|QUART|GAL|GALLON|HALF|ML|L|LITER|LITRE|G|KG|FL|X|DOZEN|DOZ)\b)[A-Z][A-Z'&.\/-]+\s+[A-Z][A-Z0-9'&.\/-]+/;
+export function looksFusedLine(itemName) {
+  return FUSED_LINE_RE.test(String(itemName || ''));
+}
+
 // ── line classification ─────────────────────────────────────────────────────
 // Alias map: key = normalizeIngredientName(item_name), value =
 //   { ingredientId?, action?: 'IGNORE_ALWAYS', pricing?: 'FLAT', packQty?: number }
 //   packQty (v2, learned): costing units contained in ONE package/each of this
 //   exact receipt item. Set once from the needsConversion prompt.
 
-function derivePerUnit(line) {
+export function derivePerUnit(line) {
   if (line.unit_price_printed != null) return { perUnit: line.unit_price_printed, basis: 'printed_unit_price' };
   if (line.weighed && line.quantity != null && line.line_total != null) {
     return { perUnit: round(line.line_total / line.quantity), basis: 'total_div_weight' };
+  }
+  // Bug-1 fix (Jul 13): a non-weighed EACH-style line ("3 @ 3.98 → 11.94",
+  // unit Ea or none) carries qty × per-unit in line_total — divide, exactly
+  // like onePackPriceFor already does for each-units, so the two functions
+  // agree. Before this fix the raw line total leaked out as the per-unit
+  // price (taglierini $11.94/pack, stock $11.92/carton, butter $3.88/stick).
+  // Raw line_total remains the basis ONLY when quantity is null or 1. Sits
+  // AFTER the weighed branch so weighed lines can never double-divide.
+  {
+    const u = normalizeUnit(line.unit);
+    const eachStyle = !line.weighed && (u === 'each' || u == null);
+    if (eachStyle && line.line_total != null && typeof line.quantity === 'number' && line.quantity > 1) {
+      return { perUnit: round(line.line_total / line.quantity), basis: 'total_div_qty' };
+    }
   }
   if (line.line_total != null) return { perUnit: line.line_total, basis: 'line_total' };
   return { perUnit: null, basis: null };
 }
 
-function onePackPriceFor(line, fromUnit) {
+export function onePackPriceFor(line, fromUnit) {
   if (line.unit_price_printed != null) return line.unit_price_printed;
   if (line.line_total == null) return null;
   const isEachUnit = fromUnit === 'each';
@@ -397,15 +450,32 @@ function classifyLine(line, seed, aliases, store) {
     ingredientId = alias.ingredientId;
     via = 'alias';
     confidence = 1;
+  } else if (looksFusedLine(line.item_name)) {
+    // 3a (Jul 13): fused two-line chimera — never classify, ask Kevin.
+    return {
+      status: 'unmatched', norm, line, candidates: [], suspectFusion: true,
+      needsPrice: !!(line.weighed && line.quantity == null && line.unit_price_printed == null && line.line_total == null),
+      reasons: ['looks like two receipt lines fused into one — map it manually'],
+    };
   } else {
     const scoreById = {};
-    seed.forEach(ing => { scoreById[ing.id] = scoreNamePair(line.item_name, ing.name); });
+    const sharedById = {}; // 3b (Jul 13): does the receipt share ≥1 FULL token with this ingredient's name?
+    const rTokens = new Set(nameTokens);
+    seed.forEach(ing => {
+      scoreById[ing.id] = scoreNamePair(line.item_name, ing.name);
+      const ingToks = tokens(ing.name);
+      sharedById[ing.id] = ingToks.some(t => rTokens.has(t));
+      // exact token-set equality (both directions) — the only fuzzy match a
+      // single-token receipt name is allowed to make (see below).
+      sharedById[ing.id + '::exact'] = ingToks.length === rTokens.size && ingToks.every(t => rTokens.has(t));
+    });
     // v3 wine layer: a varietal/producer name IS the identification. Boost the
     // matching wine id to auto-strength; 'both' boosts both, and the wines
     // family tie routes it to review instead of guessing.
     const wine = wineHint(line.item_name);
-    if (wine === 'red_wine' || wine === 'both') scoreById.red_wine = Math.max(scoreById.red_wine || 0, 0.9);
-    if (wine === 'white_wine' || wine === 'both') scoreById.white_wine = Math.max(scoreById.white_wine || 0, 0.9);
+    const wineBoosted = new Set();
+    if (wine === 'red_wine' || wine === 'both') { scoreById.red_wine = Math.max(scoreById.red_wine || 0, 0.9); wineBoosted.add('red_wine'); }
+    if (wine === 'white_wine' || wine === 'both') { scoreById.white_wine = Math.max(scoreById.white_wine || 0, 0.9); wineBoosted.add('white_wine'); }
     // v3.4 negative learning: ingredients Kevin has re-mapped AWAY from for
     // this exact item name never auto-match again — capped below the auto
     // threshold so they stay visible in the picker but can't win silently.
@@ -423,6 +493,22 @@ function classifyLine(line, seed, aliases, store) {
     trigFams.forEach(f => f.members.forEach(m => {
       if (scoreById[m] != null) famBonus[m] = Math.max(famBonus[m] || 0, 0.2, 0.45 - (scoreById[m] || 0));
     }));
+    // 3b eligibility (Jul 13) — timid on purpose, tightened harder:
+    //   • a candidate at/above FUZZY_WEAK must share at least ONE FULL token
+    //     with the receipt name, OR be family-injected (curated token lists —
+    //     "YU CHOY" sharing zero name tokens with "Asian greens" is by
+    //     design), OR be wine-boosted (the varietal IS the identification).
+    //     Prefix-only overlap alone can no longer mint a review card.
+    //   • a receipt name with ≤1 usable token is treated as a probable OCR
+    //     fragment: it may only bind on an EXACT name match ("CILANTRO" →
+    //     Cilantro still works; "MUSHRO" or a lone "ONION" goes UNMATCHED,
+    //     which is safe — Kevin maps it once and the alias remembers).
+    const singleToken = nameTokens.length <= 1;
+    const eligible = (id) => {
+      if (wineBoosted.has(id)) return true;
+      if (singleToken) return !!sharedById[id + '::exact'];
+      return !!sharedById[id] || famBonus[id] != null;
+    };
     const scored = seed
       .map(ing => ({
         id: ing.id, name: ing.name, unit: ing.unit,
@@ -430,7 +516,7 @@ function classifyLine(line, seed, aliases, store) {
         family: FAMILY_BY_MEMBER[ing.id] ? FAMILY_BY_MEMBER[ing.id].id : null,
         interchange: FAMILY_BY_MEMBER[ing.id] ? !!FAMILY_BY_MEMBER[ing.id].interchange : false,
       }))
-      .filter(x => x.score >= FUZZY_WEAK)
+      .filter(x => x.score >= FUZZY_WEAK && eligible(x.id))
       .sort((a, b) => b.score - a.score);
     candidates = scored.slice(0, 5);
 
@@ -498,10 +584,15 @@ function classifyLine(line, seed, aliases, store) {
   const fromUnit = normalizeUnit(line.unit);
   const toUnit = seedIng ? seedIng.unit : null;
   const packOv = ingredientId ? PACK_OVERRIDE[ingredientId] : null;
+  // Reference price (current, falling back to baseline) — hoisted Jul 13 so
+  // the pack-override piece-vs-pack tiebreak below can use the same figure
+  // the price-sanity check uses. Pure read; the (e) check consumes this too.
+  const ref = seedIng ? (typeof seedIng.current === 'number' && seedIng.current > 0 ? seedIng.current
+    : (typeof seedIng.baseline === 'number' && seedIng.baseline > 0 ? seedIng.baseline : null)) : null;
 
   // (a) learned per-alias pack size — ask-once-convert-forever (checked before
   // the hardcoded overrides so a learned answer always wins)
-  if (alias && alias.packQty > 0 && (basis === 'printed_unit_price' || basis === 'line_total') && line.line_total != null) {
+  if (alias && alias.packQty > 0 && (basis === 'printed_unit_price' || basis === 'line_total' || basis === 'total_div_qty') && line.line_total != null) {
     const onePack = onePackPriceFor(line, fromUnit);
     if (onePack != null) {
       perUnit = round(onePack / alias.packQty);
@@ -516,11 +607,34 @@ function classifyLine(line, seed, aliases, store) {
     (fromUnit === 'each' && packOv.eachIsPack) ||
     (!fromUnit && (packOv.eachIsPack || packOv.matchNullUnit))
   );
-  if (basis !== 'converted' && packOv && (basis === 'printed_unit_price' || basis === 'line_total') && line.line_total != null && packUnitLooksSingle) {
+  if (basis !== 'converted' && packOv && (basis === 'printed_unit_price' || basis === 'line_total' || basis === 'total_div_qty') && line.line_total != null && packUnitLooksSingle) {
     const onePack = onePackPriceFor(line, fromUnit);
-    perUnit = round(onePack / packOv.perBase);
-    conversion = { fromUnit: packOv.fromUnit, toUnit, factor: packOv.perBase, basis: 'pack' };
-    basis = 'converted';
+    const divided = round(onePack / packOv.perBase);
+    // Piece-vs-pack tiebreak (Jul 13, the butter-sticks case): "4 Ea. @ 1/
+    // 0.97 → 3.88" itemizes the pack's PIECES (four quarter-sticks of ONE
+    // 1-lb box), so each Ea is already one costing unit and dividing by the
+    // pack size again would be wrong by 4×. Only on multi-qty each-style
+    // lines with a reference price: when the divided price FAILS the
+    // existing sanity band and the per-piece price PASSES it, take the
+    // per-piece reading. Any ambiguity keeps today's divide (and the price
+    // sanity check downstream still flags a bad result). qty-1 lines are
+    // untouched: "1 Ea @ 3.88" is one whole box, divide as always.
+    const qtyN = Number(line.quantity);
+    const eachish = fromUnit === 'each' || !fromUnit;
+    let usePiece = false;
+    if (eachish && qtyN > 1 && ref != null && onePack != null) {
+      const sane = (v) => v >= ref * PRICE_OUTLIER_LO && v <= ref * PRICE_OUTLIER_HI;
+      if (!sane(divided) && sane(onePack)) usePiece = true;
+    }
+    if (usePiece) {
+      perUnit = round(onePack);
+      conversion = { fromUnit: fromUnit || 'each', toUnit, factor: 1, basis: 'piece_price' };
+      basis = 'converted';
+    } else {
+      perUnit = divided;
+      conversion = { fromUnit: packOv.fromUnit, toUnit, factor: packOv.perBase, basis: 'pack' };
+      basis = 'converted';
+    }
   }
 
   // (b2) v3 SOLD-BY-EACH: rings up with a weight flag (or no unit) but is sold
@@ -528,7 +642,7 @@ function classifyLine(line, seed, aliases, store) {
   // costing unit is each-ish; otherwise bridge through 'each' (avg-weight).
   if (basis !== 'converted' && (SOLD_BY_EACH.has(ingredientId) || (alias && alias.soldByEach))
       && (line.weighed || !fromUnit) && line.line_total != null
-      && (basis === 'line_total' || basis === 'printed_unit_price')
+      && (basis === 'line_total' || basis === 'printed_unit_price' || basis === 'total_div_qty')
       // An explicit size/count in the NAME (GARLIC PK 5PC) is more specific
       // than the category rule — let name-size handle those instead.
       && extractNameSizes(line.item_name).length === 0) {
@@ -539,7 +653,7 @@ function classifyLine(line, seed, aliases, store) {
         conversion = { fromUnit: 'each', toUnit, factor: 1, basis: 'sold_by_each' };
         basis = 'converted';
       } else {
-        const conv = convertPerUnit(onePack, 'each', toUnit, ingredientId);
+        const conv = convertPerUnit(onePack, 'each', toUnit, ingredientId, { itemName: line.item_name });
         if (conv) {
           perUnit = conv.perUnit;
           conversion = { fromUnit: 'each', toUnit: conv.toUnit, factor: conv.factor, basis: 'sold_by_each' };
@@ -555,7 +669,7 @@ function classifyLine(line, seed, aliases, store) {
   // costing unit wins. Reads THIS receipt's size (10 CT vs 20 CT), never a
   // hardcoded assumption. The price-sanity check downstream still guards a
   // misread token.
-  if (basis !== 'converted' && (basis === 'line_total' || (basis === 'printed_unit_price' && (!fromUnit || fromUnit === 'each' || fromUnit === 'package' || fromUnit === 'box')))
+  if (basis !== 'converted' && (basis === 'line_total' || basis === 'total_div_qty' || (basis === 'printed_unit_price' && (!fromUnit || fromUnit === 'each' || fromUnit === 'package' || fromUnit === 'box')))
       && line.line_total != null) {
     const onePack = onePackPriceFor(line, fromUnit);
     if (onePack != null) {
@@ -586,9 +700,14 @@ function classifyLine(line, seed, aliases, store) {
     }
   }
 
-  if (basis !== 'converted' && perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
-    // (c) real per-unit price in a different unit → table/bridge conversion
-    const conv = convertPerUnit(perUnit, fromUnit, toUnit, ingredientId);
+  if (basis !== 'converted' && perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight' || basis === 'total_div_qty')) {
+    // (c) real per-unit price in a different unit → table/bridge conversion.
+    // total_div_qty (Jul 13) is a genuine per-each rate — "2 Ea @ 2.99" — so
+    // it converts here like a printed rate (JUMBO RED ONION each → per-lb).
+    // Photo extractions often drop the unit entirely; a counted, non-weighed
+    // quantity means the rate is per EACH by construction.
+    const convFrom = (basis === 'total_div_qty' && !fromUnit) ? 'each' : fromUnit;
+    const conv = convertPerUnit(perUnit, convFrom, toUnit, ingredientId, { itemName: line.item_name });
     if (conv) {
       perUnit = conv.perUnit;
       conversion = { fromUnit: conv.fromUnit, toUnit: conv.toUnit, factor: conv.factor, basis };
@@ -601,7 +720,7 @@ function classifyLine(line, seed, aliases, store) {
   // would be silently wrong by a factor of the pack size. Ask for the pack
   // size once (saved as alias.packQty).
   if (!aliasFlat && basis !== 'converted' && toUnit && PORTION_UNITS.has(toUnit)
-      && (basis === 'line_total' || (basis === 'printed_unit_price' && (!fromUnit || fromUnit === 'each' || fromUnit === 'package' || fromUnit === 'box')))) {
+      && (basis === 'line_total' || basis === 'total_div_qty' || (basis === 'printed_unit_price' && (!fromUnit || fromUnit === 'each' || fromUnit === 'package' || fromUnit === 'box')))) {
     const onePack = onePackPriceFor(line, fromUnit);
     return {
       status: 'needsConversion', norm, line, ingredientId, ingredient: seedIng, via, candidates,
@@ -612,9 +731,9 @@ function classifyLine(line, seed, aliases, store) {
 
   // (e) v2: price sanity — a derived per-unit wildly off the ingredient's
   // current/baseline price demotes a fuzzy auto-match to review. Alias matches
-  // stay matched (Kevin taught them) but carry a warning reason.
-  const ref = seedIng ? (typeof seedIng.current === 'number' && seedIng.current > 0 ? seedIng.current
-    : (typeof seedIng.baseline === 'number' && seedIng.baseline > 0 ? seedIng.baseline : null)) : null;
+  // stay matched (Kevin taught them) but carry a warning reason — and (Jul 13)
+  // a priceWarned flag, so the pooling layer never pools a warned side.
+  // (ref is hoisted above the conversion branches.)
   const priceWarn = ref != null && perUnit != null && basis !== 'line_total'
     && (perUnit > ref * PRICE_OUTLIER_HI || perUnit < ref * PRICE_OUTLIER_LO);
   if (priceWarn) {
@@ -644,7 +763,7 @@ function classifyLine(line, seed, aliases, store) {
     }
   }
 
-  return { status: 'matched', norm, line, ingredientId, ingredient: seedIng, via, perUnit, basis, conversion, candidates, confidence, reasons, weightSuggestion };
+  return { status: 'matched', norm, line, ingredientId, ingredient: seedIng, via, perUnit, basis, conversion, candidates, confidence, reasons, weightSuggestion, priceWarned: !!priceWarn };
 }
 
 // Group identical item_name lines on the SAME receipt into one entry.
@@ -652,6 +771,19 @@ function classifyLine(line, seed, aliases, store) {
 // of silently keeping only the first line's numbers. Kevin's real H-Mart
 // receipt had two YELLOW ONION weighed lines (2.95 lb + 1.92 lb) — the pooled
 // per-lb price is the quantity-weighted average across both.
+// Jul 13 (3c): a side is pool-worthy only when its match is REAL — Kevin
+// taught it (alias) or the fuzzy score cleared the AUTO bar — and nothing
+// about it is suspect (fused-line flag, price-sanity warning). Weak or
+// suspect sides never pool their price into an ingredient: a phantom line
+// pooled into a real ingredient corrupts the cost silently, and wrong cost
+// data is the cardinal sin. Suspect lines stay separate and visible instead.
+function poolWorthy(c) {
+  if (!c || c.status !== 'matched' || !c.ingredientId) return false;
+  if (c.suspectFusion || c.priceWarned) return false;
+  if (c.via === 'alias') return true;
+  return c.via === 'fuzzy' && (c.confidence || 0) >= AUTO_SCORE;
+}
+
 function groupClassified(classified) {
   const groups = new Map();
   for (const c of classified) {
@@ -671,8 +803,10 @@ function groupClassified(classified) {
       // Pool per-unit price when BOTH sides have a real per-unit and a real
       // quantity to weight by. Falls back to first-line price otherwise
       // (identical flat duplicates pool trivially to the same number).
+      // Jul 13 (3c): both sides must also be pool-worthy — same-norm lines
+      // classify identically, so gating on the group covers both.
       const w = Number(c.line.quantity) > 0 ? Number(c.line.quantity) : null;
-      if (g.perUnit > 0 && c.perUnit > 0 && g._poolW != null && w != null) {
+      if (poolWorthy(g) && poolWorthy(c) && g.perUnit > 0 && c.perUnit > 0 && g._poolW != null && w != null) {
         g.perUnit = round((g.perUnit * g._poolW + c.perUnit * w) / (g._poolW + w));
         g._poolW = round(g._poolW + w);
         g.pooledWeight = g._poolW;
@@ -856,6 +990,16 @@ function consolidateByIngredient(groups) {
         continue;
       }
     }
+    // Jul 13 (3c): only merge when BOTH sides independently earned the match
+    // (alias or auto-strength fuzzy, no suspect flags). A weak or warned side
+    // stays its own row and surfaces for review — the "merged ×2" phantom
+    // evaporated-milk card came from exactly this kind of pool.
+    if (!poolWorthy(prev) || !poolWorthy(g)) {
+      prev.poolBlocked = { other: g.norm, reason: 'weak or suspect match — kept separate' };
+      g.poolBlocked = { other: prev.norm, reason: 'weak or suspect match — kept separate' };
+      out.push(g);
+      continue;
+    }
     // Merge g into prev. `parts` keeps the ORIGINAL groups so alias learning
     // still runs per receipt string (each norm learns its own conversion).
     if (!prev.parts) prev.parts = [{ ...prev, parts: undefined }];
@@ -904,7 +1048,10 @@ export function confidenceTier(group, currentCost = null) {
 // classifier uses), the row defaults UNCHECKED so a misparse can't slide into
 // the cost database on autopilot. currentCost optional for back-compat.
 export function defaultAccept(group, currentCost = null) {
-  const basisOk = group.basis === 'total_div_weight' || group.basis === 'printed_unit_price' || group.basis === 'converted';
+  // total_div_qty (Jul 13) = line total ÷ counted quantity — the exact same
+  // arithmetic total_div_weight does for weighed lines, so it earns the same
+  // trust. The price-outlier gate below still applies.
+  const basisOk = group.basis === 'total_div_weight' || group.basis === 'printed_unit_price' || group.basis === 'converted' || group.basis === 'total_div_qty';
   if (!basisOk) return false;
   if (currentCost > 0 && group.perUnit > 0) {
     const ratio = group.perUnit / currentCost;
@@ -967,6 +1114,15 @@ export function parsePastedReceipt(text) {
     tax_flag: o.flag ?? null, weighed: !!o.weighed,
   });
 
+  // Jul 13 (3a): STRICT ADJACENCY. A pending H-E-B name may pair ONLY with
+  // the line immediately after it. Any other line type — junk, an hmWeight
+  // line, a self-contained item, a skip line — flushes the pending name to
+  // `unparsed` (AI fallback / manual review) instead of letting it wait and
+  // fuse with a later, unrelated detail line. The "TOMATO … OAXACA" chimera
+  // came from exactly that desync. Flushing (not silently discarding) also
+  // means a real item whose detail line the OCR mangled stays VISIBLE.
+  const flushPending = () => { if (pendingName) { unparsed.push(pendingName); pendingName = null; } };
+
   for (const l of rawLines) {
     if (SKIP_LINE_RE.test(l)) {
       const money = l.match(/(\d+\.\d{2})\s*$/);
@@ -975,11 +1131,11 @@ export function parsePastedReceipt(text) {
         if (/sale subtotal/i.test(l) && printed_subtotal == null) printed_subtotal = val;
         else if (/total sale|balance/i.test(l) && printed_total == null) printed_total = val;
       }
-      pendingName = null; continue;
+      flushPending(); continue;
     }
 
     const w = l.match(hmWeight);
-    if (w) { pendingWt = { qty: Number(w[1]), rate: Number(w[2]) }; continue; }
+    if (w) { flushPending(); pendingWt = { qty: Number(w[1]), rate: Number(w[2]) }; continue; }
 
     const hd = pendingName && l.match(hebDetail);
     if (hd) {
@@ -988,6 +1144,11 @@ export function parsePastedReceipt(text) {
              weighed: /w/i.test(hd[3] || '') });
       pendingName = null; continue;
     }
+    // Jul 13 (3a): an ORPHANED detail line — "N Ea. @ 1/ x.xx F y.yy" with no
+    // pending name (the name line was lost or mangled) — goes to unparsed for
+    // the AI fallback / manual review. Before this, hebOne would swallow it
+    // and emit a junk item literally named "Ea. @ 1/ 4.24".
+    if (!pendingName && l.match(hebDetail)) { unparsed.push(l); continue; }
 
     const hi = l.match(hmItem) || l.match(hebOne);
     if (hi) {
@@ -1002,15 +1163,16 @@ export function parsePastedReceipt(text) {
       } else {
         emit({ raw: l, name, flag: fl, total, weighed });
       }
-      pendingName = null; continue;
+      flushPending(); continue;
     }
 
     // Bare name line (H-E-B first line of a pair): "1 KITCH BASICS UNSLTD BEEF"
     const bare = l.match(/^(?:\d{1,2}\s+)?([A-Z][A-Z0-9 %&#.\/'-]{2,})$/);
     if (bare && !/^\d+(\.\d+)?$/.test(bare[1])) {
-      if (pendingName) unparsed.push(pendingName); // previous never got a detail line
+      flushPending(); // previous never got a detail line
       pendingName = bare[1].trim(); continue;
     }
+    flushPending();
     unparsed.push(l);
   }
   if (pendingName) unparsed.push(pendingName);

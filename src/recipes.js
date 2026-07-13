@@ -32,6 +32,11 @@ export const INGREDIENT_SYNONYMS = {
   'coriander': 'cilantro',
   'chili': 'chile',
   'chilli': 'chile',
+  // Whole-string safety nets for pre-Jul-13 ingredient names typed or pasted
+  // by hand. Keys are the POST-processed (lowercased, singularized) forms.
+  'kitchen basic chicken stock': 'chicken stock',
+  'canned peeled tomatoe': 'canned tomatoe',
+  'whole milk': 'milk',
 };
 export function normalizeIngredientName(name) {
   let n = String(name).toLowerCase().trim();
@@ -46,18 +51,37 @@ export function normalizeIngredientName(name) {
   return INGREDIENT_SYNONYMS[n] || n;
 }
 
-// Aggregate ingredients across all active orders into shopping list lines
+// Aggregate ingredients across all active orders into shopping list lines.
+// Shares the unit machinery with mergeShoppingRows (resolveCanUnit,
+// classifyUnit, foldNormGroups, renderQty — defined below) so BOTH paths
+// consolidate identically: can sizes resolve to oz, bare oz folds into the
+// ingredient's existing family, volume renders in oz, butter folds to sticks.
 export function generateShoppingItems(activeOrders, includeStaples) {
-  const agg = new Map(); // normKey -> { display, u, q, staple }
+  const groups = new Map(); // norm|family -> group
+  const byNorm = new Map(); // norm -> [groups] for the post-aggregation fold
   const unknown = [];
+  let ord = 0;
 
   const addIng = (name, qty, unit, staple, factor) => {
     const norm = normalizeIngredientName(name);
-    // Singularize the unit too so '2 knobs' and '1 knob' use the same bucket
-    const normUnit = unit.length > 3 && unit.endsWith('s') && !unit.endsWith('ss') ? unit.slice(0, -1) : unit;
-    const key = `${norm}|${normUnit}`;
-    if (!agg.has(key)) agg.set(key, { display: name, u: unit, q: 0, staple });
-    agg.get(key).q += qty * factor;
+    // Singularize the unit so '2 knobs' and '1 knob' use the same bucket,
+    // then resolve can sizes ("14oz can" -> oz) and classify the family.
+    const su = singularizeUnit(String(unit || '').toLowerCase());
+    const rc = resolveCanUnit(qty * factor, su);
+    const fam = classifyUnit(rc.unit);
+    const key = `${norm}|${fam}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { norm, name, vol: null, wt: null, amb: null, plain: 0, unit: rc.unit, checked: true, staple: !!staple, ord: ord++, dead: false };
+      groups.set(key, g);
+      if (!byNorm.has(norm)) byNorm.set(norm, []);
+      byNorm.get(norm).push(g);
+    }
+    if (fam === 'vol') g.vol = (g.vol || 0) + rc.qty * VOL_TO_CUP[rc.unit];
+    else if (fam === 'wt') g.wt = (g.wt || 0) + rc.qty * WT_TO_LB[rc.unit];
+    else if (fam === 'amb') g.amb = (g.amb || 0) + rc.qty;
+    else g.plain += rc.qty;
+    g.staple = g.staple && !!staple;
   };
 
   activeOrders.forEach(o => {
@@ -84,13 +108,14 @@ export function generateShoppingItems(activeOrders, includeStaples) {
     });
   });
 
-  const fmtQ = (q) => String(Math.round(q * 100) / 100);
+  for (const [norm, list] of byNorm) foldNormGroups(norm, list);
 
-  const lines = Array.from(agg.values())
-    .sort((a, b) => (a.staple === b.staple ? a.display.localeCompare(b.display) : a.staple ? 1 : -1))
-    .map(x => {
-      const qty = x.u ? `${fmtQ(x.q)} ${x.u}` : fmtQ(x.q);
-      return `${x.display} — ${qty}${x.staple ? ' (staple)' : ''}`;
+  const lines = Array.from(groups.values())
+    .filter(g => !g.dead)
+    .sort((a, b) => (a.staple === b.staple ? a.name.localeCompare(b.name) : a.staple ? 1 : -1))
+    .map(g => {
+      const qty = pluralizeQty(renderQty(g.vol, g.wt, g.amb, g.plain, g.unit));
+      return `${g.name} — ${qty}${g.staple ? ' (staple)' : ''}`;
     });
 
   return [...lines, ...unknown];
@@ -532,8 +557,79 @@ export function itemHandling(name, opts = {}) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const VOL_TO_CUP = { cup: 1, cups: 1, c: 1, tbs: 1 / 16, tbsp: 1 / 16, tablespoon: 1 / 16, tsp: 1 / 48, teaspoon: 1 / 48 };
-const WT_TO_LB = { lb: 1, lbs: 1, pound: 1, oz: 1 / 16, ounce: 1 / 16, g: 1 / 453.592, gram: 1 / 453.592 };
+const WT_TO_LB = { lb: 1, lbs: 1, pound: 1, g: 1 / 453.592, gram: 1 / 453.592 };
+// Bare ounces are AMBIGUOUS (fluid vs weight) — Kevin shops in oz either way.
+// They live in their own bucket and fold into whichever family the SAME
+// ingredient already uses: volume if any (stock in cups + stock in oz),
+// heavy weight if any (thighs in lb + thighs in oz), else they stand alone
+// and render as a plain oz total (canned tomatoes). Different ingredients
+// never share a bucket, so flour-by-cup can't contaminate stock-by-cup.
+const OZ_UNITS = new Set(['oz', 'ounce', 'ounces']);
+const OZ_PER_CUP = 8, OZ_PER_LB = 16;
 const singularizeUnit = (u) => (u.length > 3 && u.endsWith('s') && !u.endsWith('ss')) ? u.slice(0, -1) : u;
+
+// "NNoz can" units (14oz can, 28 oz can, ...) resolve to plain ounces so
+// different can sizes of the same item SUM. Kevin does the cans-per-oz math
+// himself in the aisle, by choice — never translate oz back to cans.
+// "small can" / bare "can" have no stated size and stay opaque counts.
+const CAN_OZ_RE = /^(\d+(?:\.\d+)?)\s*oz\s+cans?$/;
+function resolveCanUnit(qty, unit) {
+  const m = CAN_OZ_RE.exec(unit || '');
+  return m ? { qty: qty * parseFloat(m[1]), unit: 'oz' } : { qty, unit };
+}
+
+// Unit → summing family. 'u:' prefixed families are opaque per-unit buckets.
+function classifyUnit(u) {
+  if (OZ_UNITS.has(u)) return 'amb';
+  if (VOL_TO_CUP[u] != null) return 'vol';
+  if (WT_TO_LB[u] != null) return 'wt';
+  return `u:${u}`;
+}
+
+// Butter is bought in sticks; every butter quantity folds to sticks.
+// (1 stick = 0.5 cup = 8 tbsp = 4 oz = 0.25 lb.) Keyed by NORMALIZED name.
+const STICK_FOLD = { 'butter': { cupPerStick: 0.5, ozPerStick: 4, lbPerStick: 0.25 } };
+
+// Post-aggregation fold across one ingredient's family groups. Mutates the
+// groups; absorbed groups get dead:true and are dropped at render.
+function foldNormGroups(norm, list) {
+  const absorb = (into, from) => {
+    if (from.vol != null) into.vol = (into.vol || 0) + from.vol;
+    if (from.wt != null) into.wt = (into.wt || 0) + from.wt;
+    if (from.amb != null) into.amb = (into.amb || 0) + from.amb;
+    into.plain += from.plain || 0;
+    into.checked = into.checked && from.checked;
+    into.staple = into.staple && from.staple;
+    if (from.ord < into.ord) {
+      into.ord = from.ord;
+      if (from.id !== undefined) into.id = from.id;
+      if (from.name !== undefined) into.name = from.name;
+    }
+    from.dead = true;
+  };
+  const sf = STICK_FOLD[norm];
+  if (sf) {
+    for (const g of list) {
+      if (g.dead) continue;
+      if (g.vol != null) { g.plain += g.vol / sf.cupPerStick; g.vol = null; g.unit = 'stick'; }
+      if (g.amb != null) { g.plain += g.amb / sf.ozPerStick; g.amb = null; g.unit = 'stick'; }
+      if (g.wt != null) { g.plain += g.wt / sf.lbPerStick; g.wt = null; g.unit = 'stick'; }
+    }
+    const sticks = list.filter(g => !g.dead && g.unit === 'stick').sort((a, b) => a.ord - b.ord);
+    for (let i = 1; i < sticks.length; i++) absorb(sticks[0], sticks[i]);
+    return;
+  }
+  const amb = list.find(g => !g.dead && g.amb != null);
+  if (amb) {
+    const host = list.find(g => !g.dead && g.vol != null) || list.find(g => !g.dead && g.wt != null);
+    if (host) {
+      if (host.vol != null) host.vol += amb.amb / OZ_PER_CUP;
+      else host.wt += amb.amb / OZ_PER_LB;
+      amb.amb = null;
+      absorb(host, amb);
+    }
+  }
+}
 
 // parseShoppingLine(text) → { name, qty, unit, staple } | { passthrough: text }
 export function parseShoppingLine(text) {
@@ -543,12 +639,22 @@ export function parseShoppingLine(text) {
   const body = t.replace(/\s*\(staple\)\s*$/, '');
   // Format A (generator): "Name — 2 lb" / "Name — 3"
   let m = body.match(/^(.+?)\s+—\s+([\d.]+)\s*(.*)$/);
-  if (m) return { name: m[1].trim(), qty: parseFloat(m[2]), unit: singularizeUnit(m[3].trim().toLowerCase()), staple };
+  if (m) {
+    const r = resolveCanUnit(parseFloat(m[2]), singularizeUnit(m[3].trim().toLowerCase()));
+    return { name: m[1].trim(), qty: r.qty, unit: r.unit, staple };
+  }
+  // Format B can-size: "3 14oz can Canned tomatoes" — the numeric can size
+  // defeats the generic Format B unit match, so catch it first.
+  m = body.match(/^([\d.]+)\s+(\d+(?:\.\d+)?\s*oz\s+cans?)\s+(.*)$/i);
+  if (m) {
+    const r = resolveCanUnit(parseFloat(m[1]), m[2].toLowerCase().replace(/\s+/g, ' ').trim());
+    return { name: m[3].trim(), qty: r.qty, unit: r.unit, staple };
+  }
   // Format B (dish adder): "2 lb Name" / "3 Name"
   m = body.match(/^([\d.]+)\s+([a-zA-Z]+)?\s*(.*)$/);
   if (m && m[3]) {
     const maybeUnit = (m[2] || '').toLowerCase();
-    const known = VOL_TO_CUP[maybeUnit] != null || WT_TO_LB[maybeUnit] != null ||
+    const known = VOL_TO_CUP[maybeUnit] != null || WT_TO_LB[maybeUnit] != null || OZ_UNITS.has(maybeUnit) ||
       ['clove', 'cloves', 'stalk', 'stalks', 'bunch', 'bunches', 'each', 'can', 'cans', 'head', 'heads', 'fillet', 'fillets', 'ear', 'ears', 'stick', 'sticks', 'sprig', 'sprigs', 'knob', 'knobs', 'pinch', 'pinches', 'jar', 'jars', 'pack', 'packs', 'block', 'blocks', 'batch'].includes(maybeUnit);
     if (known) return { name: m[3].trim(), qty: parseFloat(m[1]), unit: singularizeUnit(maybeUnit), staple };
     // no unit — the second token is part of the name
@@ -558,18 +664,31 @@ export function parseShoppingLine(text) {
 }
 
 const fmtQ = (q) => String(Math.round(q * 100) / 100);
-function renderQty(volCups, wtLb, plain, unit) {
+// Volume renders in OUNCES by default (>= 2 oz) — packages list oz and Kevin
+// does the container math in the store. Tiny amounts keep tbs/tsp so a
+// teaspoon of vanilla never shows as "0.17 oz". Weight keeps lb (oz under a
+// quarter pound), and plain ambiguous-oz totals render as oz directly.
+function renderQty(volCups, wtLb, ambOz, plain, unit) {
   if (volCups != null) {
-    if (volCups >= 0.25) return `${fmtQ(volCups)} cup`;
+    const oz = volCups * OZ_PER_CUP;
+    if (oz >= 2) return `${fmtQ(oz)} oz`;
     const tbs = volCups * 16;
     if (tbs >= 1) return `${fmtQ(tbs)} tbs`;
     return `${fmtQ(volCups * 48)} tsp`;
   }
   if (wtLb != null) {
     if (wtLb >= 0.25) return `${fmtQ(wtLb)} lb`;
-    return `${fmtQ(wtLb * 16)} oz`;
+    return `${fmtQ(wtLb * OZ_PER_LB)} oz`;
   }
+  if (ambOz != null) return `${fmtQ(ambOz)} oz`;
   return unit ? `${fmtQ(plain)} ${unit}` : fmtQ(plain);
+}
+
+const PLURAL_OK = new Set(['stalk', 'clove', 'bunch', 'can', 'head', 'fillet', 'ear', 'stick', 'sprig', 'knob', 'pinch', 'jar', 'pack', 'block', 'cup']);
+function pluralizeQty(qty) {
+  const [num, ...uParts] = qty.split(' ');
+  const u = uParts.join(' ');
+  return (u && PLURAL_OK.has(u) && parseFloat(num) !== 1) ? `${num} ${u}s` : qty;
 }
 
 // mergeShoppingRows(rows) — rows are the list's {id, text, checked} shape.
@@ -579,8 +698,10 @@ function renderQty(volCups, wtLb, plain, unit) {
 // honestly belong to one dish's section. checked survives only if EVERY
 // merged constituent was checked (an unchecked need keeps the row open).
 export function mergeShoppingRows(rows) {
-  const groups = new Map(); // norm|family -> { name, vol, wt, plain, unit, checked, id, staple }
+  const groups = new Map(); // norm|family -> group
+  const byNorm = new Map(); // norm -> [groups] for the post-aggregation fold
   const out = [];
+  let ord = 0;
   for (const row of (rows || [])) {
     const p = parseShoppingLine(row.text);
     if (p.passthrough !== undefined) {
@@ -589,27 +710,27 @@ export function mergeShoppingRows(rows) {
       continue;
     }
     const norm = normalizeIngredientName(p.name);
-    const fam = VOL_TO_CUP[p.unit] != null ? 'vol' : WT_TO_LB[p.unit] != null ? 'wt' : `u:${p.unit}`;
+    const fam = classifyUnit(p.unit);
     const key = `${norm}|${fam}`;
     let g = groups.get(key);
     if (!g) {
-      g = { name: p.name, vol: null, wt: null, plain: 0, unit: p.unit, checked: true, id: row.id, staple: p.staple };
+      g = { norm, name: p.name, vol: null, wt: null, amb: null, plain: 0, unit: p.unit, checked: true, id: row.id, staple: p.staple, ord: ord++, dead: false };
       groups.set(key, g);
+      if (!byNorm.has(norm)) byNorm.set(norm, []);
+      byNorm.get(norm).push(g);
       out.push(g); // placeholder keeps original ordering
     }
     if (fam === 'vol') g.vol = (g.vol || 0) + p.qty * VOL_TO_CUP[p.unit];
     else if (fam === 'wt') g.wt = (g.wt || 0) + p.qty * WT_TO_LB[p.unit];
+    else if (fam === 'amb') g.amb = (g.amb || 0) + p.qty;
     else g.plain += p.qty;
     g.checked = g.checked && !!row.checked;
     g.staple = g.staple && p.staple;
   }
-  const PLURAL_OK = new Set(['stalk', 'clove', 'bunch', 'can', 'head', 'fillet', 'ear', 'stick', 'sprig', 'knob', 'pinch', 'jar', 'pack', 'block', 'cup']);
-  return out.map(r => {
+  for (const [norm, list] of byNorm) foldNormGroups(norm, list);
+  return out.filter(r => r.text !== undefined || !r.dead).map(r => {
     if (r.text !== undefined) return r; // passthrough rows
-    let qty = renderQty(r.vol, r.wt, r.plain, r.unit);
-    const [num, ...uParts] = qty.split(' ');
-    const u = uParts.join(' ');
-    if (u && PLURAL_OK.has(u) && parseFloat(num) !== 1) qty = `${num} ${u}s`;
+    const qty = pluralizeQty(renderQty(r.vol, r.wt, r.amb, r.plain, r.unit));
     return { id: r.id, text: `${r.name} — ${qty}${r.staple ? ' (staple)' : ''}`, checked: r.checked };
   });
 }

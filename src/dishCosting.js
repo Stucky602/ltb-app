@@ -50,8 +50,8 @@ const GRAMS_PER_OZ = 28.35;
 // folded into baseline, tofu now a real ingredient, etc.)
 export const LINE_MAP = {
   // Tomatoes / canned
-  'Canned tomatoes':        { id: 'tomato_can', conv: q => q },
-  'Canned peeled tomatoes': { id: 'peeled_tomatoes', conv: q => q },
+  'Canned tomatoes':        { id: 'tomato_can', conv: (q,u)=>{ const m=/^([\d.]+)\s*oz\s+cans?$/.exec(u||''); return m ? q*parseFloat(m[1])/28 : q; } }, // tomato_can = one 28oz can
+  'Canned peeled tomatoes': { id: 'peeled_tomatoes', conv: q => q }, // STALE (Jul 13 rename -> 'Canned tomatoes'); kept so old strings never silently cost $0
   'Crushed tomatoes':       { id: 'tomato_can', conv: q => q },
   'Homegrown tomatoes':     { id: 'homegrown_tomatoes', conv: () => 1 }, // fixed, no-drift
   'Tomatoes (pico)':        { id: 'fresh_tomatoes', conv: q => q },
@@ -59,7 +59,7 @@ export const LINE_MAP = {
 
   // Onions
   'Red onion':              { id: 'red_onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u==='lb'? q/LB_PER_ONION : q) },
-  'Red onion (large)':      { id: 'red_onion', conv: q => q },
+  'Red onion (large)':      { id: 'red_onion', conv: q => q }, // STALE (Jul 13 rename -> 'Red onion')
   'Onion':                  { id: 'onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u === 'lb' ? q/LB_PER_ONION : q) },
   'Onions or carrots (for pickling)': { id: 'onion', conv: (q,u)=> u==='lb'? q/LB_PER_ONION : q },
   'Sweet onion':            { id: 'sweet_onion', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
@@ -129,14 +129,14 @@ export const LINE_MAP = {
 
   // Dairy
   'Butter':                 { id: 'butter', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_STICK : q },
-  'Whole milk':             { id: 'milk', conv: q => q },
+  'Whole milk':             { id: 'milk', conv: q => q }, // STALE (Jul 13 rename -> 'Milk')
   'Milk':                   { id: 'milk', conv: q => q },
   'Evaporated milk':        { id: 'evaporated_milk', conv: q => q },
-  'Heavy cream':            { id: 'heavy_cream', conv: q => q },
+  'Heavy cream':            { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 oz = 1 cup
   'Eggs':                   { id: 'eggs', conv: q => q },
   'Good parmesan':          { id: 'parm', conv: (q,u)=> u==='cup'? q*0.19 : q },
   'Good parm':              { id: 'parm', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : (u==='cup'? q*0.19 : q) }, // recipe gives oz, parm priced per lb
-  'Heavy cream (oz)':       { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 oz = 1 cup
+  'Heavy cream (oz)':       { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // STALE (Jul 13 rename -> 'Heavy cream')
   'Cooking olive oil':      { id: 'olive_oil_cooking', conv: q => q }, // Graza Sizzle, priced per oz, recipe gives oz
   // ── Spotlight: Coriander Lamb Steak over Gigantes Beans (Jul 9) ──
   'Lamb leg steak (bone-in)': { id: 'lamb_leg_steak', conv: q => q },       // priced per lb, recipe gives lb
@@ -199,10 +199,10 @@ export const LINE_MAP = {
   'House chili oil':        { id: 'chili_oil', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_CUP : q },
   'Good olive oil':         { id: 'olive_oil', conv: () => 2.5 },
   'Orange juice':           { id: 'orange_juice', conv: () => 1 },
-  'Chicken stock':          { id: 'chicken_stock', conv: q => q },
+  'Chicken stock':          { id: 'chicken_stock', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 fl oz = 1 cup
   'Beef stock':             { id: 'beef_stock', conv: q => q },
   'Chicken broth':          { id: 'chicken_stock', conv: q => q },
-  'Kitchen Basics chicken stock': { id: 'chicken_basics_stock', conv: (q,u)=> u==='oz'? q/32 : q },
+  'Kitchen Basics chicken stock': { id: 'chicken_basics_stock', conv: (q,u)=> u==='oz'? q/32 : q }, // STALE (Jul 13 rename -> 'Chicken stock'); chicken_basics_stock seed now unreferenced
   'Sichuan peppercorns':    { id: 'sichuan_pepper', conv: (q,u)=> u==='tbsp'? q*TSP_PER_TBSP : q },
   'Brown sugar':            { id: 'brown_sugar', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_CUP : q },
   'Sugar':                  { id: 'white_sugar', conv: q => q },
@@ -234,7 +234,7 @@ export const LINE_MAP = {
   'Dutch cocoa':            { id: 'cocoa', conv: (q,u)=> u==='tbsp'? q : q }, // cocoa priced per tbsp
   'Guittard chocolate (semisweet)': { id: 'guittard_high', conv: (q,u)=> q }, // priced per gram
   'DeLallo instant espresso': { id: 'delallo_espresso', conv: (q,u)=> q }, // priced per tsp
-  'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // 1.5c white ($0.60) + 0.5c brown ($0.28) = $0.88 ÷ $0.40/cup = 2.2 cup-equiv
+  'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // STALE (Jul 13 rename -> 'Brown + white sugar'); Brownies now cost via the 1.5 cup-equiv entry -- see handoff flag
   'Kosher salt + vanilla':  { id: 'vanilla', conv: () => 1 }, // 1 tbsp imitation vanilla (~$0.07); 1 tsp salt (~$0.01) negligible
   'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.454 }, // ~1 cup dry = 0.454 lb (measured 0.795 lb = 1.75 cups) @ $5.99/lb ≈ $2.72; bag cost via wrap
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
@@ -263,7 +263,8 @@ export const LINE_MAP = {
   'Ribeye - Prime':         { skip: true },
   'NY Strip':               { skip: true },
   'NY Strip - Prime':       { skip: true },
-  'Filet Mignon':           { skip: true },
+  'Filet Mignon':           { skip: true }, // STALE key (Jul 13 ingredient-line rename; dish name unchanged)
+  'Filet mignon':           { skip: true },
   'Filet Mignon - Prime':   { skip: true },
   'Flank steak':            { skip: true },
   'Pork chop':              { skip: true },

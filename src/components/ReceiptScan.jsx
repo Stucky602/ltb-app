@@ -115,14 +115,21 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       // re-derive price basis now that it's matched
       const line = r.line;
       let perUnit = null, basis = null, status = 'matched', accept = false;
+      const nUnit = normalizeUnit(line.unit);
+      const eachStyle = !line.weighed && (nUnit === 'each' || nUnit == null);
       if (line.unit_price_printed != null) { perUnit = line.unit_price_printed; basis = 'printed_unit_price'; accept = true; }
       else if (line.weighed && line.quantity != null && line.line_total != null) { perUnit = round(line.line_total / line.quantity); basis = 'total_div_weight'; accept = true; }
       else if (r.needsPrice || (line.weighed && line.quantity == null)) { status = 'needsPrice'; }
+      // Bug-1 fix (Jul 13), mirrored from derivePerUnit in receiptMatch.js: an
+      // each-style line with qty > 1 carries qty × per-unit in its total —
+      // divide ("3 @ 3.98 → 11.94" maps at $3.98, not $11.94).
+      else if (eachStyle && line.line_total != null && typeof line.quantity === 'number' && line.quantity > 1) { perUnit = round(line.line_total / line.quantity); basis = 'total_div_qty'; accept = true; }
       else if (line.line_total != null) { perUnit = line.line_total; basis = 'line_total'; accept = false; }
       // auto-convert receipt unit → ingredient costing unit (e.g. per gal → per cup)
       let conversion = null;
-      if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
-        const conv = convertPerUnit(perUnit, normalizeUnit(line.unit), ing ? ing.unit : null, ingredientId);
+      if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight' || basis === 'total_div_qty')) {
+        const convFrom = (basis === 'total_div_qty' && !nUnit) ? 'each' : nUnit;
+        const conv = convertPerUnit(perUnit, convFrom, ing ? ing.unit : null, ingredientId, { itemName: line.item_name });
         if (conv) { perUnit = conv.perUnit; conversion = { fromUnit: conv.fromUnit, toUnit: conv.toUnit, factor: conv.factor, basis }; basis = 'converted'; }
       }
       return { ...r, status, ingredientId, ingredient: ing, perUnit, basis, conversion, accept, acceptedPerUnit: accept ? perUnit : null, _rejectedId };

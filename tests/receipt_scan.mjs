@@ -232,7 +232,7 @@ const allOf = (p) => [...p.buckets.matched, ...p.buckets.review, ...p.buckets.ne
 // ─── 5. BUG 3: jumbo red onion bridges per-each → per-lb ─────────────────────
 {
   // Pasted shape: "2 Ea. @ 1/ 2.99" — printed per-each rate.
-  const p = plan([{ item_name: 'JUMBO RED ONION', quantity: 2, unit: 'Ea', unit_price_printed: 2.99, line_total: 5.98 }]);
+  const p = plan([{ item_name: 'JUMBO RED ONION', quantity: 2, unit: 'Ea', unit_price_printed: 2.99, line_total: 5.98 }], { 'jumbo red onion': { ingredientId: 'red_onion' } });
   const g = p.buckets.matched.find(x => x.ingredientId === 'red_onion');
   if (!g) F('bug3', `jumbo red onion not matched: ${JSON.stringify(allOf(p).map(x => ({ s: x.status, id: x.ingredientId })))}`);
   else {
@@ -240,7 +240,7 @@ const allOf = (p) => [...p.buckets.matched, ...p.buckets.review, ...p.buckets.ne
     if (g.basis !== 'converted' || !g.conversion || g.conversion.toUnit !== 'lb') F('bug3', `must record a per-lb conversion: ${JSON.stringify({ b: g.basis, c: g.conversion })}`);
   }
   // Photo shape: qty + total only — total_div_qty now rides the same bridge.
-  const p2 = plan([{ item_name: 'JUMBO RED ONION', quantity: 2, unit: null, line_total: 5.98, unit_price_printed: null }]);
+  const p2 = plan([{ item_name: 'JUMBO RED ONION', quantity: 2, unit: null, line_total: 5.98, unit_price_printed: null }], { 'jumbo red onion': { ingredientId: 'red_onion' } });
   const g2 = p2.buckets.matched.find(x => x.ingredientId === 'red_onion');
   if (!g2 || !near(g2.perUnit, 3.518, 0.01)) F('bug3', `photo-shape jumbo: ${JSON.stringify(g2 && g2.perUnit)}, want ≈3.52/lb`);
 

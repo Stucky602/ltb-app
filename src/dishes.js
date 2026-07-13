@@ -950,7 +950,7 @@ export const ALWAYS_ITEMS = {
     {
       name: 'Peanut Butter Fudge',
       equipment: { fixed: ['largePot'] },
-      variants: [{ label: '1 Batch', price: 15, cost: 4.35 }],
+      variants: [{ label: '1 Batch', price: 20, cost: 4.35 }],
       recipe: {
         factors: { '1 Batch': 1 },
         base: [

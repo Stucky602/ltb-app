@@ -155,6 +155,38 @@ const texts = (rows) => rows.map(r => r.text);
   if (t.length !== 1) F('synonyms', `old peeled-tomato name must merge via synonyms: ${JSON.stringify(texts(t))}`);
 }
 
+// ─── 11. Thyme/tarragon sprigs (Jul 14 H-Mart repricing) ─────────────────────
+// The whole point of the sprig change: 5 dishes × 1 sprig must aggregate to
+// ONE "5 sprigs" row — a number Kevin reads as "buy one $2.99 pack" — and must
+// NEVER inflate into a per-pack figure. Tarragon stays its own ingredient.
+{
+  const m = mergeShoppingRows([
+    row('a', 'Fresh thyme — 1 sprig'),
+    row('b', 'Fresh thyme — 1 sprig'),
+    row('c', 'Fresh thyme — 1 sprig'),
+    row('d', 'Fresh thyme — 1 sprig'),
+    row('e', 'Fresh thyme — 1 sprig'),
+  ]);
+  if (m.length !== 1) F('sprigs', `5×1 sprig thyme must be ONE row: ${JSON.stringify(texts(m))}`);
+  if (m.length === 1 && !/^5 sprigs\b/i.test(m[0].text.split('—').pop().trim()) && !/5 sprigs/.test(m[0].text)) {
+    F('sprigs', `5 thyme sprigs must render "5 sprigs": ${m[0].text}`);
+  }
+  // Tarragon never pools into thyme.
+  const t = mergeShoppingRows([
+    row('a', 'Fresh thyme — 1 sprig'),
+    row('b', 'Fresh tarragon — 1 sprig'),
+  ]);
+  if (t.length !== 2) F('sprigs', `thyme and tarragon are distinct ingredients: ${JSON.stringify(texts(t))}`);
+  // Mixed sprig + bunch entries for the same herb stay separate families —
+  // a bunch is 15 sprigs and must not silently sum 1+1=2 of anything.
+  const mixed = mergeShoppingRows([
+    row('a', 'Fresh thyme — 1 sprig'),
+    row('b', 'Fresh thyme — 1 bunch'),
+  ]);
+  const total = texts(mixed).join(' | ');
+  if (/2 (sprigs|bunches)/.test(total)) F('sprigs', `sprig+bunch must not naively sum: ${total}`);
+}
+
 if (fails) {
   console.error(`\nshopping_merge: ${fails} FAILURE${fails === 1 ? '' : 'S'}`);
   process.exit(1);

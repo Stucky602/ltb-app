@@ -17,7 +17,7 @@ import { fileURLToPath } from 'url';
 import { DISHES, ALL_ALWAYS_ITEMS, ALWAYS_ITEMS, REPORTABLE_DISHES } from '../src/dishes.js';
 import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.js';
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
-import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost } from '../src/dishCosting.js';
+import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost, makeConv, canonUnit } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
 import { DISH_CUISINE, itemCost, stampItemCosts, menuVariantFor, repricePerLbItem, normalizePendingItems, itemOptions, noteWithoutOptions, normalizeAddons, itemAddonsTotal, anyAddonPending, orderTotal, applyFeedbackSave, FEEDBACK_VERDICTS, resetDishFeedback, dietMatch, routeItemRequest, routeParsedDraft, validateParsedOrder, diffOrders, itemsBaseTotal, itemsUpchargeTotal, orderCostInfo, perLbBagCount, perLbBagCharge, itemUnitMultiplier } from '../src/utils.js';
 import { readFileSync } from 'node:fs';
@@ -133,6 +133,56 @@ for (const i of INGREDIENT_SEED) {
     }
     if (counts.size === 0) F('linemap-dupes', 'LINE_MAP key scan found zero keys — regex or block boundary broke, fix the scan');
   }
+}
+
+// ─── Universal unit layer (Jul 14): named conversion spot checks ─────────────
+// The [line-cost-finite] rule above already fails ANY recipe line whose unit
+// an ingredient can't convert (makeConv returns null, which is not finite —
+// fail-closed). This battery pins the conversion MATH itself with named
+// cases, so a regression in makeConv or a spec fails with a legible message
+// instead of surfacing as a mysterious cost shift. Anchors per the Jul 14
+// plan: butter stick = 8 tbsp = 4 oz = 113 g = 1/2 cup; Ghirardelli bar =
+// 8 squares = 4 oz; flour cup = 0.275 lb (Kevin's 125 g standard); glug =
+// 1 tbsp; knob = 30 g; pinch = 1/16 tsp; H-Mart herb pack = 15 sprigs.
+{
+  const near = (a, b, tol = 0.005) => a != null && Math.abs(a - b) <= tol;
+  const conv = (name) => LINE_MAP[name].conv;
+  const U = (rule, got, want, what) => { if (!near(got, want)) F('unit-layer', `${rule}: ${what} → ${got}, want ${want}`); };
+  const NULLU = (got, what) => { if (got !== null) F('unit-layer', `${what} must FAIL CLOSED (null), got ${got}`); };
+
+  const butter = conv('Butter');
+  U('butter', butter(8, 'tbsp'), 1, '8 tbsp in sticks'); U('butter', butter(4, 'oz'), 1, '4 oz in sticks');
+  U('butter', butter(113, 'g'), 1, '113 g in sticks'); U('butter', butter(0.5, 'cup'), 1, 'half cup in sticks');
+  U('butter', butter(2, 'sticks'), 2, '2 sticks'); U('butter', butter(3, 'tbs'), 0.375, '3 tbs (alias) in sticks');
+  NULLU(butter(1, 'bunch'), 'butter by the bunch');
+
+  const choc = conv('100% dark chocolate');
+  U('chocolate', choc(1, 'bar'), 8, '1 bar in squares'); U('chocolate', choc(0.5, 'oz'), 1, 'half oz in squares');
+  U('chocolate', choc(14.2, 'g'), 1, '14.2 g in squares'); U('chocolate', choc(1, 'lb'), 32, '1 lb in squares');
+
+  const flour = conv('Flour');
+  U('flour', flour(1, 'cup'), 0.275, '1 cup in lb'); U('flour', flour(453.6, 'g'), 1, '453.6 g in lb');
+  U('flour', flour(1, 'kg'), 2.2046, '1 kg in lb');
+
+  const stock = conv('Chicken stock');
+  U('stock', stock(8, 'oz'), 1, '8 fl oz in cups'); U('stock', stock(16, 'tbsp'), 1, '16 tbsp in cups');
+  U('stock', stock(236.588, 'ml'), 1, '236.588 ml in cups'); U('stock', stock(1, 'qt'), 4, '1 qt in cups');
+  NULLU(stock(1, 'lb'), 'stock by the pound (no density declared)');
+
+  U('garlic', conv('Garlic')(20, 'cloves'), 1, '20 cloves in heads');
+  U('celery', conv('Celery')(8, 'stalks'), 1, '8 stalks in heads'); U('celery', conv('Celery')(24, 'oz'), 1, '24 oz in heads');
+  U('herbs', conv('Fresh thyme')(1, 'bunch'), 15, '1 bunch in sprigs'); U('herbs', conv('Fresh tarragon')(2, 'packs'), 30, '2 packs in sprigs');
+  U('ginger', conv('Ginger')(1, 'knob'), 30 / 453.6, '1 knob in lb');
+  U('oliveoil', conv('Good olive oil')(1, 'glug'), 0.5, '1 glug in fl oz'); U('oliveoil', conv('Good olive oil')(1, ''), 2.5, 'bare legacy line (flat 2.5 oz)');
+  U('onion', conv('Onion')(1.2, 'lb'), 2, '1.2 lb in onions'); U('onion', conv('Onion')(9.6, 'oz'), 1, '9.6 oz in onions');
+  U('saffron', conv('Saffron')(1, 'tsp'), 16, '1 tsp in pinches');
+  U('carrot', conv('Carrot')(1, ''), 0.15, 'one bare carrot in lb'); U('carrot', conv('Carrot')(3, 'oz'), 0.1875, '3 oz carrot in lb');
+
+  if (canonUnit(' Tbs ') !== 'tbsp' || canonUnit('GLUGS') !== 'tbsp' || canonUnit('sticks') !== 'stick' || canonUnit('fl oz') !== 'floz' || canonUnit(null) !== '') {
+    F('unit-layer', 'canonUnit normalization regressed (tbs/glugs/sticks/fl oz/null)');
+  }
+  // makeConv itself must fail closed for a spec with no coverage of a unit.
+  NULLU(makeConv({ unit: 'each' })(1, 'lb'), 'per-each ingredient given pounds with no pieceWeight');
 }
 
 // ─── 2+16. Baseline drift ≈ 0 and anchor round-trip for every dinner variant ─

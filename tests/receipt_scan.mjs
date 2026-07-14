@@ -16,7 +16,7 @@
 import {
   buildReviewPlan, parsePastedReceipt, derivePerUnit, onePackPriceFor,
   looksFusedLine, defaultAccept, scoreNamePair, FUZZY_WEAK,
-  mergeExtractions, reconcileReceipt, confidenceTier,
+  mergeExtractions, reconcileReceipt, confidenceTier, perUnitFromUserWeight, autoApplyAllowed,
 } from '../src/receiptMatch.js';
 
 const fails = [];
@@ -373,6 +373,109 @@ const allOf = (p) => [...p.buckets.matched, ...p.buckets.review, ...p.buckets.ne
   const p5 = plan([{ ...line, weighed: true }]);
   const g5 = allOf(p5).find(x => x.ingredientId === 'chicken_stock');
   if (g5 && g5.qtyInference) F('qty-repair', 'weighed lines never infer quantity');
+}
+
+// ─── C.2: subtotal capture (Jul 14) ──────────────────────────────────────────
+// The verified split scan returned printed_subtotal null on BOTH photos even
+// though "Sale Subtotal 195.80" was clearly printed — the reconcile safety net
+// never fired and a $5.66 line-sum gap went unflagged. Root cause: the prompt's
+// subtotal ask was one buried sentence, directly contradicted by the HARD RULE
+// "Exclude subtotals". The fix makes the subtotal a standalone CRITICAL block
+// with a subtotal_raw_text echo so a miss is visible. A prompt can't run in the
+// gate, so these pins assert the prompt TEXT retains the load-bearing parts —
+// if someone rewords the prompt and drops one, this fails.
+{
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/utils.js', import.meta.url), 'utf8');
+  const pins = [
+    ['critical-block', 'CRITICAL — THE PRINTED SUBTOTAL IS A REQUIRED FIELD'],
+    ['raw-text-field', '"subtotal_raw_text": <string|null>'],
+    ['raw-text-rule', 'subtotal_raw_text must also be null'],
+    ['look-again', 'a null subtotal is almost certainly a mistake'],
+    ['exclusion-carveout', 'MUST still be captured in printed_subtotal and subtotal_raw_text'],
+    ['fallback-chain', '"Total Sale", "Total", "Balance"'],
+  ];
+  for (const [rule, needle] of pins) {
+    if (!src.includes(needle)) F('subtotal-prompt', `prompt lost required text (${rule}): "${needle}"`);
+  }
+  // The old self-contradiction must stay dead: no bare "Exclude subtotals,"
+  // hard rule without the carve-out on the same line.
+  const bare = /Exclude subtotals,.*return policy\.\s*$/m.test(src) && !src.includes('does NOT mean ignoring it');
+  if (bare) F('subtotal-prompt', 'exclusion hard rule regressed to the bare form that contradicts the subtotal ask');
+
+  // Extractions carrying the new subtotal_raw_text key must flow through
+  // merge + reconcile unchanged (consumers only read printed_subtotal).
+  const a = { store: 'H-E-B', printed_subtotal: 5.00, subtotal_raw_text: 'Sale Subtotal    5.00',
+    lines: [{ raw_text: '1 X', item_name: 'X', quantity: null, unit: null, line_total: 5.00, unit_price_printed: null, tax_flag: 'F', weighed: false }] };
+  const b = { store: 'H-E-B', printed_subtotal: null, subtotal_raw_text: null, lines: [] };
+  const m = mergeExtractions(a, b);
+  if (m.printed_subtotal !== 5.00) F('subtotal-prompt', `merge with raw-text key: subtotal ${m.printed_subtotal} !== 5.00`);
+  const r = reconcileReceipt(m);
+  if (!r || !r.ok) F('subtotal-prompt', `reconcile with raw-text key must pass: ${JSON.stringify(r)}`);
+}
+
+// ─── C.5: user-entered weight → per-unit price (Jul 14) ──────────────────────
+// Kevin enters the weight he knows; the app derives the per-unit price he used
+// to compute by hand. Pins the doc's canonical case (1 lb 6 oz at $5.98 →
+// 1.375 lb → $4.35/lb), the decimal-lb mode, per-oz/per-g ingredient pricing,
+// and the fail-closed guards (no weight, no total, non-weight unit → null).
+{
+  // Canonical: 1 lb 6 oz, $5.98 total, lb-priced ingredient.
+  const c = perUnitFromUserWeight({ total: 5.98, lb: 1, oz: 6, ingUnit: 'lb' });
+  if (!c || !near(c.weightLb, 1.375) || !near(c.perUnit, 4.349, 0.005)) {
+    F('user-weight', `canonical 1lb6oz/$5.98: ${JSON.stringify(c)} (want 1.375 lb, ~$4.349/lb)`);
+  }
+  // Decimal mode: 2.15 lb printed on the receipt.
+  const d = perUnitFromUserWeight({ total: 5.98, decimalLb: 2.15, ingUnit: 'lb' });
+  if (!d || !near(d.weightLb, 2.15) || !near(d.perUnit, 2.781, 0.005)) F('user-weight', `decimal 2.15lb: ${JSON.stringify(d)}`);
+  // decimalLb, when given, takes precedence over lb+oz (the component passes
+  // only the active mode, but the helper's own precedence must be stable).
+  const p = perUnitFromUserWeight({ total: 8, lb: 9, oz: 9, decimalLb: 2, ingUnit: 'lb' });
+  if (!p || !near(p.weightLb, 2)) F('user-weight', `decimalLb precedence: ${JSON.stringify(p)}`);
+  // oz-only split entry (blank lb) works: 8 oz = 0.5 lb.
+  const o = perUnitFromUserWeight({ total: 2, oz: 8, ingUnit: 'lb' });
+  if (!o || !near(o.weightLb, 0.5) || !near(o.perUnit, 4)) F('user-weight', `oz-only: ${JSON.stringify(o)}`);
+  // Ingredient priced per oz gets a per-OZ price: $5.98 / 22 oz.
+  const perOz = perUnitFromUserWeight({ total: 5.98, lb: 1, oz: 6, ingUnit: 'oz' });
+  if (!perOz || !near(perOz.perUnit, 0.272, 0.005)) F('user-weight', `per-oz pricing: ${JSON.stringify(perOz)}`);
+  // Ingredient priced per gram: $5.98 / (1.375 × 453.6 g).
+  const perG = perUnitFromUserWeight({ total: 5.98, lb: 1, oz: 6, ingUnit: 'g' });
+  if (!perG || !near(perG.perUnit, 0.0096, 0.001)) F('user-weight', `per-g pricing: ${JSON.stringify(perG)}`);
+  // Fail closed: zero weight, missing/zero total, negative, non-weight unit.
+  if (perUnitFromUserWeight({ total: 5.98, ingUnit: 'lb' }) !== null) F('user-weight', 'zero weight must return null');
+  if (perUnitFromUserWeight({ total: null, lb: 1, ingUnit: 'lb' }) !== null) F('user-weight', 'no total must return null');
+  if (perUnitFromUserWeight({ total: 0, lb: 1, ingUnit: 'lb' }) !== null) F('user-weight', 'zero total must return null');
+  if (perUnitFromUserWeight({ total: 5.98, lb: -2, ingUnit: 'lb' }) !== null) F('user-weight', 'negative weight must return null');
+  if (perUnitFromUserWeight({ total: 5.98, lb: 1, ingUnit: 'each' }) !== null) F('user-weight', 'per-each ingredient must return null (weight entry is weight-units only)');
+  // Empty-string decimalLb falls through to split mode (UI sends '' when the
+  // decimal box is untouched).
+  const e = perUnitFromUserWeight({ total: 4, lb: 2, decimalLb: '', ingUnit: 'lb' });
+  if (!e || !near(e.weightLb, 2)) F('user-weight', `empty decimalLb must fall through to lb+oz: ${JSON.stringify(e)}`);
+}
+
+// ─── C.3: reconcile hard-gates auto-apply (Jul 14) ───────────────────────────
+// The real failure this pins: photo 2 read three pork tenderloins at
+// $6.62/$6.33/$6.66 instead of $9.33/$9.62/$9.33 — an $8.67 hole. Perfect OCR
+// is not achievable; the defense is that a failed reconcile (line sum vs
+// printed subtotal) turns auto-accept OFF so misread prices must pass Kevin's
+// eyes. Null reconcile (no subtotal at all) keeps prior behavior.
+{
+  const line = (name, total) => ({ raw_text: name, item_name: name, quantity: null, unit: null, line_total: total, unit_price_printed: null, tax_flag: 'FW', weighed: true });
+  // Misread scan: extracted lines sum $19.61, printed subtotal says $28.28.
+  const bad = { store: 'H-E-B', printed_subtotal: 28.28, lines: [line('PK NAT BNL TENDERLOIN COV', 6.62), line('PK NAT BNL TENDERLOIN COV', 6.33), line('PK NAT BNL TENDERLOIN COV', 6.66)] };
+  const rBad = reconcileReceipt(bad);
+  if (!rBad || rBad.ok !== false) F('reconcile-gate', `$8.67 gap must fail the reconcile: ${JSON.stringify(rBad)}`);
+  if (autoApplyAllowed(rBad) !== false) F('reconcile-gate', 'failed reconcile must hard-gate auto-apply');
+  // Clean scan: sums match — auto-apply allowed.
+  const good = { store: 'H-E-B', printed_subtotal: 28.28, lines: [line('PK NAT BNL TENDERLOIN COV', 9.33), line('PK NAT BNL TENDERLOIN COV', 9.62), line('PK NAT BNL TENDERLOIN COV', 9.33)] };
+  const rGood = reconcileReceipt(good);
+  if (!rGood || rGood.ok !== true) F('reconcile-gate', `matching sums must pass: ${JSON.stringify(rGood)}`);
+  if (autoApplyAllowed(rGood) !== true) F('reconcile-gate', 'passing reconcile must allow auto-apply');
+  // No subtotal anywhere: reconcile null, prior behavior (auto allowed).
+  if (autoApplyAllowed(null) !== true) F('reconcile-gate', 'null reconcile must keep prior behavior');
+  // Within tolerance (2% or $1): a $0.90 gap on $28.28 passes.
+  const close = { ...good, printed_subtotal: 29.18 };
+  if (!reconcileReceipt(close).ok) F('reconcile-gate', 'sub-tolerance gap must still pass (discounts, skipped non-food lines)');
 }
 
 // ─── report ──────────────────────────────────────────────────────────────────

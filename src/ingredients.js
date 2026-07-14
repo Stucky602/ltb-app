@@ -26,7 +26,7 @@ export const INGREDIENT_SEED = [
   { id: 'mint', name: 'Mint', unit: 'bunch', baseline: 0.417, category: 'produce' },
   { id: 'thyme_fresh', name: 'Thyme (fresh)', unit: 'bunch', baseline: 0.167, category: 'produce' },
   { id: 'fennel_bulb', name: 'Fennel bulb', unit: 'each', baseline: 4.2, category: 'produce' },
-  { id: 'asparagus', name: 'Asparagus', unit: 'lb', baseline: 4.0, category: 'produce' },
+  { id: 'asparagus', name: 'Asparagus', unit: 'lb', baseline: 2.99, category: 'produce' },
   { id: 'chinese_broccoli', name: 'Chinese broccoli', unit: 'lb', baseline: 4.0, category: 'produce' },
   { id: 'chinese_eggplant', name: 'Chinese eggplant', unit: 'lb', baseline: 2.19, category: 'produce' },
   { id: 'long_beans', name: 'Long beans', unit: 'lb', baseline: 4.99, category: 'produce' },
@@ -37,9 +37,10 @@ export const INGREDIENT_SEED = [
   { id: 'oyster_mushroom', name: 'Oyster mushroom', unit: 'lb', baseline: 8.99, category: 'produce' },
   { id: 'king_oyster_mushroom', name: 'King oyster mushroom', unit: 'lb', baseline: 4.99, category: 'produce' },
   { id: 'shiitake', name: 'Shiitake mushroom', unit: 'lb', baseline: 7.99, category: 'produce' },
-  { id: 'kabocha', name: 'Kabocha squash', unit: 'lb', baseline: 1.99, category: 'produce' },
+  { id: 'kabocha', name: 'Kabocha squash', unit: 'lb', baseline: 1.5, category: 'produce' },
+  { id: 'parsnips', name: 'Parsnips', unit: 'lb', baseline: 4.0, category: 'produce' },
   { id: 'petite_peas', name: 'Petite peas', unit: '8oz', baseline: 1.0, category: 'frozen' },
-  { id: 'corn', name: 'Corn', unit: 'ear', baseline: 0.33, category: 'produce' },
+  { id: 'corn', name: 'Corn', unit: 'ear', baseline: 0.25, category: 'produce' },
   { id: 'red_potatoes', name: 'Red potatoes', unit: 'lb', baseline: 2.32, category: 'produce' },
   { id: 'baby_gold_potatoes', name: 'Baby gold potatoes', unit: 'lb', baseline: 2.0, category: 'produce' },
   { id: 'apple', name: 'Apple', unit: 'each', baseline: 1.5, category: 'produce' },
@@ -172,7 +173,8 @@ export const INGREDIENT_SEED = [
   { id: 'spices_generic', name: 'Spice blend (generic)', unit: 'batch-use', baseline: 1.0, category: 'spice' },
   { id: 'cornstarch', name: 'Cornstarch', unit: 'batch-use', baseline: 0.1, category: 'pantry' },
   { id: 'wrap', name: 'Packaging (wrap/jar)', unit: 'each', baseline: 1.0, category: 'pantry', fixed: true },
-  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 1.5, category: 'pantry', fixed: true }, // composed sous vide dishes: bag + seasoning cost tracked separately from packaging
+  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 2.0, category: 'pantry', fixed: true }, // composed sous vide dishes: bag + seasoning cost tracked separately from packaging ($2.00 small; Large braises use sv_bag_large $3.00)
+  { id: 'sv_bag_large', name: 'Sous vide bag + butter + herbs (large)', unit: 'each', baseline: 3.0, category: 'pantry', fixed: true }, // longer bag + a little more seasoning for Large braises: one $3.00 bag, not two $2.00 bags
   { id: 'sodium_citrate', name: 'Sodium citrate', unit: 'g', baseline: 0.025, category: 'pantry' },
   { id: 'herb_generic', name: 'Herb (thyme/lavender)', unit: 'batch', baseline: 1.0, category: 'produce' },
   { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, category: 'pantry' },

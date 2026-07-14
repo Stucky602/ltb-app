@@ -44,8 +44,8 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { flexible: ['dutch', 'largePot'], fixed: ['ovenLow'] },
     variants: [
-      { label: 'Small (~4)', price: 35, cost: 15.55 },
-      { label: 'Large (~8)', price: 65, cost: 31.1 },
+      { label: 'Small (~4)', price: 35, cost: 17.46 },
+      { label: 'Large (~8)', price: 65, cost: 33.83 },
     ],
     recipe: {
       factors: { 'Small (~4)': 1, 'Large (~8)': 2 },
@@ -60,6 +60,13 @@ export const DISHES = [
         I('Dried lima beans', 5, 'oz'),
         I('Worcestershire + vinegar + flour', 1, 'batch', true),
       ],
+      // ONE sous vide bag per dish (corn + potatoes cooked as a bagged
+      // component). Per-variant + fixed so it never doubles under the ×2
+      // Large factor: $2 bag on Small, one longer $3 bag on Large.
+      extras: {
+        'Small (~4)': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Large (~8)': [{ ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+      },
     },
   },
   {
@@ -165,12 +172,12 @@ export const DISHES = [
     equipment: { flexible: ['dutch', 'largePot'] },
     options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
-      { label: 'Chickpea, Small (~4-5)', price: 25, cost: 12.71 },
-      { label: 'Chicken, Small (~4-5)', price: 35, cost: 16.51 },
-      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 26.25 },
-      { label: 'Chickpea, Large (~8-10)', price: 45, cost: 24.35 },
-      { label: 'Chicken, Large (~8-10)', price: 65, cost: 31.92 },
-      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 51.41 },
+      { label: 'Chickpea, Small (~4-5)', price: 25, cost: 14.88 },
+      { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.68 },
+      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 28.41 },
+      { label: 'Chickpea, Large (~8-10)', price: 45, cost: 27.59 },
+      { label: 'Chicken, Large (~8-10)', price: 65, cost: 35.17 },
+      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 54.66 },
     ],
     recipe: {
       factors: {
@@ -193,12 +200,15 @@ export const DISHES = [
         // Chickpeas are the protein ONLY on the chickpea variants. Scoped here
         // (not base) so the chicken/shrimp variants don't double-load them.
         // Scales with variant factor exactly like the meat proteins below.
-        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb')],
-        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb')],
-        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb')],
-        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb')],
-        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb')],
-        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb')],
+        // Protein per variant PLUS one fixed sous vide veg bag (leafy green +
+        // one bagged item share ONE bag). $2 on Small, one longer $3 bag on
+        // Large; fixed so it never scales with the variant factor.
+        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
       },
     },
   },
@@ -209,8 +219,8 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: 'Small (split order, ~4)', price: 60, cost: 30.89 },
-      { label: 'Large (~8)', price: 110, cost: 60.69 },
+      { label: 'Small (split order, ~4)', price: 60, cost: 32.79 },
+      { label: 'Large (~8)', price: 110, cost: 63.41 },
     ],
     recipe: {
       factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
@@ -231,6 +241,12 @@ export const DISHES = [
         I('Bay leaf', 1, '', true),
         I('Rice (included with order)', 1, 'batch', true),
       ],
+      // ONE sous vide bag per dish (kabocha + carrots share one bag). Fixed +
+      // per-variant: $2 on Small, one longer $3 bag on Large.
+      extras: {
+        'Small (split order, ~4)': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Large (~8)': [{ ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+      },
     },
     stewVegCopy: {
       main: 'Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving.',
@@ -398,10 +414,10 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['wok'], tofu: true },
     variants: [
-      { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 21.99 },
-      { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 42.98 },
-      { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 10.6 },
-      { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 20.2 },
+      { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 20.9 },
+      { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 40.79 },
+      { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 9.51 },
+      { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 18.01 },
     ],
     recipe: {
       factors: {
@@ -502,8 +518,8 @@ export const DISHES = [
     equipment: { fixed: ['wok'] },
     options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
-      { label: 'Small (~3-4)', price: 35, cost: 14.45 },
-      { label: 'Large (~7-8)', price: 60, cost: 27.82 },
+      { label: 'Small (~3-4)', price: 35, cost: 13.9 },
+      { label: 'Large (~7-8)', price: 60, cost: 26.73 },
     ],
     recipe: {
       factors: { 'Small (~3-4)': 1, 'Large (~7-8)': 2 },
@@ -596,8 +612,8 @@ export const DISHES = [
     equipment: { fixed: ['wok'] },
     servings: { small: 2.5, large: 5.5, bound: true },
     variants: [
-      { label: 'Small (~2-3)', price: 35, cost: 15.25 },
-      { label: 'Large (~5-6)', price: 65, cost: 30.51 },
+      { label: 'Small (~2-3)', price: 35, cost: 14.98 },
+      { label: 'Large (~5-6)', price: 65, cost: 29.96 },
     ],
     recipe: {
       factors: { 'Small (~2-3)': 0.5, 'Large (~5-6)': 1 },
@@ -663,7 +679,7 @@ export const DISHES = [
     // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
     servings: { small: 3, large: 6, bound: true },
     variants: [
-      { label: 'Small (~3 servings)', price: 45, cost: 21.29 },
+      { label: 'Small (~3 servings)', price: 45, cost: 21.83 },
       { label: 'Large (~6 servings)', price: 85, cost: 42.59 },
     ],
     recipe: {
@@ -673,7 +689,6 @@ export const DISHES = [
       },
       base: [
         I('Pork tenderloin (sous vide)', 1.25, 'lb'),
-        I('Sous vide bag + butter + herbs (costed)', 1, ''),
         I('Butter', 0.25, 'stick'),
         I('Shallot', 2, 'oz'),
         I('Garlic', 2, 'cloves'),
@@ -683,6 +698,13 @@ export const DISHES = [
         I('Fresh tarragon', 0.5, 'bunch'),
         I('Egg taglierini', 1, 'pack'),
       ],
+      // ONE sous vide bag per dish (the pork tenderloin cooks in it). Moved out
+      // of base and made per-variant + fixed: the old base line doubled to 2
+      // bags on Large (factor 2). Now $2 on Small, one longer $3 bag on Large.
+      extras: {
+        'Small (~3 servings)': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Large (~6 servings)': [{ ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+      },
     },
   },
 
@@ -863,8 +885,8 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: '~4 servings', price: 100, cost: 44.18 },
-      { label: 'With 1 lb mushrooms', price: 112, cost: 50.18 },
+      { label: '~4 servings', price: 100, cost: 46.34 },
+      { label: 'With 1 lb mushrooms', price: 112, cost: 52.34 },
     ],
     recipe: {
       factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
@@ -879,8 +901,13 @@ export const DISHES = [
         I('Onion', 1, 'lb'),
         I('Bay + salt + pepper + vinegar', 1, 'batch', true),
       ],
+      // ONE sous vide bag per dish (potatoes + carrots share one bag). Fixed so
+      // it doesn't scale. Boeuf has no Small/Large split (both variants are
+      // ~4-serving, factor 1), so both carry the $2 bag. If Kevin wants Boeuf
+      // treated as a "large" dish with the $3 bag, swap the costed string.
       extras: {
-        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb')],
+        '~4 servings': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
       },
     },
     // Dedicated 2-paragraph reheat card (main + veg bag) — never combined
@@ -1153,33 +1180,36 @@ export const ALWAYS_ITEMS = {
     // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {
       name: 'Carrots', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 6, cost: 1.83 }],
-      recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 0.6, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+      variants: [{ label: '~2 servings', price: 6, cost: 3.25 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Baby Gold Potatoes', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 2.5 }],
-      recipe: { factors: { '2 servings': 1 }, base: [I('Baby gold potatoes', 0.6, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+      variants: [{ label: '~2 servings', price: 7, cost: 3.79 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Baby gold potatoes', 0.75, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Corn (off the cob)', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 2.0 }],
+      variants: [{ label: '~2 servings', price: 7, cost: 2.98 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Corn', 3, 'ears'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Kabocha Squash', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 1.62 }],
-      recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.75, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+      variants: [{ label: '~2 servings', price: 7, cost: 3.79 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Parsnips', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 2.0 }],
+      variants: [{ label: '~2 servings', price: 7, cost: 7.58 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Parsnips', 1.25, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Asparagus', packaging: 'none',
       variants: [
-        { label: 'Whole (~2 servings)', price: 8, cost: 3.0 },
-        { label: 'Bite-size (~2 servings)', price: 8, cost: 3.0 },
+        { label: 'Whole (~2 servings)', price: 8, cost: 5.4 },
+        { label: 'Bite-size (~2 servings)', price: 8, cost: 5.4 },
       ],
+      recipe: { factors: { 'Whole (~2 servings)': 1, 'Bite-size (~2 servings)': 1 }, base: [I('Asparagus', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       // Garlic Confit lives in the bag category (not its own section) — it's a

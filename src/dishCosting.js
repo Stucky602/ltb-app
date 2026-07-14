@@ -253,7 +253,8 @@ export const LINE_MAP = {
   'Pint mason jar':         { skip: true },
   'Gallon ziplock bag':     { skip: true },
   'Sous vide bag + seasonings': { skip: true },
-  'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $1.50 sv_bag ingredient; separate from $1 packaging wrap
+  'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $2.00 sv_bag ingredient; separate from $1 packaging wrap
+  'Sous vide bag + butter + herbs (costed, large)': { id: 'sv_bag_large', conv: () => 1 }, // 1 unit of the $3.00 sv_bag_large ingredient; Large braises use ONE longer bag, not two small bags
   'Pork tenderloin (sous vide)': { id: 'pork_tenderloin', conv: q => q },
   'Shallot':                { id: 'shallot', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
   'Whole grain mustard':    { id: 'whole_grain_mustard', conv: (q,u)=> u==='tbs'? q*0.5 : q }, // ~0.5 oz per tbsp
@@ -269,7 +270,8 @@ export const LINE_MAP = {
   'Flank steak':            { skip: true },
   'Pork chop':              { skip: true },
   'Pork tenderloin':        { skip: true },
-  'Baby gold potatoes':     { skip: true },
+  'Baby gold potatoes':     { id: 'baby_gold_potatoes', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q }, // now a costed SV-veg bag component (was skip)
+  'Parsnips':               { id: 'parsnips', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
 };
 
 // Packaging class — DERIVED from the registry: 'jar' → $2, 'none' → $0,

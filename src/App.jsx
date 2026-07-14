@@ -134,6 +134,7 @@ export default function LTBOrderTracker() {
   const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
   const [receiptAliases, setReceiptAliases] = useState({}); // normReceiptStr -> { ingredientId?, action?, pricing? }
   const [showReceiptScan, setShowReceiptScan] = useState(false);
+  const [debugScan, setDebugScan] = useState(false);
   const [showPendingIdx, setShowPendingIdx] = useState(null);
   const [checkingForm, setCheckingForm] = useState(false);
   const [parsedNotes, setParsedNotes] = useState({});
@@ -1834,7 +1835,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'ingredients' && (
-          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => setShowReceiptScan(true)} />
+          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} />
         )}
       </main>
 
@@ -1845,7 +1846,8 @@ export default function LTBOrderTracker() {
           aliases={receiptAliases}
           onSaveAliases={saveReceiptAliases}
           onCommit={commitReceiptCosts}
-          onClose={() => setShowReceiptScan(false)}
+          onClose={() => { setShowReceiptScan(false); setDebugScan(false); }}
+          debug={debugScan}
         />
       )}
     </div>

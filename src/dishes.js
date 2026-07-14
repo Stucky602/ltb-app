@@ -603,6 +603,39 @@ export const DISHES = [
     },
   },
   {
+    name: 'Orecchiette with Bitter Greens and Anchovies',
+    cuisine: 'Italian',
+    reheat: 'pasta',
+    pasta: true,
+    equipment: { fixed: ['wok'] }, // greens cooked down + sauce built in the wok
+    options: { parmOffer: false }, // parm is in the dish; no separate offer. No pasta sub — orecchiette only.
+    variants: [
+      { label: 'Small (~4-5)', price: 25, cost: 11.75 },
+      { label: 'Small + Fennel Pork Sausage (~4-5)', price: 35, cost: 17.16 },
+      { label: 'Large (~8-10)', price: 45, cost: 22.42 },
+      { label: 'Large + Fennel Pork Sausage (~8-10)', price: 60, cost: 33.24 },
+    ],
+    recipe: {
+      factors: {
+        'Small (~4-5)': 1, 'Small + Fennel Pork Sausage (~4-5)': 1,
+        'Large (~8-10)': 2, 'Large + Fennel Pork Sausage (~8-10)': 2,
+      },
+      base: [
+        I('Orecchiette', 1, 'lb'),
+        I('Tong ho', 1, 'lb'),
+        I('Anchovies', 5, 'fillet'),
+        I('Garlic', 5, 'cloves'),
+        I('Good parm', 2, 'oz'),
+        I('Lemon herb butter', 1, ''),
+        I('Fennel seeds', 1, 'tsp', true),
+      ],
+      extras: {
+        'Small + Fennel Pork Sausage (~4-5)': [I('Ground pork', 1, 'lb')],
+        'Large + Fennel Pork Sausage (~8-10)': [I('Ground pork', 1, 'lb')],
+      },
+    },
+  },
+  {
     name: 'Pappardelle with Vegetables and Mint',
     diet: { veg: true },
     options: { parmOffer: true }, // finished with parm; offer a block at cost
@@ -1227,7 +1260,7 @@ export const ALWAYS_ITEMS = {
     { name: 'Romesco', variants: [{ label: 'Per Container', price: 4, cost: 0.80 }] },
     { name: 'Chermoula', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
     { name: 'Miso Butter Sauce', variants: [{ label: 'Per Container', price: 3, cost: 0.55 }] },
-    { name: 'Whipped Lemon Garlic Herb Butter', variants: [{ label: 'Per Container', price: 3, cost: 0.45 }] },
+    { name: 'Whipped Lemon Garlic Herb Butter', variants: [{ label: 'Per Container', price: 3, cost: 0.53 }] },
   ],
 };
 

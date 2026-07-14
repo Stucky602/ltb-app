@@ -214,6 +214,10 @@ export function buildReheatBlocks(order) {
   // sous vide pork, warm the sauce, cook the taglierini fresh).
   let porkMustardOrdered = items.some(it => it.name === 'Pork with Mustard Tarragon Cream Sauce');
 
+  // Orecchiette with Bitter Greens and Anchovies — dedicated card (warm the
+  // sauce, cook the orecchiette fresh; no pasta substitution).
+  let orecchietteOrdered = items.some(it => it.name === 'Orecchiette with Bitter Greens and Anchovies');
+
   // Coriander Lamb Steak over Gigantes Beans (Spotlight) — dedicated two-part card: sear the lamb
   // (remove bone, pat dry, hard sear, no rest — thin cut), warm the bean/leek
   // bag in simmering water, slice the lamb over the top.
@@ -273,6 +277,11 @@ export function buildReheatBlocks(order) {
     }
     if (name === 'Pork with Mustard Tarragon Cream Sauce') {
       // Dedicated 3-part card (below), never the shared generic pasta text.
+      seen.add(name);
+      return;
+    }
+    if (name === 'Orecchiette with Bitter Greens and Anchovies') {
+      // Dedicated card (below), never the shared generic pasta text.
       seen.add(name);
       return;
     }
@@ -356,6 +365,15 @@ export function buildReheatBlocks(order) {
       title: 'Reheat the sauce and polenta',
       dishes: ['Mushroom Ragu'],
       body: 'Comes in a container with the polenta sealed in a separate sous vide bag. Warm the sauce in a saucepan over medium-low, stirring now and then. Reheat the polenta bag in simmering water for a few minutes until hot, then cut it open, spoon it out, and top with the sauce and a little parm if you have it.',
+    });
+  }
+
+  // ── Orecchiette with Bitter Greens and Anchovies — dedicated card ─────
+  if (orecchietteOrdered) {
+    blocks.push({
+      title: 'Warm the sauce and cook the pasta',
+      dishes: ['Orecchiette with Bitter Greens and Anchovies'],
+      body: 'Warm the sauce gently in a pan, adding a few ounces of the pasta water if it needs loosening. Cook the orecchiette in lightly salted water, then drain and toss it straight into the sauce.',
     });
   }
 

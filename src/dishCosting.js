@@ -83,6 +83,7 @@ export const LINE_MAP = {
   'Chinese eggplant':       { id: 'chinese_eggplant', conv: q => q },
   'Long beans':             { id: 'long_beans', conv: q => q },
   'Asian greens':           { id: 'asian_greens', conv: q => q },
+  'Tong ho':                { id: 'tong_ho', conv: q => q },
   'Mushrooms':              { id: 'mushrooms', conv: q => q },
   'Dried porcini':          { id: 'porcini', conv: q => q }, // recipe qty in oz, ingredient priced per oz
   'Oyster mushroom':        { id: 'oyster_mushroom', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
@@ -169,6 +170,8 @@ export const LINE_MAP = {
   'Dried lima beans':       { id: 'dried_lima_beans', conv: q => q },
   'Beans (for refried)':    { id: 'black_beans', conv: q => q },
   'Pasta':                  { id: 'pasta', conv: q => q },
+  'Orecchiette':            { id: 'orecchiette', conv: q => q },
+  'Lemon herb butter':      { id: 'lemon_herb_butter', conv: q => q }, // composed 2oz container; cost = butter+lemon+garlic+thyme batch/10
   'Pasta (ask customer for shape!)': { id: 'pasta', conv: q => q },
   'Fresh noodles (not dried)': { id: 'noodles', conv: q => q },
   'Egg pappardelle':        { id: 'egg_pappardelle', conv: q => q },

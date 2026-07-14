@@ -31,6 +31,7 @@ export const INGREDIENT_SEED = [
   { id: 'chinese_eggplant', name: 'Chinese eggplant', unit: 'lb', baseline: 2.19, category: 'produce' },
   { id: 'long_beans', name: 'Long beans', unit: 'lb', baseline: 4.99, category: 'produce' },
   { id: 'asian_greens', name: 'Asian greens', unit: 'lb', baseline: 2.0, category: 'produce' },
+  { id: 'tong_ho', name: 'Tong ho (chrysanthemum greens)', unit: 'lb', baseline: 1.99, category: 'produce' },
   { id: 'mushrooms', name: 'Mushrooms', unit: 'lb', baseline: 5.0, category: 'produce' },
   { id: 'baby_bella', name: 'Baby bella mushrooms', unit: '8oz', baseline: 3.0, category: 'produce' },
   { id: 'porcini', name: 'Dried porcini', unit: 'oz', baseline: 2.25, category: 'produce' },
@@ -114,6 +115,8 @@ export const INGREDIENT_SEED = [
   { id: 'vanilla_extract', name: 'Vanilla extract (homemade)', unit: 'tbs', baseline: 1.5, category: 'pantry' },
   { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.0, category: 'pantry' },
   { id: 'pasta', name: 'Pasta (dry)', unit: 'lb', baseline: 2.0, category: 'pantry', passthrough: true }, // store-bought, sold at cost
+  { id: 'orecchiette', name: 'Orecchiette', unit: 'lb', baseline: 2.78, category: 'pantry', passthrough: true },
+  { id: 'lemon_herb_butter', name: 'Lemon herb butter (2oz)', unit: 'each', baseline: 0.485, category: 'dairy' }, // composed: 1lb butter+1 lemon+10 garlic+thyme, batch of 10
   { id: 'egg_pappardelle', name: 'Egg pappardelle', unit: 'pack', baseline: 4.2, category: 'pantry', passthrough: true }, // store-bought, sold at cost
   { id: 'noodles', name: 'Noodles (fresh)', unit: 'batch', baseline: 8.0, category: 'pantry' },
   { id: 'tortillas', name: 'Tortillas', unit: '10ct', baseline: 2.0, category: 'pantry' },

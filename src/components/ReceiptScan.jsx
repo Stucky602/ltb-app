@@ -34,7 +34,12 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     if (!file) return;
     setErr(''); setBusy(true);
     try {
-      const b64 = await fileToJpegBase64(file, 1600, 0.7); // receipts need legible text
+      // Receipts are long and dense (40+ lines). Downscaling the whole receipt
+      // to 1600px crushes each line to ~40px and the vision model misreads the
+      // text (names AND prices bleed between adjacent rows). Send a much larger
+      // image so small print stays legible. 2600px long-side at 0.85 quality is
+      // the sweet spot: legible without blowing the request size.
+      const b64 = await fileToJpegBase64(file, 2600, 0.85);
       setImgB64(b64);
       setStage('extracting');
       const extracted = await extractReceipt(b64);
@@ -58,6 +63,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       }
       setPlan(p);
       setRows(planToRows(p));
+      setRecon(reconcileReceipt(extracted)); // verify line sum vs printed subtotal (catches misreads)
       setStage('review');
     } catch (e2) {
       const msg = e2 && e2.message === 'OUT_OF_CREDITS'

@@ -28,10 +28,18 @@ ALL_ALWAYS_ITEMS.forEach(it => { if (it.recipe) RECIPES[it.name] = it.recipe; })
 export const INGREDIENT_SYNONYMS = {
   'scallion': 'green onion',
   'scallions': 'green onion',
-  'spring onion': 'green onion',
-  'coriander': 'cilantro',
+  // Spring onion is DISTINCT from scallion/green onion (Kevin, Jul 14). It IS
+  // the same thing as the bulb onion he stocks, so route it there — never to
+  // green onion. Whole-string match (fires after word-level processing).
+  'spring onion': 'bulb onion',
+  // 'coriander' -> 'cilantro' REMOVED (Kevin, Jul 14): in his usage coriander
+  // ALWAYS means the seed, cilantro always means the leaves. The old word-level
+  // rule also mangled "coriander seed" into "cilantro seed", which matched
+  // nothing and missed the real coriander_seed ingredient.
   'chili': 'chile',
   'chilli': 'chile',
+  'courgette': 'zucchini',
+  'courgettes': 'zucchini',
   // Whole-string safety nets for pre-Jul-13 ingredient names typed or pasted
   // by hand. Keys are the POST-processed (lowercased, singularized) forms.
   'kitchen basic chicken stock': 'chicken stock',

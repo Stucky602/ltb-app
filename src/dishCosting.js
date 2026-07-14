@@ -81,6 +81,7 @@ export const LINE_MAP = {
   'Asparagus':              { id: 'asparagus', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
   'Chinese broccoli':       { id: 'chinese_broccoli', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
   'Chinese eggplant':       { id: 'chinese_eggplant', conv: q => q },
+  'Zucchini':               { id: 'zucchini', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q }, // per lb; no recipe uses it yet (Jul 14)
   'Long beans':             { id: 'long_beans', conv: q => q },
   'Asian greens':           { id: 'asian_greens', conv: q => q },
   'Tong ho':                { id: 'tong_ho', conv: q => q },
@@ -200,7 +201,11 @@ export const LINE_MAP = {
   'Chinkiang vinegar':      { id: 'chinkiang', conv: q => q },
   'Shaoxing wine':          { id: 'shaoxing', conv: q => q },
   'House chili oil':        { id: 'chili_oil', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_CUP : q },
-  'Good olive oil':         { id: 'olive_oil', conv: () => 2.5 },
+  // Kevin's ruling (Jul 14): one glug = 1 tbsp = 0.5 fl oz. Honor glug/tbs/oz
+  // units; any OTHER unit keeps the historical flat 2.5 oz so legacy lines
+  // don't silently reprice. If the gate's report-reconcile trips on a dish
+  // using this line after the change, that dish's anchor needs a retune.
+  'Good olive oil':         { id: 'olive_oil', conv: (q,u)=> (u==='glug'||u==='glugs'||u==='tbs'||u==='tbsp') ? q*0.5 : (u==='oz' ? q : 2.5) },
   'Orange juice':           { id: 'orange_juice', conv: () => 1 },
   'Chicken stock':          { id: 'chicken_stock', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 fl oz = 1 cup
   'Beef stock':             { id: 'beef_stock', conv: q => q },

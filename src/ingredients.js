@@ -29,6 +29,7 @@ export const INGREDIENT_SEED = [
   { id: 'asparagus', name: 'Asparagus', unit: 'lb', baseline: 2.99, category: 'produce' },
   { id: 'chinese_broccoli', name: 'Chinese broccoli', unit: 'lb', baseline: 4.0, category: 'produce' },
   { id: 'chinese_eggplant', name: 'Chinese eggplant', unit: 'lb', baseline: 2.19, category: 'produce' },
+  { id: 'zucchini', name: 'Zucchini', unit: 'lb', baseline: 1.29, category: 'produce' }, // courgette merges here (recipes.js synonym)
   { id: 'long_beans', name: 'Long beans', unit: 'lb', baseline: 4.99, category: 'produce' },
   { id: 'asian_greens', name: 'Asian greens', unit: 'lb', baseline: 2.0, category: 'produce' },
   { id: 'tong_ho', name: 'Tong ho (chrysanthemum greens)', unit: 'lb', baseline: 1.99, category: 'produce' },

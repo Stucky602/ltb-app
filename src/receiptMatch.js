@@ -590,6 +590,36 @@ function classifyLine(line, seed, aliases, store) {
   const ref = seedIng ? (typeof seedIng.current === 'number' && seedIng.current > 0 ? seedIng.current
     : (typeof seedIng.baseline === 'number' && seedIng.baseline > 0 ? seedIng.baseline : null)) : null;
 
+  // ── B (Jul 14): POST-EXTRACTION QUANTITY REPAIR ────────────────────────────
+  // The photo path drops the small "N Ea. @ ..." detail on some lines, so a
+  // multi-pack buy arrives as quantity:null with only the line total. With a
+  // LEARNED pack size (alias.packQty) and a reference price, the expected
+  // one-pack price is known — when the line total is a clean integer multiple
+  // of it (within 3%), the integer IS the package count. Back-fill quantity +
+  // unit_price_printed and re-derive, so the pack conversion below divides by
+  // the real count instead of treating N packages as one (the 4-carton stock
+  // bug: $11.92 read as one carton → $2.98/cup, 4× high). Never fires without
+  // a learned packQty (an unlearned pack still asks via needsConversion),
+  // never on weighed lines, and confidenceTier caps the result at 'check' —
+  // an inferred count is shown with its math, never silently auto-accepted.
+  let qtyInference = null;
+  if (basis === 'line_total' && line.quantity == null && !line.weighed
+      && (fromUnit === 'each' || !fromUnit)
+      && alias && alias.packQty > 0 && ref != null && line.line_total > 0) {
+    const expectedPack = ref * alias.packQty;
+    if (expectedPack > 0) {
+      const ratio = line.line_total / expectedPack;
+      const n = Math.round(ratio);
+      if (n >= 2 && n <= 12 && Math.abs(ratio - n) / n <= 0.03) {
+        const perPack = round(line.line_total / n);
+        line = { ...line, quantity: n, unit_price_printed: perPack };
+        ({ perUnit, basis } = derivePerUnit(line));
+        qtyInference = { qty: n, perPack, basis: 'inferred_from_history', expectedPack: round(expectedPack) };
+        reasons.push(`quantity missing on the line: the total is ${n} times the usual $${perPack} package, so ${n} packages were inferred (confirm)`);
+      }
+    }
+  }
+
   // (a) learned per-alias pack size — ask-once-convert-forever (checked before
   // the hardcoded overrides so a learned answer always wins)
   if (alias && alias.packQty > 0 && (basis === 'printed_unit_price' || basis === 'line_total' || basis === 'total_div_qty') && line.line_total != null) {
@@ -763,7 +793,7 @@ function classifyLine(line, seed, aliases, store) {
     }
   }
 
-  return { status: 'matched', norm, line, ingredientId, ingredient: seedIng, via, perUnit, basis, conversion, candidates, confidence, reasons, weightSuggestion, priceWarned: !!priceWarn };
+  return { status: 'matched', norm, line, ingredientId, ingredient: seedIng, via, perUnit, basis, conversion, candidates, confidence, reasons, weightSuggestion, qtyInference, priceWarned: !!priceWarn };
 }
 
 // Group identical item_name lines on the SAME receipt into one entry.
@@ -923,6 +953,28 @@ export const ALIAS_SEED = {
   'graza sizzle olive oil': { ingredientId: 'olive_oil_cooking', packQty: 25.4 },
   'graza drizzle': { ingredientId: 'olive_oil', packQty: 16.9 },  // 500 ml = 16.9 fl oz
   'graza drizzle olive oil': { ingredientId: 'olive_oil', packQty: 16.9 },
+  // ── Jul 14 batch (Kevin-approved D2 seeds) ────────────────────────────────
+  // Kitchen Basics CHICKEN carton (the beef variants were already seeded).
+  // 32 oz carton = 4 cups; packQty converts the carton price → per-cup.
+  'kitch basic real chkn st': { ingredientId: 'chicken_stock', packQty: 4 },
+  'kitch basic chkn st': { ingredientId: 'chicken_stock', packQty: 4 },
+  // HEB boneless skinless chicken, both cuts. Keys are the NORMALIZED forms:
+  // BNLS is 4 chars so the singularizer leaves it; SKNLS/THIGHS/BREASTS drop
+  // the s. BNL variants cover a shorter truncation.
+  'hcf bnls sknl thigh': { ingredientId: 'chicken_thighs' },
+  'hcf bnl sknl thigh': { ingredientId: 'chicken_thighs' },
+  'hcf bnls sknl breast': { ingredientId: 'chicken_breast' },
+  'hcf bnl sknl breast': { ingredientId: 'chicken_breast' },
+  'pk nat bnl tenderloin cov': { ingredientId: 'pork_tenderloin' },
+  'pk nat bnl tenderloin': { ingredientId: 'pork_tenderloin' },
+  // Graza rings up as "GRAZA X VRGN OLIVE OIL SI" — the trailing SI marks the
+  // SIZZLE bottle (Kevin, Jul 14). No bare-name seed: without the SI the
+  // string is ambiguous between the two bottles, and the Drizzle's ring-up is
+  // unknown until Kevin buys one. 750 ml = 25.4 fl oz.
+  'graza x vrgn olive oil si': { ingredientId: 'olive_oil_cooking', packQty: 25.4 },
+  // Queso cheese #2. ALWAYS a 10 oz package (Kevin) = 0.625 lb, costed /lb.
+  // Also corrects the prior misfire where this string bound to a tomato id.
+  'la vaquita oaxaca': { ingredientId: 'oaxaca', packQty: 0.625 },
 };
 
 export function buildReviewPlan(extracted, seed, aliases) {
@@ -1035,6 +1087,10 @@ export function confidenceTier(group, currentCost = null) {
   if (group.status !== 'matched') return 'attention';
   if (group.packShift || group.priceSplit) return 'attention';
   if (!defaultAccept(group, currentCost)) return 'attention';
+  // B (Jul 14): an INFERRED package count is arithmetic on top of a guess —
+  // show the math, one tap to confirm, never auto (wrong cost data is the
+  // cardinal sin; same philosophy as weightSuggestion).
+  if (group.qtyInference) return 'check';
   if (currentCost > 0 && group.perUnit > 0) {
     const ratio = group.perUnit / currentCost;
     if (ratio >= 0.8 && ratio <= 1.2) return 'auto';
@@ -1182,6 +1238,56 @@ export function parsePastedReceipt(text) {
 // v3.4: reconcile the parsed lines against the receipt's own printed number.
 // Small gaps are normal (discount lines, deliberately skipped items); a big
 // gap means a line was missed or misread. Informational, never blocking.
+// ── A3/A4 (Jul 14): merge two half-receipt extractions into ONE receipt ─────
+// The two-photo split scan photographs a physically CUT receipt as two
+// full-frame halves. Each half extracts independently; this merges them so
+// everything downstream (classify, group, match, reconcile) sees one receipt.
+//   lines    — photo 1's then photo 2's, order preserved. The cut means no
+//              line exists in both halves; as a cheap safety net an exact
+//              duplicate (raw_text AND line_total both match) is dropped once.
+//              Same name + total with DIFFERENT raw_text is a real second
+//              purchase and is kept.
+//   store    — photo 1's, else photo 2's.
+//   subtotal — the real "Sale Subtotal" prints ONCE at the receipt's bottom,
+//              so photo 2 usually carries the whole-receipt figure. When BOTH
+//              photos report one, pick whichever candidate (photo2, photo1,
+//              or their sum) lands closest to the merged line sum; ties break
+//              in that order, preferring a single real subtotal over summing.
+//              The decision is recorded for the debug dump.
+export function mergeExtractions(ex1, ex2) {
+  const a = ex1 || {}, b = ex2 || {};
+  const dupKey = (l) => (l && l.raw_text != null && l.line_total != null) ? `${l.raw_text}|${l.line_total}` : null;
+  const lines = [...(a.lines || [])];
+  const seen = new Set(lines.map(dupKey).filter(k => k != null));
+  let droppedDuplicates = 0;
+  for (const l of (b.lines || [])) {
+    const k = dupKey(l);
+    if (k != null && seen.has(k)) { droppedDuplicates++; continue; }
+    if (k != null) seen.add(k);
+    lines.push(l);
+  }
+  const linesSum = round(lines.reduce((s, l) => s + (Number(l.line_total) || 0), 0));
+  const p1 = a.printed_subtotal != null ? Number(a.printed_subtotal) : null;
+  const p2 = b.printed_subtotal != null ? Number(b.printed_subtotal) : null;
+  let printed_subtotal = null;
+  let mode = 'none';
+  if (p1 != null && p2 == null) { printed_subtotal = p1; mode = 'single_photo1'; }
+  else if (p2 != null && p1 == null) { printed_subtotal = p2; mode = 'single_photo2'; }
+  else if (p1 != null && p2 != null) {
+    const candidates = [['single_photo2', p2], ['single_photo1', p1], ['summed', round(p1 + p2)]];
+    let best = candidates[0];
+    for (const c of candidates) if (Math.abs(c[1] - linesSum) < Math.abs(best[1] - linesSum)) best = c;
+    mode = best[0]; printed_subtotal = best[1];
+  }
+  return {
+    store: a.store || b.store || null,
+    receipt_date: a.receipt_date || b.receipt_date || null,
+    lines,
+    printed_subtotal,
+    subtotalDecision: { mode, photo1Subtotal: p1, photo2Subtotal: p2, mergedLinesSum: linesSum, droppedDuplicates },
+  };
+}
+
 export function reconcileReceipt(extracted) {
   const linesSum = round((extracted.lines || []).reduce((s, l) => s + (Number(l.line_total) || 0), 0));
   const printed = extracted.printed_subtotal != null ? extracted.printed_subtotal

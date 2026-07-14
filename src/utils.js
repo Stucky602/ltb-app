@@ -1096,7 +1096,10 @@ These receipts come from three store layouts. Items often span TWO printed lines
   (b) BY A PACK/COUNT: the name shows a pack marker like "PK 5PC", "5 PACK", "8 CT", "BAG", "BTL"/"BOTTLE", or it's just "<NAME> <price> <flag>" with NO weight and NO "@" rate. weighed=false. If a pack count is printed (e.g. "5PC" = 5 pieces), put that number in quantity and unit="pack"; for a single bag/bottle/carton with no count, set unit="pack" (or "bottle"/"bag"/"carton" as printed) and quantity=null. Otherwise quantity=null, unit=null. unit_price_printed=null, line_total=<price>.
   Decide PER LINE from what is actually printed. Do NOT assume a whole store is one type. No weight and no "@" rate means it is a pack/count line (weighed=false).
 
-Also capture the receipt's printed SALE SUBTOTAL (the pre-tax subtotal that the item lines sum to; fall back to "Total Sale"/"Total"/"Balance" if no subtotal is printed) as printed_subtotal. This verifies the extraction — get it right.
+CRITICAL — THE PRINTED SUBTOTAL IS A REQUIRED FIELD, SEPARATE FROM THE ITEM LINES. This is not optional and not part of line-item extraction. Before you finish, scan the BOTTOM of the receipt for the summary block and capture:
+- printed_subtotal: the number printed next to "Sale Subtotal" (H-E-B) or "SUBTOTAL" (H-Mart). If no subtotal line is printed, fall back in this order: "Total Sale", "Total", "Balance". This is the pre-tax figure the item lines sum to.
+- subtotal_raw_text: the EXACT printed text of the line you took that number from, verbatim (e.g. "Sale Subtotal    195.80"). If you return printed_subtotal as null, subtotal_raw_text must also be null — and null is only acceptable when the summary block is truly absent from the photo (e.g. the receipt was cut and this photo is the top half). If the bottom of the receipt is in frame, a null subtotal is almost certainly a mistake: look again.
+The "exclude subtotals from lines" rule below means only that the subtotal is not an ITEM — it must still be captured HERE. Downstream reconciliation depends on this field; a missed subtotal silently disables the safety net that catches misread prices.
 
 Return ONLY a JSON object. No prose, no explanation, no markdown code fences. The object has exactly these keys:
 
@@ -1104,6 +1107,7 @@ Return ONLY a JSON object. No prose, no explanation, no markdown code fences. Th
   "store": <string|null>,
   "receipt_date": <string|null>,
   "printed_subtotal": <number|null>,
+  "subtotal_raw_text": <string|null>,
   "lines": [
     {
       "raw_text": <string>,
@@ -1129,11 +1133,11 @@ Field rules:
 - weighed: true if the line is a weighed item (flag contains "W", or the line shows "#"/"lb"/a weight). false otherwise.
 
 HARD RULES:
-- Extract ONLY item lines. Exclude subtotals, tax lines, totals, payment/card info, store address, phone, survey text, barcodes, "items purchased", return policy.
+- Extract ONLY item lines into "lines". Exclude subtotals, tax lines, totals, payment/card info, store address, phone, survey text, barcodes, "items purchased", return policy from the lines array — but the subtotal/total line MUST still be captured in printed_subtotal and subtotal_raw_text (see the CRITICAL subtotal block above). Excluding it from lines does NOT mean ignoring it.
 - NEVER guess a quantity, weight, or unit price that is not printed. A weighed item with no printed weight has quantity=null, unit=null, weighed=true.
 - Transcribe item names verbatim, including truncations. Do not "fix" them.
 - Do not map items to ingredients. Transcribe everything that is an item line, including beer, paper goods, etc.
-- If the whole receipt is unreadable, return {"store": null, "receipt_date": null, "lines": []}.
+- If the whole receipt is unreadable, return {"store": null, "receipt_date": null, "printed_subtotal": null, "subtotal_raw_text": null, "lines": []}.
 - Output the JSON object and nothing else.`;
 
 export async function extractReceipt(imageBase64) {

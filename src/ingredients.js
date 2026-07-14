@@ -24,7 +24,7 @@ export const INGREDIENT_SEED = [
   { id: 'cilantro', name: 'Cilantro', unit: 'bunch', baseline: 0.5, category: 'produce' },
   { id: 'basil', name: 'Thai basil', unit: 'bunch', baseline: 3.0, category: 'produce' },
   { id: 'mint', name: 'Mint', unit: 'bunch', baseline: 0.417, category: 'produce' },
-  { id: 'thyme_fresh', name: 'Thyme (fresh)', unit: 'bunch', baseline: 0.167, category: 'produce' },
+  { id: 'thyme_fresh', name: 'Thyme (fresh)', unit: 'sprig', baseline: 0.1993, category: 'produce' }, // H-Mart pack $2.99 = 1 bunch = 15 sprigs; 1 sprig = 1 use (Kevin, Jul 14). Old $0.167/"bunch" was a per-use estimate wearing a bunch label.
   { id: 'fennel_bulb', name: 'Fennel bulb', unit: 'each', baseline: 4.2, category: 'produce' },
   { id: 'asparagus', name: 'Asparagus', unit: 'lb', baseline: 2.99, category: 'produce' },
   { id: 'chinese_broccoli', name: 'Chinese broccoli', unit: 'lb', baseline: 4.0, category: 'produce' },
@@ -107,7 +107,7 @@ export const INGREDIENT_SEED = [
   { id: 'honey', name: 'Honey', unit: 'tbs', baseline: 0.2, category: 'pantry' },
   { id: 'cocoa', name: 'Cocoa powder', unit: 'tbs', baseline: 0.19, category: 'pantry' },
   { id: 'delallo_espresso', name: 'DeLallo instant espresso', unit: 'tsp', baseline: 0.26, category: 'pantry' }, // $5.47/55g jar, ~2.6g/tsp
-  { id: 'chocolate_100', name: '100% chocolate', unit: 'square', baseline: 0.5, category: 'pantry' },
+  { id: 'chocolate_100', name: '100% chocolate', unit: 'square', baseline: 0.535, category: 'pantry' }, // Ghirardelli 100% Cacao bar $4.28 = 8 squares (Kevin-approved Jul 14; was 0.50)
   { id: 'guittard_low', name: 'Guittard chocolate (low %)', unit: 'g', baseline: 0.02749, category: 'pantry' },
   { id: 'guittard_high', name: 'Guittard chocolate (high %)', unit: 'g', baseline: 0.02749, category: 'pantry', priceLink: 'guittard_low' },
   { id: 'valrhona', name: 'Valrhona chocolate (premium)', unit: '290g', baseline: 19.0, category: 'pantry' },
@@ -117,7 +117,7 @@ export const INGREDIENT_SEED = [
   { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.0, category: 'pantry' },
   { id: 'pasta', name: 'Pasta (dry)', unit: 'lb', baseline: 2.0, category: 'pantry', passthrough: true }, // store-bought, sold at cost
   { id: 'orecchiette', name: 'Orecchiette', unit: 'lb', baseline: 2.78, category: 'pantry', passthrough: true },
-  { id: 'lemon_herb_butter', name: 'Lemon herb butter (2oz)', unit: 'each', baseline: 0.485, category: 'dairy' }, // composed: 1lb butter+1 lemon+10 garlic+thyme, batch of 10
+  { id: 'lemon_herb_butter', name: 'Lemon herb butter (2oz)', unit: 'each', baseline: 0.488, category: 'dairy' }, // composed: 1lb butter+1 lemon+10 garlic+thyme, batch of 10. Thyme term repriced to $0.1993/sprig (Jul 14): 0.485 → 0.488.
   { id: 'egg_pappardelle', name: 'Egg pappardelle', unit: 'pack', baseline: 4.2, category: 'pantry', passthrough: true }, // store-bought, sold at cost
   { id: 'noodles', name: 'Noodles (fresh)', unit: 'batch', baseline: 8.0, category: 'pantry' },
   { id: 'tortillas', name: 'Tortillas', unit: '10ct', baseline: 2.0, category: 'pantry' },
@@ -158,7 +158,7 @@ export const INGREDIENT_SEED = [
   { id: 'whole_grain_mustard', name: 'Whole grain mustard', unit: 'oz', baseline: 0.17, category: 'pantry' },
   { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, category: 'pantry' , passthrough: true }, // store-bought, sold at cost
   { id: 'polenta', name: 'Polenta (dry cornmeal)', unit: 'lb', baseline: 5.99, category: 'pantry' }, // measured: 0.795 lb = 1.75 cups dry
-  { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'bunch', baseline: 0.417, category: 'produce' },
+  { id: 'tarragon', name: 'Tarragon (fresh)', unit: 'sprig', baseline: 0.1993, category: 'produce' }, // H-Mart pack $2.99 = 1 bunch = 15 sprigs, same pack economics as thyme (Kevin, Jul 14)
   { id: 'bourbon', name: 'Bourbon', unit: 'cup', baseline: 6.4, category: 'pantry' },
   { id: 'espresso', name: 'Espresso', unit: 'shot', baseline: 1.5, category: 'pantry' },
   { id: 'salt', name: 'Salt', unit: 'batch-use', baseline: 0.05, category: 'spice' },

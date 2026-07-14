@@ -42,6 +42,107 @@ const CUPS_PER_BOTTLE_WINE = 3;
 const TBSP_PER_CUP = 16;
 const TSP_PER_TBSP = 3;
 const GRAMS_PER_OZ = 28.35;
+// H-Mart herb pack (thyme + tarragon ONLY — other herbs stay bunch/H-E-B):
+// 1 pack = 1 bunch = 15 sprigs = $2.99 (Kevin, Jul 14). Pack and bunch are
+// interchangeable for these two.
+const SPRIGS_PER_HERB_PACK = 15;
+
+// ═══ UNIVERSAL UNIT LAYER (Workstream A, Jul 14 2026) ═══════════════════════
+// Goal (Kevin): "it doesn't matter HOW I enter the recipe, it just works."
+// Shape: global unit FAMILIES (physics, written once) + per-ingredient BRIDGE
+// declarations (the facts that vary per ingredient), compiled by makeConv()
+// into the same conv(q,u) closures LINE_MAP has always held. Call sites,
+// resolveLine, and the drift engine are unchanged.
+//
+// FAIL CLOSED: a unit an ingredient can't convert returns null — never a
+// silent pass-through. The [unit-convertible] invariant walks every recipe
+// line and fails the gate on any null, so an unconvertible line cannot ship.
+// Recipes are static data, so the gate IS the runtime guarantee.
+//
+// BARE QUANTITY RULE (documented convention, 66 recipe lines rely on it):
+// an empty/missing unit means "count of pricing units" — I('Eggs', 3, '') is
+// 3 eggs. Exception: a weight-priced ingredient that declares eachWeightLb
+// reads a bare quantity as a piece count (I('Carrot', 1, '') = one carrot =
+// 0.15 lb), which is what those lines always meant.
+//
+// VAGUE UNITS (Kevin's rulings, Jul 14): glug = 1 tbsp; knob = 30 g; pinch =
+// 1/16 tsp (saffron's PRICING unit is the pinch — $4.68 bag ÷ 4 uses — and the
+// volume equivalence exists for any future tsp-typed line); handful of spicy
+// peppers = 0.2 batch (kept in that entry); jar, half-jar, block, ear, leaf,
+// shot, fillet, piece, pack, 10ct, can, carton, container, batch, batch-use,
+// blend ARE pricing units — no conversion, identity or fixed constants.
+
+// Weight family: factors TO pounds.
+const WT_PER_LB = { lb: 1, oz: 1 / 16, g: 1 / GRAMS_PER_LB, kg: 1000 / GRAMS_PER_LB };
+// Volume family: factors TO cups. 1 cup = 8 fl oz = 16 tbsp = 48 tsp = 768
+// pinches = 236.588 ml.
+const ML_PER_CUP = 236.588;
+const VOL_PER_CUP = { cup: 1, tbsp: 1 / 16, tsp: 1 / 48, floz: 1 / 8, ml: 1 / ML_PER_CUP, l: 1000 / ML_PER_CUP, qt: 4, pt: 2, pinch: 1 / 768 };
+
+// Spelling/plural canonicalization. Explicit map beats clever stemming — a
+// unit not listed here passes through unchanged and is handled (or refused)
+// by the ingredient's own spec. Multiword units ('14oz can', 'small can',
+// '10-ct pack') intentionally pass through to per-ingredient aliases.
+const UNIT_SYNONYM = {
+  tbs: 'tbsp', tablespoon: 'tbsp', tablespoons: 'tbsp', teaspoon: 'tsp', teaspoons: 'tsp', tsps: 'tsp',
+  glug: 'tbsp', glugs: 'tbsp', // Kevin's ruling (Jul 14): one glug = 1 tbsp = 0.5 fl oz
+  'fl oz': 'floz', 'fl-oz': 'floz', 'fluid oz': 'floz', 'fluid ounce': 'floz', 'fluid ounces': 'floz',
+  ounce: 'oz', ounces: 'oz', pound: 'lb', pounds: 'lb', lbs: 'lb', gram: 'g', grams: 'g',
+  kilogram: 'kg', kilograms: 'kg', kgs: 'kg', liter: 'l', litre: 'l', liters: 'l', litres: 'l',
+  quart: 'qt', quarts: 'qt', pint: 'pt', pints: 'pt',
+  cups: 'cup', bottles: 'bottle', bunches: 'bunch', packs: 'pack', sticks: 'stick', knobs: 'knob',
+  sprigs: 'sprig', cloves: 'clove', stalks: 'stalk', heads: 'head', ears: 'ear', leaves: 'leaf',
+  pieces: 'piece', squares: 'square', bars: 'bar', pinches: 'pinch', shots: 'shot', blocks: 'block',
+  jars: 'jar', fillets: 'fillet', cans: 'can', bags: 'bag', batches: 'batch',
+};
+export function canonUnit(u) {
+  if (u == null) return '';
+  const t = String(u).trim().toLowerCase().replace(/\s+/g, ' ');
+  return UNIT_SYNONYM[t] || t;
+}
+
+// makeConv(spec) → conv(q, u). Spec fields:
+//   unit            REQUIRED. The ingredient's pricing unit (matches the seed).
+//   fluid           'oz' inputs mean FLUID oz (stocks, oils, cream, booze).
+//   aliases         { unit: factor } extra units, factor = pricing units per 1
+//                   of that unit (garlic { clove: 1/20 }, wine { bottle: 3 }).
+//   pieceWeightLb   count-PRICED ingredient with a known piece weight: any
+//                   weight input converts to pieces (butter stick 0.25 lb,
+//                   chocolate square 0.03125 lb, onion 0.6 lb).
+//   eachWeightLb    weight-PRICED ingredient with a known piece weight: a bare
+//                   or 'each' quantity converts to weight (carrot 0.15 lb).
+//   densityLbPerCup weight-PRICED ingredient that recipes measure by volume
+//                   (flour 0.275 lb/cup = Kevin's 125 g standard; parm 0.19).
+//   also            escape hatch, tried FIRST, receives the CANONICAL unit.
+//                   Return undefined to fall through, null to hard-fail.
+// Resolution order: also → bare-quantity rule → pricing unit → aliases →
+// weight family → volume family → bridges → null (FAIL CLOSED).
+export function makeConv(spec) {
+  let unit = canonUnit(spec.unit);
+  if (spec.fluid && unit === 'oz') unit = 'floz';
+  const aliases = {};
+  for (const [k, v] of Object.entries(spec.aliases || {})) aliases[canonUnit(k)] = v;
+  const unitIsWt = WT_PER_LB[unit] != null;
+  const unitIsVol = VOL_PER_CUP[unit] != null;
+  return (q, u) => {
+    let un = canonUnit(u);
+    if (spec.fluid && un === 'oz') un = 'floz';
+    if (spec.also) { const r = spec.also(q, un); if (r !== undefined) return r; }
+    if (un === '') {
+      if (unitIsWt && spec.eachWeightLb != null) return q * spec.eachWeightLb / WT_PER_LB[unit];
+      return q;
+    }
+    if (un === unit) return q;
+    if (aliases[un] != null) return q * aliases[un];
+    if (unitIsWt && WT_PER_LB[un] != null) return q * WT_PER_LB[un] / WT_PER_LB[unit];
+    if (unitIsVol && VOL_PER_CUP[un] != null) return q * VOL_PER_CUP[un] / VOL_PER_CUP[unit];
+    if (unitIsWt && spec.eachWeightLb != null && un === 'each') return q * spec.eachWeightLb / WT_PER_LB[unit];
+    if (!unitIsWt && !unitIsVol && spec.pieceWeightLb != null && WT_PER_LB[un] != null) return q * WT_PER_LB[un] / spec.pieceWeightLb;
+    if (unitIsWt && spec.densityLbPerCup != null && VOL_PER_CUP[un] != null) return q * VOL_PER_CUP[un] * spec.densityLbPerCup / WT_PER_LB[unit];
+    return null; // FAIL CLOSED — [unit-convertible] invariant catches this pre-deploy
+  };
+}
+const C = makeConv; // brevity alias for the map below
 
 // ── Recipe-line resolver ────────────────────────────────────────────────────
 // Keyed on the EXACT recipe-line name string. Each entry resolves a line to a
@@ -50,205 +151,217 @@ const GRAMS_PER_OZ = 28.35;
 // folded into baseline, tofu now a real ingredient, etc.)
 export const LINE_MAP = {
   // Tomatoes / canned
-  'Canned tomatoes':        { id: 'tomato_can', conv: (q,u)=>{ const m=/^([\d.]+)\s*oz\s+cans?$/.exec(u||''); return m ? q*parseFloat(m[1])/28 : q; } }, // tomato_can = one 28oz can
-  'Canned peeled tomatoes': { id: 'peeled_tomatoes', conv: q => q }, // STALE (Jul 13 rename -> 'Canned tomatoes'); kept so old strings never silently cost $0
-  'Crushed tomatoes':       { id: 'tomato_can', conv: q => q },
+  'Canned tomatoes':        { id: 'tomato_can', conv: C({ unit: 'can', pieceWeightLb: 1.75, also: (q,u)=>{ const m=/^([\d.]+)\s*oz\s+cans?$/.exec(u||''); return m ? q*parseFloat(m[1])/28 : undefined; } }) }, // tomato_can = one 28oz can (1.75 lb); "NNoz can" scales
+  'Canned peeled tomatoes': { id: 'peeled_tomatoes', conv: C({ unit: 'can' }) }, // STALE (Jul 13 rename -> 'Canned tomatoes'); kept so old strings never silently cost $0
+  'Crushed tomatoes':       { id: 'tomato_can', conv: C({ unit: 'can', pieceWeightLb: 1.75 }) },
   'Homegrown tomatoes':     { id: 'homegrown_tomatoes', conv: () => 1 }, // fixed, no-drift
-  'Tomatoes (pico)':        { id: 'fresh_tomatoes', conv: q => q },
-  'Tomato paste':           { id: 'tomato_paste', conv: (q,u)=> u==='tbs'? q/12 : q }, // 6oz can ≈ 12 tbsp
+  'Tomatoes (pico)':        { id: 'fresh_tomatoes', conv: C({ unit: 'lb' }) },
+  'Tomato paste':           { id: 'tomato_paste', conv: C({ unit: 'can', aliases: { tbsp: 1/12, 'small can': 1 } }) }, // 6oz can ≈ 12 tbsp
 
   // Onions
-  'Red onion':              { id: 'red_onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u==='lb'? q/LB_PER_ONION : q) },
-  'Red onion (large)':      { id: 'red_onion', conv: q => q }, // STALE (Jul 13 rename -> 'Red onion')
-  'Onion':                  { id: 'onion', conv: (q,u) => u === 'oz' ? q/OZ_PER_LB/LB_PER_ONION : (u === 'lb' ? q/LB_PER_ONION : q) },
-  'Onions or carrots (for pickling)': { id: 'onion', conv: (q,u)=> u==='lb'? q/LB_PER_ONION : q },
-  'Sweet onion':            { id: 'sweet_onion', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
-  'Bulb onions':            { id: 'bulb_onion', conv: q => q },
-  'Scallions':              { id: 'scallions', conv: q => q },
+  'Red onion':              { id: 'red_onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) },
+  'Red onion (large)':      { id: 'red_onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) }, // STALE (Jul 13 rename -> 'Red onion')
+  'Onion':                  { id: 'onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) },
+  'Onions or carrots (for pickling)': { id: 'onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) },
+  'Sweet onion':            { id: 'sweet_onion', conv: C({ unit: 'lb' }) },
+  'Bulb onions':            { id: 'bulb_onion', conv: C({ unit: 'bunch' }) },
+  'Scallions':              { id: 'scallions', conv: C({ unit: 'bunch' }) },
 
   // Aromatics
-  'Garlic':                 { id: 'garlic', conv: (q,u) => u==='cloves' ? q/CLOVES_PER_HEAD : q },
-  'Ginger':                 { id: 'ginger', conv: (q,u) => (u==='knob'||u==='knobs') ? q/KNOBS_PER_LB : q },
+  'Garlic':                 { id: 'garlic', conv: C({ unit: 'head', aliases: { clove: 1/CLOVES_PER_HEAD } }) },
+  'Ginger':                 { id: 'ginger', conv: C({ unit: 'lb', aliases: { knob: GRAMS_PER_KNOB/GRAMS_PER_LB } }) }, // knob = 30 g (Kevin ruling, generalized in canonUnit docs)
 
   // Produce / veg
-  'Carrots':                { id: 'carrots', conv: q => q },
-  'Carrot':                 { id: 'carrots', conv: () => 0.15 },
-  'Celery':                 { id: 'celery', conv: (q,u)=> u==='stalks'? q/8 : (u==='oz'? q/24 : q) }, // head ~1.5 lb = 24 oz
-  'Green bell pepper':      { id: 'green_bell_pepper', conv: q => q },
-  'Poblano pepper':         { id: 'poblano', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
-  'Habaneros':              { id: 'habanero', conv: q => q*0.1 },
-  'Dried ancho chili':      { id: 'ancho_chili', conv: (q,u)=> u==='g'? q/GRAMS_PER_OZ : q },
-  'Asparagus':              { id: 'asparagus', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
-  'Chinese broccoli':       { id: 'chinese_broccoli', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
-  'Chinese eggplant':       { id: 'chinese_eggplant', conv: q => q },
-  'Zucchini':               { id: 'zucchini', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q }, // per lb; no recipe uses it yet (Jul 14)
-  'Long beans':             { id: 'long_beans', conv: q => q },
-  'Asian greens':           { id: 'asian_greens', conv: q => q },
-  'Tong ho':                { id: 'tong_ho', conv: q => q },
-  'Mushrooms':              { id: 'mushrooms', conv: q => q },
-  'Dried porcini':          { id: 'porcini', conv: q => q }, // recipe qty in oz, ingredient priced per oz
-  'Oyster mushroom':        { id: 'oyster_mushroom', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
-  'King oyster mushroom':   { id: 'king_oyster_mushroom', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
-  'Shiitake mushroom':      { id: 'shiitake', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
-  'Baby bella mushrooms':   { id: 'baby_bella', conv: (q,u)=> u==='oz'? q/8 : q },
-  'Kabocha squash':         { id: 'kabocha', conv: q => q },
-  'Petite peas':            { id: 'petite_peas', conv: (q,u)=> u==='oz'? q/8 : q },
-  'Corn':                   { id: 'corn', conv: q => q },
-  'Red potatoes':           { id: 'red_potatoes', conv: q => q },
-  'Apple':                  { id: 'apple', conv: q => q },
-  'Fennel bulb':            { id: 'fennel_bulb', conv: q => q },
-  'Limes':                  { id: 'lime', conv: q => q },
-  'Lemon':                  { id: 'lemon', conv: q => q },
+  'Carrots':                { id: 'carrots', conv: C({ unit: 'lb', eachWeightLb: 0.15 }) }, // one carrot ≈ 0.15 lb
+  'Carrot':                 { id: 'carrots', conv: C({ unit: 'lb', eachWeightLb: 0.15 }) }, // was a flat ()=>0.15 that IGNORED q and u; Ragu's 3 oz line now converts honestly (see Jul 14 handoff)
+  'Celery':                 { id: 'celery', conv: C({ unit: 'head', pieceWeightLb: 1.5, aliases: { stalk: 1/8 } }) }, // head ~1.5 lb = 24 oz, 8 stalks
+  'Green bell pepper':      { id: 'green_bell_pepper', conv: C({ unit: 'each' }) },
+  'Poblano pepper':         { id: 'poblano', conv: C({ unit: 'lb' }) },
+  'Habaneros':              { id: 'habanero', conv: C({ unit: 'oz', also: (q,u)=> (u==='' || u==='each') ? q*0.1 : undefined }) }, // 1 habanero charged as 0.1 (historical flat, preserved)
+  'Dried ancho chili':      { id: 'ancho_chili', conv: C({ unit: 'oz' }) },
+  'Asparagus':              { id: 'asparagus', conv: C({ unit: 'lb' }) },
+  'Chinese broccoli':       { id: 'chinese_broccoli', conv: C({ unit: 'lb' }) },
+  'Chinese eggplant':       { id: 'chinese_eggplant', conv: C({ unit: 'lb' }) },
+  'Zucchini':               { id: 'zucchini', conv: C({ unit: 'lb' }) }, // per lb; no recipe uses it yet (Jul 14)
+  'Long beans':             { id: 'long_beans', conv: C({ unit: 'lb' }) },
+  'Asian greens':           { id: 'asian_greens', conv: C({ unit: 'lb' }) },
+  'Tong ho':                { id: 'tong_ho', conv: C({ unit: 'lb' }) },
+  'Mushrooms':              { id: 'mushrooms', conv: C({ unit: 'lb' }) },
+  'Dried porcini':          { id: 'porcini', conv: C({ unit: 'oz' }) }, // recipe qty in oz, ingredient priced per oz
+  'Oyster mushroom':        { id: 'oyster_mushroom', conv: C({ unit: 'lb' }) },
+  'King oyster mushroom':   { id: 'king_oyster_mushroom', conv: C({ unit: 'lb' }) },
+  'Shiitake mushroom':      { id: 'shiitake', conv: C({ unit: 'lb' }) },
+  'Baby bella mushrooms':   { id: 'baby_bella', conv: C({ unit: '8oz', pieceWeightLb: 0.5 }) }, // priced per 8-oz pack
+  'Kabocha squash':         { id: 'kabocha', conv: C({ unit: 'lb' }) },
+  'Petite peas':            { id: 'petite_peas', conv: C({ unit: '8oz', pieceWeightLb: 0.5 }) },
+  'Corn':                   { id: 'corn', conv: C({ unit: 'ear' }) },
+  'Red potatoes':           { id: 'red_potatoes', conv: C({ unit: 'lb' }) },
+  'Apple':                  { id: 'apple', conv: C({ unit: 'each' }) },
+  'Fennel bulb':            { id: 'fennel_bulb', conv: C({ unit: 'each' }) },
+  'Limes':                  { id: 'lime', conv: C({ unit: 'each' }) },
+  'Lemon':                  { id: 'lemon', conv: C({ unit: 'each' }) },
 
   // Herbs
-  'Cilantro':               { id: 'cilantro', conv: (q,u)=> u==='g'? q/GRAMS_PER_OZ*0.5 : q },
-  'Thai basil':             { id: 'basil', conv: q => q },
-  'Fresh mint':             { id: 'mint', conv: (q,u)=> u==='sprigs'? q/10 : q },
-  'Fresh thyme':            { id: 'thyme_fresh', conv: q => q },
-  'Fresh thyme or lavender':{ id: 'thyme_fresh', conv: q => q },
+  'Cilantro':               { id: 'cilantro', conv: C({ unit: 'bunch', pieceWeightLb: 0.125 }) }, // bunch ≈ 2 oz (preserves the old g/56.7)
+  'Thai basil':             { id: 'basil', conv: C({ unit: 'bunch' }) },
+  'Fresh mint':             { id: 'mint', conv: C({ unit: 'bunch', aliases: { sprig: 1/10 } }) },
+  // H-Mart herb pack (thyme + tarragon ONLY): 1 pack = 1 bunch = 15 sprigs =
+  // $2.99 (Kevin, Jul 14). Priced per sprig; other herbs stay bunch/H-E-B.
+  'Fresh thyme':            { id: 'thyme_fresh', conv: C({ unit: 'sprig', aliases: { bunch: SPRIGS_PER_HERB_PACK, pack: SPRIGS_PER_HERB_PACK } }) },
+  'Fresh thyme or lavender':{ id: 'thyme_fresh', conv: C({ unit: 'sprig', aliases: { bunch: SPRIGS_PER_HERB_PACK, pack: SPRIGS_PER_HERB_PACK } }) },
 
   // Proteins
-  'Ground pork':            { id: 'ground_pork', conv: q => q },
-  'Ground lamb':            { id: 'ground_lamb', conv: q => q },
-  'Ground beef':            { id: 'ground_beef', conv: q => q },
-  'Ground chicken':         { id: 'ground_chicken', conv: q => q },
-  'Ground beef or turkey':  { id: 'ground_beef', conv: q => q },
-  'Chicken thighs':         { id: 'chicken_thighs', conv: q => q },
-  'Chicken breast':         { id: 'chicken_breast', conv: q => q },
-  'Beef chuck roast':       { id: 'beef_chuck', conv: q => q },
-  'Bone-in pork butt':      { id: 'pork_butt', conv: q => q },
-  'Pork shoulder':          { id: 'pork_shoulder', conv: q => q },
-  'Kimchi':                 { id: 'kimchi', conv: q => q },
-  'Vegetable oil':          { id: 'vegetable_oil', conv: q => q },
-  'Vinegar':                { id: 'vinegar', conv: q => q },
-  'Kosher salt':            { id: 'kosher_salt', conv: q => q },
-  'Wagyu london broil':     { id: 'wagyu_london_broil', conv: q => q },
-  'Shrimp':                 { id: 'shrimp', conv: q => q },
-  'Texas Gulf Shrimp':      { id: 'shrimp', conv: q => q },
-  'Salt pork':              { id: 'salt_pork', conv: q => q },
-  'Anchovies':              { id: 'anchovies', conv: q => q },
-  'Tofu':                   { id: 'tofu', conv: () => 1 },
+  'Ground pork':            { id: 'ground_pork', conv: C({ unit: 'lb' }) },
+  'Ground lamb':            { id: 'ground_lamb', conv: C({ unit: 'lb' }) },
+  'Ground beef':            { id: 'ground_beef', conv: C({ unit: 'lb' }) },
+  'Ground chicken':         { id: 'ground_chicken', conv: C({ unit: 'lb' }) },
+  'Ground beef or turkey':  { id: 'ground_beef', conv: C({ unit: 'lb' }) },
+  'Chicken thighs':         { id: 'chicken_thighs', conv: C({ unit: 'lb' }) },
+  'Chicken breast':         { id: 'chicken_breast', conv: C({ unit: 'lb' }) },
+  'Beef chuck roast':       { id: 'beef_chuck', conv: C({ unit: 'lb' }) },
+  'Bone-in pork butt':      { id: 'pork_butt', conv: C({ unit: 'lb' }) },
+  'Pork shoulder':          { id: 'pork_shoulder', conv: C({ unit: 'lb' }) },
+  'Kimchi':                 { id: 'kimchi', conv: C({ unit: 'jar' }) },
+  'Vegetable oil':          { id: 'vegetable_oil', conv: C({ unit: 'cup', fluid: true }) },
+  'Vinegar':                { id: 'vinegar', conv: C({ unit: 'batch-use' }) },
+  'Kosher salt':            { id: 'kosher_salt', conv: C({ unit: 'tbs' }) },
+  'Wagyu london broil':     { id: 'wagyu_london_broil', conv: C({ unit: 'lb' }) },
+  'Shrimp':                 { id: 'shrimp', conv: C({ unit: 'lb' }) },
+  'Texas Gulf Shrimp':      { id: 'shrimp', conv: C({ unit: 'lb' }) },
+  'Salt pork':              { id: 'salt_pork', conv: C({ unit: 'oz' }) },
+  'Anchovies':              { id: 'anchovies', conv: C({ unit: 'fillet' }) },
+  'Tofu':                   { id: 'tofu', conv: C({ unit: 'block' }) },
 
   // Dairy
-  'Butter':                 { id: 'butter', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_STICK : q },
-  'Whole milk':             { id: 'milk', conv: q => q }, // STALE (Jul 13 rename -> 'Milk')
-  'Milk':                   { id: 'milk', conv: q => q },
-  'Evaporated milk':        { id: 'evaporated_milk', conv: q => q },
-  'Heavy cream':            { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 oz = 1 cup
-  'Eggs':                   { id: 'eggs', conv: q => q },
-  'Good parmesan':          { id: 'parm', conv: (q,u)=> u==='cup'? q*0.19 : q },
-  'Good parm':              { id: 'parm', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : (u==='cup'? q*0.19 : q) }, // recipe gives oz, parm priced per lb
-  'Heavy cream (oz)':       { id: 'heavy_cream', conv: (q,u)=> u==='oz'? q/8 : q }, // STALE (Jul 13 rename -> 'Heavy cream')
-  'Cooking olive oil':      { id: 'olive_oil_cooking', conv: q => q }, // Graza Sizzle, priced per oz, recipe gives oz
+  // Butter: 1 stick = 8 tbsp = 4 oz = 113 g = 1/2 cup (US standard).
+  'Butter':                 { id: 'butter', conv: C({ unit: 'stick', pieceWeightLb: 0.25, aliases: { tbsp: 1/TBSP_PER_STICK, cup: 2, tsp: 1/24 } }) },
+  'Whole milk':             { id: 'milk', conv: C({ unit: 'cup', fluid: true }) }, // STALE (Jul 13 rename -> 'Milk')
+  'Milk':                   { id: 'milk', conv: C({ unit: 'cup', fluid: true }) },
+  'Evaporated milk':        { id: 'evaporated_milk', conv: C({ unit: 'cup', fluid: true }) },
+  'Heavy cream':            { id: 'heavy_cream', conv: C({ unit: 'cup', fluid: true }) }, // 8 fl oz = 1 cup
+  'Eggs':                   { id: 'eggs', conv: C({ unit: 'each' }) },
+  'Good parmesan':          { id: 'parm', conv: C({ unit: 'lb', densityLbPerCup: 0.19 }) }, // 1 cup grated ≈ 0.19 lb
+  'Good parm':              { id: 'parm', conv: C({ unit: 'lb', densityLbPerCup: 0.19 }) }, // recipe gives oz, parm priced per lb
+  'Heavy cream (oz)':       { id: 'heavy_cream', conv: C({ unit: 'cup', fluid: true }) }, // STALE (Jul 13 rename -> 'Heavy cream')
+  'Cooking olive oil':      { id: 'olive_oil_cooking', conv: C({ unit: 'oz', fluid: true }) }, // Graza Sizzle, priced per fl oz
   // ── Spotlight: Coriander Lamb Steak over Gigantes Beans (Jul 9) ──
-  'Lamb leg steak (bone-in)': { id: 'lamb_leg_steak', conv: q => q },       // priced per lb, recipe gives lb
-  'Gigantes beans':         { id: 'gigantes_beans', conv: q => q },         // priced per oz, recipe gives oz
-  'Leeks':                  { id: 'leeks', conv: q => q },                  // priced per bunch, recipe gives bunch
-  'Preserved lemon':        { id: 'preserved_lemon', conv: q => q },        // priced per piece
-  'Coriander seed':         { id: 'coriander_seed', conv: q => q },         // priced per tbsp
+  'Lamb leg steak (bone-in)': { id: 'lamb_leg_steak', conv: C({ unit: 'lb' }) },
+  'Gigantes beans':         { id: 'gigantes_beans', conv: C({ unit: 'oz' }) },       // priced per oz, recipe gives oz
+  'Leeks':                  { id: 'leeks', conv: C({ unit: 'bunch' }) },
+  'Preserved lemon':        { id: 'preserved_lemon', conv: C({ unit: 'piece' }) },   // homemade: 1 piece = 1/8 lemon, $0.50 labor-inclusive (Kevin, Jul 14)
+  'Coriander seed':         { id: 'coriander_seed', conv: C({ unit: 'tbsp' }) },
   // ── Spotlight: Thick-Cut Pork Chop (Jul 9) ──
-  'Bone-in pork rib chop':  { id: 'pork_rib_chop', conv: q => q },          // per lb
-  'Sweet potato':           { id: 'sweet_potato', conv: q => q },           // per each
-  'Cider':                  { id: 'cider', conv: q => q },                  // per oz (12 oz can)
-  'Broccolini':             { id: 'broccolini', conv: q => q },             // per bunch
-  'Sage':                   { id: 'sage', conv: q => q },                   // per pack (already ÷6 in seed)
-  'Cinnamon stick':         { id: 'cinnamon_stick', conv: q => q },
-  'Whole cloves':           { id: 'whole_cloves', conv: q => q },
-  'Allspice':               { id: 'allspice', conv: q => q },
+  'Bone-in pork rib chop':  { id: 'pork_rib_chop', conv: C({ unit: 'lb' }) },
+  'Sweet potato':           { id: 'sweet_potato', conv: C({ unit: 'each' }) },
+  'Cider':                  { id: 'cider', conv: C({ unit: 'oz', fluid: true }) },   // priced per fl oz (12 oz can)
+  'Broccolini':             { id: 'broccolini', conv: C({ unit: 'bunch' }) },
+  'Sage':                   { id: 'sage', conv: C({ unit: 'pack' }) },               // already ÷6 in seed
+  'Cinnamon stick':         { id: 'cinnamon_stick', conv: C({ unit: 'each' }) },
+  'Whole cloves':           { id: 'whole_cloves', conv: C({ unit: 'each' }) },
+  'Allspice':               { id: 'allspice', conv: C({ unit: 'each' }) },
   // ── Spotlight: Steak au Poivre (Jul 9) ──
-  'Filet mignon':           { id: 'filet_mignon_dinner', conv: q => q },     // per lb (dinner cut, distinct from bag filet)
-  'Jumbo asparagus':        { id: 'jumbo_asparagus', conv: q => q },         // per lb
-  'Yukon gold potato':      { id: 'yukon_gold_potato', conv: q => q },       // per lb (distinct from baby golds)
-  'Cognac':                 { id: 'cognac', conv: q => q },                  // per oz (Courvoisier VS)
-  'Black pepper (oz)':      { id: 'black_pepper_oz', conv: q => q },
-  'Parsley':                { id: 'parsley', conv: q => q },                 // priced per bunch
-  'Oaxaca cheese':          { id: 'oaxaca', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
-  'Colby Jack':             { id: 'colby_jack', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : q },
+  'Filet mignon':           { id: 'filet_mignon_dinner', conv: C({ unit: 'lb' }) },  // per lb (dinner cut, distinct from bag filet)
+  'Jumbo asparagus':        { id: 'jumbo_asparagus', conv: C({ unit: 'lb' }) },
+  'Yukon gold potato':      { id: 'yukon_gold_potato', conv: C({ unit: 'lb' }) },    // distinct from baby golds
+  'Cognac':                 { id: 'cognac', conv: C({ unit: 'oz', fluid: true }) },  // per fl oz (Courvoisier VS)
+  'Black pepper (oz)':      { id: 'black_pepper_oz', conv: C({ unit: 'oz' }) },
+  'Parsley':                { id: 'parsley', conv: C({ unit: 'bunch' }) },
+  'Oaxaca cheese':          { id: 'oaxaca', conv: C({ unit: 'lb' }) },
+  'Colby Jack':             { id: 'colby_jack', conv: C({ unit: 'lb' }) },
 
   // Pantry / dry
-  'Flour':                  { id: 'flour', conv: (q,u)=> u==='g'? q/GRAMS_PER_LB : (u==='cup'? q*0.275 : q) },
-  'Dried kidney beans':     { id: 'dried_kidney_beans', conv: q => q },
-  'Dried lima beans':       { id: 'dried_lima_beans', conv: q => q },
-  'Beans (for refried)':    { id: 'black_beans', conv: q => q },
-  'Pasta':                  { id: 'pasta', conv: q => q },
-  'Orecchiette':            { id: 'orecchiette', conv: q => q },
-  'Lemon herb butter':      { id: 'lemon_herb_butter', conv: q => q }, // composed 2oz container; cost = butter+lemon+garlic+thyme batch/10
-  'Pasta (ask customer for shape!)': { id: 'pasta', conv: q => q },
-  'Fresh noodles (not dried)': { id: 'noodles', conv: q => q },
-  'Egg pappardelle':        { id: 'egg_pappardelle', conv: q => q },
-  'HEB bakery tortillas':   { id: 'tortillas', conv: q => q },
-  'Dried peppers (red sauce)': { id: 'dried_peppers', conv: (q,u)=> u==='oz'? q/8 : q },
-  'Assorted dried chilis':  { id: 'dried_peppers', conv: () => 1 },
-  'Mix of spicy peppers':   { id: 'chilis', conv: () => 0.2 },
-  '100% dark chocolate':    { id: 'chocolate_100', conv: q => q },
-  'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: (q,u)=> q },
-  'Valrhona chocolate':     { id: 'valrhona', conv: (q,u)=> u==='g'? q/290 : q },
-  'Peanut butter':          { id: 'peanut_butter', conv: (q,u)=> u==='cup'? q*1 : q },
-  'Saffron':                { id: 'saffron', conv: q => q },
-  'Fennel seeds':           { id: 'fennel_seeds', conv: q => q },
+  // Flour: Kevin's standard is 1 cup = 125 g. Stored as the historical 0.275
+  // lb/cup (= 124.7 g) so every existing anchor stays EXACTLY stable — the
+  // 0.2% gap is far below costing noise. This is a choice, not a law: sources
+  // range 120 g (King Arthur) to 125 g (FDA cup).
+  'Flour':                  { id: 'flour', conv: C({ unit: 'lb', densityLbPerCup: 0.275 }) },
+  'Dried kidney beans':     { id: 'dried_kidney_beans', conv: C({ unit: 'lb' }) },
+  'Dried lima beans':       { id: 'dried_lima_beans', conv: C({ unit: 'oz' }) },
+  'Beans (for refried)':    { id: 'black_beans', conv: C({ unit: 'lb' }) },
+  'Pasta':                  { id: 'pasta', conv: C({ unit: 'lb' }) },
+  'Orecchiette':            { id: 'orecchiette', conv: C({ unit: 'lb' }) },
+  'Lemon herb butter':      { id: 'lemon_herb_butter', conv: C({ unit: 'each' }) }, // composed 2oz container; cost = butter+lemon+garlic+thyme batch/10
+  'Pasta (ask customer for shape!)': { id: 'pasta', conv: C({ unit: 'lb' }) },
+  'Fresh noodles (not dried)': { id: 'noodles', conv: C({ unit: 'batch' }) },
+  'Egg pappardelle':        { id: 'egg_pappardelle', conv: C({ unit: 'pack' }) },
+  'HEB bakery tortillas':   { id: 'tortillas', conv: C({ unit: '10ct', aliases: { '10-ct pack': 1, pack: 1 } }) },
+  'Dried peppers (red sauce)': { id: 'dried_peppers', conv: C({ unit: '8oz', pieceWeightLb: 0.5, aliases: { bag: 1 } }) },
+  'Assorted dried chilis':  { id: 'dried_peppers', conv: () => 1 }, // one bag per batch, flat by design
+  'Mix of spicy peppers':   { id: 'chilis', conv: () => 0.2 }, // handful = 0.2 batch (Kevin ruling, Jul 14 — flat by design)
+  // Ghirardelli 100% Cacao bar (CONFIRMED product): 1 bar = 4 oz = 113 g =
+  // 8 squares, so 1 square = 0.5 oz = 14.2 g. Baseline $0.535/square
+  // ($4.28/bar, Kevin-approved Jul 14; was $0.50).
+  '100% dark chocolate':    { id: 'chocolate_100', conv: C({ unit: 'square', pieceWeightLb: 0.03125, aliases: { bar: 8 } }) },
+  'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: C({ unit: 'g' }) },
+  'Valrhona chocolate':     { id: 'valrhona', conv: C({ unit: '290g', pieceWeightLb: 290/GRAMS_PER_LB, aliases: { bar: 1 } }) }, // priced per 290g bar — that IS the bar weight
+  'Peanut butter':          { id: 'peanut_butter', conv: C({ unit: 'half-jar', aliases: { cup: 1 } }) }, // 1 cup ≈ half jar (historical)
+  'Saffron':                { id: 'saffron', conv: C({ unit: 'pinch' }) }, // pinch IS the pricing unit ($4.68 bag ÷ 4 uses = $1.17); pinch = 1/16 tsp in the volume family for any future tsp line
+  'Fennel seeds':           { id: 'fennel_seeds', conv: C({ unit: 'tsp' }) },
 
   // Liquids / sauces / booze
-  'Red wine':               { id: 'red_wine', conv: (q,u)=> u==='bottle'? q*CUPS_PER_BOTTLE_WINE : q },
-  'White wine':             { id: 'white_wine', conv: q => q },
-  'Dry sherry':             { id: 'sherry', conv: q => q },
-  'Dry marsala':            { id: 'marsala', conv: q => q },
-  'Espresso':               { id: 'espresso', conv: q => q },
-  'Bourbon':                { id: 'bourbon', conv: (q,u) => u==='oz' ? q/8 : q }, // bourbon priced per cup; 8oz/cup
-  'Doubanjiang':            { id: 'doubanjiang', conv: q => q },
-  'Soy sauce':              { id: 'soy', conv: q => q },
-  'Dark soy sauce':         { id: 'dark_soy', conv: q => q },
-  'Oyster sauce':           { id: 'oyster_sauce', conv: q => q },
-  'Chinkiang vinegar':      { id: 'chinkiang', conv: q => q },
-  'Shaoxing wine':          { id: 'shaoxing', conv: q => q },
-  'House chili oil':        { id: 'chili_oil', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_CUP : q },
-  // Kevin's ruling (Jul 14): one glug = 1 tbsp = 0.5 fl oz. Honor glug/tbs/oz
-  // units; any OTHER unit keeps the historical flat 2.5 oz so legacy lines
-  // don't silently reprice. If the gate's report-reconcile trips on a dish
-  // using this line after the change, that dish's anchor needs a retune.
-  'Good olive oil':         { id: 'olive_oil', conv: (q,u)=> (u==='glug'||u==='glugs'||u==='tbs'||u==='tbsp') ? q*0.5 : (u==='oz' ? q : 2.5) },
-  'Orange juice':           { id: 'orange_juice', conv: () => 1 },
-  'Chicken stock':          { id: 'chicken_stock', conv: (q,u)=> u==='oz'? q/8 : q }, // 8 fl oz = 1 cup
-  'Beef stock':             { id: 'beef_stock', conv: q => q },
-  'Chicken broth':          { id: 'chicken_stock', conv: q => q },
+  'Red wine':               { id: 'red_wine', conv: C({ unit: 'cup', fluid: true, aliases: { bottle: CUPS_PER_BOTTLE_WINE } }) },
+  'White wine':             { id: 'white_wine', conv: C({ unit: 'cup', fluid: true }) },
+  'Dry sherry':             { id: 'sherry', conv: C({ unit: 'cup', fluid: true }) },
+  'Dry marsala':            { id: 'marsala', conv: C({ unit: 'cup', fluid: true }) },
+  'Espresso':               { id: 'espresso', conv: C({ unit: 'shot' }) },
+  'Bourbon':                { id: 'bourbon', conv: C({ unit: 'cup', fluid: true }) }, // bourbon priced per cup; 8 fl oz/cup
+  'Doubanjiang':            { id: 'doubanjiang', conv: C({ unit: 'tbs' }) },
+  'Soy sauce':              { id: 'soy', conv: C({ unit: 'tbs' }) },
+  'Dark soy sauce':         { id: 'dark_soy', conv: C({ unit: 'tbs' }) },
+  'Oyster sauce':           { id: 'oyster_sauce', conv: C({ unit: 'tbs' }) },
+  'Chinkiang vinegar':      { id: 'chinkiang', conv: C({ unit: 'tbs' }) },
+  'Shaoxing wine':          { id: 'shaoxing', conv: C({ unit: 'cup', fluid: true }) },
+  'House chili oil':        { id: 'chili_oil', conv: C({ unit: 'cup', fluid: true }) },
+  // Kevin's ruling (Jul 14): one glug = 1 tbsp = 0.5 fl oz — now global via
+  // canonUnit, so glug/tbs/tbsp/oz all resolve through the volume family.
+  // The historical flat 2.5 oz survives ONLY for a bare-quantity line so
+  // legacy entries don't silently reprice; any OTHER unit now converts
+  // honestly or fails the gate.
+  'Good olive oil':         { id: 'olive_oil', conv: C({ unit: 'oz', fluid: true, also: (q,u)=> u==='' ? 2.5 : undefined }) },
+  'Orange juice':           { id: 'orange_juice', conv: () => 1 }, // one small bottle per batch, flat by design
+  'Chicken stock':          { id: 'chicken_stock', conv: C({ unit: 'cup', fluid: true }) }, // 8 fl oz = 1 cup
+  'Beef stock':             { id: 'beef_stock', conv: C({ unit: 'cup', fluid: true }) },
+  'Chicken broth':          { id: 'chicken_stock', conv: C({ unit: 'cup', fluid: true }) },
   'Kitchen Basics chicken stock': { id: 'chicken_basics_stock', conv: (q,u)=> u==='oz'? q/32 : q }, // STALE (Jul 13 rename -> 'Chicken stock'); chicken_basics_stock seed now unreferenced
-  'Sichuan peppercorns':    { id: 'sichuan_pepper', conv: (q,u)=> u==='tbsp'? q*TSP_PER_TBSP : q },
-  'Brown sugar':            { id: 'brown_sugar', conv: (q,u)=> u==='tbsp'? q/TBSP_PER_CUP : q },
-  'Sugar':                  { id: 'white_sugar', conv: q => q },
+  'Sichuan peppercorns':    { id: 'sichuan_pepper', conv: C({ unit: 'tsp' }) },
+  'Brown sugar':            { id: 'brown_sugar', conv: C({ unit: 'cup' }) },
+  'Sugar':                  { id: 'white_sugar', conv: C({ unit: 'cup' }) },
   'Nutmeg':                 { id: 'nutmeg', conv: () => 1 },
-  'Bay leaf':               { id: 'bay_leaf', conv: q => q },
+  'Bay leaf':               { id: 'bay_leaf', conv: C({ unit: 'leaf' }) },
 
-  // Composite staple lines (single batch-use cost)
-  'Curry powder':           { id: 'curry_powder', conv: () => 1 },
+  // Composite staple lines (single batch-use cost — flat by design, the conv
+  // ignores quantity and unit deliberately; 'batch'/'blend' ARE the unit)
+  'Curry powder':           { id: 'curry_powder', conv: () => 1 }, // a cup of curry powder = one batch-use by design
   'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },
   'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },
   'Oyster + soy + fish sauce + sugar':    { id: 'spices_generic', conv: () => 1 },
   'Marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },
   'Tex-Mex spices':         { id: 'spices_generic', conv: () => 1 },
   'Worcestershire + vinegar + flour': { id: 'spices_generic', conv: () => 1 },
-  'Worcestershire':         { id: 'worcestershire', conv: q => q }, // 1 tbs recipe = 1 tbs ingredient ($0.2485/tbs)
+  'Worcestershire':         { id: 'worcestershire', conv: C({ unit: 'tbs' }) }, // 1 tbs recipe = 1 tbs ingredient ($0.2485/tbs)
   'Bay + salt + pepper + vinegar': { id: 'spices_generic', conv: () => 1 },
   'Cajun spices':           { id: 'spices_generic', conv: () => 1 },
   'Filé powder':            { id: 'spices_generic', conv: () => 0.5 },
   'Honey + fish sauce + butter': { id: 'spices_generic', conv: () => 1 },
   'Curry spice blend':      { id: 'curry_spices', conv: () => 1 },
-  'Sodium citrate':         { id: 'sodium_citrate', conv: q => q },
+  'Sodium citrate':         { id: 'sodium_citrate', conv: C({ unit: 'g' }) },
   'Pickling vinegar + spices': { id: 'spices_generic', conv: () => 0.5 },
   'Chili flakes + whole spices + oil': { id: 'chili_oil', conv: () => 1 },
   'House vanilla extract + beans': { id: 'vanilla', conv: () => 4 },
   'Brown + white sugar':    { id: 'white_sugar', conv: () => 1.5 },
   'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },
   // ── Brownies (per-batch dessert, Jul 2026) ──
-  'Butter (browned)':       { id: 'butter', conv: (q,u)=> u==='sticks'? q : (u==='tbsp'? q/TBSP_PER_STICK : q) },
-  'Dutch cocoa':            { id: 'cocoa', conv: (q,u)=> u==='tbsp'? q : q }, // cocoa priced per tbsp
-  'Guittard chocolate (semisweet)': { id: 'guittard_high', conv: (q,u)=> q }, // priced per gram
-  'DeLallo instant espresso': { id: 'delallo_espresso', conv: (q,u)=> q }, // priced per tsp
+  'Butter (browned)':       { id: 'butter', conv: C({ unit: 'stick', pieceWeightLb: 0.25, aliases: { tbsp: 1/TBSP_PER_STICK, cup: 2, tsp: 1/24 } }) },
+  'Dutch cocoa':            { id: 'cocoa', conv: C({ unit: 'tbs' }) }, // cocoa priced per tbsp
+  'Guittard chocolate (semisweet)': { id: 'guittard_high', conv: C({ unit: 'g' }) }, // priced per gram
+  'DeLallo instant espresso': { id: 'delallo_espresso', conv: C({ unit: 'tsp' }) }, // priced per tsp
   'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // STALE (Jul 13 rename -> 'Brown + white sugar'); Brownies now cost via the 1.5 cup-equiv entry -- see handoff flag
   'Kosher salt + vanilla':  { id: 'vanilla', conv: () => 1 }, // 1 tbsp imitation vanilla (~$0.07); 1 tsp salt (~$0.01) negligible
   'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.454 }, // ~1 cup dry = 0.454 lb (measured 0.795 lb = 1.75 cups) @ $5.99/lb ≈ $2.72; bag cost via wrap
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
-  'Chickpeas': { id: 'chickpeas', conv: q => q },
+  'Chickpeas': { id: 'chickpeas', conv: C({ unit: 'lb' }) },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },
-  'Seasonal cantaloupe (HEB melons)': { id: 'cantaloupe', conv: q => q },
+  'Seasonal cantaloupe (HEB melons)': { id: 'cantaloupe', conv: C({ unit: 'each' }) },
   'Pineapple (1 makes 2 containers)': { id: 'pineapple', conv: () => 2 },
 
   // Skips — packaging / per-lb bag items / included rice
@@ -263,11 +376,12 @@ export const LINE_MAP = {
   'Sous vide bag + seasonings': { skip: true },
   'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $2.00 sv_bag ingredient; separate from $1 packaging wrap
   'Sous vide bag + butter + herbs (costed, large)': { id: 'sv_bag_large', conv: () => 1 }, // 1 unit of the $3.00 sv_bag_large ingredient; Large braises use ONE longer bag, not two small bags
-  'Pork tenderloin (sous vide)': { id: 'pork_tenderloin', conv: q => q },
-  'Shallot':                { id: 'shallot', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
-  'Whole grain mustard':    { id: 'whole_grain_mustard', conv: (q,u)=> u==='tbs'? q*0.5 : q }, // ~0.5 oz per tbsp
-  'Egg taglierini':         { id: 'egg_taglierini', conv: q => q },
-  'Fresh tarragon':         { id: 'tarragon', conv: q => q },
+  'Pork tenderloin (sous vide)': { id: 'pork_tenderloin', conv: C({ unit: 'lb' }) },
+  'Shallot':                { id: 'shallot', conv: C({ unit: 'lb' }) },
+  'Whole grain mustard':    { id: 'whole_grain_mustard', conv: C({ unit: 'oz', fluid: true }) }, // ~0.5 fl oz per tbsp
+  'Egg taglierini':         { id: 'egg_taglierini', conv: C({ unit: 'pack' }) },
+  // H-Mart herb pack: see thyme above — same pack, same sprig pricing.
+  'Fresh tarragon':         { id: 'tarragon', conv: C({ unit: 'sprig', aliases: { bunch: SPRIGS_PER_HERB_PACK, pack: SPRIGS_PER_HERB_PACK } }) },
   'Ribeye':                 { skip: true },
   'Ribeye - Prime':         { skip: true },
   'NY Strip':               { skip: true },
@@ -277,8 +391,8 @@ export const LINE_MAP = {
   'Flank steak':            { skip: true },
   'Pork chop':              { skip: true },
   'Pork tenderloin':        { skip: true },
-  'Baby gold potatoes':     { id: 'baby_gold_potatoes', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q }, // now a costed SV-veg bag component (was skip)
-  'Parsnips':               { id: 'parsnips', conv: (q,u)=> u==='oz'? q/OZ_PER_LB : q },
+  'Baby gold potatoes':     { id: 'baby_gold_potatoes', conv: C({ unit: 'lb' }) }, // now a costed SV-veg bag component (was skip)
+  'Parsnips':               { id: 'parsnips', conv: C({ unit: 'lb' }) },
 };
 
 // Packaging class — DERIVED from the registry: 'jar' → $2, 'none' → $0,

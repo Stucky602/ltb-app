@@ -419,6 +419,30 @@ export function derivePerUnit(line) {
   return { perUnit: null, basis: null };
 }
 
+// ── C.5 (Jul 14): user-entered weight → per-unit price ──────────────────────
+// Kevin enters what he KNOWS (the item weighed 1 lb 6 oz); the app computes
+// what it needs ($5.98 ÷ 1.375 lb = $4.35/lb). Pure so the gate pins the math.
+// Two entry modes: split lb+oz (either may be blank), or a single decimal-lb
+// figure (pass decimalLb non-null to use it; it takes precedence when given).
+// ingUnit is the INGREDIENT's costing unit and must be a weight unit — the
+// result is priced per THAT unit (per-oz and per-g divide by the converted
+// weight), so a per-oz ingredient gets a per-oz price, not per-lb.
+// Returns { weightLb, perUnit } or null (non-weight unit, or any non-positive
+// weight/total — a $0 or negative derivation must never reach a cost).
+export const WEIGHT_ENTRY_UNITS = new Set(['lb', 'oz', 'g']);
+const _OZ_PER_LB = 16, _G_PER_LB = 453.6;
+export function perUnitFromUserWeight({ total, lb = 0, oz = 0, decimalLb = null, ingUnit = 'lb' }) {
+  if (!WEIGHT_ENTRY_UNITS.has(ingUnit)) return null;
+  const t = Number(total);
+  if (!(t > 0) || !isFinite(t)) return null;
+  const wLb = (decimalLb != null && decimalLb !== '')
+    ? Number(decimalLb)
+    : (Number(lb) || 0) + (Number(oz) || 0) / _OZ_PER_LB;
+  if (!(wLb > 0) || !isFinite(wLb)) return null;
+  const wInUnit = ingUnit === 'lb' ? wLb : (ingUnit === 'oz' ? wLb * _OZ_PER_LB : wLb * _G_PER_LB);
+  return { weightLb: round(wLb), perUnit: round(t / wInUnit) };
+}
+
 export function onePackPriceFor(line, fromUnit) {
   if (line.unit_price_printed != null) return line.unit_price_printed;
   if (line.line_total == null) return null;
@@ -848,6 +872,19 @@ function groupClassified(classified) {
 
 // Built-in alias seed (unchanged from v1 — learned aliases merge on top).
 export const ALIAS_SEED = {
+  // ── Jul 14 batch: verified receipt strings from the task doc, Kevin-approved.
+  // Keys are NORMALIZED via normalizeIngredientName (lowercased, singularized).
+  'kitch basic real chkn st': { ingredientId: 'chicken_stock' },
+  'hcf bnls sknl thigh': { ingredientId: 'chicken_thighs' },
+  'pk nat bnl tenderloin cov': { ingredientId: 'pork_tenderloin' },   // the C.3 tenderloin trio
+  'graza x vrgn olive oil si': { ingredientId: 'olive_oil_cooking' }, // SI = Sizzle = COOKING oil (Kevin, Jul 14 — task doc said good olive oil, corrected). Drizzle likely prints a different suffix; add when seen.
+  'cm egg taglierini nest': { ingredientId: 'egg_taglierini' },
+  'cm organic br orecchiette': { ingredientId: 'orecchiette' },
+  'heb si unsaltd butter qtr': { ingredientId: 'butter' },
+  'la vaquita oaxaca': { ingredientId: 'oaxaca' },                    // cheese, NOT a tomato
+  'heb whole peeled tomatoe': { ingredientId: 'tomato_can' },         // Kevin buys 14oz AND 28oz of the same tomato; mapped to the usual 28oz — a 14oz's $1.08 fails the price-outlier band vs the $3.54 baseline and lands in review instead of auto-applying (Kevin, Jul 14)
+  'carnation evaporated milk': { ingredientId: 'evaporated_milk' },
+
   // ── Jul 6 batch: seeded from Kevin's real H-E-B / H-Mart receipts ─────────
   'heb whole milk': { ingredientId: 'milk' },
   'garlic pk 5pc': { ingredientId: 'garlic' },                   // H-Mart 5-piece pack (name-size divides by the 5)                    // + PACK_OVERRIDE milk: always a gallon
@@ -1302,6 +1339,17 @@ export function reconcileReceipt(extracted) {
     gap,
     ok: Math.abs(gap) <= tolerance,
   };
+}
+
+// C.3 (Jul 14): the reconcile is a HARD GATE on auto-apply. Perfect OCR is
+// not achievable (three tenderloins once read $6.xx instead of $9.xx — an
+// $8.67 hole); the defense is not better prompting, it's refusing to
+// auto-accept photo-derived prices when the line sum disagrees with the
+// printed subtotal. ok:false → every row starts unaccepted and Kevin reviews.
+// A null reconcile (no subtotal captured anywhere) keeps prior behavior —
+// C.2's prompt hardening makes that case rare and visible.
+export function autoApplyAllowed(recon) {
+  return !(recon && recon.ok === false);
 }
 
 // ═══ v3.2: LEARNING-OVER-TIME HELPERS (engine side) ══════════════════════════

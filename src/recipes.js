@@ -582,8 +582,11 @@ export function itemHandling(name, opts = {}) {
 // through untouched — merging must never eat a note.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const VOL_TO_CUP = { cup: 1, cups: 1, c: 1, tbs: 1 / 16, tbsp: 1 / 16, tablespoon: 1 / 16, tsp: 1 / 48, teaspoon: 1 / 48 };
-const WT_TO_LB = { lb: 1, lbs: 1, pound: 1, g: 1 / 453.592, gram: 1 / 453.592 };
+const VOL_TO_CUP = { cup: 1, cups: 1, c: 1, tbs: 1 / 16, tbsp: 1 / 16, tablespoon: 1 / 16, tsp: 1 / 48, teaspoon: 1 / 48,
+  // Universal unit layer (Jul 14): the rest of the volume family, so a recipe
+  // or hand-typed line in any sane liquid unit sums into the same bucket.
+  floz: 1 / 8, ml: 1 / 236.588, l: 1000 / 236.588, liter: 1000 / 236.588, qt: 4, qts: 4, quart: 4, pt: 2, pint: 2 };
+const WT_TO_LB = { lb: 1, lbs: 1, pound: 1, g: 1 / 453.592, gram: 1 / 453.592, kg: 1000 / 453.592, kgs: 1000 / 453.592, kilogram: 1000 / 453.592 };
 // Bare ounces are AMBIGUOUS (fluid vs weight) — Kevin shops in oz either way.
 // They live in their own bucket and fold into whichever family the SAME
 // ingredient already uses: volume if any (stock in cups + stock in oz),
@@ -681,7 +684,7 @@ export function parseShoppingLine(text) {
   if (m && m[3]) {
     const maybeUnit = (m[2] || '').toLowerCase();
     const known = VOL_TO_CUP[maybeUnit] != null || WT_TO_LB[maybeUnit] != null || OZ_UNITS.has(maybeUnit) ||
-      ['clove', 'cloves', 'stalk', 'stalks', 'bunch', 'bunches', 'each', 'can', 'cans', 'head', 'heads', 'fillet', 'fillets', 'ear', 'ears', 'stick', 'sticks', 'sprig', 'sprigs', 'knob', 'knobs', 'pinch', 'pinches', 'jar', 'jars', 'pack', 'packs', 'block', 'blocks', 'batch'].includes(maybeUnit);
+      ['clove', 'cloves', 'stalk', 'stalks', 'bunch', 'bunches', 'each', 'can', 'cans', 'head', 'heads', 'fillet', 'fillets', 'ear', 'ears', 'stick', 'sticks', 'sprig', 'sprigs', 'knob', 'knobs', 'pinch', 'pinches', 'jar', 'jars', 'pack', 'packs', 'block', 'blocks', 'batch', 'kg', 'kgs', 'kilogram', 'ml', 'l', 'liter', 'qt', 'qts', 'quart', 'quarts', 'pt', 'pint', 'pints', 'floz'].includes(maybeUnit);
     if (known) return { name: m[3].trim(), qty: parseFloat(m[1]), unit: singularizeUnit(maybeUnit), staple };
     // no unit — the second token is part of the name
     return { name: `${m[2] || ''} ${m[3]}`.trim(), qty: parseFloat(m[1]), unit: '', staple };

@@ -76,8 +76,8 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { fixed: ['largePot'] },
     variants: [
-      { label: 'Small (split order, ~3-4)', price: 45, cost: 18.53 },
-      { label: 'Large (~6-8)', price: 80, cost: 37.06 },
+      { label: 'Small (split order, ~3-4)', price: 45, cost: 18.57 },
+      { label: 'Large (~6-8)', price: 80, cost: 37.14 },
     ],
     recipe: {
       factors: { 'Small (split order, ~3-4)': 0.5, 'Large (~6-8)': 1 },
@@ -219,8 +219,8 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: 'Small (split order, ~4)', price: 60, cost: 32.79 },
-      { label: 'Large (~8)', price: 110, cost: 63.41 },
+      { label: 'Small (split order, ~4)', price: 60, cost: 32.83 },
+      { label: 'Large (~8)', price: 110, cost: 63.49 },
     ],
     recipe: {
       factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
@@ -543,10 +543,10 @@ export const DISHES = [
     equipment: { flexible: ['dutch', 'largePot'] },
     options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] }, parmOffer: true }, // egg-papp variants ARE the pasta
     variants: [
-      { label: 'Small (split order, ~4)', price: 45, cost: 22.13 },
-      { label: 'Large (~8)', price: 80, cost: 43.17 },
-      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 55, cost: 26.67 },
-      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 56.81 },
+      { label: 'Small (split order, ~4)', price: 45, cost: 22.15 },
+      { label: 'Large (~8)', price: 80, cost: 43.2 },
+      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 55, cost: 26.69 },
+      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 56.84 },
     ],
     recipe: {
       factors: {
@@ -560,7 +560,7 @@ export const DISHES = [
         I('Milk', 1, 'cup'),
         I('Red wine', 1, 'bottle'),
         I('Tomato paste', 1, 'small can'),
-        I('Fresh thyme', 1, 'bunch'),
+        I('Fresh thyme', 1, 'sprig'),
         I('Onion', 1, ''),
         I('Carrot', 1, ''),
         I('Garlic', 4, 'cloves'),
@@ -712,8 +712,8 @@ export const DISHES = [
     // No pasta-shape option: egg taglierini IS the dish, like Pappardelle with Veg.
     servings: { small: 3, large: 6, bound: true },
     variants: [
-      { label: 'Small (~3 servings)', price: 45, cost: 21.83 },
-      { label: 'Large (~6 servings)', price: 85, cost: 42.59 },
+      { label: 'Small (~3 servings)', price: 45, cost: 21.82 },
+      { label: 'Large (~6 servings)', price: 85, cost: 42.57 },
     ],
     recipe: {
       factors: {
@@ -728,7 +728,7 @@ export const DISHES = [
         I('White wine', 0.5, 'cup'),
         I('Heavy cream', 1, 'cup'),
         I('Whole grain mustard', 2, 'tbs'),
-        I('Fresh tarragon', 0.5, 'bunch'),
+        I('Fresh tarragon', 1, 'sprig'),
         I('Egg taglierini', 1, 'pack'),
       ],
       // ONE sous vide bag per dish (the pork tenderloin cooks in it). Moved out
@@ -758,8 +758,8 @@ export const DISHES = [
       // Single size only (expensive dish, no Medium/Large — already 4-5
       // servings). Promoted to Spotlight and repriced to $70 both variants
       // (Kevin, Jul 9): fixes the tight margin and anchors the veg spotlight.
-      { label: 'Small (~4-5 servings)', price: 70, cost: 36.3 },
-      { label: 'Small (~4-5 servings) + Polenta', price: 70, cost: 30.15 },
+      { label: 'Small (~4-5 servings)', price: 70, cost: 36.37 },
+      { label: 'Small (~4-5 servings) + Polenta', price: 70, cost: 30.22 },
     ],
     recipe: {
       factors: {
@@ -780,7 +780,7 @@ export const DISHES = [
         I('Dry marsala', 0.5, 'cup'),
         I('Heavy cream', 2, 'oz'),
         I('Good parm', 2, 'oz'),
-        I('Fresh thyme', 1, 'bunch', true),
+        I('Fresh thyme', 1, 'sprig', true),
         I('Bay leaf', 1, 'leaf', true),
         I('Nutmeg', 1, 'pinch', true),
       ],
@@ -844,9 +844,9 @@ export const DISHES = [
     // not costed (negligible) but drive the Soy allergen + reheat forgiveness.
     servings: { small: 2, large: 6, bound: true },
     variants: [
-      { label: 'Small (~2 servings)', price: 50, cost: 25.72 },
-      { label: 'Medium (~4 servings)', price: 95, cost: 51.45 },
-      { label: 'Large (~6 servings)', price: 130, cost: 77.17 },
+      { label: 'Small (~2 servings)', price: 50, cost: 25.75 },
+      { label: 'Medium (~4 servings)', price: 95, cost: 51.52 },
+      { label: 'Large (~6 servings)', price: 130, cost: 77.27 },
     ],
     recipe: {
       factors: {
@@ -865,7 +865,7 @@ export const DISHES = [
         I('Brown sugar', 3, 'tbsp'),
         I('Shallot', 0.1, 'lb'),
         I('Garlic', 2, 'cloves'),
-        I('Fresh thyme', 1, 'bunch'),
+        I('Fresh thyme', 1, 'sprig'),
         I('Bay leaf', 1, ''),
         I('Cinnamon stick', 1, ''),
         I('Whole cloves', 3, ''),
@@ -887,9 +887,9 @@ export const DISHES = [
     // soy lecithin, uncosted) → Soy allergen + reheat forgiveness note.
     servings: { small: 2, large: 6, bound: true },
     variants: [
-      { label: 'Small (~2 servings)', price: 80, cost: 43.58 },
-      { label: 'Medium (~4 servings)', price: 150, cost: 87.15 },
-      { label: 'Large (~6 servings)', price: 210, cost: 130.73 },
+      { label: 'Small (~2 servings)', price: 80, cost: 43.61 },
+      { label: 'Medium (~4 servings)', price: 150, cost: 87.22 },
+      { label: 'Large (~6 servings)', price: 210, cost: 130.83 },
     ],
     recipe: {
       factors: {
@@ -905,7 +905,7 @@ export const DISHES = [
         I('Cognac', 2.67, 'oz'),
         I('Butter', 0.5, 'stick'),
         I('Black pepper (oz)', 1, 'oz'),
-        I('Fresh thyme', 1, 'bunch'),
+        I('Fresh thyme', 1, 'sprig'),
         I('Shallot', 0.1, 'lb'),
         I('Garlic', 1, 'cloves'),
       ],
@@ -918,8 +918,8 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: '~4 servings', price: 100, cost: 46.34 },
-      { label: 'With 1 lb mushrooms', price: 112, cost: 52.34 },
+      { label: '~4 servings', price: 100, cost: 46.37 },
+      { label: 'With 1 lb mushrooms', price: 112, cost: 52.37 },
     ],
     recipe: {
       factors: { '~4 servings': 1, 'With 1 lb mushrooms': 1 },
@@ -929,7 +929,7 @@ export const DISHES = [
         I('Carrots', 1.5, 'lb'),
         I('Red wine', 1, 'bottle'),
         I('Beef stock', 8, 'cups'),
-        I('Fresh thyme', 1, 'bunch'),
+        I('Fresh thyme', 1, 'sprig'),
         I('Tomato paste', 1, 'small can'),
         I('Onion', 1, 'lb'),
         I('Bay + salt + pepper + vinegar', 1, 'batch', true),
@@ -1101,13 +1101,13 @@ export const ALWAYS_ITEMS = {
       name: 'Thyme or Lavender Syrup',
       packaging: 'jar',
       variants: [
-        { label: 'Per Jar', price: 7, cost: 3.67 },
-        { label: 'With jar swap', price: 5, cost: 1.67 },
+        { label: 'Per Jar', price: 7, cost: 4.35 },
+        { label: 'With jar swap', price: 5, cost: 2.35 },
       ],
       recipe: {
         factors: { 'Per Jar': 1, 'With jar swap': 1 },
         base: [
-          I('Fresh thyme or lavender', 1, 'bunch'),
+          I('Fresh thyme or lavender', 4, 'sprigs'),
           I('Pint mason jar', 1, ''),
           I('Sugar', 1, 'cup', true),
         ],

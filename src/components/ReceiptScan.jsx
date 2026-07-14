@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport, derivePerUnit, mergeExtractions } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport, derivePerUnit, mergeExtractions, perUnitFromUserWeight, WEIGHT_ENTRY_UNITS, autoApplyAllowed } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -69,8 +69,9 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       return;
     }
     setPlan(p);
-    setRows(planToRows(p));
-    setRecon(reconcileReceipt(extracted)); // verify line sum vs printed subtotal (catches misreads)
+    const rc = reconcileReceipt(extracted); // verify line sum vs printed subtotal (catches misreads)
+    setRecon(rc);
+    setRows(planToRows(p, rc)); // C.3: a failed reconcile hard-gates auto-apply
     setStage('review');
   }, [seed, aliases, debug]);
 
@@ -126,8 +127,9 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     }
     const p = buildReviewPlan(parsed, seed, aliases || {});
     setPlan(p);
-    setRecon(reconcileReceipt(parsed));
-    setRows(planToRows(p));
+    const rc = reconcileReceipt(parsed);
+    setRecon(rc);
+    setRows(planToRows(p, rc)); // C.3: a failed reconcile hard-gates auto-apply
     setStage('review');
     if (parsed.unparsed.length > 3) {
       setErr(`${parsed.unparsed.length} lines weren't recognized and were skipped.`);
@@ -135,27 +137,32 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
   }, [pasteText, seed, aliases]);
 
   // ---- build working rows from the plan ----
-  function planToRows(p) {
+  function planToRows(p, rc = null) {
+    // C.3 (Jul 14): when the line sum disagrees with the printed subtotal,
+    // NOTHING auto-applies — a misread price (the $6.xx tenderloins) must not
+    // ride an auto-accept into the cost DB. Kevin reviews every line instead.
+    const allowAuto = autoApplyAllowed(rc);
     const out = [];
-    p.buckets.matched.forEach(g => out.push(makeRow(g, 'matched')));
-    p.buckets.needsPrice.forEach(g => out.push(makeRow(g, 'needsPrice')));
+    p.buckets.matched.forEach(g => out.push(makeRow(g, 'matched', allowAuto)));
+    p.buckets.needsPrice.forEach(g => out.push(makeRow(g, 'needsPrice', allowAuto)));
     // v2 bridge: the matcher's new review ("I'm unsure — pick one") and
     // needsConversion ("how many per pack?") buckets render through the
     // existing unmatched picker until the dedicated UI lands — their
     // candidates (incl. family suggestions) already show in the picker, and
     // the FLAT hatch covers pack pricing. Never let a bucket go invisible.
-    (p.buckets.review || []).forEach(g => out.push(makeRow(g, 'unmatched')));
-    (p.buckets.needsConversion || []).forEach(g => out.push(makeRow(g, 'unmatched')));
-    p.buckets.unmatched.forEach(g => out.push(makeRow(g, 'unmatched')));
-    p.buckets.ignored.forEach(g => out.push(makeRow(g, 'ignored')));
+    (p.buckets.review || []).forEach(g => out.push(makeRow(g, 'unmatched', allowAuto)));
+    (p.buckets.needsConversion || []).forEach(g => out.push(makeRow(g, 'unmatched', allowAuto)));
+    p.buckets.unmatched.forEach(g => out.push(makeRow(g, 'unmatched', allowAuto)));
+    p.buckets.ignored.forEach(g => out.push(makeRow(g, 'ignored', allowAuto)));
     return out;
   }
-  function makeRow(g, status) {
+  function makeRow(g, status, allowAuto = true) {
     return {
       ...g,
       status,
-      // accept toggle: only meaningful for matched/needsPrice; default per basis
-      accept: status === 'matched' ? defaultAccept(g, g.ingredient ? g.ingredient.current : null) : (status === 'needsPrice' ? false : false),
+      // accept toggle: only meaningful for matched/needsPrice; default per
+      // basis — and only when the reconcile allows auto-apply (C.3)
+      accept: status === 'matched' ? (allowAuto && defaultAccept(g, g.ingredient ? g.ingredient.current : null)) : (status === 'needsPrice' ? false : false),
       priceInput: '',          // for needsPrice: typed per-unit
       acceptedPerUnit: status === 'matched' ? g.perUnit : null,
     };
@@ -308,7 +315,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
                 <p style={S.help}>How many photos?</p>
                 <button style={S.captureBtn} onClick={() => setPhotoMode(1)}>One photo</button>
                 <button style={{ ...S.captureBtn, marginTop: 8 }} onClick={() => setPhotoMode(2)}>Two photos (split receipt)</button>
-                <p style={{ ...S.help, marginTop: 8 }}>Pick Two if the receipt is long. Cut it in half and photograph each piece.</p>
+                <p style={{ ...S.help, marginTop: 8 }}>Pick Two if the receipt is long. Cut it into roughly EQUAL halves and photograph each piece — a piece with many more lines reads worse.</p>
               </div>
             )}
             {photoMode != null && (
@@ -498,7 +505,7 @@ function ReviewBody({ plan, rows, seed, patchRow, onOpenPicker, onUseFlatPrice, 
         }}>
           {recon.ok
             ? `Lines sum to ${currency(recon.linesSum)} — matches the receipt ${recon.printedKind} (${currency(recon.printed)}).`
-            : `Lines sum to ${currency(recon.linesSum)} but the receipt ${recon.printedKind} is ${currency(recon.printed)} (gap ${currency(Math.abs(recon.gap))}). Small gaps come from discounts or skipped non-food lines; a big gap means an item line wasn't recognized.`}
+            : `Lines sum to ${currency(recon.linesSum)} but the receipt ${recon.printedKind} is ${currency(recon.printed)} (gap ${currency(Math.abs(recon.gap))}). Auto-accept is OFF for this scan — a misread price must not slip through, so review each line (or re-shoot). Small gaps come from discounts or skipped non-food lines; a big gap means a line was misread or missed.`}
         </div>
       )}
       <div style={S.metaLine}>
@@ -588,7 +595,12 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
           >
             Accept (price unchanged)
           </button>
-          {' '}or edit the price if you have the actual weight.
+          {' '}or enter the actual weight below.
+          <WeightEntry
+            lineTotal={r.line.line_total}
+            ingUnit={ing ? ing.unit : 'lb'}
+            onApply={(pu) => patchRow(idx, { acceptedPerUnit: pu, basis: 'user_weight', accept: true })}
+          />
         </div>
       )}
       <div style={S.reconcile}>
@@ -645,7 +657,9 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
 // fall back to the line total via "Flat price".
 function NeedsPriceRow({ r, idx, patchRow, onOpenPicker, onUseFlatPrice }) {
   const ing = r.ingredient;
-  const reasonText = 'Weighed item, no weight printed. Enter the price per ' + (ing ? ing.unit : 'unit') + ', or use the flat total.';
+  const canWeight = ing && WEIGHT_ENTRY_UNITS.has(ing.unit);
+  const reasonText = 'Weighed item, no weight printed. Enter the price per ' + (ing ? ing.unit : 'unit') +
+    (canWeight ? ', or the total and weight below.' : ', or use the flat total.');
   return (
     <div style={{ ...S.row, ...(r.accept ? S.rowOn : {}) }}>
       <div style={S.rowTop}>
@@ -672,6 +686,13 @@ function NeedsPriceRow({ r, idx, patchRow, onOpenPicker, onUseFlatPrice }) {
         />
         <button style={S.flatBtn} onClick={() => onUseFlatPrice(idx)}>Flat price</button>
       </div>
+      {canWeight && (
+        <WeightEntry
+          lineTotal={r.line.line_total}
+          ingUnit={ing.unit}
+          onApply={(pu) => patchRow(idx, { acceptedPerUnit: pu, basis: 'user_weight', accept: true, priceInput: String(pu) })}
+        />
+      )}
     </div>
   );
 }
@@ -775,6 +796,76 @@ function DisambiguationPopup({ row, seed, onPick, onIgnore, onAddNew, onClose })
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── C.5: weight entry (Jul 14) ──────────────────────────────────────────────
+// Kevin types the weight from the package or receipt; the app derives the
+// per-unit price. Two modes, no forced choice: split lb+oz inputs, or a single
+// decimal-lb input ("2.15"). Whichever is filled wins; if both hold values the
+// LAST EDITED wins, and the derivation line names the mode in use. The math is
+// shown inline ("1 lb 6 oz → 1.375 lb → $4.35/lb") — a silent derivation is
+// untrustworthy. Rendered only for weight-priced ingredients (lb/oz/g).
+// lineTotal null (needsPrice rows never have a printed total) adds a $ total
+// input, so total + weight together derive the price.
+function WeightEntry({ lineTotal, ingUnit, onApply }) {
+  const [lb, setLb] = useState('');
+  const [oz, setOz] = useState('');
+  const [dec, setDec] = useState('');
+  const [totalIn, setTotalIn] = useState('');
+  const [lastEdited, setLastEdited] = useState(null); // 'split' | 'dec'
+  const needsTotal = lineTotal == null;
+  const total = needsTotal ? parseFloat(totalIn) : lineTotal;
+  const splitFilled = (parseFloat(lb) || 0) > 0 || (parseFloat(oz) || 0) > 0;
+  const decFilled = (parseFloat(dec) || 0) > 0;
+  const mode = (splitFilled && decFilled) ? lastEdited : (decFilled ? 'dec' : (splitFilled ? 'split' : null));
+  const derived = mode ? perUnitFromUserWeight({
+    total,
+    lb: mode === 'split' ? lb : 0,
+    oz: mode === 'split' ? oz : 0,
+    decimalLb: mode === 'dec' ? dec : null,
+    ingUnit,
+  }) : null;
+  const weightLabel = mode === 'split'
+    ? `${parseFloat(lb) || 0} lb ${parseFloat(oz) || 0} oz`
+    : `${parseFloat(dec) || 0} lb`;
+  const num = { ...S.priceInput, flex: 'none', width: 52, padding: '7px 8px', textAlign: 'center' };
+  const lbl = { color: '#9aa5a0', fontSize: 12 };
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ ...lbl, marginBottom: 4 }}>Or enter the weight{needsTotal ? ' and total' : ''}:</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        {needsTotal && (<>
+          <span style={S.dollar}>$</span>
+          <input style={num} type="number" inputMode="decimal" step="0.01" placeholder="total"
+            value={totalIn} onChange={e => setTotalIn(e.target.value)} />
+          <span style={lbl}>at</span>
+        </>)}
+        <input style={num} type="number" inputMode="decimal" step="1" placeholder="0"
+          value={lb} onChange={e => { setLb(e.target.value); setLastEdited('split'); }} />
+        <span style={lbl}>lb</span>
+        <input style={num} type="number" inputMode="decimal" step="0.1" placeholder="0"
+          value={oz} onChange={e => { setOz(e.target.value); setLastEdited('split'); }} />
+        <span style={lbl}>oz</span>
+        <span style={{ ...lbl, margin: '0 2px' }}>or</span>
+        <input style={{ ...num, width: 62 }} type="number" inputMode="decimal" step="0.01" placeholder="2.15"
+          value={dec} onChange={e => { setDec(e.target.value); setLastEdited('dec'); }} />
+        <span style={lbl}>lb</span>
+      </div>
+      {splitFilled && decFilled && (
+        <div style={{ fontSize: 11, color: '#EF9F27', marginTop: 3 }}>
+          Both modes filled — using the {mode === 'split' ? 'lb + oz' : 'decimal lb'} entry (last edited).
+        </div>
+      )}
+      {derived && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#5DCAA5' }}>
+            {weightLabel} → {derived.weightLb} lb → {currency(derived.perUnit)}/{ingUnit}
+          </span>
+          <button style={S.flatBtn} onClick={() => onApply(derived.perUnit)}>Use weight</button>
+        </div>
+      )}
     </div>
   );
 }

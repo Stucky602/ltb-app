@@ -265,7 +265,6 @@ export const LINE_MAP = {
   'NY Strip':               { skip: true },
   'NY Strip - Prime':       { skip: true },
   'Filet Mignon':           { skip: true }, // STALE key (Jul 13 ingredient-line rename; dish name unchanged)
-  'Filet mignon':           { skip: true },
   'Filet Mignon - Prime':   { skip: true },
   'Flank steak':            { skip: true },
   'Pork chop':              { skip: true },

@@ -16,6 +16,7 @@
 import {
   buildReviewPlan, parsePastedReceipt, derivePerUnit, onePackPriceFor,
   looksFusedLine, defaultAccept, scoreNamePair, FUZZY_WEAK,
+  mergeExtractions, reconcileReceipt, confidenceTier,
 } from '../src/receiptMatch.js';
 
 const fails = [];
@@ -28,6 +29,7 @@ const SEED = [
   { id: 'egg_taglierini', name: 'Egg taglierini', unit: 'pack', baseline: 3.98, current: 3.98 },
   { id: 'egg_pappardelle', name: 'Egg pappardelle', unit: 'pack', baseline: 4.2, current: 4.2 },
   { id: 'chicken_basics_stock', name: 'Kitchen Basics stock', unit: 'carton', baseline: 2.98, current: 2.98 },
+  { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, current: 0.745 },
   { id: 'beef_stock', name: 'Beef stock', unit: 'cup', baseline: 0.75, current: 0.75 },
   { id: 'butter', name: 'Butter', unit: 'stick', baseline: 0.95, current: 0.95 },
   { id: 'mushrooms', name: 'Mushrooms', unit: 'lb', baseline: 5.0, current: 8.99 },
@@ -92,12 +94,17 @@ const allOf = (p) => [...p.buckets.matched, ...p.buckets.review, ...p.buckets.ne
     if (!defaultAccept(tg, 3.98)) F('bug1', 'sane total_div_qty must default-accept');
   }
 
-  // The stock line is a WEAK name ("REAL CHKN ST") — it must land in review
-  // (ask Kevin), never silently matched, with Kitchen Basics offered.
+  // The stock line name is weak OCR ("REAL CHKN ST") — pre-Jul-14 it pinned
+  // as review. Kevin has since SEEDED the alias (D2), so the string now
+  // auto-matches AND converts carton → cup via the seeded packQty (4 cups per
+  // 32 oz carton) in one step: 4 cartons, $11.92, → $2.98/carton → $0.745/cup.
   const ps = plan([{ item_name: 'KITCH BASICS REAL CHKN ST', quantity: 4, unit: 'Ea', line_total: 11.92, unit_price_printed: null }]);
-  if (ps.buckets.matched.length) F('bug1', 'weak stock name must not auto-match');
-  const rg = ps.buckets.review[0];
-  if (!rg || !rg.candidates.some(c => c.id === 'chicken_basics_stock')) F('bug1', `stock review candidates: ${JSON.stringify(rg && rg.candidates.map(c => c.id))}`);
+  const sg = ps.buckets.matched.find(g => g.ingredientId === 'chicken_stock');
+  if (!sg || !near(sg.perUnit, 0.745)) F('bug1', `seeded chicken stock 4-carton: ${JSON.stringify(sg && { p: sg.perUnit, b: sg.basis })}, want 0.745/cup`);
+  // The weak-fuzzy invariant survives on an UNSEEDED sibling string: it must
+  // never silently auto-match (review or unmatched are both fine).
+  const pw = plan([{ item_name: 'KITCH BASICS REAL VEG ST', quantity: 4, unit: 'Ea', line_total: 11.92, unit_price_printed: null }]);
+  if (pw.buckets.matched.length) F('bug1', `unseeded weak name must not auto-match: ${JSON.stringify(pw.buckets.matched.map(g => g.ingredientId))}`);
 
   // BUTTER, both shapes. Photo-shape "4 Ea, total 3.88" itemizes STICKS —
   // per-unit is 0.97/stick, and the pack override must NOT divide again
@@ -275,6 +282,97 @@ const allOf = (p) => [...p.buckets.matched, ...p.buckets.review, ...p.buckets.ne
   if (!bs || !near(bs.perUnit, 0.745)) F('happy', `beef stock carton ÷4: ${JSON.stringify(bs && bs.perUnit)}, want 0.745/cup`);
   const mk = rp.buckets.matched.find(g => g.ingredientId === 'milk');
   if (!mk || !near(mk.perUnit, 0.231, 0.002)) F('happy', `milk gallon rule: ${JSON.stringify(mk && mk.perUnit)}, want 0.231/cup`);
+}
+
+// ─── 7. TWO-PHOTO SPLIT SCAN: merge + whole-receipt reconcile (A3/A4) ────────
+{
+  const TOP = { store: 'H-E-B', lines: [
+    { raw_text: '1 CILANTRO F 0.45', item_name: 'CILANTRO', quantity: null, unit: null, line_total: 0.45, unit_price_printed: null, weighed: true },
+    { raw_text: '2 GARLIC F 0.50', item_name: 'GARLIC', quantity: null, unit: null, line_total: 0.50, unit_price_printed: null, weighed: false },
+  ], printed_subtotal: null };
+  const BOTTOM = { store: null, lines: [
+    { raw_text: '3 HEB WHOLE MILK FW 3.70', item_name: 'HEB WHOLE MILK', quantity: null, unit: null, line_total: 3.70, unit_price_printed: null, weighed: false },
+  ], printed_subtotal: 4.65 };
+
+  // (a) bottom-only subtotal IS the whole receipt's — single_photo2 + reconcile ok.
+  const m = mergeExtractions(TOP, BOTTOM);
+  if (m.lines.length !== 3) F('two-photo', `merged lines: ${m.lines.length}, want 3`);
+  if (m.lines[0].item_name !== 'CILANTRO' || m.lines[2].item_name !== 'HEB WHOLE MILK') F('two-photo', 'order must be top lines then bottom lines');
+  if (m.store !== 'H-E-B') F('two-photo', `store must come from photo 1: ${m.store}`);
+  if (m.printed_subtotal !== 4.65 || m.subtotalDecision.mode !== 'single_photo2') F('two-photo', `subtotal decision: ${JSON.stringify(m.subtotalDecision)}`);
+  const r = reconcileReceipt(m);
+  if (!r || !r.ok) F('two-photo', `whole-receipt reconcile must pass: ${JSON.stringify(r)}`);
+
+  // (b) two PARTIAL subtotals sum to the whole.
+  const mB = mergeExtractions({ ...TOP, printed_subtotal: 0.95 }, { ...BOTTOM, printed_subtotal: 3.70 });
+  if (mB.printed_subtotal !== 4.65 || mB.subtotalDecision.mode !== 'summed') F('two-photo', `partials must SUM: ${JSON.stringify(mB.subtotalDecision)}`);
+  if (!reconcileReceipt(mB).ok) F('two-photo', 'summed reconcile must pass');
+
+  // (c) both present but photo 2 already carries the WHOLE figure — prefer the
+  // single real Sale Subtotal over summing (Kevin's rule).
+  const mC = mergeExtractions({ ...TOP, printed_subtotal: 0.95 }, { ...BOTTOM, printed_subtotal: 4.65 });
+  if (mC.printed_subtotal !== 4.65 || mC.subtotalDecision.mode !== 'single_photo2') F('two-photo', `whole-figure bottom must win: ${JSON.stringify(mC.subtotalDecision)}`);
+
+  // (d) exact duplicate (raw_text AND line_total) dropped ONCE; same name+total
+  // with different raw_text is a real second purchase and is kept.
+  const dupLine = TOP.lines[1];
+  const mD = mergeExtractions(TOP, { ...BOTTOM, lines: [dupLine, ...BOTTOM.lines] });
+  if (mD.lines.length !== 3 || mD.subtotalDecision.droppedDuplicates !== 1) F('two-photo', `dup safety net: ${mD.lines.length} lines, dropped ${mD.subtotalDecision.droppedDuplicates}`);
+  const mD2 = mergeExtractions(TOP, { ...BOTTOM, lines: [{ ...dupLine, raw_text: '9 GARLIC F 0.50' }, ...BOTTOM.lines] });
+  if (mD2.lines.length !== 4) F('two-photo', 'different raw_text must not dedupe');
+
+  // (e) store falls back to photo 2; no subtotal anywhere → reconcile null.
+  const mE = mergeExtractions({ ...TOP, store: null }, { ...BOTTOM, store: 'H-MART', printed_subtotal: null });
+  if (mE.store !== 'H-MART') F('two-photo', `store fallback: ${mE.store}`);
+  if (reconcileReceipt(mE) !== null) F('two-photo', 'no subtotal anywhere must reconcile null');
+
+  // (f) the merged receipt flows through buildReviewPlan like any single scan.
+  const p = buildReviewPlan(m, SEED, {});
+  if (!allOf(p).length) F('two-photo', 'merged receipt must classify');
+
+  // (g) defensive: merging with a missing second half is harmless (the single-
+  // photo path bypasses merge entirely; this pins the degenerate call anyway).
+  const mG = mergeExtractions(BOTTOM, null);
+  if (mG.lines.length !== 1 || mG.printed_subtotal !== 4.65 || mG.subtotalDecision.mode !== 'single_photo1') F('two-photo', `null second half: ${JSON.stringify(mG.subtotalDecision)}`);
+}
+
+// ─── 8. B: post-extraction quantity repair (safety net beneath A) ────────────
+{
+  // The 4-carton stock line as the photo path ACTUALLY returns it when the
+  // small "4 Ea. @ ..." detail is unresolved: quantity null, total only.
+  // Pre-repair this derived $2.98/cup (packQty divide with packsBought 1) —
+  // 4x high, Kevin's "multiplying the price" report.
+  const line = { item_name: 'KITCH BASICS REAL CHKN ST', quantity: null, unit: null, line_total: 11.92, unit_price_printed: null, weighed: false };
+  const p = plan([line]);
+  const g = p.buckets.matched.find(x => x.ingredientId === 'chicken_stock');
+  if (!g) F('qty-repair', `must still alias-match: ${JSON.stringify(allOf(p).map(x => ({ s: x.status, id: x.ingredientId })))}`);
+  else {
+    if (!near(g.perUnit, 0.745)) F('qty-repair', `perUnit ${g.perUnit}, want 0.745/cup (11.92 = 4 x $2.98 carton)`);
+    if (!g.qtyInference || g.qtyInference.qty !== 4 || !near(g.qtyInference.perPack, 2.98)) F('qty-repair', `inference: ${JSON.stringify(g.qtyInference)}`);
+    if (g.line.quantity !== 4) F('qty-repair', 'quantity must be back-filled onto the line');
+    if (confidenceTier(g, 0.745) !== 'check') F('qty-repair', `inferred qty must cap at check tier, got ${confidenceTier(g, 0.745)}`);
+  }
+
+  // A ratio that is NOT a clean integer must never infer.
+  const p2 = plan([{ ...line, line_total: 10.40 }]); // 10.40 / 2.98 = 3.49
+  const g2 = allOf(p2).find(x => x.ingredientId === 'chicken_stock');
+  if (g2 && g2.qtyInference) F('qty-repair', 'ambiguous ratio must NOT infer');
+
+  // n = 1 (one carton, total only) needs no inference; packQty divides as always.
+  const p3 = plan([{ ...line, line_total: 2.98 }]);
+  const g3 = allOf(p3).find(x => x.ingredientId === 'chicken_stock');
+  if (!g3 || !near(g3.perUnit, 0.745) || g3.qtyInference) F('qty-repair', `single carton: ${JSON.stringify(g3 && { p: g3.perUnit, q: g3.qtyInference })}`);
+
+  // No packQty on the alias → never fires (an unlearned pack still ASKS).
+  const al = { 'mystery carton': { ingredientId: 'chicken_stock' } };
+  const p4 = plan([{ item_name: 'MYSTERY CARTON', quantity: null, unit: null, line_total: 11.92, unit_price_printed: null }], al);
+  const g4 = allOf(p4).find(x => x.ingredientId === 'chicken_stock');
+  if (g4 && g4.qtyInference) F('qty-repair', 'no packQty must mean no inference');
+
+  // Weighed lines never repair (weight belongs to weightSuggestion).
+  const p5 = plan([{ ...line, weighed: true }]);
+  const g5 = allOf(p5).find(x => x.ingredientId === 'chicken_stock');
+  if (g5 && g5.qtyInference) F('qty-repair', 'weighed lines never infer quantity');
 }
 
 // ─── report ──────────────────────────────────────────────────────────────────

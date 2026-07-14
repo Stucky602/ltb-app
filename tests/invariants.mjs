@@ -83,6 +83,13 @@ for (const [dish, r] of Object.entries(RECIPES)) {
     if (!m) { F('line-mapped', `"${dish}" recipe line "${ln.name}" is not in LINE_MAP (silently costs $0)`); continue; }
     if (m.skip) continue;
     if (!seedIds.has(m.id)) F('ingredient-exists', `"${dish}" line "${ln.name}" maps to ingredient id "${m.id}" which is not in ingredients.js (the Gumbo/boudin bug class)`);
+    // ── C2.2 (Jul 14): a MAPPED line can still silently cost $0 if its conv
+    // returns NaN/undefined/0 (bad unit branch, bad recipe qty). No runtime
+    // path catches that — the line just contributes nothing. Fail it here,
+    // naming the dish, the line, and what conv returned.
+    let cq; try { cq = m.conv(ln.q, ln.u); } catch (e) { cq = NaN; }
+    if (!Number.isFinite(cq)) F('line-cost-finite', `"${dish}" line "${ln.name}" conv(${JSON.stringify(ln.q)}, ${JSON.stringify(ln.u)}) returned ${cq} — line silently costs $0`);
+    else if (cq <= 0) F('line-cost-zero', `"${dish}" line "${ln.name}" conv(${JSON.stringify(ln.q)}, ${JSON.stringify(ln.u)}) resolved to ${cq} purchase units — line silently costs $0`);
   }
   // every variant in factors corresponds to a real menu variant and vice versa
   const dishRec = [...DISHES, ...ALL_ALWAYS_ITEMS].find(x => x.name === dish);
@@ -101,6 +108,31 @@ for (const [dish, r] of Object.entries(RECIPES)) {
 // priceLink targets exist
 for (const i of INGREDIENT_SEED) {
   if (i.priceLink && !seedIds.has(i.priceLink)) F('pricelink', `ingredient "${i.id}" priceLinks to missing "${i.priceLink}"`);
+}
+
+// ─── 4b. LINE_MAP duplicate keys (SOURCE-TEXT scan) ─────────────────────────
+// THE filet-$0 bug: a duplicate object key in LINE_MAP. In JS the LAST key
+// wins and silently clobbers the first — by the time any test reads the
+// parsed object the duplicate is already gone, so no runtime check can see
+// it. The only way to catch it is to scan the source text. Fails listing
+// EVERY duplicated key. (Hit twice on 'Filet mignon' before this existed.)
+{
+  const dcSrc = fs.readFileSync(path.join(ROOT, 'src', 'dishCosting.js'), 'utf8');
+  const lmStart = dcSrc.indexOf('export const LINE_MAP');
+  const lmEnd = dcSrc.indexOf('\n};', lmStart);
+  if (lmStart === -1 || lmEnd === -1) {
+    F('linemap-dupes', 'could not locate the LINE_MAP block in src/dishCosting.js — scan needs updating');
+  } else {
+    const block = dcSrc.slice(lmStart, lmEnd);
+    const keyRe = /^\s*(['"])((?:\\.|(?!\1).)*)\1\s*:/gm;
+    const counts = new Map();
+    let km;
+    while ((km = keyRe.exec(block))) counts.set(km[2], (counts.get(km[2]) || 0) + 1);
+    for (const [key, n] of counts) {
+      if (n > 1) F('linemap-dupes', `LINE_MAP key "${key}" appears ${n} times — last one wins in JS and silently clobbers the real mapping (the filet-$0-twice bug)`);
+    }
+    if (counts.size === 0) F('linemap-dupes', 'LINE_MAP key scan found zero keys — regex or block boundary broke, fix the scan');
+  }
 }
 
 // ─── 2+16. Baseline drift ≈ 0 and anchor round-trip for every dinner variant ─

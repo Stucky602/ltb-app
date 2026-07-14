@@ -1075,6 +1075,10 @@ const RECEIPT_EXTRACTION_PROMPT = `You are a receipt line-item extractor. Your O
 
 The image may be rotated, upside down, wrinkled, or faded. Read it regardless of orientation.
 
+CRITICAL — READ EACH LINE INDEPENDENTLY. The single most common error is letting a NAME or a PRICE bleed between adjacent rows. Every item's name, quantity, and prices come from THAT item's own printed line(s) — never from the row above or below. If a line is blurry, transcribe your best read of THAT line's own text; do NOT borrow a nearby line's number to fill a gap. A price that belongs to line 19 must never appear on line 18 or 20. Work top to bottom, one item at a time, and keep each item's numbers matched to its own name.
+
+CRITICAL — THE TWO-LINE H-E-B FORMAT. On H-E-B receipts the NAME is on one line and its "N Ea. @ 1/ <rate> <flag> <line_total>" detail is on the very NEXT line. You MUST pair them and populate BOTH quantity and unit_price_printed. The number after "1/" is the PER-UNIT rate; the rightmost number is the LINE TOTAL (qty x rate). Never return the line total as the unit price. When the detail line is present, quantity and unit_price_printed must NOT be null.
+
 These receipts come from three store layouts. Items often span TWO printed lines — combine them into ONE line object:
 
 - H-E-B: a line number + NAME on one line, and the quantity/price detail on the NEXT line, e.g.:
@@ -1092,11 +1096,14 @@ These receipts come from three store layouts. Items often span TWO printed lines
   (b) BY A PACK/COUNT: the name shows a pack marker like "PK 5PC", "5 PACK", "8 CT", "BAG", "BTL"/"BOTTLE", or it's just "<NAME> <price> <flag>" with NO weight and NO "@" rate. weighed=false. If a pack count is printed (e.g. "5PC" = 5 pieces), put that number in quantity and unit="pack"; for a single bag/bottle/carton with no count, set unit="pack" (or "bottle"/"bag"/"carton" as printed) and quantity=null. Otherwise quantity=null, unit=null. unit_price_printed=null, line_total=<price>.
   Decide PER LINE from what is actually printed. Do NOT assume a whole store is one type. No weight and no "@" rate means it is a pack/count line (weighed=false).
 
+Also capture the receipt's printed SALE SUBTOTAL (the pre-tax subtotal that the item lines sum to; fall back to "Total Sale"/"Total"/"Balance" if no subtotal is printed) as printed_subtotal. This verifies the extraction — get it right.
+
 Return ONLY a JSON object. No prose, no explanation, no markdown code fences. The object has exactly these keys:
 
 {
   "store": <string|null>,
   "receipt_date": <string|null>,
+  "printed_subtotal": <number|null>,
   "lines": [
     {
       "raw_text": <string>,

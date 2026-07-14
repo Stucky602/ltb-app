@@ -1213,22 +1213,22 @@ export const ALWAYS_ITEMS = {
     // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {
       name: 'Carrots', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 6, cost: 3.25 }],
+      variants: [{ label: '~2 servings', price: 6.5, cost: 3.25 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Baby Gold Potatoes', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 3.79 }],
+      variants: [{ label: '~2 servings', price: 7.5, cost: 3.79 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Baby gold potatoes', 0.75, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Corn (off the cob)', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 2.98 }],
+      variants: [{ label: '~2 servings', price: 7.5, cost: 2.98 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Corn', 3, 'ears'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Kabocha Squash', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 3.79 }],
+      variants: [{ label: '~2 servings', price: 7.5, cost: 3.79 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {

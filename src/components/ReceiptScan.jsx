@@ -20,6 +20,7 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
   const [plan, setPlan] = useState(null);          // buildReviewPlan output
   const [debugText, setDebugText] = useState('');  // debug mode: full copyable scan dump
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
   const [recon, setRecon] = useState(null);        // v3.4 sum-vs-printed-total check (paste path)
   const [rows, setRows] = useState([]);            // working review rows (mutable copy)
   const [localAliases, setLocalAliases] = useState(aliases || {}); // staged alias edits
@@ -304,24 +305,46 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
           <div style={{ padding: 12 }}>
             <div style={{ fontWeight: 700, marginBottom: 8 }}>Debug scan result</div>
             <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>
-              This is the raw extraction plus the per-line derivation and the plan. Nothing was committed. Copy it and paste it into the chat.
+              This is the raw extraction plus the per-line derivation and the plan. Nothing was committed. Download the JSON file and attach it in the chat (the file is the reliable way to share it), or copy the text.
             </div>
-            <button
-              style={{ ...S.scanBtn, marginBottom: 8 }}
-              onClick={async () => {
-                try {
-                  if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(debugText);
-                  } else {
-                    const ta = document.getElementById('debug-scan-dump');
-                    if (ta) { ta.select(); document.execCommand('copy'); }
-                  }
-                  setCopied(true); setTimeout(() => setCopied(false), 2000);
-                } catch (_) { /* fall back to manual select */ }
-              }}
-            >
-              {copied ? 'Copied ✓' : 'Copy scan result'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <button
+                style={{ ...S.scanBtn, flex: 1, marginBottom: 0, background: '#12303a', border: '1px solid #4c9cc9', color: '#a8dbe8' }}
+                onClick={() => {
+                  try {
+                    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                    const blob = new Blob([debugText], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `ltb-receipt-scan-${stamp}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    setDownloaded(true); setTimeout(() => setDownloaded(false), 2000);
+                  } catch (_) { /* fall back to copy/select */ }
+                }}
+              >
+                {downloaded ? 'Downloaded ✓' : 'Download JSON'}
+              </button>
+              <button
+                style={{ ...S.scanBtn, flex: 1, marginBottom: 0 }}
+                onClick={async () => {
+                  try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                      await navigator.clipboard.writeText(debugText);
+                    } else {
+                      const ta = document.getElementById('debug-scan-dump');
+                      if (ta) { ta.select(); document.execCommand('copy'); }
+                    }
+                    setCopied(true); setTimeout(() => setCopied(false), 2000);
+                  } catch (_) { /* fall back to manual select */ }
+                }}
+              >
+                {copied ? 'Copied ✓' : 'Copy text'}
+              </button>
+            </div>
             <textarea
               id="debug-scan-dump"
               readOnly

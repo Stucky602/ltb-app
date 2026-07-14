@@ -172,10 +172,10 @@ export const DISHES = [
     equipment: { flexible: ['dutch', 'largePot'] },
     options: { spice: { min: 1, max: 5 } }, // customer-selectable heat (was note-regex; Batch 3)
     variants: [
-      { label: 'Chickpea, Small (~4-5)', price: 25, cost: 14.88 },
+      { label: 'Chickpea, Small (~4-5)', price: 30, cost: 14.88 },
       { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.68 },
       { label: 'Shrimp, Small (~4-5)', price: 50, cost: 28.41 },
-      { label: 'Chickpea, Large (~8-10)', price: 45, cost: 27.59 },
+      { label: 'Chickpea, Large (~8-10)', price: 55, cost: 27.59 },
       { label: 'Chicken, Large (~8-10)', price: 65, cost: 35.17 },
       { label: 'Shrimp, Large (~8-10)', price: 90, cost: 54.66 },
     ],
@@ -1200,14 +1200,14 @@ export const ALWAYS_ITEMS = {
     },
     {
       name: 'Parsnips', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7, cost: 7.58 }],
+      variants: [{ label: '~2 servings', price: 10, cost: 7.58 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Parsnips', 1.25, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Asparagus', packaging: 'none',
       variants: [
-        { label: 'Whole (~2 servings)', price: 8, cost: 5.4 },
-        { label: 'Bite-size (~2 servings)', price: 8, cost: 5.4 },
+        { label: 'Whole (~2 servings)', price: 10, cost: 5.4 },
+        { label: 'Bite-size (~2 servings)', price: 10, cost: 5.4 },
       ],
       recipe: { factors: { 'Whole (~2 servings)': 1, 'Bite-size (~2 servings)': 1 }, base: [I('Asparagus', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },

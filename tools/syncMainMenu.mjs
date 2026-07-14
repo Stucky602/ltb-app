@@ -60,7 +60,7 @@ for (const b of (ALL_ALWAYS_ITEMS || [])) {
     CARDLESS.add(b.name);
     const parent = pm[1];
     const bnds = cardBounds(parent);
-    const wantLine = `<span class="price-label">Prime, by weight</span><div class="price-right"><span class="price-amt">${money(b.pricePerLb)}/lb + $1.50 bag</span>`;
+    const wantLine = `<span class="price-label">Prime, by weight</span><div class="price-right"><span class="price-amt">${money(b.pricePerLb)}/lb + $2.00 bag</span>`;
     if (!bnds) { console.log(`  MISSING parent card for Prime: ${parent}`); drift++; }
     else if (!html.slice(bnds.start, bnds.end).includes(wantLine)) {
       console.log(`  Prime sub-line drift on ${parent}: expected ${money(b.pricePerLb)}/lb`);
@@ -70,7 +70,7 @@ for (const b of (ALL_ALWAYS_ITEMS || [])) {
 }
 for (const b of (ALL_ALWAYS_ITEMS || [])) {
   if (CARDLESS.has(b.name)) continue;
-  if (b.perLb) syncCard(b.name, [`${money(b.pricePerLb)}/lb + $1.50 bag`]);
+  if (b.perLb) syncCard(b.name, [`${money(b.pricePerLb)}/lb + $2.00 bag`]);
   else if (b.variants && b.variants.length) syncCard(b.name, b.variants.map(v => money(v.price)));
 }
 

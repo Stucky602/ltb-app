@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport, derivePerUnit } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -12,12 +12,14 @@ const TIER_ORDER = { attention: 0, check: 1, auto: 2 }; // review sort: eyes-nee
 
 // ── stages ──────────────────────────────────────────────────────────────────
 // capture -> extracting -> review (the work happens here) -> done
-export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onClose, costHistory }) {
+export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onClose, costHistory, debug }) {
   const [stage, setStage] = useState('capture');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [imgB64, setImgB64] = useState(null);
   const [plan, setPlan] = useState(null);          // buildReviewPlan output
+  const [debugText, setDebugText] = useState('');  // debug mode: full copyable scan dump
+  const [copied, setCopied] = useState(false);
   const [recon, setRecon] = useState(null);        // v3.4 sum-vs-printed-total check (paste path)
   const [rows, setRows] = useState([]);            // working review rows (mutable copy)
   const [localAliases, setLocalAliases] = useState(aliases || {}); // staged alias edits
@@ -37,6 +39,23 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       setStage('extracting');
       const extracted = await extractReceipt(b64);
       const p = buildReviewPlan(extracted, seed, aliases || {});
+      if (debug) {
+        // Debug mode: capture the raw AI extraction, the per-line derivation,
+        // and the resulting plan into one copyable block. Same scan, no commit.
+        const perLine = (Array.isArray(extracted) ? extracted : (extracted && extracted.lines) || []).map(ln => {
+          let d = null; try { d = derivePerUnit(ln); } catch (_) { d = { error: true }; }
+          return { name: ln.item_name, qty: ln.quantity, unit: ln.unit, unit_price_printed: ln.unit_price_printed, line_total: ln.line_total, weighed: ln.weighed, derived: d };
+        });
+        const dump = {
+          store: extracted && extracted.store,
+          rawExtracted: extracted,
+          perLineDerivation: perLine,
+          plan: p,
+        };
+        setDebugText(JSON.stringify(dump, null, 2));
+        setStage('debug');
+        return;
+      }
       setPlan(p);
       setRows(planToRows(p));
       setStage('review');
@@ -115,21 +134,14 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       // re-derive price basis now that it's matched
       const line = r.line;
       let perUnit = null, basis = null, status = 'matched', accept = false;
-      const nUnit = normalizeUnit(line.unit);
-      const eachStyle = !line.weighed && (nUnit === 'each' || nUnit == null);
       if (line.unit_price_printed != null) { perUnit = line.unit_price_printed; basis = 'printed_unit_price'; accept = true; }
       else if (line.weighed && line.quantity != null && line.line_total != null) { perUnit = round(line.line_total / line.quantity); basis = 'total_div_weight'; accept = true; }
       else if (r.needsPrice || (line.weighed && line.quantity == null)) { status = 'needsPrice'; }
-      // Bug-1 fix (Jul 13), mirrored from derivePerUnit in receiptMatch.js: an
-      // each-style line with qty > 1 carries qty × per-unit in its total —
-      // divide ("3 @ 3.98 → 11.94" maps at $3.98, not $11.94).
-      else if (eachStyle && line.line_total != null && typeof line.quantity === 'number' && line.quantity > 1) { perUnit = round(line.line_total / line.quantity); basis = 'total_div_qty'; accept = true; }
       else if (line.line_total != null) { perUnit = line.line_total; basis = 'line_total'; accept = false; }
       // auto-convert receipt unit → ingredient costing unit (e.g. per gal → per cup)
       let conversion = null;
-      if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight' || basis === 'total_div_qty')) {
-        const convFrom = (basis === 'total_div_qty' && !nUnit) ? 'each' : nUnit;
-        const conv = convertPerUnit(perUnit, convFrom, ing ? ing.unit : null, ingredientId, { itemName: line.item_name });
+      if (perUnit != null && (basis === 'printed_unit_price' || basis === 'total_div_weight')) {
+        const conv = convertPerUnit(perUnit, normalizeUnit(line.unit), ing ? ing.unit : null, ingredientId);
         if (conv) { perUnit = conv.perUnit; conversion = { fromUnit: conv.fromUnit, toUnit: conv.toUnit, factor: conv.factor, basis }; basis = 'converted'; }
       }
       return { ...r, status, ingredientId, ingredient: ing, perUnit, basis, conversion, accept, acceptedPerUnit: accept ? perUnit : null, _rejectedId };
@@ -279,6 +291,38 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
           <div style={S.center}>
             {imgB64 && <img src={`data:image/jpeg;base64,${imgB64}`} alt="receipt" style={S.thumb} />}
             <div style={S.spinner}>Reading the receipt…</div>
+          </div>
+        )}
+
+        {stage === 'debug' && (
+          <div style={{ padding: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8 }}>Debug scan result</div>
+            <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 8 }}>
+              This is the raw extraction plus the per-line derivation and the plan. Nothing was committed. Copy it and paste it into the chat.
+            </div>
+            <button
+              style={{ ...S.scanBtn, marginBottom: 8 }}
+              onClick={async () => {
+                try {
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(debugText);
+                  } else {
+                    const ta = document.getElementById('debug-scan-dump');
+                    if (ta) { ta.select(); document.execCommand('copy'); }
+                  }
+                  setCopied(true); setTimeout(() => setCopied(false), 2000);
+                } catch (_) { /* fall back to manual select */ }
+              }}
+            >
+              {copied ? 'Copied ✓' : 'Copy scan result'}
+            </button>
+            <textarea
+              id="debug-scan-dump"
+              readOnly
+              value={debugText}
+              onFocus={e => e.target.select()}
+              style={{ width: '100%', minHeight: 320, fontFamily: 'monospace', fontSize: 11, whiteSpace: 'pre', background: '#111', color: '#ddd', border: '1px solid #333', borderRadius: 6, padding: 8, boxSizing: 'border-box' }}
+            />
           </div>
         )}
 

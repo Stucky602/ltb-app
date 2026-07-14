@@ -66,7 +66,7 @@ function Sparkline({ points, width = 56, height = 18 }) {
   );
 }
 
-export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt }) {
+export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt, onDebugScan }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // id being edited
   const [containerAsk, setContainerAsk] = useState(null); // { id, entered, converted, message }
@@ -198,6 +198,11 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
       {onScanReceipt && (
         <button style={S.scanBtn} onClick={onScanReceipt}>
           <Camera size={16} /> Scan receipt to update costs
+        </button>
+      )}
+      {onDebugScan && (
+        <button style={{ ...S.scanBtn, background: '#3a2f12', border: '1px solid #c9a84c', color: '#e8d9a8' }} onClick={onDebugScan}>
+          <Camera size={16} /> DEBUG SCAN COPY
         </button>
       )}
       <div style={S.topBar}>

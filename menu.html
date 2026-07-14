@@ -99,11 +99,11 @@
   function priceRows(dish, primeDish){
     var html = '<div class="prices">';
     if (dish && dish.perLb) {
-      html += '<div class="price-row"><span class="price-label">By weight</span><span class="price-amt">'+money(dish.pricePerLb)+'/lb + $1.50 bag</span></div>';
+      html += '<div class="price-row"><span class="price-label">By weight</span><span class="price-amt">'+money(dish.pricePerLb)+'/lb + $2.00 bag</span></div>';
       // Prime line: renders directly under the regular weight line for the three
       // steaks that offer a Prime grade (NY Strip, Ribeye, Filet).
       if (primeDish && primeDish.perLb) {
-        html += '<div class="price-row"><span class="price-label">Prime, by weight</span><span class="price-amt">'+money(primeDish.pricePerLb)+'/lb + $1.50 bag</span></div>';
+        html += '<div class="price-row"><span class="price-label">Prime, by weight</span><span class="price-amt">'+money(primeDish.pricePerLb)+'/lb + $2.00 bag</span></div>';
       }
       if (dish.avgWeightLb) {
         html += '<div class="price-row"><span class="price-label" style="font-size:11px;color:var(--dim);font-style:italic;">Averages approx. '+(+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/,'')+' lb per piece</span></div>';
@@ -139,7 +139,7 @@
     if (copy.reheat) html += '<div class="dish-meta">'+esc(copy.reheat)+'</div>';
     if (copy.spice) html += '<div class="dish-spice">Spice: '+esc(copy.spice)+'</div>';
     if (copy.note) html += '<div class="dish-note">'+esc(copy.note)+'</div>';
-    if (copy.bagCharge) html += '<div class="dish-meta">+ $1.50 per bag for seasoning and packaging</div>';
+    if (copy.bagCharge) html += '<div class="dish-meta">+ $2.00 per bag for seasoning and packaging</div>';
     html += priceRows(dish, primeDish);
     if (copy.contains) html += '<div class="contains">Contains: '+esc(copy.contains)+'</div>';
     return html + '</div>';

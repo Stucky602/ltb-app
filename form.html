@@ -196,7 +196,7 @@
             var qty = cart[key] || 0;
             html += '<div class="variant-row">' +
               '<div class="variant-info"><span class="variant-label">' + (dish.perLb ? 'Priced by weight &middot; order by the piece' : esc(fmtLabel(v.label))) + '</span> ' +
-              '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $1.50 bag' : money(v.price)) + '</span>' +
+              '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $2.00 bag' : money(v.price)) + '</span>' +
               (!dish.perLb && perServing(v.price, v.label) ? '<span class="variant-per-serving">' + perServing(v.price, v.label) + '</span>' : '') +
               (dish.perLb && dish.avgWeightLb ? '<span class="variant-per-serving">approx. ' + (+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/, '') + ' lb per piece</span>' : '') +
               '</div>' +
@@ -440,7 +440,7 @@
         if (isPerLb) {
           hasPerLb = true;
           var avgW = it.avgWeightLb || 0;
-          lineTotal = (it.price * avgW + 1.50) * it.qty;
+          lineTotal = (it.price * avgW + 2.00) * it.qty;
           variantLabel = it.qty + ' piece' + (it.qty === 1 ? '' : 's') + ' &middot; priced by weight';
         } else {
           lineTotal = it.price * it.qty;

@@ -3,7 +3,7 @@ import { X, Check, Camera, Trash2, Plus } from '../icons.jsx';
 import { fileToJpegBase64, extractReceipt, currency } from '../utils.js';
 import { normalizeIngredientName } from '../recipes.js';
 import { CATEGORY_ORDER, CATEGORY_LABELS_ING, INGREDIENT_SEED } from '../ingredients.js';
-import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport, derivePerUnit } from '../receiptMatch.js';
+import { buildReviewPlan, defaultAccept, normalizeUnit, convertPerUnit, parsePastedReceipt, learnFromAcceptance, learnFromIgnores, learnStoreFact, packShiftAlarm, reconcileReceipt, priceDriftReport, derivePerUnit, mergeExtractions } from '../receiptMatch.js';
 
 const TEAL_LIGHT = '#3fb8a0';
 const RED = '#e0828a';
@@ -26,13 +26,58 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
   const [localAliases, setLocalAliases] = useState(aliases || {}); // staged alias edits
   const [picker, setPicker] = useState(null);      // { rowIdx } -> disambiguation popup open
   const [addNew, setAddNew] = useState(null);      // { rowIdx, name, unit, category } -> inline create
+  const [photoMode, setPhotoMode] = useState(null); // A1 (Jul 14): null = not chosen yet; 1 | 2 photos
+  const [shot1, setShot1] = useState(null);         // two-photo mode: { b64, extracted } of the TOP half
 
   const seed = ingredients || [];
 
   // ---- capture ----
+  // A2/A3 (Jul 14): photoMode 2 captures the receipt as two PHYSICAL halves —
+  // top piece, then bottom piece — extracts each independently, and merges
+  // them into ONE receipt (mergeExtractions) before buildReviewPlan. Full-
+  // frame halves put the camera's whole sensor on ~20 lines instead of ~41,
+  // which is the real fix for the small-print misreads: prompt tuning cannot
+  // recover illegible pixels. photoMode 1 is the original flow, unchanged.
+  const finishExtraction = useCallback((extracted, twoPhoto) => {
+    const p = buildReviewPlan(extracted, seed, aliases || {});
+    if (debug) {
+      // Debug mode: raw extraction(s), the per-line derivation, the reconcile,
+      // and the resulting plan in one copyable block. Same scan, no commit.
+      const perLine = (Array.isArray(extracted) ? extracted : (extracted && extracted.lines) || []).map(ln => {
+        let d = null; try { d = derivePerUnit(ln); } catch (_) { d = { error: true }; }
+        return { name: ln.item_name, qty: ln.quantity, unit: ln.unit, unit_price_printed: ln.unit_price_printed, line_total: ln.line_total, weighed: ln.weighed, derived: d };
+      });
+      const dump = twoPhoto ? {
+        store: extracted && extracted.store,
+        photoMode: 2,
+        photo1RawExtracted: twoPhoto.photo1RawExtracted,
+        photo2RawExtracted: twoPhoto.photo2RawExtracted,
+        merged: extracted,
+        subtotalDecision: extracted && extracted.subtotalDecision,
+        reconcile: reconcileReceipt(extracted),
+        perLineDerivation: perLine,
+        plan: p,
+      } : {
+        store: extracted && extracted.store,
+        rawExtracted: extracted,
+        reconcile: reconcileReceipt(extracted), // A5: single-photo dump carries it too
+        perLineDerivation: perLine,
+        plan: p,
+      };
+      setDebugText(JSON.stringify(dump, null, 2));
+      setStage('debug');
+      return;
+    }
+    setPlan(p);
+    setRows(planToRows(p));
+    setRecon(reconcileReceipt(extracted)); // verify line sum vs printed subtotal (catches misreads)
+    setStage('review');
+  }, [seed, aliases, debug]);
+
   const onPick = useCallback(async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    e.target.value = ''; // the same input fires twice in two-photo mode
     setErr(''); setBusy(true);
     try {
       // Receipts are long and dense (40+ lines). Downscaling the whole receipt
@@ -44,38 +89,30 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       setImgB64(b64);
       setStage('extracting');
       const extracted = await extractReceipt(b64);
-      const p = buildReviewPlan(extracted, seed, aliases || {});
-      if (debug) {
-        // Debug mode: capture the raw AI extraction, the per-line derivation,
-        // and the resulting plan into one copyable block. Same scan, no commit.
-        const perLine = (Array.isArray(extracted) ? extracted : (extracted && extracted.lines) || []).map(ln => {
-          let d = null; try { d = derivePerUnit(ln); } catch (_) { d = { error: true }; }
-          return { name: ln.item_name, qty: ln.quantity, unit: ln.unit, unit_price_printed: ln.unit_price_printed, line_total: ln.line_total, weighed: ln.weighed, derived: d };
-        });
-        const dump = {
-          store: extracted && extracted.store,
-          rawExtracted: extracted,
-          perLineDerivation: perLine,
-          plan: p,
-        };
-        setDebugText(JSON.stringify(dump, null, 2));
-        setStage('debug');
+      if (photoMode === 2 && !shot1) {
+        // Top half read — back to capture for the bottom half.
+        setShot1({ b64, extracted });
+        setImgB64(null);
+        setStage('capture');
         return;
       }
-      setPlan(p);
-      setRows(planToRows(p));
-      setRecon(reconcileReceipt(extracted)); // verify line sum vs printed subtotal (catches misreads)
-      setStage('review');
+      if (photoMode === 2 && shot1) {
+        const merged = mergeExtractions(shot1.extracted, extracted);
+        finishExtraction(merged, { photo1RawExtracted: shot1.extracted, photo2RawExtracted: extracted });
+        return;
+      }
+      finishExtraction(extracted, null);
     } catch (e2) {
+      const which = photoMode === 2 ? (shot1 ? 'Photo 2 (bottom half): ' : 'Photo 1 (top half): ') : '';
       const msg = e2 && e2.message === 'OUT_OF_CREDITS'
         ? 'The AI service is out of credits. Add credits and try again.'
-        : `Could not read that receipt. ${e2 && e2.message ? e2.message : ''}`;
+        : `${which}Could not read that receipt. ${e2 && e2.message ? e2.message : ''}`;
       setErr(msg);
-      setStage('capture');
+      setStage('capture'); // two-photo: the top half's read is kept; retake only the failed photo
     } finally {
       setBusy(false);
     }
-  }, [seed, aliases]);
+  }, [seed, aliases, photoMode, shot1, finishExtraction]);
 
   // ---- paste path (v3.1): deterministic parser, ZERO model calls ----
   const [pasteText, setPasteText] = useState('');
@@ -266,12 +303,40 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
 
         {stage === 'capture' && (
           <div>
-            <p style={S.help}>Photograph a store receipt or pick one from your camera roll. Costs only update for items on the receipt, and nothing changes until you confirm each one.</p>
-            <label style={S.captureBtn}>
-              <Camera size={18} />
-              {busy ? 'Working…' : 'Take photo or choose'}
-              <input type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
-            </label>
+            {photoMode == null && (
+              <div style={{ marginBottom: 8 }}>
+                <p style={S.help}>How many photos?</p>
+                <button style={S.captureBtn} onClick={() => setPhotoMode(1)}>One photo</button>
+                <button style={{ ...S.captureBtn, marginTop: 8 }} onClick={() => setPhotoMode(2)}>Two photos (split receipt)</button>
+                <p style={{ ...S.help, marginTop: 8 }}>Pick Two if the receipt is long. Cut it in half and photograph each piece.</p>
+              </div>
+            )}
+            {photoMode != null && (
+              <p style={S.help}>
+                {photoMode === 2
+                  ? (shot1 ? 'Photo 2 of 2: the bottom half. ' : 'Photo 1 of 2: the top half. ')
+                  : 'Photograph a store receipt or pick one from your camera roll. '}
+                Costs only update for items on the receipt, and nothing changes until you confirm each one.
+              </p>
+            )}
+            {photoMode === 2 && shot1 && (
+              <img src={`data:image/jpeg;base64,${shot1.b64}`} alt="top half" style={{ ...S.thumb, marginBottom: 8 }} />
+            )}
+            {photoMode != null && (
+              <label style={S.captureBtn}>
+                <Camera size={18} />
+                {busy ? 'Working…' : (photoMode === 2 ? (shot1 ? 'Take photo 2 (bottom half)' : 'Take photo 1 (top half)') : 'Take photo or choose')}
+                <input type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
+              </label>
+            )}
+            {photoMode != null && !busy && (
+              <button
+                style={{ background: 'none', border: 'none', color: '#8fa8a0', fontSize: 12, marginTop: 6, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
+                onClick={() => { setPhotoMode(null); setShot1(null); setErr(''); }}
+              >
+                Change photo count
+              </button>
+            )}
             {!showPaste && (
               <button style={{ ...S.captureBtn, background: 'transparent', border: '1px dashed #3a4040', marginTop: 8 }} onClick={() => setShowPaste(true)}>
                 Or paste receipt text (no AI needed)
@@ -296,8 +361,11 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
 
         {stage === 'extracting' && (
           <div style={S.center}>
+            {photoMode === 2 && shot1 && <img src={`data:image/jpeg;base64,${shot1.b64}`} alt="top half" style={S.thumb} />}
             {imgB64 && <img src={`data:image/jpeg;base64,${imgB64}`} alt="receipt" style={S.thumb} />}
-            <div style={S.spinner}>Reading the receipt…</div>
+            <div style={S.spinner}>
+              {photoMode === 2 ? (shot1 ? 'Reading the bottom half…' : 'Reading the top half…') : 'Reading the receipt…'}
+            </div>
           </div>
         )}
 

@@ -479,6 +479,34 @@
       document.body.style.overflow = "";
     }
 
+    // ── Idempotency (v9.23) ────────────────────────────────────────────────
+    // The button disables on submit, which only stops a FAST double-tap. The
+    // case that actually duplicates an order is the slow one: the request is
+    // in flight, fetch times out, .catch re-enables the button, the customer
+    // taps again — and the first request landed after all. Two orders, one
+    // customer, both real as far as the books are concerned.
+    //
+    // So the key must survive the retry. Generated ONCE per order attempt and
+    // reused for every retry of that same order; the worker uses it as the KV
+    // key, so a retry overwrites itself instead of queueing twice. Cleared
+    // only on success, when the next order legitimately becomes a new order.
+    //
+    // Must match the worker's /^[A-Za-z0-9_-]{8,64}$/ exactly. A key that
+    // fails that regex is silently ignored and the worker generates its own
+    // id — which would look like this worked while deduping nothing.
+    // ES5 only, and no crypto.randomUUID: this page loads on whatever phone
+    // a friend happens to own, and randomUUID needs a secure context.
+    var pendingClientId = null;
+    function orderAttemptId() {
+      if (pendingClientId) return pendingClientId;
+      var s = "";
+      while (s.length < 24) {
+        s += Math.random().toString(36).slice(2);
+      }
+      pendingClientId = ("c" + Date.now().toString(36) + s).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+      return pendingClientId;
+    }
+
     function submitOrder() {
       var name = (document.getElementById("custName").value || "").trim();
       var address = (document.getElementById("custAddress").value || "").trim();
@@ -502,11 +530,14 @@
       fetch(WORKER + "/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer: name, address: address, phone: phone, items: items, notes: notes }),
+        body: JSON.stringify({ customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId() }),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res.ok) {
+            // Success: this order is done. The next one is a genuinely new
+            // order and must get its own key, or it would overwrite this one.
+            pendingClientId = null;
             document.getElementById("content").innerHTML =
               '<div class="msg success">Thanks, ' + esc(name) + '! Your order is in.<br><br>' +
               'You will get a confirmation directly once it is reviewed. ' +

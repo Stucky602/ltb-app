@@ -250,7 +250,15 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
       if ((r.status === 'matched' || r.status === 'needsPrice') && r.accept) {
         const pu = effectivePerUnit(r);
         if (pu != null && r.ingredientId) {
-          updates.push({ id: r.ingredientId, cost: round(pu) });
+          // raw + basis ride along for the audit trail: they let a wrong cost
+          // be traced back to the exact receipt line and the exact derivation
+          // rule that produced it. Ignored by the cost math itself.
+          updates.push({
+            id: r.ingredientId,
+            cost: round(pu),
+            raw: (r.line && r.line.item_name) || null,
+            basis: r.basis || null,
+          });
           if (r._createIngredient) newIngredients.push(r._createIngredient);
         }
       }
@@ -263,10 +271,10 @@ export function ReceiptScan({ ingredients, aliases, onSaveAliases, onCommit, onC
     updates.forEach(u => {
       INGREDIENT_SEED.forEach(seed => {
         // u.id is the source -> push to anything linking to it
-        if (seed.priceLink === u.id && !updatedIds.has(seed.id)) linkExtras.push({ id: seed.id, cost: u.cost });
+        if (seed.priceLink === u.id && !updatedIds.has(seed.id)) linkExtras.push({ id: seed.id, cost: u.cost, raw: u.raw, basis: 'price_link' });
         // u.id links to a source -> also set the source to match
         const self = INGREDIENT_SEED.find(s => s.id === u.id);
-        if (self && self.priceLink === seed.id && !updatedIds.has(seed.id)) linkExtras.push({ id: seed.id, cost: u.cost });
+        if (self && self.priceLink === seed.id && !updatedIds.has(seed.id)) linkExtras.push({ id: seed.id, cost: u.cost, raw: u.raw, basis: 'price_link' });
       });
     });
     linkExtras.forEach(e => { if (!updatedIds.has(e.id)) { updates.push(e); updatedIds.add(e.id); } });

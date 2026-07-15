@@ -22,9 +22,26 @@
  *     also serves the OLD app correctly, and the old worker serves the new
  *     app, so the order is about hygiene, not compatibility.
  *
+ * v9 (backup ring):
+ *   • RESTORED. The app has pushed snapshots to POST /backup every 15 minutes
+ *     since July 6 2026. This worker never had the route, so every push 404'd
+ *     into pushBackup()'s catch block for nine days without one visible symptom.
+ *     tests/worker_sim.mjs scenario 6-9 had specified this the whole time and
+ *     crashed on it; the crash was misread as a sandbox artifact. If you are
+ *     about to paste over this file: THESE ROUTES ARE LOAD-BEARING. Diff first.
+ *   • Ring is keyed 'backup:<ISO timestamp>', so KV's lexicographic key order
+ *     is chronological order for free. Metadata carries size + order count so
+ *     /backup/list never reads a payload.
+ *   • Pruning is AGE-SHAPED, not newest-N. See pruneBackups().
+ *
  * ACTIVE endpoints:
  *   GET  /config              — returns the current published week config
  *   POST /config              — app publishes a new week config (requires PUBLISH_TOKEN)
+ *   POST /backup              — app pushes a data snapshot into the ring (requires PUBLISH_TOKEN)
+ *   GET  /backup/list         — app lists the ring: timestamp + size + order count (token)
+ *   GET  /backup?age=         — app restores the snapshot NEAREST an age target (token)
+ *                               age ∈ recent | 1h | 1d | 3d — must match
+ *                               resolveRestoreOptions() in src/App.jsx
  *   POST /submit              — customer form submits an order; queued as pending + push sent
  *   GET  /pending             — app fetches all queued submissions
  *   POST /pending/clear       — app marks submissions as handled (removes by id)
@@ -58,6 +75,16 @@ const KV_PENDING      = 'pending-orders';    // LEGACY array key — read+cleare
 const PENDING_PREFIX  = 'pending:';          // one key per order: 'pending:<id>'
 const PENDING_CAP     = 200;                 // max queued submissions (spam bound on the open endpoint)
 const KV_PUSH_SUB     = 'push-subscription'; // stores the app's push subscription object
+
+// ── Backup ring ──────────────────────────────────────────────────────────────
+const BACKUP_PREFIX    = 'backup:';           // one key per snapshot: 'backup:<ISO ts>'
+const BACKUP_CAP       = 12;                  // max snapshots retained
+const BACKUP_MAX_BYTES = 5 * 1024 * 1024;     // reject absurd payloads BEFORE any write
+// The restore targets the app offers (resolveRestoreOptions() in src/App.jsx).
+// The worker returns the snapshot NEAREST the target and reports its REAL
+// timestamp, so "about 1 day ago" never lies about what actually exists.
+// Adding a target here without adding it there (or vice versa) breaks restore.
+const BACKUP_AGES = { recent: 0, '1h': 3600e3, '1d': 24 * 3600e3, '3d': 72 * 3600e3 };
 
 // ── Legacy sheet (inactive) ───────────────────────────────────────────────────
 const LEGACY_SHEET_ENABLED = false;
@@ -379,6 +406,66 @@ export default {
         return json({ ok: true }, origin);
       }
 
+      // ── POST /backup — push a snapshot into the ring ─────────────────────────
+      // Validate BEFORE writing. A bad push must never touch the ring; that is
+      // the entire point of keeping one. The app fires this on open, every 15
+      // minutes, and on visibilitychange→hidden, hash-deduped, so this endpoint
+      // is hot and its failures are SILENT on the client by design.
+      if (request.method === 'POST' && url.pathname === '/backup') {
+        const body = await request.json().catch(() => ({}));
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const snap = body.snapshot;
+        if (!snap || typeof snap !== 'object') return json({ error: 'Missing snapshot' }, origin, 400);
+        if (!snap.version) return json({ error: 'Snapshot has no version' }, origin, 400);
+        if (!Array.isArray(snap.orders)) return json({ error: 'Snapshot has no orders array' }, origin, 400);
+
+        const value = JSON.stringify(snap);
+        if (value.length > BACKUP_MAX_BYTES) {
+          return json({ error: 'Snapshot too large' }, origin, 413);
+        }
+
+        const timestamp = new Date().toISOString();
+        await env.LTB_KV.put(BACKUP_PREFIX + timestamp, value, {
+          metadata: { size: value.length, orders: snap.orders.length },
+        });
+        const kept = await pruneBackups(env);
+        return json({ ok: true, timestamp, kept }, origin);
+      }
+
+      // ── GET /backup/list — the ring's index ──────────────────────────────────
+      // Metadata only. Never reads a payload, so the modal opens instantly.
+      if (request.method === 'GET' && url.pathname === '/backup/list') {
+        const tok = request.headers.get('X-LTB-Token') || url.searchParams.get('token') || '';
+        if (tok !== env.PUBLISH_TOKEN) return json({ error: 'Unauthorized' }, origin, 401);
+        const ring = await readBackupRing(env);
+        ring.sort((a, b) => b.timestamp.localeCompare(a.timestamp)); // newest first
+        return json({ ok: true, backups: ring }, origin);
+      }
+
+      // ── GET /backup?age=recent|1h|1d|3d — honest-nearest restore ─────────────
+      if (request.method === 'GET' && url.pathname === '/backup') {
+        const tok = request.headers.get('X-LTB-Token') || url.searchParams.get('token') || '';
+        if (tok !== env.PUBLISH_TOKEN) return json({ error: 'Unauthorized' }, origin, 401);
+        const age = url.searchParams.get('age') || 'recent';
+        if (!Object.prototype.hasOwnProperty.call(BACKUP_AGES, age)) {
+          return json({ error: 'Unknown age: ' + age }, origin, 400);
+        }
+        const ring = await readBackupRing(env);
+        if (ring.length === 0) return json({ error: 'No backups stored yet.' }, origin, 404);
+        const pick = nearestBackup(ring, BACKUP_AGES[age]);
+        const raw = pick ? await env.LTB_KV.get(BACKUP_PREFIX + pick.timestamp) : null;
+        if (!raw) return json({ error: 'That backup is no longer in the ring.' }, origin, 404);
+        let snapshot;
+        try {
+          snapshot = JSON.parse(raw);
+        } catch {
+          return json({ error: 'That backup is unreadable. Nothing was changed.' }, origin, 500);
+        }
+        return json({ ok: true, timestamp: pick.timestamp, snapshot }, origin);
+      }
+
       // ── AI proxy endpoints ────────────────────────────────────────────────────
       if (request.method === 'POST' && (
         url.pathname === '/parse-order' ||
@@ -433,6 +520,72 @@ async function readAllPending(env) {
   const byId = new Map();
   for (const s of entries) { if (s && s.id && !byId.has(s.id)) byId.set(s.id, s); }
   return [...byId.values()].sort((a, b) => String(a.submittedAt || '').localeCompare(String(b.submittedAt || '')));
+}
+
+// ── Backup ring: read the INDEX, never the payloads ──────────────────────────
+// One list() call returns every timestamp with its size and order count from
+// KV metadata. Reading the ring properly would be 12 gets of up to 5MB each.
+async function readBackupRing(env) {
+  const out = [];
+  let cursor = undefined;
+  do {
+    const page = await env.LTB_KV.list({ prefix: BACKUP_PREFIX, limit: 1000, cursor });
+    for (const k of page.keys) {
+      const md = k.metadata || {};
+      out.push({
+        timestamp: k.name.slice(BACKUP_PREFIX.length),
+        size: Number(md.size) || 0,
+        orders: Number(md.orders) || 0,
+      });
+    }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+  return out;
+}
+
+// Honest nearest: the snapshot closest to `targetMs` ago, whatever that is.
+// The caller reports the REAL timestamp back to the app, so a "1 day" option
+// that is actually 26 hours old says 26 hours. Never invent the age.
+function nearestBackup(ring, targetMs) {
+  const now = Date.now();
+  let best = null, bestDiff = Infinity;
+  for (const b of ring) {
+    const t = Date.parse(b.timestamp);
+    if (Number.isNaN(t)) continue;
+    const diff = Math.abs((now - t) - targetMs);
+    if (diff < bestDiff) { bestDiff = diff; best = b; }
+  }
+  return best;
+}
+
+// Bound the ring WITHOUT destroying the restore options the app offers.
+// A naive "keep the newest 12" looks correct and is a trap: on a busy day the
+// app pushes 12 snapshots in three hours, and the ~1d and ~3d snapshots get
+// evicted. Kevin's three restore choices silently collapse into three flavors
+// of "twenty minutes ago" — exactly when he needs to go further back. So:
+// protect the nearest snapshot to EVERY age target first, then fill whatever
+// slots remain with the newest.
+async function pruneBackups(env) {
+  const ring = await readBackupRing(env);
+  if (ring.length <= BACKUP_CAP) return ring.length;
+
+  const keep = new Set();
+  for (const targetMs of Object.values(BACKUP_AGES)) {
+    const pick = nearestBackup(ring, targetMs);
+    if (pick) keep.add(pick.timestamp);
+  }
+
+  const newestFirst = [...ring].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  for (const b of newestFirst) {
+    if (keep.size >= BACKUP_CAP) break;
+    keep.add(b.timestamp);
+  }
+
+  await Promise.all(
+    ring.filter(b => !keep.has(b.timestamp))
+      .map(b => env.LTB_KV.delete(BACKUP_PREFIX + b.timestamp)),
+  );
+  return keep.size;
 }
 
 // ── Push notification sender ──────────────────────────────────────────────────

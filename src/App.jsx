@@ -18,7 +18,7 @@ import {
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
-  BACKUP_STATE_KEY, BACKUP_STALE_MS,
+  BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 const COST_HISTORY_KEY = 'ltb_cost_history_v1';
@@ -38,6 +38,10 @@ import {
   mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
 } from './utils.js';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
+import {
+  SOURCES, appendAudit, auditEntry, diffIngredientCosts,
+  menuFingerprint, diffMenuFingerprint, diffAliases,
+} from './auditLog.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
 import { ImportModal } from './components/ImportModal.jsx';
@@ -135,6 +139,7 @@ export default function LTBOrderTracker() {
   const [ingredientsDb, setIngredientsDb] = useState([]);
   const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
   const [receiptAliases, setReceiptAliases] = useState({}); // normReceiptStr -> { ingredientId?, action?, pricing? }
+  const [auditLog, setAuditLog] = useState([]);
   const [showReceiptScan, setShowReceiptScan] = useState(false);
   const [debugScan, setDebugScan] = useState(false);
   const [showPendingIdx, setShowPendingIdx] = useState(null);
@@ -261,6 +266,25 @@ export default function LTBOrderTracker() {
       if (mounted && savedAliases && typeof savedAliases === 'object') {
         setReceiptAliases(savedAliases);
       }
+
+      // ── Audit trail + file-deploy detection (v9.23) ────────────────────
+      // Dish prices and cost anchors live in dishes.js, so they change by
+      // DEPLOY. Nothing in the running app can witness that edit happening —
+      // by the time this code runs, the new number simply IS the number.
+      // Diffing a stored fingerprint of the catalog against the one now in
+      // the bundle is the only way the app can notice a deploy moved money.
+      // This is the check that would have caught the $0 filet the morning it
+      // shipped, instead of weeks later.
+      const savedAudit = await loadJSON(AUDIT_LOG_KEY, []);
+      const prevFp = await loadJSON(MENU_FINGERPRINT_KEY, null);
+      const nextFp = menuFingerprint(FULL_MENU);
+      // First run has no prior fingerprint: establish the baseline silently
+      // rather than logging the entire catalog as if it just changed.
+      const deployEntries = diffMenuFingerprint(prevFp, nextFp);
+      const startingLog = appendAudit(Array.isArray(savedAudit) ? savedAudit : [], deployEntries);
+      if (mounted) setAuditLog(startingLog);
+      if (deployEntries.length) saveJSON(AUDIT_LOG_KEY, startingLog);
+      if (!prevFp || deployEntries.length) saveJSON(MENU_FINGERPRINT_KEY, nextFp);
 
       setLoading(false);
       cleanupPhotos(migrated);
@@ -543,8 +567,24 @@ export default function LTBOrderTracker() {
       const txt = await res.text();
       throw new Error('Publish failed (' + res.status + '): ' + txt.slice(0, 120));
     }
+    // Logged only on SUCCESS — a failed publish changed nothing customer-facing
+    // and shouldn't leave a trail suggesting it did. Records WHEN a price set
+    // went live, which is the other half of "why did a customer see that
+    // price?" — the file-deploy entries say what the number became, this says
+    // when it reached the form. Dish names only, no customer data.
+    recordAudit([auditEntry({
+      target: 'week',
+      field: 'published',
+      from: null,
+      to: dishes.length + spotlight.length,
+      source: SOURCES.PUBLISH,
+      meta: {
+        dishes: allDinners.map(d => d.name).slice(0, 40),
+        ...(weekLabel ? { weekLabel: String(weekLabel).slice(0, 80) } : {}),
+      },
+    })]);
     return res.json();
-  }, []);
+  }, [recordAudit]);
 
   // ── Auto-fill regular contact info from incoming order ─────────────────────
   // Called after linking an order to a regular. If the regular has no address
@@ -745,9 +785,24 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
+  // ── Audit trail (v9.23) ───────────────────────────────────────────────────
+  // ONE writer, so every money-affecting path bounds and persists identically.
+  // Append-only: a correction is a new entry, never an edit to an old one.
+  const recordAudit = useCallback((entries) => {
+    if (!entries || !entries.length) return;
+    setAuditLog(prev => {
+      const next = appendAudit(prev, entries);
+      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
   const updateIngredients = useCallback((next) => {
     // Diff against current state to log only changed costs into history.
     setIngredientsDb(prev => {
+      // Same prev/next pair the cost-history diff below already uses — the
+      // audit trail is a second reader of a diff this function already had.
+      recordAudit(diffIngredientCosts(prev, next, SOURCES.MANUAL));
       const prevById = {};
       (prev || []).forEach(i => { prevById[i.id] = i.current; });
       const t = Date.now();
@@ -771,7 +826,7 @@ export default function LTBOrderTracker() {
       return next;
     });
     saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
-  }, []);
+  }, [recordAudit]);
 
   // Phase 3 — receipt commit. Twin of updateIngredients, but stamps cost-history
   // points with the receipt's PURCHASE date (not the scan moment). `updates` is
@@ -788,11 +843,24 @@ export default function LTBOrderTracker() {
     })();
     const byId = {};
     (updates || []).forEach(u => { byId[u.id] = u.cost; });
+    // Per-ingredient provenance for the audit trail: the receipt line's raw
+    // text and the derivation basis that produced this number. This is what
+    // makes "why is this cost wrong?" answerable — it traces a bad cost to
+    // the exact scanned line and the exact rule that read it.
+    const metaById = {};
+    (updates || []).forEach(u => {
+      const m = {};
+      if (u.raw) m.raw = String(u.raw).slice(0, 80);
+      if (u.basis) m.basis = u.basis;
+      if (purchaseDate) m.receiptDate = purchaseDate;
+      if (Object.keys(m).length) metaById[u.id] = m;
+    });
     setIngredientsDb(prev => {
       // first, append any inline-created ingredients (so cost updates resolve)
       const created = (newIngredients || []).filter(ni => !(prev || []).some(i => i.id === ni.id));
       const base = [...(prev || []), ...created];
       const next = base.map(i => (byId[i.id] != null ? { ...i, current: byId[i.id] } : i));
+      recordAudit(diffIngredientCosts(base, next, SOURCES.RECEIPT, metaById));
       const prevById = {};
       base.forEach(i => { prevById[i.id] = i.current; });
       const t = stamp;
@@ -820,13 +888,20 @@ export default function LTBOrderTracker() {
       saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
       return next;
     });
-  }, []);
+  }, [recordAudit]);
 
   // Persist learned receipt aliases (merge + save).
   const saveReceiptAliases = useCallback((nextAliases) => {
-    setReceiptAliases(nextAliases);
+    setReceiptAliases(prev => {
+      // Only REMAPS are logged. The alias map also churns sighting counters
+      // and store facts on every scan, and none of that moves money — logging
+      // it would bury the one thing that does: which ingredient a receipt
+      // string resolves to.
+      recordAudit(diffAliases(prev, nextAliases));
+      return nextAliases;
+    });
     saveJSON(RECEIPT_ALIASES_KEY, nextAliases).then(res => setError(saveError(res)));
-  }, []);
+  }, [recordAudit]);
 
   const updateOrder = useCallback((id, patch) => {
     setOrders(prev => {
@@ -1037,7 +1112,8 @@ export default function LTBOrderTracker() {
     ingredientsDb,
     costHistory,
     receiptAliases,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases]);
+    auditLog,
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1204,6 +1280,19 @@ export default function LTBOrderTracker() {
     if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
       setReceiptAliases(payload.receiptAliases);
       await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
+    }
+    // The trail rides the snapshot, so a restore rewinds it to whatever that
+    // snapshot held. That's the accepted cost of not giving it its own
+    // storage. Stamp the restore itself onto the RESTORED log so the rewind
+    // is visible rather than looking like history quietly changed.
+    if (Array.isArray(payload.auditLog)) {
+      const restored = appendAudit(payload.auditLog, [auditEntry({
+        target: 'app', field: 'restored', from: null,
+        to: (payload.orders || []).length, source: SOURCES.MANUAL,
+        meta: { from: payload.exportedAt || 'unknown snapshot' },
+      })]);
+      setAuditLog(restored);
+      await saveJSON(AUDIT_LOG_KEY, restored);
     }
     setExportMsg(`Imported ${(payload.orders || []).length} orders successfully.`);
     setTimeout(() => setExportMsg(null), 4000);
@@ -1457,7 +1546,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.22-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.23-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (
@@ -1865,7 +1954,7 @@ export default function LTBOrderTracker() {
 
         {view === 'money' && (
           <>
-            <MoneyTab orders={orders || []} onUpdate={updateOrder} />
+            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} />
             <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} />
           </>
         )}

@@ -21,6 +21,12 @@ export const BACKUP_STATE_KEY = 'ltb-backup-state';
 // 15-minute tick retries. Three missed cycles is a real problem. Warn at the
 // gap, not the blip — a warning that cries wolf gets learned into furniture.
 export const BACKUP_STALE_MS = 45 * 60 * 1000;
+// Append-only trail of money-affecting changes. Rides the backup snapshot.
+export const AUDIT_LOG_KEY = 'ltb-audit-log';
+// Last-seen catalog prices/costs. Dish prices live in dishes.js and change by
+// DEPLOY, so nothing in the running app can witness the edit. Diffing this
+// fingerprint on boot is the only way the app notices a deploy moved a number.
+export const MENU_FINGERPRINT_KEY = 'ltb-menu-fingerprint';
 
 export const WORKER_BASE = 'https://ltb-proxy.strickland-kevinj.workers.dev';
 export const PENDING_POLL_URL = WORKER_BASE + '/pending';

@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
 
-const PATH = new URL('../src/main-menu.html', import.meta.url).pathname;
+const PATH = new URL('../main-menu.html', import.meta.url).pathname;
 let html = readFileSync(PATH, 'utf8');
 const write = process.argv.includes('--write');
 

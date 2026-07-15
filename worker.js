@@ -1,0 +1,628 @@
+/**
+ * LTB Cloudflare Worker v4 — Custom Form Backend + AI Proxy + Push Notifications
+ *
+ * v4 (sync hardening):
+ *   • Pending orders now stored ONE KV KEY PER ORDER ('pending:<id>') instead
+ *     of a single array key. The old model did read-modify-write on one key:
+ *     two overlapping submits (or a submit racing Kevin's "clear"), plus KV's
+ *     eventual consistency, could silently DROP a customer order. Per-key
+ *     writes cannot clobber each other; a clear deletes only the ids it was
+ *     told to, so an order arriving mid-clear survives to the next poll.
+ *   • MIGRATION: reads merge the legacy 'pending-orders' array (if present)
+ *     with per-key entries; /pending/clear removes from both. Nothing writes
+ *     the legacy key anymore, so it drains on the first clear and dies.
+ *   • Idempotent submits: the form MAY send a clientId (8-64 url-safe chars);
+ *     it becomes the storage key, so a double-tap / retry overwrites itself
+ *     instead of duplicating. Absent (today's form), the worker generates an
+ *     id — exactly the old behavior, zero regression for cached forms.
+ *   • Queue cap (200 pending) so the open /submit endpoint can't be spammed
+ *     into an unbounded queue. Real orders from friends never get near it.
+ *   • API shapes unchanged: GET /pending → {pending:[...]}, clear → {ok,
+ *     remaining}. Deploy order: app first, worker second — but this worker
+ *     also serves the OLD app correctly, and the old worker serves the new
+ *     app, so the order is about hygiene, not compatibility.
+ *
+ * ACTIVE endpoints:
+ *   GET  /config              — returns the current published week config
+ *   POST /config              — app publishes a new week config (requires PUBLISH_TOKEN)
+ *   POST /submit              — customer form submits an order; queued as pending + push sent
+ *   GET  /pending             — app fetches all queued submissions
+ *   POST /pending/clear       — app marks submissions as handled (removes by id)
+ *   POST /push/subscribe      — app registers its push subscription (requires PUBLISH_TOKEN)
+ *   DELETE /push/subscribe    — app removes its push subscription (requires PUBLISH_TOKEN)
+ *   POST /parse-order         — parses a free-text customer order via Claude
+ *   POST /parse-amendment     — parses an amendment to an existing order via Claude
+ *   POST /parse-notes         — parses free-text notes on an order via Claude
+ *   POST /parse-receipt       — extracts line items from a store receipt photo via Claude
+ *
+ * Requires a KV namespace bound as LTB_KV.
+ *
+ * Secrets (Cloudflare Worker Settings → Variables & Secrets):
+ *   ANTHROPIC_API_KEY — your Anthropic API key (sk-ant-...)
+ *   PUBLISH_TOKEN     — private token the app sends to authenticate (any random string)
+ *   VAPID_PUBLIC_KEY  — VAPID public key (generate via steps in PUSH_SETUP.md)
+ *   VAPID_PRIVATE_KEY — VAPID private key
+ *   VAPID_SUBJECT     — mailto: or https: URL identifying you, e.g. mailto:you@example.com
+ */
+
+const ALLOWED_ORIGINS = [
+  'https://ltb-app.strickland-kevinj.workers.dev',
+];
+
+const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
+const CLAUDE_MODEL  = 'claude-sonnet-4-6';
+
+// ── KV keys ──────────────────────────────────────────────────────────────────
+const KV_CONFIG       = 'week-config';
+const KV_PENDING      = 'pending-orders';    // LEGACY array key — read+cleared only, never written (drains, then dead)
+const PENDING_PREFIX  = 'pending:';          // one key per order: 'pending:<id>'
+const PENDING_CAP     = 200;                 // max queued submissions (spam bound on the open endpoint)
+const KV_PUSH_SUB     = 'push-subscription'; // stores the app's push subscription object
+
+// ── Legacy sheet (inactive) ───────────────────────────────────────────────────
+const LEGACY_SHEET_ENABLED = false;
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRYn0X7aAZ1xjr3pQpt0aR9lenIQDnxBtbqka7GA0wlYPZgfkZUZ4G_uYCnufRLxn29hEGi_CQdJf_n/pub?gid=1847554397&single=true&output=csv';
+
+export default {
+  async fetch(request, env, ctx) {
+    const origin = request.headers.get('Origin') || '';
+    const url = new URL(request.url);
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    try {
+      // ── GET /config ──────────────────────────────────────────────────────────
+      if (request.method === 'GET' && url.pathname === '/config') {
+        const cfg = await env.LTB_KV.get(KV_CONFIG);
+        return json(cfg ? JSON.parse(cfg) : defaultConfig(), origin);
+      }
+
+      // ── POST /config ─────────────────────────────────────────────────────────
+      if (request.method === 'POST' && url.pathname === '/config') {
+        const body = await request.json();
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const config = {
+          dishes: body.dishes || [],
+          spotlight: body.spotlight || [],
+          fruit: body.fruit || [],
+          desserts: body.desserts || [],
+          addons: body.addons || [],
+          bag: body.bag || [],
+          sauces: body.sauces || [],
+          menuPdfUrl: body.menuPdfUrl || '',
+          weekLabel: body.weekLabel || '',
+          updatedAt: new Date().toISOString(),
+        };
+        await env.LTB_KV.put(KV_CONFIG, JSON.stringify(config));
+        return json({ ok: true, config }, origin);
+      }
+
+      // ── POST /submit — queue order AND fire push notification ────────────────
+      // One PUT to the order's OWN key. No read-modify-write, so a concurrent
+      // submit or clear can never make this order disappear.
+      if (request.method === 'POST' && url.pathname === '/submit') {
+        const body = await request.json();
+        // Optional idempotency key from the form: same clientId → same KV key
+        // → a retry/double-tap overwrites itself instead of duplicating.
+        const clientId = (typeof body.clientId === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(body.clientId))
+          ? body.clientId : null;
+        const submission = {
+          id: clientId || ('sub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8)),
+          customer: String(body.customer || '').slice(0, 120),
+          address: String(body.address || '').slice(0, 300),
+          phone: String(body.phone || '').slice(0, 40),
+          items: Array.isArray(body.items) ? body.items.slice(0, 50) : [],
+          notes: String(body.notes || '').slice(0, 1000),
+          submittedAt: new Date().toISOString(),
+        };
+        if (!submission.customer || submission.items.length === 0) {
+          return json({ error: 'Missing name or items' }, origin, 400);
+        }
+
+        // Spam bound: refuse when the queue is already absurd for a
+        // friends-only shop. (list() is eventually consistent, so this is a
+        // soft cap — that's fine, it only needs to bound abuse, not count.)
+        const peek = await env.LTB_KV.list({ prefix: PENDING_PREFIX, limit: PENDING_CAP });
+        if (peek.keys.length >= PENDING_CAP) {
+          return json({ error: 'Order queue is full — please text Kevin directly.' }, origin, 429);
+        }
+
+        await env.LTB_KV.put(PENDING_PREFIX + submission.id, JSON.stringify(submission));
+
+        // Fire push notification (non-blocking — don't let push failure break submit)
+        ctx.waitUntil(sendPushNotification(env, submission));
+
+        return json({ ok: true, id: submission.id }, origin);
+      }
+
+      // ── GET /pending ─────────────────────────────────────────────────────────
+      // Contains customer PII (names, addresses, phones) — requires the token.
+      // ── Kitchen companion pages (v6) ────────────────────────────────────
+      // App pushes a rendered per-order HTML page; the customer opens a plain
+      // unguessable link. Write requires the token; read is public by id.
+      if (request.method === 'POST' && url.pathname === '/companion') {
+        const body = await request.json().catch(() => ({}));
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        if (!body.id || typeof body.html !== 'string' || body.html.length > 200000) {
+          return json({ error: 'bad companion payload' }, origin, 400);
+        }
+        await env.LTB_KV.put('companion:' + body.id, body.html, { expirationTtl: 60 * 60 * 24 * 30 }); // 30 days
+        if (typeof body.context === 'string' && body.context.length <= 8000) {
+          await env.LTB_KV.put('companionctx:' + body.id, body.context, { expirationTtl: 60 * 60 * 24 * 30 });
+        }
+        return json({ ok: true, id: body.id }, origin);
+      }
+      // ── Kitchen companion Q&A (v7) ──────────────────────────────────────
+      // POST /ask { id, question }. The 5-question cap is enforced HERE, in
+      // KV, because the page is a public URL and the client counter is
+      // decoration — this is the wall between the internet and Kevin's API
+      // budget. Answers are grounded ONLY in the stored order context and
+      // hard-scoped by the system prompt: never guess allergens/ingredients,
+      // defer anything uncertain to "text Kevin".
+      if (request.method === 'POST' && url.pathname === '/ask') {
+        const body = await request.json().catch(() => ({}));
+        const id = typeof body.id === 'string' ? body.id.slice(0, 80) : '';
+        const question = typeof body.question === 'string' ? body.question.trim().slice(0, 300) : '';
+        if (!id || !question) return json({ error: 'bad request' }, origin, 400);
+        // Page must exist (unguessable id doubles as the auth).
+        const page = await env.LTB_KV.get('companion:' + id);
+        if (!page) return json({ error: 'unknown page' }, origin, 404);
+        // THE CAP: 5 per page, counted server-side.
+        const usedRaw = await env.LTB_KV.get('companionask:' + id);
+        const used = usedRaw ? parseInt(usedRaw, 10) || 0 : 0;
+        if (used >= 5) return json({ error: 'limit', remaining: 0 }, origin, 429);
+        const ctx = (await env.LTB_KV.get('companionctx:' + id)) || 'No order context available.';
+        if (!env.ANTHROPIC_API_KEY) return json({ error: 'not configured' }, origin, 503);
+
+        const system = [
+          'You answer questions for a customer of Lettuce, Turnip, The Beet (LTB), a small meal-prep business run by Kevin, a professional chef.',
+          "VOICE: write like Kevin talks — direct, casual, warm, a little funny, plain-spoken. Never use em-dashes. Never say 'genuinely'. No 'not only X but also Y' constructions. Use Oxford commas. No AI-speak filler.",
+          "FOOD PHILOSOPHY: Kevin cares about ingredient integrity above convenience. When someone asks about freezing, storing, or reheating something, reason about whether that specific food SURVIVES the process with its texture and character intact, and say so honestly. Braises, stews, stocks, and stabilized sauces freeze beautifully. Potatoes turn grainy and wrecked in the freezer. High-moisture vegetables like peppers lose their bite. Cream emulsions break unless they were built to freeze. Rice and fresh pasta are cooked fresh for a reason. If the honest answer is 'you can, but it will not be as good', say that, and say why in one line. If you do not know how a specific dish was built, say so and point them to text Kevin rather than guessing.",
+          'You may ONLY discuss: the items in their order below, the reheating/storage instructions provided, general reheating technique, and basic food-safety timing.',
+          'HARD RULES:',
+          '- NEVER guess or invent ingredients, allergens, or dietary suitability. If asked about allergies, ingredients, or dietary restrictions, always answer: that is a question for Kevin directly, please text him.',
+          '- If the instructions provided conflict with general knowledge, the provided instructions win.',
+          '- If you are not sure, or the question is outside their order and reheating, say so briefly and point them to text Kevin.',
+          '- Garlic confit must stay frozen or refrigerated and used within 3 days. Never suggest storing it at room temperature.',
+          '- Keep answers to 2-4 sentences, warm and plain-spoken. No markdown formatting.',
+        ].join('\n');
+
+        let answer = null;
+        try {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'x-api-key': env.ANTHROPIC_API_KEY,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6',
+              max_tokens: 300,
+              system,
+              messages: [{ role: 'user', content: 'CUSTOMER ORDER CONTEXT:\n' + ctx + '\n\nCUSTOMER QUESTION: ' + question }],
+            }),
+          });
+          if (!resp.ok) throw new Error('api ' + resp.status);
+          const data = await resp.json();
+          answer = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+        } catch (e) {
+          return json({ error: 'answer failed' }, origin, 502);
+        }
+        if (!answer) return json({ error: 'answer failed' }, origin, 502);
+        // Count AFTER a successful answer — a failed call should not burn a question.
+        await env.LTB_KV.put('companionask:' + id, String(used + 1), { expirationTtl: 60 * 60 * 24 * 30 });
+        return json({ answer, remaining: 5 - (used + 1) }, origin);
+      }
+
+      // ── Kitchen feedback loop (v8) ──────────────────────────────────────
+      // Customers tap a per-dish verdict on their page; entries land in KV
+      // capped at 20 per page (public endpoint = cap or it's a spam door).
+      // Kevin's app pulls pending feedback (token) and persists it onto the
+      // order record, then clears the consumed keys.
+      if (request.method === 'POST' && url.pathname === '/feedback') {
+        const body = await request.json().catch(() => ({}));
+        const id = typeof body.id === 'string' ? body.id.slice(0, 80) : '';
+        const dish = typeof body.dish === 'string' ? body.dish.slice(0, 80) : '';
+        const verdict = ['good', 'meh', 'bad'].includes(body.verdict) ? body.verdict : '';
+        const note = typeof body.note === 'string' ? body.note.replace(/[\x00-\x1f]/g, ' ').trim().slice(0, 240) : '';
+        if (!id || !dish || !verdict) return json({ error: 'bad request' }, origin, 400);
+        const page = await env.LTB_KV.get('companion:' + id);
+        if (!page) return json({ error: 'unknown page' }, origin, 404);
+        const key = 'companionfb:' + id;
+        const raw = await env.LTB_KV.get(key);
+        const list = raw ? JSON.parse(raw) : [];
+        // Once-per-dish per order, device-independent: a resubmit for the same
+        // dish REPLACES the prior entry (latest tap wins) instead of appending
+        // a duplicate. Dedupe happens here in KV, so the app's triage queue
+        // never sees two cards for one dish, from any device.
+        const entry = { dish, verdict, ...(note ? { note } : {}), at: new Date().toISOString() };
+        const existing = list.findIndex(e => e.dish === dish);
+        if (existing >= 0) {
+          list[existing] = entry;
+        } else {
+          if (list.length >= 20) return json({ error: 'limit' }, origin, 429);
+          list.push(entry);
+        }
+        await env.LTB_KV.put(key, JSON.stringify(list), { expirationTtl: 60 * 60 * 24 * 30 });
+        return json({ ok: true }, origin);
+      }
+      if (request.method === 'GET' && url.pathname === '/feedback/pending') {
+        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) return json({ error: 'unauthorized' }, origin, 401);
+        const listing = await env.LTB_KV.list({ prefix: 'companionfb:' });
+        const out = [];
+        for (const k of listing.keys) {
+          const raw = await env.LTB_KV.get(k.name);
+          if (raw) out.push({ pageId: k.name.slice('companionfb:'.length), entries: JSON.parse(raw) });
+        }
+        return json({ feedback: out }, origin);
+      }
+      if (request.method === 'POST' && url.pathname === '/feedback/clear') {
+        const body = await request.json().catch(() => ({}));
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) return json({ error: 'unauthorized' }, origin, 401);
+        const ids = Array.isArray(body.pageIds) ? body.pageIds.slice(0, 200) : [];
+        for (const id of ids) await env.LTB_KV.delete('companionfb:' + String(id).slice(0, 80));
+        return json({ ok: true, cleared: ids.length }, origin);
+      }
+
+      // ── Content studio (v8): dish storytelling in Kevin's voice ─────────
+      // Token-gated (Kevin's app only). Grounded ONLY in the provided dish
+      // facts; the voice rules mirror Kevin's actual style constraints.
+      if (request.method === 'POST' && url.pathname === '/content') {
+        const body = await request.json().catch(() => ({}));
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) return json({ error: 'unauthorized' }, origin, 401);
+        const dish = typeof body.dish === 'string' ? body.dish.slice(0, 120) : '';
+        const angle = typeof body.angle === 'string' ? body.angle.slice(0, 60) : 'story';
+        const facts = typeof body.facts === 'string' ? body.facts.slice(0, 6000) : '';
+        if (!dish || !facts) return json({ error: 'bad request' }, origin, 400);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: 'not configured' }, origin, 503);
+        const system = [
+          "You write short food content for Kevin, a former professional line cook and sushi chef who runs Lettuce, Turnip, The Beet, a small meal-prep business in Cedar Park, Texas.",
+          "Voice rules, non-negotiable: direct, casual, humor-forward. NEVER use em-dashes. Never use the word 'genuinely'. No 'not only X but also Y' constructions. Use Oxford commas. No AI-speak filler, no 'elevate', no 'delve', no exclamation-point spam.",
+          "Ground EVERYTHING in the dish facts provided. Never invent ingredients, techniques, or claims. If a fact is not provided, do not state it.",
+          "Style model: science-forward food writing that explains WHY a technique works, like a chef talking to a curious friend.",
+          "Output plain text only. No markdown, no headers, no hashtags unless the angle asks for a caption.",
+        ].join('\n');
+        const anglePrompt = {
+          science: 'Write a 150-220 word food-science explainer about WHY the key technique in this dish works.',
+          technique: 'Write a 150-220 word technique deep-dive a home cook could learn from.',
+          story: 'Write a 120-180 word behind-the-dish story for the LTB newsletter.',
+          caption: 'Write a 1-2 sentence Instagram caption plus a one-line follow-up. Warm, punchy, zero hashtag soup (2 hashtags max).',
+        }[angle] || 'Write a 120-180 word behind-the-dish story.';
+        let draft = null;
+        try {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-6', max_tokens: 700, system,
+              messages: [{ role: 'user', content: 'DISH: ' + dish + '\nFACTS:\n' + facts + '\n\nTASK: ' + anglePrompt }],
+            }),
+          });
+          if (!resp.ok) throw new Error('api ' + resp.status);
+          const data = await resp.json();
+          draft = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+        } catch (e) {
+          return json({ error: 'draft failed' }, origin, 502);
+        }
+        if (!draft) return json({ error: 'draft failed' }, origin, 502);
+        return json({ draft }, origin);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/k') {
+        const id = url.searchParams.get('id') || '';
+        const html = id ? await env.LTB_KV.get('companion:' + id) : null;
+        if (!html) return new Response('This kitchen page has expired or does not exist.', { status: 404, headers: { 'content-type': 'text/plain' } });
+        return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/pending') {
+        const tok = request.headers.get('X-LTB-Token') || url.searchParams.get('token') || '';
+        if (tok !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const pending = await readAllPending(env);
+        return json({ pending }, origin);
+      }
+
+      // ── POST /pending/clear ───────────────────────────────────────────────────
+      if (request.method === 'POST' && url.pathname === '/pending/clear') {
+        const body = await request.json();
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const ids = new Set(body.ids || []);
+        // New model: delete exactly the named per-order keys. An order that
+        // arrived after the app's last poll has a different key — untouched.
+        await Promise.all([...ids].map(id => env.LTB_KV.delete(PENDING_PREFIX + id)));
+        // Legacy array (pre-v4 leftovers): filter it too. Nothing writes this
+        // key anymore, so this read-modify-write races nothing.
+        let legacyRemaining = 0;
+        const existing = await env.LTB_KV.get(KV_PENDING);
+        if (existing) {
+          const queue = JSON.parse(existing);
+          const remaining = queue.filter(s => !ids.has(s.id));
+          legacyRemaining = remaining.length;
+          if (remaining.length) await env.LTB_KV.put(KV_PENDING, JSON.stringify(remaining));
+          else await env.LTB_KV.delete(KV_PENDING);
+        }
+        const left = await env.LTB_KV.list({ prefix: PENDING_PREFIX, limit: 1000 });
+        return json({ ok: true, remaining: legacyRemaining + left.keys.length }, origin);
+      }
+
+      // ── POST /push/subscribe — save the app's push subscription ─────────────
+      if (request.method === 'POST' && url.pathname === '/push/subscribe') {
+        const body = await request.json();
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        if (!body.subscription || !body.subscription.endpoint) {
+          return json({ error: 'Invalid subscription object' }, origin, 400);
+        }
+        await env.LTB_KV.put(KV_PUSH_SUB, JSON.stringify(body.subscription));
+        return json({ ok: true }, origin);
+      }
+
+      // ── DELETE /push/subscribe — remove push subscription ────────────────────
+      if (request.method === 'DELETE' && url.pathname === '/push/subscribe') {
+        const body = await request.json().catch(() => ({}));
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        await env.LTB_KV.delete(KV_PUSH_SUB);
+        return json({ ok: true }, origin);
+      }
+
+      // ── AI proxy endpoints ────────────────────────────────────────────────────
+      if (request.method === 'POST' && (
+        url.pathname === '/parse-order' ||
+        url.pathname === '/parse-amendment' ||
+        url.pathname === '/parse-notes' ||
+        url.pathname === '/parse-receipt'
+      )) {
+        return proxyToAnthropic(request, env, origin);
+      }
+
+      // ── Legacy sheet ──────────────────────────────────────────────────────────
+      if (request.method === 'GET' && url.pathname === '/sheet') {
+        if (!LEGACY_SHEET_ENABLED) {
+          return json({ error: 'Legacy sheet endpoint disabled' }, origin, 410);
+        }
+        const res = await fetch(SHEET_CSV_URL, { headers: { 'User-Agent': 'LTB-Order-Tracker/1.0' } });
+        if (!res.ok) return new Response('Failed to fetch sheet: ' + res.status, { status: 502, headers: corsHeaders(origin) });
+        const csv = await res.text();
+        return new Response(csv, {
+          status: 200,
+          headers: { ...corsHeaders(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Cache-Control': 'no-store' },
+        });
+      }
+
+      return new Response('Not found', { status: 404, headers: corsHeaders(origin) });
+
+    } catch (err) {
+      return json({ error: 'Worker error: ' + err.message }, origin, 500);
+    }
+  },
+};
+
+// ── Pending queue reader: per-key entries + legacy array, merged ──────────────
+async function readAllPending(env) {
+  // Per-order keys (paginate; list is eventually consistent — a brand-new
+  // order can lag one poll cycle, but it can never be lost)
+  const entries = [];
+  let cursor = undefined;
+  do {
+    const page = await env.LTB_KV.list({ prefix: PENDING_PREFIX, limit: 1000, cursor });
+    const values = await Promise.all(page.keys.map(k => env.LTB_KV.get(k.name)));
+    for (const v of values) { if (v) { try { entries.push(JSON.parse(v)); } catch {} } }
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor);
+
+  // Legacy array key (pre-v4 queue contents, if any survive)
+  const legacy = await env.LTB_KV.get(KV_PENDING);
+  if (legacy) { try { entries.push(...JSON.parse(legacy)); } catch {} }
+
+  // Dedup by id (an order could briefly appear in both during migration),
+  // oldest first — same ordering the app has always shown.
+  const byId = new Map();
+  for (const s of entries) { if (s && s.id && !byId.has(s.id)) byId.set(s.id, s); }
+  return [...byId.values()].sort((a, b) => String(a.submittedAt || '').localeCompare(String(b.submittedAt || '')));
+}
+
+// ── Push notification sender ──────────────────────────────────────────────────
+async function sendPushNotification(env, submission) {
+  try {
+    const stored = await env.LTB_KV.get(KV_PUSH_SUB);
+    if (!stored) return;
+
+    const subscription = JSON.parse(stored);
+    const itemCount = (submission.items || []).reduce((s, it) => s + (it.qty || 1), 0);
+    const payload = JSON.stringify({
+      title: `New order from ${submission.customer}`,
+      body: `${itemCount} item${itemCount !== 1 ? 's' : ''}${submission.notes ? ' · ' + submission.notes.slice(0, 60) : ''}`,
+    });
+
+    const { body, salt, serverPublicKey } = await encryptPayload(payload, subscription);
+    const vapidAuth = await buildVapidAuth(env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY, env.VAPID_SUBJECT, subscription.endpoint);
+
+    const res = await fetch(subscription.endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': vapidAuth,
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        'TTL': '86400',
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('Push endpoint returned', res.status, text);
+    }
+  } catch (e) {
+    console.error('Push notification failed:', e.message, e.stack);
+  }
+}
+
+// ── VAPID auth header (RFC 8292) ──────────────────────────────────────────────
+async function buildVapidAuth(publicKeyB64, privateKeyB64, subject, endpoint) {
+  const audienceUrl = new URL(endpoint);
+  const audience = `${audienceUrl.protocol}//${audienceUrl.host}`;
+  const now = Math.floor(Date.now() / 1000);
+
+  const jwtHeader = strToB64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+  const jwtClaims = strToB64url(JSON.stringify({ aud: audience, exp: now + 43200, sub: subject }));
+  const sigInput = `${jwtHeader}.${jwtClaims}`;
+
+  const pubKeyBytes = b64ToBytes(publicKeyB64);
+  const x = bytesToB64url(pubKeyBytes.slice(1, 33));
+  const y = bytesToB64url(pubKeyBytes.slice(33, 65));
+
+  const privateKey = await crypto.subtle.importKey(
+    'jwk',
+    { kty: 'EC', crv: 'P-256', x, y, d: privateKeyB64, key_ops: ['sign'], ext: true },
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign'],
+  );
+
+  const sig = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    privateKey,
+    new TextEncoder().encode(sigInput),
+  );
+
+  const jwt = `${sigInput}.${bytesToB64url(new Uint8Array(sig))}`;
+  return `vapid t=${jwt}, k=${publicKeyB64}`;
+}
+
+// ── Web Push payload encryption (RFC 8291 / aes128gcm) ───────────────────────
+async function encryptPayload(plaintext, subscription) {
+  const encoder = new TextEncoder();
+  const keys = subscription.keys || {};
+
+  const p256dh = b64ToBytes(keys.p256dh);
+  const auth = b64ToBytes(keys.auth);
+
+  const serverKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits'],
+  );
+  const serverPublicKeyRaw = new Uint8Array(await crypto.subtle.exportKey('raw', serverKeyPair.publicKey));
+
+  const clientPublicKey = await crypto.subtle.importKey(
+    'raw', p256dh, { name: 'ECDH', namedCurve: 'P-256' }, false, [],
+  );
+  const sharedSecret = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: clientPublicKey }, serverKeyPair.privateKey, 256,
+  ));
+
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  const prkInfo = concat(encoder.encode('WebPush: info\x00'), p256dh, serverPublicKeyRaw);
+  const sharedSecretKey = await crypto.subtle.importKey('raw', sharedSecret, 'HKDF', false, ['deriveBits']);
+  const prk = new Uint8Array(await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt: auth, info: prkInfo },
+    sharedSecretKey, 256,
+  ));
+
+  const prkKey = await crypto.subtle.importKey('raw', prk, 'HKDF', false, ['deriveBits']);
+
+  const cekBits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt, info: encoder.encode('Content-Encoding: aes128gcm\x00') },
+    prkKey, 128,
+  );
+
+  const nonceBits = await crypto.subtle.deriveBits(
+    { name: 'HKDF', hash: 'SHA-256', salt, info: encoder.encode('Content-Encoding: nonce\x00') },
+    prkKey, 96,
+  );
+
+  const aesKey = await crypto.subtle.importKey('raw', cekBits, 'AES-GCM', false, ['encrypt']);
+  const payloadBytes = encoder.encode(plaintext);
+  const paddedPayload = new Uint8Array(payloadBytes.length + 1);
+  paddedPayload.set(payloadBytes);
+  paddedPayload[payloadBytes.length] = 0x02;
+
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonceBits },
+    aesKey,
+    paddedPayload,
+  ));
+
+  const header = new Uint8Array(16 + 4 + 1 + serverPublicKeyRaw.length);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096, false);
+  header[20] = serverPublicKeyRaw.length;
+  header.set(serverPublicKeyRaw, 21);
+
+  const body = concat(header, encrypted);
+  return { body, salt, serverPublicKey: serverPublicKeyRaw };
+}
+
+function concat(...arrays) {
+  const total = arrays.reduce((s, a) => s + a.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const arr of arrays) { result.set(arr, offset); offset += arr.length; }
+  return result;
+}
+
+function strToB64url(str) {
+  return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function bytesToB64url(bytes) {
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function b64ToBytes(b64) {
+  const s = atob(b64.replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(s, c => c.charCodeAt(0));
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function defaultConfig() {
+  return { dishes: [], spotlight: [], fruit: [], desserts: [], addons: [], bag: [], sauces: [], menuPdfUrl: '', weekLabel: '', updatedAt: null };
+}
+
+async function proxyToAnthropic(request, env, origin) {
+  const apiKey = env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response('ANTHROPIC_API_KEY secret not set in Worker', { status: 500, headers: corsHeaders(origin) });
+  }
+  try {
+    const body = await request.text();
+    const res = await fetch(ANTHROPIC_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body,
+    });
+    const text = await res.text();
+    return new Response(text, { status: res.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
+  } catch (err) {
+    return new Response('Anthropic proxy error: ' + err.message, { status: 500, headers: corsHeaders(origin) });
+  }
+}
+
+function json(obj, origin, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+  });
+}
+
+function corsHeaders(origin) {
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : '*';
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-LTB-Token',
+  };
+}

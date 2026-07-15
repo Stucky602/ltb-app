@@ -18,6 +18,7 @@ import {
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
+  BACKUP_STATE_KEY, BACKUP_STALE_MS,
 } from './config.js';
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 const COST_HISTORY_KEY = 'ltb_cost_history_v1';
@@ -1066,21 +1067,57 @@ export default function LTBOrderTracker() {
   const payloadRef = useRef(buildBackupPayload);
   useEffect(() => { payloadRef.current = buildBackupPayload; }, [buildBackupPayload]);
 
+  // ── Backup health (v9.21) ─────────────────────────────────────────────────
+  // pushBackup() swallows every failure on purpose, and that silence ran a
+  // dead /backup route for nine days without one visible symptom. The retry
+  // loop still shouldn't interrupt anything, so the failure doesn't get a
+  // dialog. It gets the backup arrow in the header, in red. Both header arrows
+  // are normally grey, so one turning red is noticeable without being readable.
+  const lastOkAtRef = useRef(null);
+  const [backupFailing, setBackupFailing] = useState(false);
+
+  useEffect(() => {
+    loadJSON(BACKUP_STATE_KEY, null).then(s => {
+      if (s && typeof s.lastOkAt === 'number') lastOkAtRef.current = s.lastOkAt;
+    }).catch(() => {});
+  }, []);
+
+  const markBackupOk = useCallback(() => {
+    lastOkAtRef.current = Date.now();
+    setBackupFailing(false);
+    saveJSON(BACKUP_STATE_KEY, { lastOkAt: lastOkAtRef.current }).catch(() => {});
+  }, []);
+
+  // Red only once the gap is real. lastOkAt === null means this device has
+  // never had a confirmed backup, which IS the alarm condition — that is the
+  // exact state the app sat in from July 6 while reporting nothing.
+  const markBackupFailed = useCallback(() => {
+    const last = lastOkAtRef.current;
+    setBackupFailing(last === null || (Date.now() - last) > BACKUP_STALE_MS);
+  }, []);
+
   const pushBackup = useCallback(async () => {
     try {
       const payload = payloadRef.current();
       if ((payload.orders || []).length === 0 && (payload.costHistory || []).length === 0) return;
       const { exportedAt, ...stable } = payload;
       const hash = String(djb2(JSON.stringify(stable)));
-      if (hash === lastPushedHash.current) return;
+      // Hash match = the ring already holds exactly this data. That's a
+      // confirmation, not a gap, so it counts as backed up. Otherwise an idle
+      // week would slowly turn the icon red while nothing was wrong.
+      if (hash === lastPushedHash.current) { markBackupOk(); return; }
       const res = await fetch(WORKER_BASE + '/backup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: PUBLISH_TOKEN, snapshot: payload }),
       });
-      if (res.ok) lastPushedHash.current = hash;
-    } catch { /* offline or worker down — next tick retries; silence is the feature */ }
-  }, []);
+      if (res.ok) { lastPushedHash.current = hash; markBackupOk(); }
+      else markBackupFailed();
+    } catch {
+      // Offline or worker down. Next tick retries; the arrow carries the news.
+      markBackupFailed();
+    }
+  }, [markBackupOk, markBackupFailed]);
 
   useEffect(() => {
     if (loading) return;
@@ -1379,7 +1416,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.20-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.21-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (
@@ -1391,7 +1428,11 @@ export default function LTBOrderTracker() {
                 <Bell size={16} />
               </button>
             )}
-            <button style={styles.headerActionBtn} onClick={openBackupModal} title="Backup & restore">
+            <button
+              style={{ ...styles.headerActionBtn, ...(backupFailing ? { color: '#E24B4A' } : {}) }}
+              onClick={openBackupModal}
+              title={backupFailing ? "Backups are failing — tap for detail" : "Backup & restore"}
+            >
               <Download size={16} />
             </button>
             <button style={styles.headerActionBtn} onClick={pasteImport} title="Paste backup from clipboard">

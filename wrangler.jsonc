@@ -5,7 +5,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   "assets": {
-    "directory": ".",
-    "exclude": ["node_modules", "src", "entry.jsx", "package.json", "package-lock.json", "bun.lockb", ".gitignore", "README_SPLIT.md"]
+    // Exclusions live in .assetsignore at the repo root, NOT here.
+    // `exclude` is not a supported key for `assets` (it belongs to the
+    // deprecated Workers Sites config) and was silently ignored for months.
+    "directory": "."
   }
 }

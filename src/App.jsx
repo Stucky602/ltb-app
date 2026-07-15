@@ -37,6 +37,7 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
   mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
 } from './utils.js';
+import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
 import { ImportModal } from './components/ImportModal.jsx';
@@ -148,6 +149,30 @@ export default function LTBOrderTracker() {
   useEffect(() => {
     let mounted = true;
     (async () => {
+      // ── Schema forward-compat guard (v9.22) ─────────────────────────────
+      // Checked BEFORE anything else loads. If this device's stored schema
+      // version is NEWER than the code currently running here, that means
+      // this device backed up on a later version and is now running older
+      // code — the exact "old code, new data" case. Refuse to touch local
+      // state rather than silently downgrading it. An unstamped device
+      // (storedVersion undefined) is pre-versioning data, not a threat, and
+      // reads as v0 — always safe to proceed and stamp forward.
+      const storedVersion = await loadJSON(SCHEMA_VERSION_KEY, undefined);
+      const compat = assessForwardCompat(storedVersion);
+      if (compat.outcome === 'refuse') {
+        if (mounted) {
+          setLoading(false);
+          setError(REFUSE_MESSAGE);
+        }
+        return;
+      }
+      if (compat.outcome !== 'current') {
+        // Older or unstamped — this device is behind, which is always safe
+        // to bring forward. Stamp now so a crash mid-load doesn't leave the
+        // device perpetually re-detecting as "needs migration."
+        await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
+      }
+
       const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
@@ -1002,6 +1027,7 @@ export default function LTBOrderTracker() {
   // the same fields, so old Notes-paste backups stay importable.
   const buildBackupPayload = useCallback(() => ({
     version: 'ltb-v1',
+    schemaVersion: SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     orders: orders || [],
     shopping,
@@ -1134,6 +1160,21 @@ export default function LTBOrderTracker() {
   // "same logic in N places" footgun. Validation and any confirm dialog stay
   // with the CALLER; this just applies a validated payload.
   const applyBackupPayload = useCallback(async (payload) => {
+    // ── Schema forward-compat guard (v9.22) ─────────────────────────────
+    // This is the REAL cross-device schema gap, not a service-worker cache:
+    // Device A updates first and pushes a v2 snapshot into the shared ring.
+    // Device B is still running old code (only understands v1) and restores
+    // that same ring entry. Refuse before any write. An older snapshot is
+    // safe — migrate it forward first.
+    const snapVersion = payload && typeof payload.schemaVersion !== 'undefined' ? payload.schemaVersion : undefined;
+    const compat = assessForwardCompat(snapVersion);
+    if (compat.outcome === 'refuse') {
+      setError(REFUSE_MESSAGE);
+      return false;
+    }
+    const migrated = compat.outcome === 'migrate' ? migrateForward(payload, compat.storedVersion) : payload;
+    payload = migrated;
+
     const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
     if (!res.ok) return false;
     if (Array.isArray(payload.shopping)) {
@@ -1416,7 +1457,7 @@ export default function LTBOrderTracker() {
           <div style={styles.logoMark}>LTB</div>
           <div style={styles.headerCenter}>
             <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.21-GH</div>
+            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v9.22-GH</div>
           </div>
           <div style={styles.headerActions}>
             {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

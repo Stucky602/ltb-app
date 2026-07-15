@@ -1,0 +1,37 @@
+name: CI
+
+# Runs the full test battery on every push and PR. Historically this only ran
+# when someone remembered to type it — the duplicate LINE_MAP key shipped
+# TWICE that way. Putting it here makes that class of regression structurally
+# impossible to ship, since Cloudflare Pages/Workers Builds can be set to
+# require this check before deploying (see the manual guide for that step).
+#
+# Deliberately NOT running npm audit: two runtime deps (react, react-dom) and
+# two dev deps (esbuild, jsdom). audit noise on a tree this small trains
+# ignoring red rather than reading it, which defeats the point of a gate.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full test battery
+        run: npm test
+
+      - name: Build (proves the bundle Cloudflare will ship actually compiles)
+        run: npm run build

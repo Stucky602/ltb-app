@@ -174,7 +174,15 @@ for (const i of INGREDIENT_SEED) {
   U('herbs', conv('Fresh thyme')(1, 'bunch'), 15, '1 bunch in sprigs'); U('herbs', conv('Fresh tarragon')(2, 'packs'), 30, '2 packs in sprigs');
   U('ginger', conv('Ginger')(1, 'knob'), 30 / 453.6, '1 knob in lb');
   U('oliveoil', conv('Good olive oil')(1, 'glug'), 0.5, '1 glug in fl oz'); U('oliveoil', conv('Good olive oil')(1, ''), 2.5, 'bare legacy line (flat 2.5 oz)');
-  U('onion', conv('Onion')(1.2, 'lb'), 2, '1.2 lb in onions'); U('onion', conv('Onion')(9.6, 'oz'), 1, '9.6 oz in onions');
+  // Jul 15: onions moved to `unit: 'lb'` in BOTH the seed and the conv, so
+  // conv() now returns POUNDS, not a count. The old assertions here wanted a
+  // count (1.2 lb -> 2 onions) and encoded the retired contract. Re-expressed,
+  // not relaxed: yellow onion went each@$0.60 -> lb@$1.00 and LB_PER_ONION is
+  // 0.6, so 2 each still costs 2*0.6*$1.00 = $1.20. Same money, honest unit.
+  U('onion', conv('Onion')(1.2, 'lb'), 1.2, '1.2 lb in lb'); U('onion', conv('Onion')(9.6, 'oz'), 0.6, '9.6 oz in lb');
+  // The each->lb bridge is the part that can silently rot, so pin it: a recipe
+  // written in `each` must still land on the same dollars as before the move.
+  U('onion', conv('Onion')(2, 'each'), 1.2, '2 each in lb');
   U('saffron', conv('Saffron')(1, 'tsp'), 16, '1 tsp in pinches');
   U('carrot', conv('Carrot')(1, ''), 0.15, 'one bare carrot in lb'); U('carrot', conv('Carrot')(3, 'oz'), 0.1875, '3 oz carrot in lb');
 

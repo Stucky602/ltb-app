@@ -121,10 +121,20 @@ const texts = (rows) => rows.map(r => r.text);
 // Style Curry carries stock in OZ (the ex-Kitchen-Basics line) and tomatoes
 // in a 28oz can. One order of each must yield ONE stock line and ONE tomato
 // line, both in oz — the exact split Kevin reported from the store.
+//
+// The curry variant here is CHICKEN, not Chickpea. It used to be Chickpea,
+// which worked only because chicken stock sat in the curry's base and went
+// into every variant — including the two advertised vegetarian. That was a
+// real bug (fixed Jul 15: stock moved to per-variant extras, vegetable stock
+// for chickpea/shrimp), and this test was quietly asserting it: "the
+// vegetarian curry contributes 32 oz of chicken stock to the shopping list"
+// was the expected result. The consolidation behaviour under test (cups + oz
+// -> one oz line) is unchanged; only the variant that legitimately carries
+// chicken stock has.
 {
   const orders = [
     { status: 'Ordered', items: [{ name: 'Brunswick Stew', variant: 'Small (~4)', qty: 1 }] },
-    { status: 'Ordered', items: [{ name: 'Indian Style Curry', variant: 'Chickpea, Large (~8-10)', qty: 1 }] },
+    { status: 'Ordered', items: [{ name: 'Indian Style Curry', variant: 'Chicken, Large (~8-10)', qty: 1 }] },
   ];
   const lines = generateShoppingItems(orders, false);
   const stock = lines.filter(x => /chicken stock/i.test(x));

@@ -29,7 +29,23 @@
 // `contains` is deliberately NOT required. An empty allergen string is a
 // legitimate answer (see the syrups), and a gate that forces the field would
 // pressure someone into typing something to make it pass. Allergen accuracy is
-// tests/diet_flags.mjs's job, against the recipe rather than the prose.
+// tests/allergens.mjs's job, against the recipe rather than the prose.
+//
+// ── MATCH LAYER (Jul 16) — presence was never the real failure mode ─────────
+// The Brunswick drift (Jul 15) proved it: all three surfaces HAD text, just
+// three different texts, and the presence check above was green the whole
+// time. So dinners now carry a `copy:` canon in the registry (dishes.js),
+// and this gate's second job is equality: every LIBRARY dinner field
+// (desc / reheat / contains / note / spice) must match the canon VERBATIM.
+// Edit the canon in dishes.js; menu.html must be updated to agree or the
+// build fails. There is no --write for menu.html: the LIBRARY blob is a
+// hand-owned single-line JSON literal, and a serializer that rewrites it is
+// a bigger hazard than a red test that says exactly what to paste where.
+//
+// The canon also has to agree with the IN-APP cook card. For dishes with
+// stewVegCopy (the Boeuf/Leblanc/Brunswick two-part pattern), the customer
+// reheat canon must CONTAIN stewVegCopy.main and .veg verbatim — that link
+// is precisely what drifted in the Brunswick incident.
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -115,6 +131,60 @@ for (const item of (ALL_ALWAYS_ITEMS || [])) {
   check(item.name, { needsReheat: section === 'bag' });
 }
 
+// ── MATCH LAYER — LIBRARY must equal the registry canon, field by field ─────
+const mismatched = [];
+const COPY_FIELDS = ['desc', 'reheat', 'contains', 'note', 'spice'];
+
+const shorten = (s) => {
+  const t = String(s == null ? '<absent>' : s);
+  return t.length > 90 ? t.slice(0, 87) + '...' : t;
+};
+
+for (const d of DISHES) {
+  if (exempt(d.name)) continue;
+  if (!d.copy || typeof d.copy !== 'object') {
+    mismatched.push(`${d.name}  — dish has no copy: canon in dishes.js; the gate has nothing to hold menu.html to`);
+    continue;
+  }
+  const hit = entries.get(d.name);
+  if (!hit) continue; // the presence layer above already reports this
+  for (const f of COPY_FIELDS) {
+    const canon = d.copy[f];
+    const lib = hit.copy[f];
+    // note/spice are optional: absent on both sides is agreement.
+    if (canon == null && lib == null) continue;
+    if (canon !== lib) {
+      mismatched.push(
+        `${d.name} . ${f}\n      canon (dishes.js): ${shorten(canon)}\n      LIBRARY (menu.html): ${shorten(lib)}`
+      );
+    }
+  }
+  // In-app card link. The Brunswick failure was structural: a two-part dish
+  // (container + sous vide bag) whose customer copy said "comes in a
+  // container" and never mentioned the bag. The customer reheat is allowed
+  // to CONDENSE the in-app stewVegCopy (Leblanc and Boeuf both do, on
+  // purpose), so this is not a verbatim check — it asserts the customer
+  // copy agrees the dish is two-part and involves a bag. Generic
+  // one-container copy on a stewVegCopy dish fails.
+  if (d.stewVegCopy) {
+    const r = String(d.copy.reheat || '').toLowerCase();
+    if (!r.includes('two parts') || !r.includes('bag')) {
+      mismatched.push(
+        `${d.name} . stewVegCopy\n      this is a two-part dish (stewVegCopy present) but copy.reheat never says so — the exact Brunswick failure`
+      );
+    }
+  }
+}
+
+assert.equal(
+  mismatched.length, 0,
+  `[library-sync] ${mismatched.length} cop(ies) disagree with the registry canon:\n\n    ` +
+  mismatched.join('\n\n    ') +
+  '\n\n  The canon in src/dishes.js (copy:) is the source of truth. Fix the canon\n' +
+  '  if it is wrong, then paste the canon text into menu.html LIBRARY so the\n' +
+  '  surfaces agree. Never fix menu.html alone.\n'
+);
+
 // Orphans: copy for a dish that no longer exists. Not a shipping hazard the
 // way a missing entry is (nothing renders it), but it is how menu.html rots —
 // and an orphan is often a rename where the new name silently lost its copy.
@@ -164,4 +234,4 @@ for (const name of OFF_MENU) {
     'It is on the menu after all — remove the exemption so its copy is actually checked.');
 }
 
-console.log(`[library-sync] ${DISHES.length} dinners + ${(ALL_ALWAYS_ITEMS || []).length} always-items all have LIBRARY copy (${primeHits.length} Prime sub-lines + ${OFF_MENU.size} off-menu exempt)`);
+console.log(`[library-sync] ${DISHES.length} dinners + ${(ALL_ALWAYS_ITEMS || []).length} always-items have LIBRARY copy, and all dinner copy matches the registry canon (${primeHits.length} Prime sub-lines + ${OFF_MENU.size} off-menu exempt)`);

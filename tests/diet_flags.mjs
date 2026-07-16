@@ -42,10 +42,23 @@ const ALLOW = new Set([
   'chicken_basics_stock_VEG_NEVER', // placeholder: keep the set non-empty and documented
 ]);
 
-// `veg` forbids both; `pesc` forbids meat but allows seafood.
+// Anything from an animal that is not the animal's flesh. `vegan` forbids this
+// on top of meat and seafood. Honey and gelatin are here pre-emptively: neither
+// is stocked today, but they are the classic ways a "vegan" dish quietly isn't.
+const ANIMAL = /butter|cream|milk|cheese|parm|yogurt|ghee|honey|gelatin|egg_|_egg|mascarpone|oaxaca|colby|queso|lecithin_egg/;
+
+// `veg` forbids meat and seafood. `pesc` forbids meat but allows seafood.
+// `vegan` forbids all three: it is a strict subset of veg, so it inherits both
+// of veg's rules and adds animal by-products.
 const FORBIDDEN = {
   veg: [['meat', MEAT], ['seafood', SEAFOOD]],
   pesc: [['meat', MEAT]],
+  vegan: [['meat', MEAT], ['seafood', SEAFOOD], ['animal product', ANIMAL]],
+  // `veganOnRequest` is a WEAKER claim: the dish as written is not vegan, but
+  // Kevin can make it so on request (curry: butter->oil, veg stock, no cream).
+  // It must still be genuinely vegetarian — that part is not negotiable on
+  // request — so animal PRODUCTS are allowed here but flesh is not.
+  veganOnRequest: [['meat', MEAT], ['seafood', SEAFOOD]],
 };
 
 const problems = [];

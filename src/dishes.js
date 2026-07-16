@@ -1239,8 +1239,8 @@ export const ALWAYS_ITEMS = {
     // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {
       name: 'Carrots', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 6.5, cost: 3.25 }],
-      recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
+      variants: [{ label: '~2 servings', price: 6.5, cost: 2.71 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 0.5, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Baby Gold Potatoes', packaging: 'none',
@@ -1254,21 +1254,21 @@ export const ALWAYS_ITEMS = {
     },
     {
       name: 'Kabocha Squash', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 7.5, cost: 3.79 }],
-      recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
+      variants: [{ label: '~2 servings', price: 7.5, cost: 3.25 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.667, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Parsnips', packaging: 'none',
-      variants: [{ label: '~2 servings', price: 10, cost: 7.58 }],
-      recipe: { factors: { '2 servings': 1 }, base: [I('Parsnips', 1.25, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
+      variants: [{ label: '~2 servings', price: 10, cost: 5.25 }],
+      recipe: { factors: { '2 servings': 1 }, base: [I('Parsnips', 0.909, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       name: 'Asparagus', packaging: 'none',
       variants: [
-        { label: 'Whole (~2 servings)', price: 10, cost: 5.4 },
-        { label: 'Bite-size (~2 servings)', price: 10, cost: 5.4 },
+        { label: 'Whole (~2 servings)', price: 9, cost: 4.32 },
+        { label: 'Bite-size (~2 servings)', price: 9, cost: 4.32 },
       ],
-      recipe: { factors: { 'Whole (~2 servings)': 1, 'Bite-size (~2 servings)': 1 }, base: [I('Asparagus', 1.0, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
+      recipe: { factors: { 'Whole (~2 servings)': 1, 'Bite-size (~2 servings)': 1 }, base: [I('Asparagus', 0.667, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       // Garlic Confit lives in the bag category (not its own section) — it's a

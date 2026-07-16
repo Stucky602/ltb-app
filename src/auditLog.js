@@ -28,11 +28,19 @@ export const AUDIT_MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000;
 // Where a change came from. The receipt-scan case additionally carries the
 // line's raw text and derivation basis, so a bad cost traces to the exact
 // scanned line that set it.
+//
+// SEED is distinct from DEPLOY on purpose. Both originate in a file edit, but
+// DEPLOY entries are the app NOTICING a catalog change after the fact
+// (menuFingerprint diffing), while SEED entries are the app CHANGING Kevin's
+// stored data to match a file he edited. The second one rewrites live state;
+// when a cost looks wrong, "did something rewrite my DB on boot?" is a
+// different question from "did the menu move?" and deserves its own answer.
 export const SOURCES = {
   MANUAL: 'manual-edit',
   RECEIPT: 'receipt-scan',
   DEPLOY: 'file-deploy',
   PUBLISH: 'publish',
+  SEED: 'seed-reconcile',
 };
 
 // Costs are floats. Anything under a hundredth of a cent is noise, not a
@@ -138,6 +146,53 @@ export function diffMenuFingerprint(prevFp, nextFp) {
   return out;
 }
 
+// Seed reconciliation. Takes the `changes` array from reconcileIngredients()
+// rather than a prev/next pair, because the WHY matters here and a plain diff
+// can't see it: a unit change and a baseline change can move `current` by the
+// same amount for completely different reasons, and only one of them means
+// "your learned price was thrown away."
+//
+// Emits up to two entries per row — the baseline move (the anchor changed)
+// and, when the unit changed, the discarded current (the learned price died).
+// The unit entry carries the old and new unit in meta, because "1.91 -> 0.20"
+// is alarming until you can see it was per-bunch and is now per-sprig.
+export function diffReconcile(changes) {
+  const out = [];
+  for (const c of (changes || [])) {
+    if (c.action === 'insert') {
+      out.push(auditEntry({
+        target: c.id, field: 'current', from: null, to: c.currentTo, source: SOURCES.SEED,
+        meta: { created: true, basis: 'new in seed' },
+      }));
+      continue;
+    }
+    if (moved(c.from, c.to)) {
+      out.push(auditEntry({
+        target: c.id, field: 'baseline', from: c.from, to: c.to, source: SOURCES.SEED,
+        meta: { basis: 'seed edit' },
+      }));
+    }
+    // The baseline-only case moves `current` too when it was never learned —
+    // an untouched row follows its anchor. Log it: it is still a cost change,
+    // and "why did my asparagus price move on its own?" needs an answer.
+    if (c.action === 'baseline' && moved(c.currentFrom, c.currentTo)) {
+      out.push(auditEntry({
+        target: c.id, field: 'current', from: c.currentFrom, to: c.currentTo, source: SOURCES.SEED,
+        meta: { basis: 'followed new baseline (no receipt had ever moved it)' },
+      }));
+    }
+    if (c.action === 'unit') {
+      out.push(auditEntry({
+        target: c.id, field: 'current', from: c.currentFrom, to: c.currentTo, source: SOURCES.SEED,
+        meta: {
+          basis: `unit changed ${c.fromUnit} -> ${c.toUnit}; learned price discarded (was in ${c.fromUnit})`,
+        },
+      }));
+    }
+  }
+  return out;
+}
+
 // Alias remaps only. The alias map also carries sighting counters and store
 // facts that churn on every scan and affect no money — logging those would
 // bury the signal. Only a change to WHICH ingredient a receipt string resolves
@@ -153,6 +208,20 @@ export function diffAliases(prev, next) {
     if (before === undefined && after === undefined) continue;
     out.push(auditEntry({
       target: key, field: 'alias', from: before ?? null, to: after ?? null, source: SOURCES.RECEIPT,
+    }));
+  }
+  // Deletions. The loop above only walks keys present in `next`, so a removed
+  // alias produced no entry at all — the one action that cannot be undone by
+  // scanning another receipt was also the only one leaving no trace. Added
+  // Jul 15 alongside the learned-data panel, whose whole purpose is deleting
+  // bad learns: shipping a delete button without this would have made the app
+  // quietly forget things with no record of who told it to.
+  for (const key of Object.keys(p)) {
+    if (key in n) continue;
+    const before = p[key] ? p[key].ingredientId : undefined;
+    out.push(auditEntry({
+      target: key, field: 'alias', from: before ?? null, to: null, source: SOURCES.MANUAL,
+      meta: { basis: 'forgotten from the learned-data panel' },
     }));
   }
   return out;

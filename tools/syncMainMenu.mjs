@@ -47,6 +47,37 @@ function syncCard(name, expected) {
 }
 
 for (const d of DISHES) syncCard(d.name, d.variants.map(v => money(v.price)));
+
+// ── ALLERGEN LINE SYNC (Jul 16) ──────────────────────────────────────────────
+// copy.contains in the registry is the canon for the customer allergen claim.
+// Unlike desc/reheat — which main-menu deliberately adapts (condensed reheats,
+// catalog-voice descriptions) — the allergen line has ZERO legitimate variance
+// between surfaces. The Jul 16 audit found main-menu telling tofu customers
+// the Chinese Broccoli dish was shellfish-free while menu.html correctly
+// warned about the oyster sauce in the base. That class of drift ends here.
+// Same contract as prices: report drift, --write to fix, idempotent.
+const containsRe = /<div class="contains">Allergens: ([^<]*)<\/div>/;
+function syncContains(name, want) {
+  if (want == null) return; // dish without a contains canon: nothing to hold
+  const b = cardBounds(name);
+  if (!b) return; // MISSING card already reported by the price sync above
+  let seg = html.slice(b.start, b.end);
+  const m = seg.match(containsRe);
+  if (!m) {
+    console.log(`  ${name}: card has no "Allergens:" line — add one by hand, then --write keeps it`);
+    drift++; return;
+  }
+  if (m[1] === want) return;
+  drift++;
+  console.log(`  ${name} allergens: "${m[1].slice(0, 60)}${m[1].length > 60 ? '...' : ''}" → "${want.slice(0, 60)}${want.length > 60 ? '...' : ''}"`);
+  if (write) {
+    seg = seg.replace(containsRe, `<div class="contains">Allergens: ${want}</div>`);
+    html = html.slice(0, b.start) + seg + html.slice(b.end);
+    patched++;
+  }
+}
+for (const d of DISHES) syncContains(d.name, d.copy ? d.copy.contains : null);
+
 // SCOPE: dinners + card-style bag items only. Veg/add-on SECTIONS use a
 // different HTML shape (no dish-name divs) — the invariant suite still guards
 // their prices; this tool reports them as out-of-scope instead of failing.
@@ -76,4 +107,4 @@ for (const b of (ALL_ALWAYS_ITEMS || [])) {
 
 if (write && patched) { writeFileSync(PATH, html); console.log(`WROTE main-menu.html (${patched} cards patched)`); }
 else if (drift) { console.log(`${drift} drift(s) found${write ? '' : ' — run with --write to fix'}`); process.exit(1); }
-else console.log('main-menu.html prices in sync with dishes.js ✓');
+else console.log('main-menu.html prices and allergen lines in sync with dishes.js ✓');

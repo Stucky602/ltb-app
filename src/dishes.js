@@ -851,6 +851,31 @@ export const DISHES = [
     },
   },
   {
+    name: 'Pork Chop with Kabocha Purée and Charred Broccolini',
+    cuisine: 'American',
+    reheat: 'porkChopBase', // dedicated three-part card: sear pork, warm puree/broccolini bags
+    chillOnly: true,
+    equipment: { backBurner: true }, // sear + a couple of bags in water
+    // The non-spotlight tier of the Bone-In Pork Rib Chop. Same idea, minus the
+    // bone-in chop and minus the sauce — which is where BOTH the cost and the
+    // Soy allergen lived (soy lecithin stabilizes that beurre blanc). Two chops
+    // at ~0.75 lb each = 1.5 lb, split 4 ways = 6 oz raw pork per person, so the
+    // menu copy says "two thick chops to split among four" out loud rather than
+    // letting someone count chops at the table and feel short-changed.
+    variants: [
+      { label: '~4 servings', price: 55, cost: 24.24 },
+    ],
+    recipe: {
+      factors: { '~4 servings': 1 },
+      base: [
+        I('Boneless pork chop', 1.5, 'lb'), // 2 chops @ ~0.75 lb
+        I('Kabocha squash', 3, 'lb'),
+        I('Broccolini', 2, 'bunch'),
+        I('Butter', 0.5, 'stick'), // puree only; the sauce butter is gone with the sauce
+      ],
+    },
+  },
+  {
     name: 'Bone-In Pork Rib Chop with All the Fixings',
     cuisine: 'Spotlight',
     spotlight: true,
@@ -864,9 +889,9 @@ export const DISHES = [
     // not costed (negligible) but drive the Soy allergen + reheat forgiveness.
     servings: { small: 2, large: 6, bound: true },
     variants: [
-      { label: 'Small (~2 servings)', price: 50, cost: 25.75 },
-      { label: 'Medium (~4 servings)', price: 95, cost: 51.52 },
-      { label: 'Large (~6 servings)', price: 130, cost: 77.27 },
+      { label: 'Small (~2 servings)', price: 50, cost: 25.24 },
+      { label: 'Medium (~4 servings)', price: 95, cost: 50.49 },
+      { label: 'Large (~6 servings)', price: 130, cost: 75.73 },
     ],
     recipe: {
       factors: {
@@ -876,7 +901,7 @@ export const DISHES = [
       },
       base: [
         I('Bone-in pork rib chop', 2, 'lb'),
-        I('Sweet potato', 2, ''),
+        I('Kabocha squash', 1.5, 'lb'), // Jul 15: was 2 sweet potatoes. 75% yield -> ~18 oz of puree for 2 servings.
         I('Cider', 12, 'oz'),
         I('Butter', 2, 'stick'),
         I('Broccolini', 1, 'bunch'),
@@ -1226,8 +1251,12 @@ export const ALWAYS_ITEMS = {
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, pricePerLb: 9, costPerLb: 4.19, avgWeightLb: 0.75,
-      variants: [{ label: 'price by weight', price: 9, cost: 4.19 }],
+      // Jul 15: swapped to the H-E-B Natural Boneless Center Loin THICK CUT
+      // ($6.29/lb, avg 0.75 lb). The old $4.19 anchor was CORRECT for the
+      // thinner chop it replaced ($3.99/lb) — this is a product change, not a
+      // fix. $6.29 raw x 1.0825 = $6.81 buffered; $13/lb holds 47.6%.
+      name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 6.81, avgWeightLb: 0.75,
+      variants: [{ label: 'price by weight', price: 13, cost: 6.81 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── CHICKEN ──────────────────────────────────────────────────────────────

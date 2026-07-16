@@ -415,6 +415,7 @@ export const LINE_MAP = {
   'Filet Mignon - Prime':   { skip: true },
   'Flank steak':            { skip: true },
   'Pork chop':              { skip: true },
+  'Boneless pork chop':     { id: 'pork_chop_boneless', conv: C({ unit: 'lb', eachWeightLb: 0.75 }) }, // avg 0.75 lb/chop, so '2 each' resolves to 1.5 lb
   'Pork tenderloin':        { skip: true },
   'Baby gold potatoes':     { id: 'baby_gold_potatoes', conv: C({ unit: 'lb' }) }, // now a costed SV-veg bag component (was skip)
   'Parsnips':               { id: 'parsnips', conv: C({ unit: 'lb' }) },

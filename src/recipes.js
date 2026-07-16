@@ -236,6 +236,11 @@ export function buildReheatBlocks(order) {
   // reheat on the stabilized "beurre blanc," plate it all.
   let porkChopSpotlightOrdered = items.some(it => it.name === 'Bone-In Pork Rib Chop with All the Fixings');
 
+  // Pork Chop with Kabocha Puree and Charred Broccolini — the non-spotlight
+  // tier. Three parts, not four: no sauce, so the butter suggestion at the end
+  // does that job for anyone who has butter in the house.
+  let porkChopBaseOrdered = items.some(it => it.name === 'Pork Chop with Kabocha Purée and Charred Broccolini');
+
   // Steak au Poivre (Spotlight) — dedicated four-part card: sear the thick
   // filet (30 min counter-warm, 131°F no exceptions), warm the pommes purée +
   // asparagus bags, gentle reheat on the stabilized peppercorn-cognac sauce.
@@ -408,7 +413,16 @@ export function buildReheatBlocks(order) {
     blocks.push({
       title: 'Sear the pork, warm everything else',
       dishes: ['Bone-In Pork Rib Chop with All the Fixings'],
-      body: 'Four parts: the pork in a sealed bag, the sweet potato puree in a bag, the broccolini in a bag, and the cider-thyme "beurre blanc" in a container. Start the pork first since it needs a head start. This is a very thick cut, so let it sit out on the counter for 30 minutes or more before searing, then pat it very dry and sear hard on each side in a blazing-hot pan until deeply browned. While it rests, reheat the puree and broccolini bags in a pot of simmering water for a few minutes each. Warm the sauce gently in a small saucepan over low heat. It is a "beurre blanc," so in theory it can break, but this one is stabilized to hold up to a home reheat, so you have some room. Just do not rush it over high heat. To plate: spread the puree down first, lay the pork chop on one side, the broccolini on the other, then drizzle the sauce over all of it.',
+      body: 'Four parts: the pork in a sealed bag, the kabocha puree in a bag, the broccolini in a bag, and the spiced cider beurre blanc in a container. Start the pork first since it needs a head start. This is a very thick cut, so let it sit out on the counter for 30 minutes or more before searing, then pat it very dry and sear hard on each side in a blazing-hot pan until deeply browned. While it rests, reheat the puree and broccolini bags in a pot of simmering water until just heated through, and be careful with the broccolini as it can overcook. Warm the sauce gently in a small saucepan over low heat. It is a beurre blanc, so in theory it can break, but this one is stabilized to hold up to a home reheat, so you have some room. Just do not rush it over high heat. To plate: spread the puree down first, lay the pork chop on one side, the broccolini on the other, then drizzle the sauce over all of it.',
+    });
+  }
+
+  // ── Pork Chop with Kabocha Puree and Charred Broccolini — 3-part card ──
+  if (porkChopBaseOrdered) {
+    blocks.push({
+      title: 'Sear the pork, warm the sides',
+      dishes: ['Pork Chop with Kabocha Purée and Charred Broccolini'],
+      body: 'Three parts: the pork in a sealed bag, the kabocha puree in a bag, and the broccolini in a bag. There are two thick chops here, meant to be sliced and split among four people. Let the pork sit out on the counter for 30 minutes or more before searing since these are very thick cuts, then pat dry and sear hard on each side in a blazing-hot pan until deeply browned. While it rests, reheat the puree and broccolini bags in a pot of simmering water until just heated through, and be careful with the broccolini as it can overcook. To plate: spread the puree down first, slice the chops against the grain and lay them over the top, broccolini alongside. If you have butter in the house, melt a little over the pork and broccolini right before it goes to the table. Not required, but it is doing the job the spotlight version\'s sauce does, and it takes ten seconds.',
     });
   }
 

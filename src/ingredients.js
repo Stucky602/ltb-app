@@ -56,6 +56,11 @@ export const INGREDIENT_SEED = [
   { id: 'parsley', name: 'Parsley', unit: 'bunch', baseline: 1.0, category: 'produce' },
   // ── Spotlight: Thick-Cut Pork Chop (Jul 9) ──
   { id: 'pork_rib_chop', name: 'Bone-in pork rib chop', unit: 'lb', baseline: 5.24, category: 'meat' }, // HEB natural, ~1 lb/pack
+  // H-E-B Natural Boneless Center Loin Pork Chop, THICK CUT — avg 0.75 lb/piece,
+  // $4.72 ea = $6.29/lb (Kevin, Jul 15). This REPLACED the older, thinner boneless
+  // chop that really was $3.99/lb; the old $4.19 anchor was correct for that cut.
+  // This is a product swap to a thicker chop, not a correction of a bad number.
+  { id: 'pork_chop_boneless', name: 'Boneless pork chop', unit: 'lb', baseline: 6.29, category: 'meat' },
   { id: 'sweet_potato', name: 'Sweet potato', unit: 'lb', baseline: 1.21, category: 'produce' }, // by weight (Kevin, Jul 15). Was 'each' @ $1.04, whose own comment recorded ~0.87 lb @ $1.21/lb; that back-solves to $1.20/lb, so the per-lb figure was always the real one.
   { id: 'cider', name: 'Cider', unit: 'oz', baseline: 0.208, category: 'pantry' }, // 12 oz can, 4-pack $10 = $2.50/can ÷ 12
   { id: 'broccolini', name: 'Broccolini', unit: 'bunch', baseline: 3.99, category: 'produce' }, // aka baby broccoli

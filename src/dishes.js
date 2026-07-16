@@ -55,7 +55,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { dairy: true },
+    allergens: { dairy: { variants: true, unlisted: "butter in the Sous-vide-bag-plus-butter-plus-herbs line, which resolves to sv_bag" } },
     // Brunswick's potato bag does NOT follow the Boeuf/Leblanc "simmer the bag,
     // then fold in" pattern. The stew is already going on the stove, so the
     // potatoes just get tipped in cold and come up to temp with everything else
@@ -114,7 +114,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, fish: true, soy: true },
+    allergens: { gluten: { variants: true, unlisted: "soy sauce (wheat) inside the Marmite + soy + spices line, which resolves to spices_generic" }, fish: true, soy: { variants: true, unlisted: "soy sauce inside the Marmite + soy + spices line, which resolves to spices_generic" } },
     options: { fixings: { prompt: 'Need some fixings at cost? Chips, sour cream, cheese, etc.', placeholder: 'e.g. tortilla chips, sour cream, cheddar' } },
     cuisine: 'American',
     reheat: 'stovetop',
@@ -333,7 +333,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { dairy: true, fish: true, gluten: { variants: true, unlisted: 'roux flour lives inside the Curry spice blend batch line, not its own recipe line' } },
+    allergens: { dairy: { variants: true, unlisted: "butter in the veg bag line, which resolves to sv_bag" }, fish: true, gluten: { variants: true, unlisted: 'roux flour lives inside the Curry spice blend batch line, not its own recipe line' } },
     cuisine: 'Japanese',
     reheat: 'stovetop',
     rice: true,
@@ -445,7 +445,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, soy: { variants: true, unlisted: 'soy sauce lives inside the Cumin + spices batch line' }, sesame: true },
+    allergens: { gluten: true, soy: { variants: true, unlisted: 'soy sauce lives inside the Cumin + spices batch line' }, sesame: { variants: true, unlisted: "house chili oil inside the Cumin + spices batch line, which resolves to spices_generic" } },
     diet: { veg: ['Mushroom, Small (~3-4)', 'Mushroom, Large (~6-8)', 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)', 'Mushroom, Large (~6-8) + Asian Greens (1 lb)'] },
     cuisine: 'Chinese',
     reheat: 'pasta',
@@ -552,7 +552,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, soy: true, sesame: true },
+    allergens: { gluten: true, soy: true, sesame: { variants: true, unlisted: "house chili oil rides a composed line, which resolves to spices_generic" } },
     cuisine: 'Chinese',
     reheat: 'stovetop',
     rice: true,
@@ -593,7 +593,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, soy: true, shellfish: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
+    allergens: { gluten: { variants: true, unlisted: "soy sauce and Shaoxing inside the black bean sauce composed line, which resolves to spices_generic" }, soy: true, shellfish: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     diet: { veg: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], vegan: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], pesc: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
@@ -694,7 +694,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, soy: true, shellfish: true, sesame: true },
+    allergens: { gluten: true, soy: true, shellfish: true, sesame: { variants: true, unlisted: "house chili oil rides a composed line, which resolves to spices_generic" } },
     // NO `veg` flag, deliberately. The base carries 3 tbsp of oyster sauce,
     // which is made from oysters, so the Tofu variants are tofu but they are
     // not vegetarian. They were flagged `veg` until Jul 15 (found by
@@ -754,7 +754,8 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, fish: true, shellfish: true, soy: true },
+    // all four allergens ride the single Oyster + soy + fish sauce + sugar line
+    allergens: { gluten: { variants: true, unlisted: "soy sauce (wheat) rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" }, fish: { variants: true, unlisted: "fish sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" }, shellfish: { variants: true, unlisted: "oyster sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" }, soy: { variants: true, unlisted: "soy sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" } },
     cuisine: 'Thai',
     reheat: 'bagged',
     rice: true,
@@ -951,7 +952,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { dairy: true, gluten: true, egg: true, soy: true },
+    allergens: { dairy: true, gluten: true, egg: true, soy: { variants: true, unlisted: "soy lecithin in the Xanthan gum + lecithin powder line, which resolves to spices_generic" } },
     diet: { veg: true },
     options: { parmOffer: true }, // finished with parm; offer a block at cost
     cuisine: 'Italian',
@@ -1382,7 +1383,7 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { dairy: true, gluten: { variants: true, unlisted: 'a light roux thickens the stew at the end, uncosted (Kevin confirmed Jul 16)' } },
+    allergens: { dairy: { variants: true, unlisted: "butter in the veg bag line, which resolves to sv_bag" }, gluten: { variants: true, unlisted: 'a light roux thickens the stew at the end, uncosted (Kevin confirmed Jul 16)' } },
     cuisine: 'Spotlight',
     spotlight: true, // (Kevin, Jul 10): expensive enough to warrant it — joins the spotlight group
     reheat: 'stovetop',

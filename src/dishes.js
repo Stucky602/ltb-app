@@ -58,7 +58,9 @@ export const DISHES = [
         I('Onion', 1, 'lb'),
         I('Corn', 3, 'ears'),
         I('Dried lima beans', 5, 'oz'),
-        I('Worcestershire + vinegar + flour', 1, 'batch', true),
+        I('Vinegar + smoked paprika', 1, 'batch', true), // Jul 15: was 'Worcestershire + vinegar + flour'. There is no flour and no
+        // Worcestershire in this stew and there never was — the line was wrong,
+        // and it was declaring a Gluten and a Fish allergen the dish doesn't have.
       ],
       // ONE sous vide bag per dish (corn + potatoes cooked as a bagged
       // component). Per-variant + fixed so it never doubles under the ×2

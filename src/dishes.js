@@ -165,7 +165,11 @@ export const DISHES = [
   // ── Curry ──────────────────────────────────────────────────────────────────
   {
     name: 'Indian Style Curry',
-    diet: { veg: ['Chickpea, Small (~4-5)', 'Chickpea, Large (~8-10)'], pesc: ['Shrimp, Small (~4-5)', 'Shrimp, Large (~8-10)'] },
+    // veganOnRequest, NOT vegan: the default chickpea recipe has butter in it.
+    // Kevin swaps butter->oil, uses veg stock, and holds the cream when asked.
+    // Tagging it plain `vegan` would mean someone filtering for vegan gets
+    // served butter, which is the whole reason the tag is separate.
+    diet: { veg: ['Chickpea, Small (~4-5)', 'Chickpea, Large (~8-10)'], veganOnRequest: ['Chickpea, Small (~4-5)', 'Chickpea, Large (~8-10)'], pesc: ['Shrimp, Small (~4-5)', 'Shrimp, Large (~8-10)'] },
     cuisine: 'Indian',
     reheat: 'stovetop',
     rice: true,
@@ -415,7 +419,7 @@ export const DISHES = [
   },
   {
     name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce',
-    diet: { veg: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], pesc: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
+    diet: { veg: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], vegan: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], pesc: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,
@@ -449,7 +453,7 @@ export const DISHES = [
   },
   {
     name: 'Stir Fried Long Beans with Ground Pork or Tofu',
-    diet: { veg: ['Tofu, Small (~4)', 'Tofu, Large (~8)'] },
+    diet: { veg: ['Tofu, Small (~4)', 'Tofu, Large (~8)'], vegan: ['Tofu, Small (~4)', 'Tofu, Large (~8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,

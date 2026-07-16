@@ -141,6 +141,25 @@ export default function LTBOrderTracker() {
   const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
   const [receiptAliases, setReceiptAliases] = useState({}); // normReceiptStr -> { ingredientId?, action?, pricing? }
   const [auditLog, setAuditLog] = useState([]);
+
+  // ── Audit trail (v9.23) ───────────────────────────────────────────────────
+  // Declared HERE, immediately after its state, and NOT further down: every
+  // consumer below (publishWeek, updateIngredients, commitReceiptCosts,
+  // saveReceiptAliases) names it in a dep array, and a dep array is
+  // evaluated during render. Declared late, those arrays hit the temporal
+  // dead zone and the whole app dies at boot with 'can't access lexical
+  // declaration recordAudit before initialization'. Keep it above line ~576.
+  // ONE writer, so every money-affecting path bounds and persists identically.
+  // Append-only: a correction is a new entry, never an edit to an old one.
+  const recordAudit = useCallback((entries) => {
+    if (!entries || !entries.length) return;
+    setAuditLog(prev => {
+      const next = appendAudit(prev, entries);
+      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res)));
+      return next;
+    });
+  }, []);
+
   // Boot notice. Distinct from `error` (which renders as a "tap to retry
   // saving" button, the wrong affordance for good news) and from `exportMsg`
   // (which self-clears in 2.5s — too fast for a message about money moving).
@@ -831,18 +850,6 @@ export default function LTBOrderTracker() {
     setInventory(prev => {
       const next = { ...prev, [key]: Math.max(0, Number(value) || 0) };
       saveJSON(INVENTORY_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
-
-  // ── Audit trail (v9.23) ───────────────────────────────────────────────────
-  // ONE writer, so every money-affecting path bounds and persists identically.
-  // Append-only: a correction is a new entry, never an edit to an old one.
-  const recordAudit = useCallback((entries) => {
-    if (!entries || !entries.length) return;
-    setAuditLog(prev => {
-      const next = appendAudit(prev, entries);
-      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res)));
       return next;
     });
   }, []);

@@ -35,9 +35,26 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
             {d.quiet.map(q => <div key={q.display} style={S.p}>{q.display}: no order in {q.weeks} weeks ({q.orders} lifetime). Maybe a nudge?</div>)}
           </>)}
 
-          {d.marginWatch.length > 0 && (<>
+          {(d.marginWatch.underFloor.length > 0 || d.marginWatch.watch.length > 0) && (<>
             <div style={S.h}>Margin watch</div>
-            {d.marginWatch.map(m => <div key={m.name} style={{ ...S.p, color: m.underFloor ? C.bad : C.warn }}>{m.name}: worst variant {m.pct}%{m.underFloor ? ' — under the floor' : ''}</div>)}
+            {d.marginWatch.underFloor.length > 0 && (<>
+              <div style={{ ...S.p, color: C.bad, fontWeight: 700 }}>Under the floor</div>
+              {d.marginWatch.underFloor.slice(0, 4).map(m => (
+                <div key={m.name} style={{ ...S.p, color: C.bad }}>{m.name}: worst variant {m.pct}%</div>
+              ))}
+              {d.marginWatch.underFloor.length > 4 && (
+                <div style={{ ...S.p, ...S.dim }}>+{d.marginWatch.underFloor.length - 4} more under the floor</div>
+              )}
+            </>)}
+            {d.marginWatch.watch.length > 0 && (<>
+              <div style={{ ...S.p, color: C.warn, fontWeight: 700, marginTop: d.marginWatch.underFloor.length > 0 ? 6 : 0 }}>Worth a look</div>
+              {d.marginWatch.watch.slice(0, 4).map(m => (
+                <div key={m.name} style={{ ...S.p, color: C.warn }}>{m.name}: worst variant {m.pct}%</div>
+              ))}
+              {d.marginWatch.watch.length > 4 && (
+                <div style={{ ...S.p, ...S.dim }}>+{d.marginWatch.watch.length - 4} more to watch</div>
+              )}
+            </>)}
           </>)}
 
           {d.drifters.length > 0 && (<>

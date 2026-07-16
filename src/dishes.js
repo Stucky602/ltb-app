@@ -40,6 +40,15 @@ export const DISHES = [
   // ── American / Southern / Tex-Mex ─────────────────────────────────────────
     {
     name: 'Brunswick Stew',
+    // Brunswick's potato bag does NOT follow the Boeuf/Leblanc "simmer the bag,
+    // then fold in" pattern. The stew is already going on the stove, so the
+    // potatoes just get tipped in cold and come up to temp with everything else
+    // (Kevin, Jul 15). Without this entry the dish falls to the generic stovetop
+    // card, which says "comes in a container" and never mentions the bag at all.
+    stewVegCopy: {
+      main: 'Comes in two parts: the stew in a container and the potatoes in a sous vide bag. Warm the stew gently on the stove over medium-low.',
+      veg: 'The potatoes are the easy part here, and they do not need their own pot. Cut the bag open and discard the thyme and the liquid, but not down the drain since there is butter in it. Tip the potatoes straight into the stew and let everything come up to temperature together until heated through.',
+    },
     cuisine: 'Southern',
     reheat: 'stovetop',
     equipment: { flexible: ['dutch', 'largePot'], fixed: ['ovenLow'] },

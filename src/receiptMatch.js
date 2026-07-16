@@ -88,6 +88,13 @@ const PACK_OVERRIDE = {
   bourbon: { fromUnit: 'package', perBase: 3.17, matchNullUnit: true, eachIsPack: true },
   evaporated_milk: { fromUnit: 'package', perBase: 1.5, matchNullUnit: true, eachIsPack: true }, // 12 fl-oz can = 1.5 cups
   saffron: { fromUnit: 'package', perBase: 4, eachIsPack: true, matchNullUnit: true }, // HEB 0.018oz bag = 4 pinches ($4.68 → $1.17/pinch, Kevin-verified Jul 4)
+  // H-Mart herb pack: 1 pack = 1 bunch = 15 sprigs = $2.99 (Kevin, Jul 14).
+  // These two are priced per SPRIG, so a pack line total must be divided by 15
+  // — without this the $2.99 pack reads as $2.99/sprig and every thyme dish
+  // reports ~1400% drift, which is exactly the bug that opened this task.
+  // Mirrors SPRIGS_PER_HERB_PACK in dishCosting.js; the two must agree.
+  thyme_fresh: { fromUnit: 'package', perBase: 15, eachIsPack: true, matchNullUnit: true },
+  tarragon: { fromUnit: 'package', perBase: 15, eachIsPack: true, matchNullUnit: true },
   // ── Kevin's habitual products (pack sizes confirmed Jul 5) ──────────────
   // peanut_butter deliberately NOT seeded: he buys Peter Pan 40 oz when
   // available but falls back to smaller jars, and the 'half-jar' costing unit
@@ -229,12 +236,24 @@ export function countBaseOf(toUnit) {
 // piece/bunch — the line total IS the per-each price. Melons, pineapple,
 // herbs, scallions, fennel, sweet bulb onions, garlic. Kills the
 // "confirm this equals one bunch" prompt for the whole category.
-const SOLD_BY_EACH = new Set([
+// MEMBERSHIP RULE: an ingredient belongs here only if its COSTING UNIT is the
+// same thing the store hands you. The moment those diverge, "the line total is
+// the per-each price" becomes a 15x error rather than a shortcut. Enforced by
+// tests/count_entry.mjs against the live seed, because this set silently rots
+// every time an ingredient is repriced to a finer unit.
+//
+// thyme_fresh was REMOVED Jul 15. It sat here correctly while thyme was priced
+// per 'bunch', but the Jul 14 reprice to 'sprig' @ $0.1993 broke the premise:
+// an H-Mart pack scanning at $2.99 would have landed as $2.99/SPRIG, 15x high,
+// on the very ingredient whose bad drift started this task. It now has a
+// PACK_OVERRIDE (pack = 15 sprigs) instead, which is the honest shape.
+// herb_generic was removed for the same reason: it is priced per 'batch'.
+export const SOLD_BY_EACH = new Set([
   'cantaloupe', 'pineapple',
-  'cilantro', 'basil', 'mint', 'thyme_fresh', 'herb_generic',
+  'cilantro', 'basil', 'mint',
   'scallions', 'fennel_bulb', 'bulb_onion', 'garlic',
 ]);
-const EACHISH_TO_UNITS = new Set(['each', 'head', 'container', 'bunch']);
+export const EACHISH_TO_UNITS = new Set(['each', 'head', 'container', 'bunch']);
 
 // ═══ v3: WINE VARIETAL → TYPE ════════════════════════════════════════════════
 // Wine receipt names never say "red wine" — they say the varietal or the
@@ -441,6 +460,73 @@ export function perUnitFromUserWeight({ total, lb = 0, oz = 0, decimalLb = null,
   if (!(wLb > 0) || !isFinite(wLb)) return null;
   const wInUnit = ingUnit === 'lb' ? wLb : (ingUnit === 'oz' ? wLb * _OZ_PER_LB : wLb * _G_PER_LB);
   return { weightLb: round(wLb), perUnit: round(t / wInUnit) };
+}
+
+// ── C.6 (Jul 15): user-entered COUNT -> per-unit price ──────────────────────
+// The twin of perUnitFromUserWeight, for ingredients priced by the piece.
+//
+// THE BUG THIS CLOSES
+// A receipt line like "24 FRESH CORN ... 2.25" carries a line TOTAL and no
+// count — the 24 is a PLU, not a quantity. derivePerUnit()'s last resort is
+// `line_total` as the per-unit price, so the app concluded corn costs
+// $2.25/ear. That is right only if Kevin bought exactly one ear. He bought
+// nine, so the true price was $0.25 and the app was 9x high, silently, on
+// every dish using corn.
+//
+// Weight-priced items already had an escape hatch (WeightEntry: "it weighed
+// 1 lb 6 oz"). Count-priced items had none, because you cannot weigh your way
+// out of "how many lemons were in that bag."
+//
+// COUNT_ENTRY_UNITS is the mirror of WEIGHT_ENTRY_UNITS and answers "is this
+// ingredient priced by the piece?" — the question that decides whether asking
+// "how many did you buy?" is sensible or nonsense. Asking it for a per-lb item
+// would be nonsense; asking it for a per-tbsp item doubly so.
+//
+// NOT included, deliberately: 'bunch', 'head', 'pack', 'can', 'jar',
+// 'carton', 'block', '10ct', 'container'. Those are PACKAGES, and the
+// packQty/needsConversion prompt already owns them ("how many X in one
+// pack?"). Two prompts asking near-identical questions about the same line is
+// how a scanner becomes something Kevin stops trusting. This set is only the
+// units where the receipt's line total covers an unknown number of INDIVIDUAL
+// pieces.
+export const COUNT_ENTRY_UNITS = new Set(['each', 'ear', 'piece', 'fillet', 'sprig', 'square', 'stick', 'leaf']);
+
+// Pure, same contract as perUnitFromUserWeight: returns { count, perUnit } or
+// null. Null on any non-positive or non-finite input — a $0 or negative
+// derivation must never reach a cost.
+export function perUnitFromUserCount({ total, count, ingUnit = 'each' }) {
+  if (!COUNT_ENTRY_UNITS.has(ingUnit)) return null;
+  const t = Number(total);
+  if (!(t > 0) || !isFinite(t)) return null;
+  const n = Number(count);
+  if (!(n > 0) || !isFinite(n)) return null;
+  return { count: n, perUnit: round(t / n) };
+}
+
+// Should this row ask "how many did you buy?"
+//
+// Being able to ask is not a reason to ask. The prompt is only honest when the
+// app GUESSED — i.e. it fell back to treating the whole line total as one
+// unit's price. Three things must all hold:
+//
+//   1. the ingredient is priced by the piece (COUNT_ENTRY_UNITS)
+//   2. the derivation basis is 'line_total' — the tell-tale of the guess.
+//      Any other basis means the receipt or a rule answered it: a printed unit
+//      price, a weighed line, an explicit quantity, or a PACK_OVERRIDE.
+//   3. nothing already resolved the pack size for this line (a PACK_OVERRIDE
+//      or a learned alias.packQty). Asking after those is asking a question
+//      whose answer is already on file, which teaches Kevin the prompts are
+//      noise and trains him to dismiss them.
+//
+// Kept as a pure predicate rather than inlined in the component so the gate
+// can pin the conditions, and so the "when" and the "how" of this prompt can
+// be reasoned about separately.
+export function shouldAskCount({ ingUnit, basis, ingredientId, alias }) {
+  if (!COUNT_ENTRY_UNITS.has(ingUnit)) return false;
+  if (basis !== 'line_total') return false;
+  if (ingredientId && PACK_OVERRIDE[ingredientId]) return false;
+  if (alias && typeof alias.packQty === 'number' && alias.packQty > 0) return false;
+  return true;
 }
 
 export function onePackPriceFor(line, fromUnit) {

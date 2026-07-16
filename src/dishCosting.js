@@ -37,6 +37,12 @@ const GRAMS_PER_LB = 453.6;
 const GRAMS_PER_KNOB = 30;
 const KNOBS_PER_LB = GRAMS_PER_LB / GRAMS_PER_KNOB; // ~15.12
 const LB_PER_ONION = 0.6;
+const LB_PER_APPLE = 0.4; // medium apple; only used to convert the one bare-count recipe line, never to price a purchase
+const LB_PER_SWEET_POTATO = 0.87; // recorded on the old per-each seed line, which back-solved to $1.20/lb against its own $1.21/lb note
+// Peanut butter is DENSE: a cup weighs far more than a cup of water. Jars are
+// labeled by net weight, so per-oz is the only figure a receipt can confirm,
+// and this bridges the recipe's 'cup' to it.
+const OZ_PER_CUP_PEANUT_BUTTER = 9.5;
 const TBSP_PER_STICK = 8;
 const CUPS_PER_BOTTLE_WINE = 3;
 const TBSP_PER_CUP = 16;
@@ -124,7 +130,7 @@ export function makeConv(spec) {
   for (const [k, v] of Object.entries(spec.aliases || {})) aliases[canonUnit(k)] = v;
   const unitIsWt = WT_PER_LB[unit] != null;
   const unitIsVol = VOL_PER_CUP[unit] != null;
-  return (q, u) => {
+  const fn = (q, u) => {
     let un = canonUnit(u);
     if (spec.fluid && un === 'oz') un = 'floz';
     if (spec.also) { const r = spec.also(q, un); if (r !== undefined) return r; }
@@ -141,6 +147,13 @@ export function makeConv(spec) {
     if (unitIsWt && spec.densityLbPerCup != null && VOL_PER_CUP[un] != null) return q * VOL_PER_CUP[un] * spec.densityLbPerCup / WT_PER_LB[unit];
     return null; // FAIL CLOSED — [unit-convertible] invariant catches this pre-deploy
   };
+  // The unit this conv resolves TO. Closed over and otherwise invisible, which
+  // is how the red onion trap works: the seed's `unit` and the conv's `unit`
+  // are one contract (the seed says what a baseline dollar buys; the conv says
+  // what quantity to multiply it by), and nothing could compare them. Exposing
+  // it lets the [conv-unit-matches-seed] invariant do exactly that.
+  fn.declaredUnit = unit;
+  return fn;
 }
 const C = makeConv; // brevity alias for the map below
 
@@ -159,10 +172,21 @@ export const LINE_MAP = {
   'Tomato paste':           { id: 'tomato_paste', conv: C({ unit: 'can', aliases: { tbsp: 1/12, 'small can': 1 } }) }, // 6oz can ≈ 12 tbsp
 
   // Onions
-  'Red onion':              { id: 'red_onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) },
-  'Red onion (large)':      { id: 'red_onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) }, // STALE (Jul 13 rename -> 'Red onion')
-  'Onion':                  { id: 'onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) },
-  'Onions or carrots (for pickling)': { id: 'onion', conv: C({ unit: 'each', pieceWeightLb: LB_PER_ONION }) },
+  // Red onion is purchased BY WEIGHT (Kevin, Jul 15), so its conv resolves to
+  // lb and `eachWeightLb` carries a bare count the other way. Note the key
+  // swap: `pieceWeightLb` converts weight -> pieces (for a per-each purchase
+  // unit), `eachWeightLb` converts pieces -> weight (for a per-lb one). They
+  // point in opposite directions, and the seed's `unit` decides which is
+  // correct. Seed unit and conv unit are ONE CONTRACT: change one without the
+  // other and every line silently misprices by the piece weight. Yellow onion
+  // is still sold by the each and keeps pieceWeightLb.
+  'Red onion':              { id: 'red_onion', conv: C({ unit: 'lb', eachWeightLb: LB_PER_ONION }) },
+  'Red onion (large)':      { id: 'red_onion', conv: C({ unit: 'lb', eachWeightLb: LB_PER_ONION }) }, // STALE (Jul 13 rename -> 'Red onion')
+  // Yellow onion joined red onion on the scale (Kevin, Jul 15): both are
+  // bought by weight, so both resolve to lb with eachWeightLb carrying the
+  // bare-count recipe lines ("Onion, 1") the other way.
+  'Onion':                  { id: 'onion', conv: C({ unit: 'lb', eachWeightLb: LB_PER_ONION }) },
+  'Onions or carrots (for pickling)': { id: 'onion', conv: C({ unit: 'lb', eachWeightLb: LB_PER_ONION }) },
   'Sweet onion':            { id: 'sweet_onion', conv: C({ unit: 'lb' }) },
   'Bulb onions':            { id: 'bulb_onion', conv: C({ unit: 'bunch' }) },
   'Scallions':              { id: 'scallions', conv: C({ unit: 'bunch' }) },
@@ -196,7 +220,7 @@ export const LINE_MAP = {
   'Petite peas':            { id: 'petite_peas', conv: C({ unit: '8oz', pieceWeightLb: 0.5 }) },
   'Corn':                   { id: 'corn', conv: C({ unit: 'ear' }) },
   'Red potatoes':           { id: 'red_potatoes', conv: C({ unit: 'lb' }) },
-  'Apple':                  { id: 'apple', conv: C({ unit: 'each' }) },
+  'Apple':                  { id: 'apple', conv: C({ unit: 'lb', eachWeightLb: LB_PER_APPLE }) }, // by weight (Kevin, Jul 15); the Leblanc curry line is a bare count ('Apple, 1'), so eachWeightLb carries it
   'Fennel bulb':            { id: 'fennel_bulb', conv: C({ unit: 'each' }) },
   'Limes':                  { id: 'lime', conv: C({ unit: 'each' }) },
   'Lemon':                  { id: 'lemon', conv: C({ unit: 'each' }) },
@@ -252,7 +276,7 @@ export const LINE_MAP = {
   'Coriander seed':         { id: 'coriander_seed', conv: C({ unit: 'tbsp' }) },
   // ── Spotlight: Thick-Cut Pork Chop (Jul 9) ──
   'Bone-in pork rib chop':  { id: 'pork_rib_chop', conv: C({ unit: 'lb' }) },
-  'Sweet potato':           { id: 'sweet_potato', conv: C({ unit: 'each' }) },
+  'Sweet potato':           { id: 'sweet_potato', conv: C({ unit: 'lb', eachWeightLb: LB_PER_SWEET_POTATO }) }, // by weight (Kevin, Jul 15); the recipe line is a bare count ('Sweet potato, 2'), so eachWeightLb carries it
   'Cider':                  { id: 'cider', conv: C({ unit: 'oz', fluid: true }) },   // priced per fl oz (12 oz can)
   'Broccolini':             { id: 'broccolini', conv: C({ unit: 'bunch' }) },
   'Sage':                   { id: 'sage', conv: C({ unit: 'pack' }) },               // already ÷6 in seed
@@ -294,7 +318,7 @@ export const LINE_MAP = {
   '100% dark chocolate':    { id: 'chocolate_100', conv: C({ unit: 'square', pieceWeightLb: 0.03125, aliases: { bar: 8 } }) },
   'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: C({ unit: 'g' }) },
   'Valrhona chocolate':     { id: 'valrhona', conv: C({ unit: '290g', pieceWeightLb: 290/GRAMS_PER_LB, aliases: { bar: 1 } }) }, // priced per 290g bar — that IS the bar weight
-  'Peanut butter':          { id: 'peanut_butter', conv: C({ unit: 'half-jar', aliases: { cup: 1 } }) }, // 1 cup ≈ half jar (historical)
+  'Peanut butter':          { id: 'peanut_butter', conv: C({ unit: 'oz', aliases: { cup: OZ_PER_CUP_PEANUT_BUTTER } }) }, // priced per oz off the real jar (Jul 15); 1 cup of PB weighs ~9.5 oz
   'Saffron':                { id: 'saffron', conv: C({ unit: 'pinch' }) }, // pinch IS the pricing unit ($4.68 bag ÷ 4 uses = $1.17); pinch = 1/16 tsp in the volume family for any future tsp line
   'Fennel seeds':           { id: 'fennel_seeds', conv: C({ unit: 'tsp' }) },
 
@@ -320,6 +344,7 @@ export const LINE_MAP = {
   'Good olive oil':         { id: 'olive_oil', conv: C({ unit: 'oz', fluid: true, also: (q,u)=> u==='' ? 2.5 : undefined }) },
   'Orange juice':           { id: 'orange_juice', conv: () => 1 }, // one small bottle per batch, flat by design
   'Chicken stock':          { id: 'chicken_stock', conv: C({ unit: 'cup', fluid: true }) }, // 8 fl oz = 1 cup
+  'Vegetable stock':        { id: 'vegetable_stock', conv: C({ unit: 'cup', fluid: true }) }, // same shape and same cost as chicken stock; separate id so the veg/pesc variants aren't cooked in poultry
   'Beef stock':             { id: 'beef_stock', conv: C({ unit: 'cup', fluid: true }) },
   'Chicken broth':          { id: 'chicken_stock', conv: C({ unit: 'cup', fluid: true }) },
   'Kitchen Basics chicken stock': { id: 'chicken_basics_stock', conv: (q,u)=> u==='oz'? q/32 : q }, // STALE (Jul 13 rename -> 'Chicken stock'); chicken_basics_stock seed now unreferenced

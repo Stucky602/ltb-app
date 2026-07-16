@@ -40,8 +40,9 @@ import {
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import {
   SOURCES, appendAudit, auditEntry, diffIngredientCosts,
-  menuFingerprint, diffMenuFingerprint, diffAliases,
+  menuFingerprint, diffMenuFingerprint, diffAliases, diffReconcile,
 } from './auditLog.js';
+import { reconcileIngredients, pruneCostHistory, summarizeReconcile } from './seedReconcile.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
 import { ImportModal } from './components/ImportModal.jsx';
@@ -140,6 +141,13 @@ export default function LTBOrderTracker() {
   const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
   const [receiptAliases, setReceiptAliases] = useState({}); // normReceiptStr -> { ingredientId?, action?, pricing? }
   const [auditLog, setAuditLog] = useState([]);
+  // Boot notice. Distinct from `error` (which renders as a "tap to retry
+  // saving" button, the wrong affordance for good news) and from `exportMsg`
+  // (which self-clears in 2.5s — too fast for a message about money moving).
+  // Dismissed by tap, not by timer: a silent cost rewrite is exactly the
+  // failure mode this whole task exists to end, so the telling can't expire
+  // before Kevin has read it.
+  const [notice, setNotice] = useState(null);
   const [showReceiptScan, setShowReceiptScan] = useState(false);
   const [debugScan, setDebugScan] = useState(false);
   const [showPendingIdx, setShowPendingIdx] = useState(null);
@@ -237,9 +245,31 @@ export default function LTBOrderTracker() {
 
       const savedIngredients = await loadJSON(INGREDIENTS_KEY, null);
       let ingForHistory = null;
+      // Reconcile entries are produced here but LOGGED in the audit block
+      // below, alongside the deploy fingerprint diff — same boot, same write,
+      // one log. Both describe "a file edit moved your money," so splitting
+      // them across two saves would just mean two chances to lose one.
+      let reconcileChanges = [];
       if (savedIngredients && Array.isArray(savedIngredients) && savedIngredients.length) {
-        if (mounted) setIngredientsDb(savedIngredients);
-        ingForHistory = savedIngredients;
+        // ── Seed reconciliation (Jul 15) ──────────────────────────────────
+        // The stored DB is authoritative, which used to mean INGREDIENT_SEED
+        // was inert after first install: editing a baseline in ingredients.js
+        // changed nothing here, forever. That would merely be useless. It was
+        // worse, because the drift engine reads the seed LIVE on one side of
+        // its own ratio (baselineCostMap() -> seed, liveCostMapFrom() ->
+        // storage). So a seed edit didn't do nothing; it made every dish using
+        // that ingredient report drift against an anchor its `current` had
+        // never been compared to. Thyme's unit change read as 1144%.
+        //
+        // This runs on EVERY boot, not once, because it is not a one-time
+        // shape fix — it is a standing invariant. Kevin edits prices
+        // regularly, and the next edit needs the same treatment as this one
+        // with nobody having to remember. See src/seedReconcile.js.
+        const rec = reconcileIngredients(savedIngredients, INGREDIENT_SEED);
+        reconcileChanges = rec.changes;
+        if (mounted) setIngredientsDb(rec.next);
+        ingForHistory = rec.next;
+        if (rec.changes.length) saveJSON(INGREDIENTS_KEY, rec.next);
       } else {
         // First run: seed from the canonical baseline. current = baseline at seed time.
         const seeded = INGREDIENT_SEED.map(i => ({ ...i, current: i.baseline }));
@@ -252,7 +282,13 @@ export default function LTBOrderTracker() {
       // so trends have a starting anchor; afterward append on each cost edit.
       const savedHistory = await loadJSON(COST_HISTORY_KEY, null);
       if (savedHistory && Array.isArray(savedHistory) && savedHistory.length) {
-        if (mounted) setCostHistory(savedHistory);
+        // A unit-changed ingredient's history is denominated in the OLD unit.
+        // Plotting per-bunch points on a per-sprig axis is not stale data, it
+        // is a lie with a chart around it. Drop those points and let the
+        // series restart; this is a lightweight trend, not the books.
+        const pruned = pruneCostHistory(savedHistory, reconcileChanges);
+        if (mounted) setCostHistory(pruned);
+        if (pruned !== savedHistory) saveJSON(COST_HISTORY_KEY, pruned);
       } else {
         const t = Date.now();
         const snapshot = (ingForHistory || []).map(i => ({ t, id: i.id, cost: i.current }));
@@ -281,10 +317,24 @@ export default function LTBOrderTracker() {
       // First run has no prior fingerprint: establish the baseline silently
       // rather than logging the entire catalog as if it just changed.
       const deployEntries = diffMenuFingerprint(prevFp, nextFp);
-      const startingLog = appendAudit(Array.isArray(savedAudit) ? savedAudit : [], deployEntries);
+      // Seed reconciliation from above. This one is louder than a deploy diff:
+      // a deploy entry records that the app NOTICED a number move, while a
+      // reconcile entry records that the app CHANGED Kevin's stored data. An
+      // unlogged migration that silently rewrites costs would be repeating the
+      // exact sin the audit log was built to end.
+      const seedEntries = diffReconcile(reconcileChanges);
+      const startingLog = appendAudit(
+        Array.isArray(savedAudit) ? savedAudit : [],
+        [...deployEntries, ...seedEntries]
+      );
       if (mounted) setAuditLog(startingLog);
-      if (deployEntries.length) saveJSON(AUDIT_LOG_KEY, startingLog);
+      if (deployEntries.length || seedEntries.length) saveJSON(AUDIT_LOG_KEY, startingLog);
       if (!prevFp || deployEntries.length) saveJSON(MENU_FINGERPRINT_KEY, nextFp);
+
+      // Tell Kevin his costs moved. Silently correcting money is how the filet
+      // bug hid for weeks; a boot that quietly rewrites prices and says nothing
+      // is the same failure wearing a fix's clothes.
+      if (mounted && reconcileChanges.length) setNotice(summarizeReconcile(reconcileChanges));
 
       setLoading(false);
       cleanupPhotos(migrated);
@@ -1269,13 +1319,23 @@ export default function LTBOrderTracker() {
       setInventory(payload.inventory);
       await saveJSON(INVENTORY_KEY, payload.inventory);
     }
+    // Seed reconciliation on restore. A snapshot is a photograph of the DB as
+    // it was up to three days ago, so it carries whatever baselines were
+    // current THEN — including the stale ones this whole mechanism exists to
+    // fix. Restoring without reconciling would quietly undo the boot fix and
+    // put thyme back at 1144%, which is the worst version of this bug: fixed,
+    // then broken again by a button labelled "restore."
+    let restoreChanges = [];
     if (Array.isArray(payload.ingredientsDb)) {
-      setIngredientsDb(payload.ingredientsDb);
-      await saveJSON(INGREDIENTS_KEY, payload.ingredientsDb);
+      const rec = reconcileIngredients(payload.ingredientsDb, INGREDIENT_SEED);
+      restoreChanges = rec.changes;
+      setIngredientsDb(rec.next);
+      await saveJSON(INGREDIENTS_KEY, rec.next);
     }
     if (Array.isArray(payload.costHistory)) {
-      setCostHistory(payload.costHistory);
-      await saveJSON(COST_HISTORY_KEY, payload.costHistory);
+      const pruned = pruneCostHistory(payload.costHistory, restoreChanges);
+      setCostHistory(pruned);
+      await saveJSON(COST_HISTORY_KEY, pruned);
     }
     if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
       setReceiptAliases(payload.receiptAliases);
@@ -1286,17 +1346,24 @@ export default function LTBOrderTracker() {
     // storage. Stamp the restore itself onto the RESTORED log so the rewind
     // is visible rather than looking like history quietly changed.
     if (Array.isArray(payload.auditLog)) {
-      const restored = appendAudit(payload.auditLog, [auditEntry({
-        target: 'app', field: 'restored', from: null,
-        to: (payload.orders || []).length, source: SOURCES.MANUAL,
-        meta: { from: payload.exportedAt || 'unknown snapshot' },
-      })]);
+      const restored = appendAudit(payload.auditLog, [
+        auditEntry({
+          target: 'app', field: 'restored', from: null,
+          to: (payload.orders || []).length, source: SOURCES.MANUAL,
+          meta: { from: payload.exportedAt || 'unknown snapshot' },
+        }),
+        // Must ride THIS write. The restored log replaces the live one
+        // wholesale, so reconcile entries appended anywhere else would be
+        // overwritten a line later and the cost rewrite would go unrecorded.
+        ...diffReconcile(restoreChanges),
+      ]);
       setAuditLog(restored);
       await saveJSON(AUDIT_LOG_KEY, restored);
     }
     setExportMsg(`Imported ${(payload.orders || []).length} orders successfully.`);
     setTimeout(() => setExportMsg(null), 4000);
     setError(null);
+    if (restoreChanges.length) setNotice(summarizeReconcile(restoreChanges));
     return true;
   }, [persistOrders]);
 
@@ -1571,6 +1638,22 @@ export default function LTBOrderTracker() {
           </div>
         </div>
         {exportMsg && <div style={styles.exportMsg}>{exportMsg}</div>}
+        {notice && (
+          <button
+            onClick={() => setNotice(null)}
+            style={{
+              display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
+              background: '#2a2f2d', border: '1px solid ' + GOLD, borderRadius: 8,
+              padding: '10px 12px', margin: '8px 0', color: '#F5F0E8',
+              fontSize: 12, lineHeight: 1.45, font: 'inherit',
+            }}
+          >
+            {notice}
+            <span style={{ display: 'block', marginTop: 4, color: '#5F5E5A', fontSize: 11 }}>
+              Tap to dismiss
+            </span>
+          </button>
+        )}
         <nav style={{ borderBottom: '1px solid #2d3a36' }}>
           <div style={{ display: 'flex' }}>
             {[
@@ -2006,7 +2089,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'ingredients' && (
-          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} />
+          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} aliases={receiptAliases} onSaveAliases={saveReceiptAliases} />
         )}
       </main>
 

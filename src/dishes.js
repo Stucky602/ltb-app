@@ -188,7 +188,10 @@ export const DISHES = [
         I('Canned tomatoes', 1, '28oz can'),
         I('Red onion', 28, 'oz'),
         I('Butter', 2, 'sticks'),
-        I('Chicken stock', 32, 'oz'),
+        // Stock is NOT in the base: it moved to per-variant extras (Jul 15).
+        // The Chickpea variants are advertised vegetarian and the Shrimp
+        // variants pescatarian, and both were being simmered in chicken stock.
+        // Same 32 oz, same cost either way; only the animal changes.
         I('Limes', 2, ''),
         I('Asian greens', 1, 'lb'), // stand-in for "whatever's best this week" — priced at ~$2/lb per Kevin
         I('Mix of spicy peppers', 1, 'handful'),
@@ -203,12 +206,16 @@ export const DISHES = [
         // Protein per variant PLUS one fixed sous vide veg bag (leafy green +
         // one bagged item share ONE bag). $2 on Small, one longer $3 bag on
         // Large; fixed so it never scales with the variant factor.
-        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
-        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
-        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        // Stock lives here, per variant: vegetable for the chickpea (veg) and
+        // shrimp (pesc) variants, chicken for the chicken ones. 32 oz on every
+        // variant, and vegetable_stock is priceLinked to chicken_stock, so the
+        // cost anchors are unchanged by this split.
+        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb'), I('Chicken stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb'), I('Chicken stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
       },
     },
   },
@@ -476,7 +483,15 @@ export const DISHES = [
   },
   {
     name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
-    diet: { veg: ['Tofu, Small Batch (~4)', 'Tofu, Large Batch (~8)'], pesc: ['Shrimp, Small Batch (~4)', 'Shrimp, Large Batch (~8)'] },
+    // NO `veg` flag, deliberately. The base carries 3 tbsp of oyster sauce,
+    // which is made from oysters, so the Tofu variants are tofu but they are
+    // not vegetarian. They were flagged `veg` until Jul 15 (found by
+    // tests/diet_flags.mjs on its first run) — a live claim that would have
+    // served shellfish to someone filtering it out. `pesc` on the shrimp
+    // variants is correct and stays: pescatarian permits shellfish.
+    // If a vegetarian stir-fry sauce ever replaces the oyster sauce on the
+    // tofu variants, the flag can come back. Not before.
+    diet: { pesc: ['Shrimp, Small Batch (~4)', 'Shrimp, Large Batch (~8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
     rice: true,
@@ -604,6 +619,11 @@ export const DISHES = [
   },
   {
     name: 'Orecchiette with Bitter Greens and Anchovies',
+    // Anchovies are in the base, so this is PESCATARIAN, never vegetarian.
+    // Per-VARIANT and not `pesc: true`: the sausage variants carry a pound of
+    // ground pork, and a blanket flag would advertise pork to pescatarians.
+    // Array form = "these variants qualify"; `true` = "the whole dish does."
+    diet: { pesc: ['Small (~4-5)', 'Large (~8-10)'] },
     cuisine: 'Italian',
     reheat: 'pasta',
     pasta: true,
@@ -1010,7 +1030,13 @@ export const ALWAYS_ITEMS = {
     {
       name: 'Peanut Butter Fudge',
       equipment: { fixed: ['largePot'] },
-      variants: [{ label: '1 Batch', price: 20, cost: 4.35 }],
+      // Anchor re-cut to the recipe's real cost Jul 15 (was $4.35). The old
+      // number was built when peanut butter was costed per 'half-jar' @ $0.70,
+      // a unit that implied PB cost ~$1.18 for a 16 oz jar. The real jar (Peter
+      // Pan 40 oz, $5.64) is $0.141/oz, which makes the 0.5 cup line $0.67
+      // rather than $0.35. Margin at $20 goes 78.3% -> 76.2%, so the price
+      // holds; the anchor was simply wrong.
+      variants: [{ label: '1 Batch', price: 20, cost: 4.77 }],
       recipe: {
         factors: { '1 Batch': 1 },
         base: [

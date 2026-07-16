@@ -8,9 +8,9 @@
 export const INGREDIENT_SEED = [
   { id: 'garlic', name: 'Garlic', unit: 'head', baseline: 0.5, category: 'produce' },
   { id: 'ginger', name: 'Ginger', unit: 'lb', baseline: 4.0, category: 'produce' },
-  { id: 'onion', name: 'Onion (yellow)', unit: 'each', baseline: 0.6, category: 'produce' },
-  { id: 'red_onion', name: 'Red onion', unit: 'each', baseline: 1.2, category: 'produce' },
-  { id: 'sweet_onion', name: 'Sweet onion', unit: 'lb', baseline: 1.4, category: 'produce' },
+  { id: 'onion', name: 'Onion (yellow)', unit: 'lb', baseline: 1.0, category: 'produce' }, // by weight (Kevin, Jul 15). Was 'each' @ $0.60; at LB_PER_ONION 0.6 that is exactly $1.00/lb, so this is a re-expression, not a reprice.
+  { id: 'red_onion', name: 'Red onion', unit: 'lb', baseline: 1.38, category: 'produce' }, // by weight, not by the each (Kevin, Jul 15). LINE_MAP conv moved to unit:'lb' + eachWeightLb to match; the two are one contract.
+  { id: 'sweet_onion', name: 'Sweet onion', unit: 'lb', baseline: 1.0, category: 'produce', priceLink: 'onion' }, // Kevin buys yellow and sweet interchangeably (Jul 15), so they must never drift apart: priceLink mirrors yellow, and a receipt teaching either one moves both. Was $1.40 standalone.
   { id: 'bulb_onion', name: 'Bulb/spring onion', unit: 'bunch', baseline: 2.0, category: 'produce' },
   { id: 'scallions', name: 'Scallions', unit: 'bunch', baseline: 0.6, category: 'produce' },
   { id: 'carrots', name: 'Carrots', unit: 'lb', baseline: 1.0, category: 'produce' },
@@ -40,12 +40,12 @@ export const INGREDIENT_SEED = [
   { id: 'king_oyster_mushroom', name: 'King oyster mushroom', unit: 'lb', baseline: 4.99, category: 'produce' },
   { id: 'shiitake', name: 'Shiitake mushroom', unit: 'lb', baseline: 7.99, category: 'produce' },
   { id: 'kabocha', name: 'Kabocha squash', unit: 'lb', baseline: 1.5, category: 'produce' },
-  { id: 'parsnips', name: 'Parsnips', unit: 'lb', baseline: 4.0, category: 'produce' },
+  { id: 'parsnips', name: 'Parsnips', unit: 'lb', baseline: 3.13, category: 'produce' }, // Kevin, Jul 15
   { id: 'petite_peas', name: 'Petite peas', unit: '8oz', baseline: 1.0, category: 'frozen' },
   { id: 'corn', name: 'Corn', unit: 'ear', baseline: 0.25, category: 'produce' },
   { id: 'red_potatoes', name: 'Red potatoes', unit: 'lb', baseline: 2.32, category: 'produce' },
   { id: 'baby_gold_potatoes', name: 'Baby gold potatoes', unit: 'lb', baseline: 2.0, category: 'produce' },
-  { id: 'apple', name: 'Apple', unit: 'each', baseline: 1.5, category: 'produce' },
+  { id: 'apple', name: 'Apple', unit: 'lb', baseline: 1.99, category: 'produce' }, // by weight (Kevin, Jul 15). Was 'each' @ $1.50, which never had a piece weight recorded, so no honest conversion existed; $1.99/lb is Kevin's figure, not a back-solve.
   { id: 'lemon', name: 'Lemon', unit: 'each', baseline: 0.5, category: 'produce' },
   // ── Spotlight dinner ingredients (Coriander Lamb Steak over Gigantes Beans, Jul 9) ──
   { id: 'lamb_leg_steak', name: 'Lamb leg steak (bone-in)', unit: 'lb', baseline: 18.99, category: 'meat' },
@@ -56,7 +56,7 @@ export const INGREDIENT_SEED = [
   { id: 'parsley', name: 'Parsley', unit: 'bunch', baseline: 1.0, category: 'produce' },
   // ── Spotlight: Thick-Cut Pork Chop (Jul 9) ──
   { id: 'pork_rib_chop', name: 'Bone-in pork rib chop', unit: 'lb', baseline: 5.24, category: 'meat' }, // HEB natural, ~1 lb/pack
-  { id: 'sweet_potato', name: 'Sweet potato', unit: 'each', baseline: 1.04, category: 'produce' }, // ~0.87 lb @ $1.21/lb
+  { id: 'sweet_potato', name: 'Sweet potato', unit: 'lb', baseline: 1.21, category: 'produce' }, // by weight (Kevin, Jul 15). Was 'each' @ $1.04, whose own comment recorded ~0.87 lb @ $1.21/lb; that back-solves to $1.20/lb, so the per-lb figure was always the real one.
   { id: 'cider', name: 'Cider', unit: 'oz', baseline: 0.208, category: 'pantry' }, // 12 oz can, 4-pack $10 = $2.50/can ÷ 12
   { id: 'broccolini', name: 'Broccolini', unit: 'bunch', baseline: 3.99, category: 'produce' }, // aka baby broccoli
   { id: 'sage', name: 'Sage', unit: 'pack', baseline: 0.417, category: 'produce' }, // $2.50 pack ÷ 6 (herb rule)
@@ -111,7 +111,7 @@ export const INGREDIENT_SEED = [
   { id: 'guittard_low', name: 'Guittard chocolate (low %)', unit: 'g', baseline: 0.02749, category: 'pantry' },
   { id: 'guittard_high', name: 'Guittard chocolate (high %)', unit: 'g', baseline: 0.02749, category: 'pantry', priceLink: 'guittard_low' },
   { id: 'valrhona', name: 'Valrhona chocolate (premium)', unit: '290g', baseline: 19.0, category: 'pantry' },
-  { id: 'peanut_butter', name: 'Peanut butter', unit: 'half-jar', baseline: 0.7, category: 'pantry' },
+  { id: 'peanut_butter', name: 'Peanut butter', unit: 'oz', baseline: 0.141, category: 'pantry' }, // Peter Pan Creamy 40 oz = $5.64 (receipt IMG_9660, Jul 15) -> $0.141/oz. Was 'half-jar' @ $0.70, a unit that predated the universal unit layer and could never resolve from a receipt: he buys whatever jar size is there. Per-oz + the scan's oz prompt handles every size.
   { id: 'vanilla', name: 'Vanilla (imitation)', unit: 'tbs', baseline: 0.07, category: 'pantry' },
   { id: 'vanilla_extract', name: 'Vanilla extract (homemade)', unit: 'tbs', baseline: 1.5, category: 'pantry' },
   { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.0, category: 'pantry' },
@@ -182,6 +182,7 @@ export const INGREDIENT_SEED = [
   { id: 'sodium_citrate', name: 'Sodium citrate', unit: 'g', baseline: 0.025, category: 'pantry' },
   { id: 'herb_generic', name: 'Herb (thyme/lavender)', unit: 'batch', baseline: 1.0, category: 'produce' },
   { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, category: 'pantry' },
+  { id: 'vegetable_stock', name: 'Vegetable stock', unit: 'cup', baseline: 0.745, category: 'pantry', priceLink: 'chicken_stock' }, // same cost as chicken stock (Kevin, Jul 15); priceLink keeps the two in sync so a receipt on either moves both
   { id: 'beef_stock', name: 'Beef stock', unit: 'cup', baseline: 0.75, category: 'pantry' },
   { id: 'chicken_basics_stock', name: 'Kitchen Basics stock', unit: 'carton', baseline: 2.98, category: 'pantry' },
   { id: 'orange_juice', name: 'Orange juice', unit: 'batch-use', baseline: 2.0, category: 'pantry' },

@@ -15,6 +15,7 @@ const SOURCE_LABEL = {
   [SOURCES.RECEIPT]: 'receipt',
   [SOURCES.DEPLOY]: 'deploy',
   [SOURCES.PUBLISH]: 'publish',
+  [SOURCES.SEED]: 'seed',
 };
 
 // Deploy entries are the ones that historically went unnoticed for weeks,
@@ -24,6 +25,10 @@ const SOURCE_COLOR = {
   [SOURCES.RECEIPT]: '#5DCAA5',
   [SOURCES.DEPLOY]: GOLD,
   [SOURCES.PUBLISH]: '#7FB2E5',
+  // Seed rows share the deploy gold: both mean "a file edit moved this."
+  // Reconcile rows go one further and rewrote stored data, so they carry a
+  // basis string in meta explaining themselves.
+  [SOURCES.SEED]: GOLD,
 };
 
 const money = (v) => (typeof v === 'number' ? '$' + v.toFixed(2) : String(v));

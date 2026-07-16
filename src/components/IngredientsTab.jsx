@@ -4,6 +4,7 @@ import {
   INGREDIENT_SEED, CATEGORY_ORDER, CATEGORY_LABELS_ING,
 } from '../ingredients.js';
 import { containerPriceCheck } from '../receiptMatch.js';
+import { LearnedDataPanel } from './LearnedDataPanel.jsx';
 
 // Divergence color: green as current drops below baseline, red as it rises above.
 // Intensity scales with % drift, capped at 40% for full saturation.
@@ -66,7 +67,7 @@ function Sparkline({ points, width = 56, height = 18 }) {
   );
 }
 
-export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt, onDebugScan }) {
+export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt, onDebugScan, aliases, onSaveAliases }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // id being edited
   const [containerAsk, setContainerAsk] = useState(null); // { id, entered, converted, message }
@@ -204,6 +205,13 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
         <button style={{ ...S.scanBtn, background: '#3a2f12', border: '1px solid #c9a84c', color: '#e8d9a8' }} onClick={onDebugScan}>
           <Camera size={16} /> DEBUG SCAN COPY
         </button>
+      )}
+      {/* Directly under the scan buttons on purpose: this panel is the
+          scanner's memory, so it belongs beside the scanner's trigger. The
+          Money tab was the alternative, but a wrong alias is a scanning
+          problem Kevin chases from here, not an accounting one. */}
+      {onSaveAliases && (
+        <LearnedDataPanel aliases={aliases} ingredients={ingredients} onSave={onSaveAliases} />
       )}
       <div style={S.topBar}>
         <div style={S.searchBox}>

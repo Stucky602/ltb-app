@@ -9,6 +9,33 @@ import { buildPortfolioSummary } from './dishReport.js';
 
 const WEEK = 7 * 86400000;
 
+function scoreDish(r) {
+  const pct = r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct;
+  return { name: r.name, pct: Math.round(pct * 10) / 10, underFloor: r.underFloor };
+}
+
+// marginAlerts(port) → { underFloor, watch }, each sorted worst-first.
+// underFloor = below the hard 45% floor, a real problem. watch = under 47%
+// but not under floor, a heads-up. Kept as two lists on purpose: sorting
+// them together let a 46.9% watch item bump a 30.9% emergency off a
+// truncated top-4 list (found July 2026). No slicing here — truncation is
+// a DISPLAY decision for whoever renders this, not an engine one.
+export function marginAlerts(port) {
+  const scored = (port || []).map(scoreDish);
+  const byWorst = (a, b) => a.pct - b.pct;
+  return {
+    underFloor: scored.filter(r => r.underFloor).sort(byWorst),
+    watch: scored.filter(r => !r.underFloor && r.pct < 47).sort(byWorst),
+  };
+}
+
+// computeMarginAlerts(ctx) → marginAlerts, but standalone. Only needs the
+// cost maps (no orders/regulars), so it's cheap enough to run on every
+// render for a nav badge — doesn't require opening the full digest panel.
+export function computeMarginAlerts(ctx = {}) {
+  return marginAlerts(buildPortfolioSummary(ctx));
+}
+
 function windowStats(orders, from, to) {
   let revenue = 0, cost = 0, count = 0;
   const dishUnits = new Map();
@@ -50,11 +77,7 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
   const prevWk = windowStats(orders, now - 2 * WEEK, now - WEEK);
 
   const port = buildPortfolioSummary(ctx);
-  const marginWatch = port
-    .filter(r => r.underFloor || (r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct) < 47)
-    .sort((a, b) => (a.hasPassthrough ? a.worstValueAddPct : a.worstMarginPct) - (b.hasPassthrough ? b.worstValueAddPct : b.worstMarginPct))
-    .slice(0, 4)
-    .map(r => ({ name: r.name, pct: Math.round((r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct) * 10) / 10, underFloor: r.underFloor }));
+  const marginWatch = marginAlerts(port);
 
   const drifters = port
     .filter(r => Math.abs(r.maxDriftPct) >= 8)

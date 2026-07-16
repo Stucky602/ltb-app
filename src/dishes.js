@@ -40,6 +40,22 @@ export const DISHES = [
   // ── American / Southern / Tex-Mex ─────────────────────────────────────────
     {
     name: 'Brunswick Stew',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A thick Southern stew with shredded braised chicken thighs, corn, lima beans, and tomato, simmered down until everything melds. Smoked paprika does the heavy lifting on the smoke. Hearty and a little sweet.",
+      reheat: "Comes in two parts: the stew in a container and the potatoes in a sous vide bag. Warm the stew gently on the stove over medium-low. The potatoes are the easy part here, and they do not need their own pot. Cut the bag open and discard the thyme and the liquid, but not down the drain since there is butter in it. Tip the potatoes straight into the stew and let everything come up to temperature together until heated through.",
+      contains: "Dairy (butter, in the potato bag).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true },
     // Brunswick's potato bag does NOT follow the Boeuf/Leblanc "simmer the bag,
     // then fold in" pattern. The stew is already going on the stove, so the
     // potatoes just get tipped in cold and come up to temp with everything else
@@ -82,6 +98,23 @@ export const DISHES = [
   },
   {
     name: 'Chili',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A slow-built chili with a real chile backbone and a lot of depth. The kind that makes you wonder what's in it — and there's quite a bit going on under the hood. Rich, meaty, and better the next day.",
+      reheat: "Comes in a container. Warm gently on the stove over medium.",
+      contains: "Gluten (soy sauce), Fish (anchovies), Soy, may contain Dairy. This chili contains some unconventional ingredients. If you have specific allergen concerns, always ask before ordering.",
+      note: "Happy to grab fixings at cost: tortilla chips, cheddar, sour cream, or macaroni. There's a spot for it on the order form. Trust me on the macaroni.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, fish: true, soy: true },
     options: { fixings: { prompt: 'Need some fixings at cost? Chips, sour cream, cheese, etc.', placeholder: 'e.g. tortilla chips, sour cream, cheddar' } },
     cuisine: 'American',
     reheat: 'stovetop',
@@ -110,6 +143,22 @@ export const DISHES = [
   },
   {
     name: 'Gumbo',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A proper roux-based gumbo, cooked dark and slow with chicken thighs, Texas Gulf shrimp, and the holy trinity. Made for rice. The small comes in two containers (~4 servings), the large in four (~8).",
+      reheat: "The minimum batch size is the Large, so the Small option is only available when splitting a Large between orders. Uncooked rice included.",
+      contains: "Gluten (flour), Shellfish (shrimp).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, shellfish: true },
     cuisine: 'Southern',
     reheat: 'stovetop',
     rice: true,
@@ -137,6 +186,22 @@ export const DISHES = [
   },
   {
     name: 'Tex-Mex Kit',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A build-your-own kit with your choice of protein — pulled pork or beef — slow simmered until it falls apart in a citrusy red chile sauce. Comes with refried beans (in a separate bag for easy reheating), pico de gallo, and HEB bakery flour tortillas (10-pack for small, 20-pack for large). Build tacos, bowls, or whatever you're in the mood for. Pairs great with the pickled onion add-on. Need extras like avocados or more tortillas? I can grab them at cost, there's a spot for it on the order form.",
+      reheat: "Components travel separately with assembly notes. Warm the protein gently before building. Reheat the beans bag in simmering water or microwave sealed.",
+      contains: "Gluten (flour tortillas). May contain Dairy. Ask for specifics.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true },
     options: { fixings: { prompt: 'Need extras at cost? Avocados, more tortillas, etc.', placeholder: 'e.g. 3 avocados, extra tortillas' } },
     cuisine: 'Tex-Mex',
     reheat: 'kit',
@@ -176,6 +241,23 @@ export const DISHES = [
   // ── Curry ──────────────────────────────────────────────────────────────────
   {
     name: 'Indian Style Curry',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A rotating curry built on a base of toasted whole spices, aromatics, and tomato. Sometimes contains coconut milk depending on the week. Ask what's on deck, it changes based on what's looking good.",
+      reheat: "Comes in a container. Warm gently on the stove. Uncooked rice included.",
+      contains: "Dairy (butter). Shellfish (shrimp) if ordering shrimp. May contain Tree Nuts (coconut) depending on the week. Ask for specifics.",
+      note: "Chickpea version: vegan available upon request, just put it in the notes on the order form. I swap the butter for oil, use vegetable stock, and leave the cream out.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, shellfish: ['Shrimp, Small (~4-5)', 'Shrimp, Large (~8-10)'] },
     // veganOnRequest, NOT vegan: the default chickpea recipe has butter in it.
     // Kevin swaps butter->oil, uses veg stock, and holds the cream when asked.
     // Tagging it plain `vegan` would mean someone filtering for vegan gets
@@ -236,6 +318,22 @@ export const DISHES = [
   },
   {
     name: 'Leblanc Inspired Japanese Curry',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A rich, slow-braised Japanese curry inspired by Sojiro's Leblanc café. Wagyu london broil, kabocha squash, and carrots in a deeply layered sauce built with red wine, dark chocolate, espresso, apple, and honey. The carrots and kabocha squash come separately in a sous vide bag — reheat the curry, then add the vegetables right before serving to keep everything at its best. Comes with uncooked rice.",
+      reheat: "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving. Unlike our other sous vide vegetables, discard the bag's sauce rather than using it as a glaze — it contains butter, so avoid pouring it down the drain. Uncooked rice included, cook fresh for best results. Small batch available only when another customer orders the same week — reach out if you have questions.",
+      contains: "Dairy (butter). Gluten (flour). Fish (fish sauce, Worcestershire).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, fish: true, gluten: { variants: true, unlisted: 'roux flour lives inside the Curry spice blend batch line, not its own recipe line' } },
     cuisine: 'Japanese',
     reheat: 'stovetop',
     rice: true,
@@ -278,6 +376,22 @@ export const DISHES = [
   // ── East Asian ─────────────────────────────────────────────────────────────
   {
     name: 'Bo Ssam',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Korean-style pork shoulder, dry-brined 24 hours in a 50/50 salt and sugar mix, then roasted low and slow until tender and lightly crisped on the outside. Served with ginger scallion sauce and a side of kimchi. You cook the rice — also great as lettuce wraps if you want to go that route (lettuce not included).",
+      reheat: "The pork comes pre-pulled and sealed in a bag — bring a pot of water to a gentle simmer and place the sealed bag in until heated through. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice fresh.",
+      contains: "Soy, Gluten (soy sauce). Kimchi may contain Fish or Shellfish depending on brand — ask if you have concerns.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { soy: true, gluten: true },
     cuisine: 'Korean',
     // No shared reheat bucket — fully dedicated card logic in buildReheatBlocks
     rice: true,
@@ -315,6 +429,23 @@ export const DISHES = [
   },
   {
     name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "The same cumin-chili sauce three ways: hand-pulled-style noodles with hard-seared mushrooms doing the heavy lifting where meat usually would, ground beef over rice for a heartier, meat-forward take, or ground lamb over rice, which is actually what this dish is built on. Savory, slightly numbing, and satisfying every way. Worth knowing on the noodle version: mushrooms shrink a lot as they cook so it takes noticeably more of them by weight to do the job, and the fresh noodles cost more than the rice that comes with the beef or lamb version, which is why it's priced closer to the lamb than the beef.",
+      reheat: "Noodles and sauce travel separately — cook the noodles fresh and toss with the warmed sauce. If you order the beef or lamb over rice version, cook the included rice fresh and warm the meat with the sauce on the stove.",
+      contains: "Gluten (Shaoxing wine in every version, plus noodles on the noodle version), Soy (soy sauce), Sesame (house chili oil).",
+      spice: "Spice level is about a 2-3 out of 5 and can't be dialed down — a large portion of the sauce is chili oil.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, soy: { variants: true, unlisted: 'soy sauce lives inside the Cumin + spices batch line' }, sesame: true },
     diet: { veg: ['Mushroom, Small (~3-4)', 'Mushroom, Large (~6-8)', 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)', 'Mushroom, Large (~6-8) + Asian Greens (1 lb)'] },
     cuisine: 'Chinese',
     reheat: 'pasta',
@@ -405,6 +536,23 @@ export const DISHES = [
   },
   {
     name: 'Mapo Eggplant',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Chinese eggplant and ground chicken in a sauce built on doubanjiang and chili oil, cooked down until the eggplant goes silky and soaks up everything around it. Numbing, spicy, and savory all at once. Made for rice.",
+      reheat: "Comes in a container, not a bag. To reheat, warm in a large saucepan over medium, and add a splash of water if it looks a little thick. Uncooked rice included.",
+      contains: "Gluten (soy sauce, doubanjiang), Soy (doubanjiang), Sesame (house chili oil).",
+      spice: "Spice level is about a 3 out of 5, and this one can't be dialed down.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, soy: true, sesame: true },
     cuisine: 'Chinese',
     reheat: 'stovetop',
     rice: true,
@@ -430,6 +578,22 @@ export const DISHES = [
   },
   {
     name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Asparagus and your choice of Texas Gulf shrimp or tofu in a savory sauce of soy, Shaoxing wine, fermented black beans, and aromatics. The fermented black beans give it a deep, funky-in-a-good-way backbone that makes it taste like it came out of a good Cantonese kitchen.",
+      reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included, cook fresh for best results.",
+      contains: "Shellfish if ordering shrimp. Soy (tofu) if vegetarian. Gluten (soy sauce, Shaoxing wine).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, soy: true, shellfish: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     diet: { veg: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], vegan: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], pesc: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
@@ -464,6 +628,23 @@ export const DISHES = [
   },
   {
     name: 'Stir Fried Long Beans with Ground Pork or Tofu',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Blistered long beans and ground pork in a savory sauce built on doubanjiang and garlic, with a little heat and a classic dry-fried texture on the beans. Deeply savory throughout. Available with ground pork or tofu at the same price.",
+      reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included.",
+      contains: "Gluten (soy sauce, doubanjiang), Soy (doubanjiang, tofu if ordering tofu).",
+      spice: "Spice level is about a 2 out of 5 and can't be dialed down.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, soy: true },
     diet: { veg: ['Tofu, Small (~4)', 'Tofu, Large (~8)'], vegan: ['Tofu, Small (~4)', 'Tofu, Large (~8)'] },
     cuisine: 'Chinese',
     reheat: 'bagged',
@@ -498,6 +679,22 @@ export const DISHES = [
   },
   {
     name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Chinese broccoli (gai lan) and your choice of Texas Gulf shrimp or tofu in a savory sauce of garlic, soy, and oyster sauce with a hit of house chili oil. Clean and a little spicy. Chili oil can be omitted upon request. Not recommended...but we get it.",
+      reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included.",
+      contains: "Shellfish (oyster sauce is in the base, plus shrimp if ordering shrimp) - the tofu version is NOT shellfish-free. Soy (soy sauce, and tofu if ordering tofu). Gluten (soy sauce). Sesame (house chili oil).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, soy: true, shellfish: true, sesame: true },
     // NO `veg` flag, deliberately. The base carries 3 tbsp of oyster sauce,
     // which is made from oysters, so the Tofu variants are tofu but they are
     // not vegetarian. They were flagged `veg` until Jul 15 (found by
@@ -542,6 +739,22 @@ export const DISHES = [
   },
   {
     name: 'Thai Basil Chicken (Pad Krapow Gai)',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Ground chicken hit hard and fast in the wok with garlic, asparagus, Thai basil, and a sauce of oyster sauce, soy, and fish sauce. Fragrant, savory, and spicy. Spice level is customizable 1-5, just let me know when you order. A fried egg on top is a great move — not included, but highly recommended.",
+      reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included, cook fresh for best results.",
+      contains: "Gluten (oyster sauce, soy sauce), Fish (fish sauce), Shellfish (oyster sauce), Soy (soy sauce).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true, fish: true, shellfish: true, soy: true },
     cuisine: 'Thai',
     reheat: 'bagged',
     rice: true,
@@ -567,6 +780,23 @@ export const DISHES = [
   // ── Italian ────────────────────────────────────────────────────────────────
   {
     name: 'Bolognese',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it.",
+      reheat: "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
+      contains: "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option.",
+      note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, gluten: true, egg: ['Small (split order, ~4) + Egg Pappardelle', 'Large (~8) + Egg Pappardelle'] },
     cuisine: 'Italian',
     reheat: 'pasta',
     pasta: true,
@@ -605,6 +835,23 @@ export const DISHES = [
   },
   {
     name: 'Pasta with Homegrown Tomato Sauce',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A slow-simmered tomato sauce made with homegrown tomatoes, good olive oil, and garlic. Nothing else needs to be there. Seasonal and in limited quantities — only on the menu when the garden says so.",
+      reheat: "Uncooked pasta included, cook fresh. Warm the sauce gently on the stove.",
+      contains: "May contain Dairy. Gluten if including pasta.",
+      note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { gluten: true },
     diet: { veg: ['Base (~4)', 'With Mushrooms'] },
     cuisine: 'Italian',
     reheat: 'pasta',
@@ -634,6 +881,22 @@ export const DISHES = [
   },
   {
     name: 'Orecchiette with Bitter Greens and Anchovies',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Orecchiette with bitter greens, anchovy, garlic, and good parmesan in an olive-oil sauce, finished with lemon herb butter. This one uses tong ho (chrysanthemum greens), since broccoli rabe is hard to source, and the tong ho brings the same pleasant bitterness. No tomato, no cream, just salt, fat, and depth. The little cupped pasta catches the greens and sauce in every bite. Add a pound of fresh-toasted fennel pork sausage to make it a full dinner.",
+      reheat: "Comes as a sauce, ready to finish. You cook the pasta fresh — no substitutions on the orecchiette, the dish is built around this pasta.",
+      contains: "Fish (anchovies), Dairy (parmesan, butter), Gluten (pasta).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { fish: true, dairy: true, gluten: true },
     // Anchovies are in the base, so this is PESCATARIAN, never vegetarian.
     // Per-VARIANT and not `pesc: true`: the sausage variants carry a pound of
     // ground pork, and a blanket flag would advertise pork to pescatarians.
@@ -672,6 +935,23 @@ export const DISHES = [
   },
   {
     name: 'Pappardelle with Vegetables and Mint',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "A lighter, more vibrant take on pasta than you might expect. Wide egg pappardelle in a silky cream sauce built on slow-cooked fennel and bulb onions, brightened with fresh mint, lemon, and white wine — all three working together to lift the dish. Finished with good parmesan, asparagus, and petite peas folded in. Vegetarian. Comes with 1 pack of premium egg pappardelle for the small (~2-3 servings) and 2 packs for the large (~5-6 servings) — this one isn't the same dish without them, so there's no substitution on the pasta.",
+      reheat: "Sealed in a bag for the best reheat — see the note on bagged dishes. Small batch available only when another customer orders the same week — reach out if you have questions.",
+      contains: "Dairy (cream, parmesan), Gluten (pasta), Egg (pasta), Soy (lecithin in the sauce).",
+      note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, gluten: true, egg: true, soy: true },
     diet: { veg: true },
     options: { parmOffer: true }, // finished with parm; offer a block at cost
     cuisine: 'Italian',
@@ -702,6 +982,23 @@ export const DISHES = [
   },
   {
     name: 'Saffron Pork Ragu',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Ground pork slow-cooked with fennel, saffron, sherry, and tomato until it's deep and a little luxurious. The saffron does its quiet thing in the background and the whole thing comes together rich without being heavy.",
+      reheat: "Uncooked pasta included, cook fresh and let me know what pasta you'd like. Also excellent over polenta — order the polenta variant and it comes in a bag, ready to reheat. Want background heat? I can work a little chili into the sauce at no charge, just ask.",
+      contains: "Dairy. Gluten if including pasta.",
+      note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: { variants: true, unlisted: 'parmesan in the base sauce, uncosted (Kevin confirmed Jul 16)' }, gluten: ['Small (~4 servings)', 'Large (~8 servings)'] },
     cuisine: 'Italian',
     reheat: 'pasta',
     pasta: true,
@@ -740,6 +1037,22 @@ export const DISHES = [
 
   {
     name: 'Pork with Mustard Tarragon Cream Sauce',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Sous vide pork tenderloin, seared and sliced, over fresh egg taglierini in a mustard, white wine, and tarragon cream sauce. Filed under German for the mustard-and-cream backbone, but the fresh egg pasta underneath pulls it toward Italian, so it lives happily in between. The classic move here would be spätzle, but spätzle does not reheat the way I want it to, so we're using an egg taglierini as a substitute.",
+      reheat: "Three parts: the pork in a sealed bag, the sauce in a container, and the taglierini to cook fresh. For the pork, pat it very dry, then sear hard on each side in a blazing-hot pan just until deeply browned on each side. Cut it into half-inch to one-inch medallions after searing. Warm the sauce in a saucepan over medium-low, stirring now and then, while you boil your pasta in lightly salted water. Once the pasta is cooked and drained, toss it with the sauce, then plate with the pork on top.",
+      contains: "Dairy (cream, butter, in seasoning bag), Gluten (pasta), Egg (pasta), Mustard.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, gluten: true, egg: true, mustard: true },
     cuisine: 'German',
     reheat: 'pasta',
     pasta: true,
@@ -778,6 +1091,23 @@ export const DISHES = [
 
 {
     name: 'Mushroom Ragu',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Four kinds of mushroom doing the work of meat. Dried porcini, oyster, king oyster, and shiitake, built into a deep ragu with soffritto, marsala, a little cream, and good parm, tossed with egg pappardelle. Heads up on the price: this one is loaded with specialty mushrooms and fresh egg pasta, and there is no cheap filler hiding in here, so it costs what it costs. You can sub polenta for the pasta at no extra charge.",
+      reheat: "Comes in a container, ready to go. Empty the sauce into a saucepan and warm it over medium-low, stirring now and then, while you boil your pasta in lightly salted water. Once the pasta is cooked and drained, toss it with the sauce and a splash of the pasta water to loosen it, then finish with a little parm if you have it. Ordering the polenta version instead? The polenta comes sealed in a separate sous vide bag, so reheat it in simmering water for a few minutes, then cut it open, spoon it out, and top with the warmed sauce.",
+      contains: "Dairy (cream, parmesan), Gluten (pasta), Egg (pasta).",
+      note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, gluten: true, egg: true },
     diet: { veg: true },
     cuisine: 'Spotlight',
     spotlight: true,
@@ -834,6 +1164,22 @@ export const DISHES = [
   // to its own "Spotlight dinner of the week" header on the weekly menu.
   {
     name: 'Coriander Lamb Steak over Gigantes Beans',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Lamb leg poached low and slow in butter, then seared and laid over silky gigantes beans and leeks. Toasted coriander and preserved lemon do the heavy lifting on flavor. Deep and bright at the same time.",
+      reheat: "Two parts: the lamb in a sealed bag, and the gigantes beans and leeks together in their own bag. Remove the bone from the lamb so it sears clean, pat it very dry, and sear hard in a blazing-hot pan just until deeply browned on each side. This is a thinner cut, so take it straight from cold to the hot pan, no resting first. Warm the bean and leek bag in simmering water for a few minutes, spoon them onto the plate, then slice the lamb thin over the top.",
+      contains: "Dairy (butter). Preserved lemon.",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true },
     cuisine: 'Spotlight',
     spotlight: true,
     reheat: 'lambSpotlight', // dedicated two-part card: sear the lamb, warm the beans
@@ -867,6 +1213,22 @@ export const DISHES = [
   },
   {
     name: 'Pork Chop with Kabocha Purée and Charred Broccolini',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Two thick-cut boneless pork chops, cooked sous vide so they stay juicy, then seared at home. They go over a brown-butter kabocha purée with charred broccolini. No sauce on this one, just the chop, the squash, and the greens, and it doesn't need much else. Comes with two thick chops to split among four people, so plan on slicing them rather than handing everyone their own. Want the upgraded version? The spotlight swaps in a bone-in rib chop and adds a spiced cider beurre blanc.",
+      reheat: "Three parts: the pork in a sealed bag, the kabocha purée in a bag, and the broccolini in a bag. Let the pork sit out 30 minutes or more before searing since these are very thick cuts, then pat dry and sear hard on each side in a blazing-hot pan. Reheat the purée and broccolini bags in simmering water until just heated through, and be careful with the broccolini as it can overcook. Plate the purée, slice the chops against the grain and lay them over the top, broccolini alongside. If you have butter in the house, melt a little over the pork and broccolini right before it goes to the table. Not required, but it's the thing the spotlight version's sauce is doing, and it takes ten seconds.",
+      contains: "Dairy (butter).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true },
     cuisine: 'American',
     reheat: 'porkChopBase', // dedicated three-part card: sear pork, warm puree/broccolini bags
     chillOnly: true,
@@ -892,6 +1254,22 @@ export const DISHES = [
   },
   {
     name: 'Bone-In Pork Rib Chop with All the Fixings',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Thick-cut bone-in pork rib chop, cooked sous vide so it stays juicy, then seared at home. It goes over a brown-butter kabocha purée with charred broccolini, and the whole thing gets a spiced cider beurre blanc that's the real reason this one costs what it does. The sauce is a slow-built cider reduction mounted with a lot of good butter and warm spices, and it's what turns a pork chop into something you'd order out. Comfort food that eats like a restaurant. If the sauce isn't what you're after, the regular Pork Chop with Kabocha Purée and Charred Broccolini covers the same ground for less.",
+      reheat: "Four parts: the pork in a sealed bag, the kabocha purée in a bag, the broccolini in a bag, and the spiced cider beurre blanc in a container. Let the pork sit out 30+ minutes before searing (it's a very thick cut), then pat dry and sear hard on each side in a blazing-hot pan. Reheat the purée and broccolini bags in simmering water until just heated through, and be careful with the broccolini as it can overcook. Warm the sauce gently over low heat; it's stabilized to survive a home reheat, so you have some room, just don't rush it. Plate the purée, lay the pork on one side, broccolini on the other, and drizzle the sauce over all of it.",
+      contains: "Dairy (butter, cream). Soy (lecithin in the sauce).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, soy: { variants: true, unlisted: 'soy lecithin stabilizes the cider beurre blanc — uncosted, negligible quantity, real allergen' } },
     cuisine: 'Spotlight',
     spotlight: true,
     reheat: 'porkChopSpotlight', // dedicated four-part card: sear pork, warm purée/broccolini bags, gentle sauce
@@ -936,6 +1314,22 @@ export const DISHES = [
   },
   {
     name: 'Steak au Poivre',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "The classic French steakhouse move, done right at home. Filet mignon with a peppercorn-cognac cream sauce, over pommes puree (that's fancy talk for mashed potatoes), with jumbo asparagus. This one is cooked to 131F, a perfect medium rare, no exceptions. Fair warning on the price: this is real filet mignon and a sauce built on Courvoisier cognac and a lot of cream, so it costs what a steakhouse plate costs, because that's what it is. Worth it for a special occasion.",
+      reheat: "Four parts: the filet in a sealed bag, the pommes puree in a bag, the asparagus in a bag, and the peppercorn-cognac \"beurre blanc\" in a container. Let the filet sit out 30 minutes before searing (thick cut), then pat dry and sear hard on each side in a blazing-hot pan, and rest a few minutes. Cooked to 131F, medium rare. Reheat the puree bag in simmering water; the asparagus goes in too but only needs a minute, it overcooks fast. Warm the sauce gently over low heat; it's stabilized to survive a home reheat, so you have some room, just don't rush it. Plate the puree, filet over it, asparagus alongside, sauce over the steak.",
+      contains: "Dairy (cream, butter). Soy (lecithin in the sauce).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, soy: { variants: true, unlisted: 'soy lecithin stabilizes the peppercorn beurre blanc — uncosted, negligible quantity, real allergen' } },
     cuisine: 'Spotlight',
     spotlight: true,
     reheat: 'steakAuPoivreSpotlight', // four-part: sear filet (30 min warm), warm purée/asparagus bags, gentle sauce
@@ -973,6 +1367,22 @@ export const DISHES = [
   },
 {
     name: 'Boeuf Bourguignon (Beef Stew)',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Beef chuck braised low and slow in red wine with aromatics until the meat is fork-tender. The sauce is the whole point here: the braising liquid reduces down with the wine, tomato paste, and beef stock into something glossy, deep, and almost syrupy, with a savory backbone that coats every bite. It is what you are really paying for. Comes with carrots and potatoes cooked separately in a sous vide bag — reheat the stew, then add the vegetables right before serving so nothing overcooks. Want mushrooms? Add a pound for $12.",
+      reheat: "Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through. Reheat the veg bag in simmering water, discard the liquid — it contains butter, so avoid pouring it down the drain — then fold the vegetables into the stew right before serving. Great over mashed potatoes, egg noodles, or crusty bread.",
+      contains: "Gluten (flour), Dairy (butter, in the vegetable bag).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe (same machinery as diet flags). Free-text 'contains'
+    // in menu.html LIBRARY stays for human detail; these are the checkable
+    // layer beneath it. true = every variant; array = those variants only;
+    // { variants, unlisted } = declared without a matching recipe line, with
+    // the reason on record.
+    allergens: { dairy: true, gluten: { variants: true, unlisted: 'a light roux thickens the stew at the end, uncosted (Kevin confirmed Jul 16)' } },
     cuisine: 'Spotlight',
     spotlight: true, // (Kevin, Jul 10): expensive enough to warrant it — joins the spotlight group
     reheat: 'stovetop',

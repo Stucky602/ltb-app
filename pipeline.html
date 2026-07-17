@@ -203,16 +203,19 @@
   // on this page to leak. Bars are scaled to the leader, not to the total.
   function renderBoard(data) {
     var body = document.getElementById('boardBody');
-    var top = (data && data.top) || [];
-    if (!top.length) {
+    // NOT `var top` — `top` is window.top (the topmost browsing context) and is
+    // read-only, so the assignment silently no-ops, `top.length` is undefined,
+    // and the board renders "No votes yet" forever no matter what the API says.
+    var rows = (data && data.top) || [];
+    if (!rows.length) {
       body.className = 'board-empty';
       body.innerHTML = 'No votes yet. Be the first.';
       return;
     }
-    var max = top[0].votes || 1;
+    var max = rows[0].votes || 1;
     var html = '';
-    for (var i = 0; i < top.length; i++) {
-      var r = top[i];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
       var pct = Math.max(2, Math.round((r.votes / max) * 100));
       html += '<div class="board-row">' +
                 '<div class="board-rank">' + (i + 1) + '</div>' +

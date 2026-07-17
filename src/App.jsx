@@ -36,6 +36,7 @@ import {
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
   mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
+  houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import {
@@ -684,8 +685,12 @@ export default function LTBOrderTracker() {
       else if (m === 'partial') partialRegs.push(r);
     });
 
-    const discountType = exactReg && exactReg.discountPercent > 0 ? 'percent' : null;
-    const discountValue = exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0;
+    // A house regular (the wife) is free, full stop: the flag alone implies
+    // 100% off, so there is no discount field to set and no way to half-apply
+    // it. A normal regular's lifetime discount applies as before.
+    const isHouse = !!(exactReg && exactReg.house);
+    const discountType = isHouse ? 'percent' : (exactReg && exactReg.discountPercent > 0 ? 'percent' : null);
+    const discountValue = isHouse ? HOUSE_DISCOUNT_PERCENT : (exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0);
 
     // Normalize the customer-form item shape FIRST (per-lb proteins arrive with
     // the $/lb rate in price/cost and no weightPending — see normalizePendingItems),
@@ -719,6 +724,9 @@ export default function LTBOrderTracker() {
       paid: false,
       archived: false,
       regularId: exactReg ? exactReg.id : null,
+      // Copied from the regular at link time, not looked up later: books.js and
+      // weekPlanner.js only ever see `orders`, never `regulars`.
+      house: isHouse,
       createdAt: new Date().toISOString(),
     };
     setOrders(prev => {
@@ -1474,9 +1482,14 @@ export default function LTBOrderTracker() {
   const activeOrders = useMemo(() => currentOrders.filter(o => o.status !== 'Delivered'), [currentOrders]);
   const deliveredOrders = useMemo(() => currentOrders.filter(o => o.status === 'Delivered'), [currentOrders]);
 
+  // Money headline numbers exclude house orders. NOTE the filter is here and
+  // NOT on currentOrders: the Week tab, cook schedule, shopping list, labels,
+  // and packing slips all read currentOrders and MUST still see her orders —
+  // you still buy the food and cook it. Only the money is blind to her.
   const stats = useMemo(() => {
-    const booked = currentOrders.reduce((s, o) => s + o.total, 0);
-    const unpaid = currentOrders.filter(o => !o.paid).reduce((s, o) => s + o.total, 0);
+    const billable = currentOrders.filter(o => !isHouseOrder(o));
+    const booked = billable.reduce((s, o) => s + o.total, 0);
+    const unpaid = billable.filter(o => !o.paid).reduce((s, o) => s + o.total, 0);
     return { active: activeOrders.length, booked: round2(booked), unpaid: round2(unpaid) };
   }, [currentOrders, activeOrders]);
 
@@ -1484,6 +1497,7 @@ export default function LTBOrderTracker() {
     let revenue = 0;
     let cost = 0;
     activeOrders.forEach(o => {
+      if (isHouseOrder(o)) return; // free, and her ingredients are a household expense
       revenue += o.total;
       cost += orderCostInfo(o).cost;
     });
@@ -1748,7 +1762,12 @@ export default function LTBOrderTracker() {
             const reg = regulars.find(r => r.id === regularId);
             if (reg) {
               const patch = { regularId };
-              if (reg.discountPercent > 0) {
+              // House beats any lifetime discount: the flag means free.
+              const housePatch = houseOrderPatch(reg);
+              if (housePatch) {
+                Object.assign(patch, housePatch);
+                patch.total = orderTotal(linkPrompt.order.items, linkPrompt.order.jarSwaps, linkPrompt.order.containerReturns, 'percent', HOUSE_DISCOUNT_PERCENT, linkPrompt.order.customCharges, linkPrompt.order.waiveSurcharge);
+              } else if (reg.discountPercent > 0) {
                 patch.discountType = 'percent';
                 patch.discountValue = reg.discountPercent;
                 patch.total = orderTotal(linkPrompt.order.items, linkPrompt.order.jarSwaps, linkPrompt.order.containerReturns, 'percent', reg.discountPercent, linkPrompt.order.customCharges, linkPrompt.order.waiveSurcharge);

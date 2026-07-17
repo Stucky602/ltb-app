@@ -56,6 +56,43 @@ export function regularDisplayName(reg) {
   return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
 }
 
+// ─── House orders (the wife rule) ───────────────────────────────────────────
+// A regular flagged `house: true` is a household account, not a customer.
+// Their orders are FREE and INVISIBLE TO EVERY BUSINESS METRIC: no revenue,
+// no COGS, no profit, no demand history, no quiet-regular nudge. They stay
+// fully real everywhere operations care: shopping list, cook schedule,
+// equipment conflicts, labels, packing slips, invoices. You still buy the
+// food and cook it; the books just never hear about it.
+//
+// DELIBERATELY EXCLUDED: regularsIntel (attach rates + usual order). Kevin's
+// call — "if she's still interested in specific dishes over others that is
+// still good info to have even if she isn't paying." Her orders also still
+// count toward the attach-rate DENOMINATOR, because a dish she ordered
+// genuinely was on the menu that week.
+//
+// The flag is COPIED onto the order at link time (isHouseOrder reads o.house)
+// rather than resolved from the regulars list at read time. Reason: books.js
+// and weekPlanner.js only ever receive `orders`, never `regulars`, so a
+// read-time lookup would mean changing their signatures and every call site.
+// Copy at the two link points; read a plain boolean everywhere else.
+//
+// house implies 100% off. One checkbox means "free, and doesn't count", so
+// there is no second field to remember and no way to half-apply it.
+export const HOUSE_DISCOUNT_PERCENT = 100;
+export function isHouseOrder(o) {
+  return !!(o && o.house);
+}
+// The order patch a house regular implies. Used at BOTH link sites so they
+// cannot drift apart.
+export function houseOrderPatch(reg) {
+  if (!reg || !reg.house) return null;
+  return { house: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT };
+}
+// Split orders into the ones the books may see and the ones they may not.
+export function billableOrders(orders) {
+  return (orders || []).filter(o => !isHouseOrder(o));
+}
+
 // Best match type between an incoming customer name and ANY of a regular's
 // names. Returns 'exact' if any name matches exactly, else 'partial' if any
 // partially matches, else null. This is what lets either person in a couple

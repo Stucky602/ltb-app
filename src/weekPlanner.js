@@ -6,6 +6,7 @@ import { DISHES } from './dishes.js';
 import { analyzeConflicts } from './equipmentConflict.js';
 import { buildPortfolioSummary } from './dishReport.js';
 import { PASSTHROUGH_IDS, resolveDishVariant } from './dishCosting.js';
+import { isHouseOrder } from './utils.js';
 
 const WEEK = 7 * 86400000;
 const weekKey = (t) => Math.floor(new Date(t).getTime() / WEEK);
@@ -13,6 +14,10 @@ const weekKey = (t) => Math.floor(new Date(t).getTime() / WEEK);
 export function dishRunStats(dishName, orders) {
   const weeks = new Map(); // weekKey -> units
   for (const o of (orders || [])) {
+    // House orders are not demand. Her picks must not steer what the planner
+    // thinks sells, or the composer starts proposing weeks around one free
+    // customer's taste.
+    if (isHouseOrder(o)) continue;
     const t = o.createdAt; if (!t) continue;
     for (const it of (o.items || [])) {
       if (it.name !== dishName) continue;

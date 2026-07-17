@@ -149,6 +149,7 @@ export function RegularForm({ regular, onSave, onCancel }) {
   const [dietary, setDietary] = useState(regular?.dietary || '');
   const [spice, setSpice] = useState(regular?.spice || '');
   const [discountPercent, setDiscountPercent] = useState(regular?.discountPercent ? String(regular.discountPercent) : '');
+  const [house, setHouse] = useState(!!regular?.house);
 
   const cleanNames = names.map(n => n.trim()).filter(Boolean);
   const canSave = cleanNames.length > 0;
@@ -203,16 +204,37 @@ export function RegularForm({ regular, onSave, onCancel }) {
         <label style={styles.miniLabel}>Preferred spice level</label>
         <input style={styles.input} value={spice} onChange={e => setSpice(e.target.value)} placeholder="e.g. level 3, mild" />
 
+        <label style={styles.houseRow}>
+          <input type="checkbox" checked={house} onChange={e => setHouse(e.target.checked)} style={styles.houseCheckbox} />
+          <span style={styles.houseLabel}>House account</span>
+        </label>
+        <div style={styles.regularFormHint}>
+          Free, and invisible to every business metric: no revenue, no cost, no profit, no demand history.
+          Their orders still show up in the shopping list, cook schedule, labels, and packing slips, because you
+          still have to buy the food and cook it. Overrides any lifetime discount below.
+        </div>
+
         <label style={styles.miniLabel}>Lifetime discount (%)</label>
-        <input style={styles.input} type="number" inputMode="decimal" value={discountPercent} onChange={e => setDiscountPercent(e.target.value)} placeholder="e.g. 20 for Mom, 5 for testers" />
-        <div style={styles.regularFormHint}>Auto-applies to their orders. You can toggle it off per order.</div>
+        <input
+          style={{ ...styles.input, opacity: house ? 0.4 : 1 }}
+          type="number" inputMode="decimal"
+          value={house ? '' : discountPercent}
+          disabled={house}
+          onChange={e => setDiscountPercent(e.target.value)}
+          placeholder={house ? 'Not used on a house account' : 'e.g. 20 for Mom, 5 for testers'}
+        />
+        <div style={styles.regularFormHint}>
+          {house
+            ? 'A house account is already 100% off, so this does nothing.'
+            : 'Auto-applies to their orders. You can toggle it off per order.'}
+        </div>
 
         <div style={styles.regularFormActions}>
           <button style={styles.confirmNo} onClick={onCancel}>Cancel</button>
           <button
             style={{ ...styles.confirmYesGreen, opacity: canSave ? 1 : 0.5 }}
             disabled={!canSave}
-            onClick={() => onSave({ names: cleanNames, address, phone, dietary, spice, discountPercent })}
+            onClick={() => onSave({ names: cleanNames, address, phone, dietary, spice, discountPercent, house })}
           >
             {regular ? 'Save changes' : 'Add regular'}
           </button>
@@ -302,6 +324,7 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
             dietary: profile.dietary,
             spice: profile.spice,
             discountPercent: Number(profile.discountPercent) || 0,
+            house: !!profile.house,
           });
           setEditing(false);
         }}
@@ -333,9 +356,11 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
             <div style={styles.profileStatLabel}>last order</div>
           </div>
         </div>
-        {regular.discountPercent > 0 && (
+        {regular.house ? (
+          <div style={styles.profileHouseBadge}>House account &middot; free, and not counted in any metric</div>
+        ) : regular.discountPercent > 0 ? (
           <div style={styles.profileDiscountBadge}>{regular.discountPercent}% lifetime discount</div>
-        )}
+        ) : null}
       </div>
 
       {/* Contact + prefs */}

@@ -2,7 +2,7 @@
 // One Monday-morning read: what sold, money movement, quiet regulars, cost
 // alerts, and a proposed week — all synthesized from machinery that already
 // exists (books, regulars intel, portfolio, composer). No new data collection.
-import { orderTotal, orderCostInfo, regularDisplayName, regularAllNames } from './utils.js';
+import { orderTotal, orderCostInfo, regularDisplayName, regularAllNames, isHouseOrder } from './utils.js';
 import { attachRates } from './regularsIntel.js';
 import { composeWeek } from './weekPlanner.js';
 import { buildPortfolioSummary } from './dishReport.js';
@@ -41,6 +41,9 @@ function windowStats(orders, from, to) {
   const dishUnits = new Map();
   for (const o of (orders || [])) {
     // Archived = Delivered + tidied — real sales, always counted.
+    // House orders are not sales at all: no revenue, no profit, no order
+    // count, and they must not appear in "top sellers" either.
+    if (isHouseOrder(o)) continue;
     const t = new Date(o.createdAt || 0).getTime();
     if (!(t >= from && t < to)) continue;
     count++;
@@ -59,6 +62,10 @@ function windowStats(orders, from, to) {
 function quietRegulars(regulars, orders, now) {
   const out = [];
   for (const r of (regulars || [])) {
+    // The house account is not a lead to re-engage. Nudging your wife because
+    // she "hasn't ordered in 3 weeks" is the kind of thing this section would
+    // do with a straight face.
+    if (r && r.house) continue;
     const names = new Set(regularAllNames(r).map(n => n.toLowerCase()));
     const mine = (orders || []).filter(o => names.has(String(o.customer || '').toLowerCase()) || o.regularId === r.id);
     if (mine.length < 3) continue;

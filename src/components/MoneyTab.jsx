@@ -25,7 +25,7 @@ import {
   urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
-  orderTotal, repricePerLbItem, orderCostInfo,
+  orderTotal, repricePerLbItem, orderCostInfo, isHouseOrder,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -207,7 +207,12 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
   }, [orders]);
 
   const filtered = useMemo(() => {
-    let arr = unpaidOnly ? orders.filter(o => !o.paid) : orders;
+    // House orders (the wife) never appear in the Money tab at all. This is
+    // the single choke point: `filtered` feeds totals, groups, profitSeries,
+    // AND the order list below, so one filter here covers every number on the
+    // tab. Do not "optimize" any of those to read `orders` directly.
+    let arr = (orders || []).filter(o => !isHouseOrder(o));
+    if (unpaidOnly) arr = arr.filter(o => !o.paid);
     const q = search.trim().toLowerCase();
     if (q) arr = arr.filter(o => (o.customer || '').toLowerCase().includes(q));
     return arr;

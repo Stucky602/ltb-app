@@ -3,7 +3,7 @@
 // same math as the Money tab). Optional receiptLog rows [{date, total, store}]
 // become actual monthly spend when Kevin starts persisting them — the engine
 // accepts them today so the storage hook is a one-line future add.
-import { orderTotal, orderCostInfo } from './utils.js';
+import { orderTotal, orderCostInfo, isHouseOrder } from './utils.js';
 
 const monthKey = (t) => {
   const d = new Date(t);
@@ -21,6 +21,10 @@ export function monthlyPnl(orders, receiptLog = []) {
     // Delivered status) — so archived orders are REAL completed sales and
     // MUST count. There is no cancellation concept in the order model.
     if (!o.createdAt) continue;
+    // House orders (the wife) are free and never enter the books: no revenue,
+    // no COGS, no order count. Filtered HERE rather than at the call site so
+    // every present and future caller of monthlyPnl gets it for free.
+    if (isHouseOrder(o)) continue;
     const r = row(monthKey(o.createdAt));
     r.orders++;
     r.revenue += orderTotal(o.items, o.jarSwaps, o.containerReturns, o.discountType, o.discountValue, o.customCharges, o.waiveSurcharge);

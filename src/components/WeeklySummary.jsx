@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { X } from '../icons.jsx';
-import { currency, round2, orderCostInfo, groupKeyFor } from '../utils.js';
+import { currency, round2, orderCostInfo, groupKeyFor, isHouseOrder
+} from '../utils.js';
 
 // ─── Weekly cost & profit recap ────────────────────────────────────────────
 // Groups ALL orders (including archived) by delivery week, showing revenue,
@@ -36,6 +37,7 @@ export function WeeklySummaryModal({ orders, onClose }) {
   const weeks = useMemo(() => {
     const map = new Map();
     (orders || []).forEach(o => {
+      if (isHouseOrder(o)) return; // house orders are not sales; recap is a money view
       const { label, stamp } = groupKeyFor(o, 'week');
       if (!map.has(label)) {
         map.set(label, { label, stamp, orders: [], revenue: 0, cost: 0, dishes: new Map() });

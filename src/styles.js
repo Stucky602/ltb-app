@@ -601,6 +601,39 @@ export const styles = {
   },
   profileStatNum: { fontSize: '15px', fontWeight: 700, color: '#c9a84c' },
   profileStatLabel: { fontSize: '10px', color: '#9aa5a0', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' },
+  // House account (the wife): teal rather than the discount badge's gold, so
+  // it reads as a different KIND of thing at a glance, not a bigger discount.
+  profileHouseBadge: {
+    marginTop: '10px',
+    display: 'inline-block',
+    background: '#3fb8a022',
+    color: '#3fb8a0',
+    border: '1px solid #3fb8a055',
+    borderRadius: '6px',
+    padding: '4px 10px',
+    fontSize: '12px',
+    fontWeight: 600,
+  },
+  houseRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '9px',
+    marginTop: '12px',
+    marginBottom: '2px',
+    cursor: 'pointer',
+  },
+  houseCheckbox: {
+    width: '17px',
+    height: '17px',
+    accentColor: '#3fb8a0',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+  houseLabel: {
+    fontSize: '13px',
+    fontWeight: 700,
+    color: '#3fb8a0',
+  },
   profileDiscountBadge: {
     marginTop: '10px',
     display: 'inline-block',

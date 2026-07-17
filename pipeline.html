@@ -46,6 +46,11 @@
   .board-bar { height:5px; background:var(--teal-light); border-radius:3px; margin-top:3px; min-width:2px; }
   .board-votes { font-size:12px; font-weight:700; color:var(--teal-light); flex-shrink:0; }
   .board-empty { font-size:12.5px; color:var(--dim); font-style:italic; line-height:1.5; }
+  .filters { display:flex; gap:7px; margin:14px 0 4px; }
+  .filter-btn { flex:1; background:transparent; border:1px solid var(--teal-mid); color:var(--dim); border-radius:10px; padding:9px 6px; font-size:12.5px; font-weight:700; cursor:pointer; }
+  .filter-btn.on { background:var(--teal-light); border-color:var(--teal-light); color:#1a1a1a; }
+  .filter-note { font-size:11.5px; color:var(--dim); font-style:italic; margin-bottom:2px; min-height:15px; }
+  .diet-pill { display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--teal-light); border:1px solid var(--teal-mid); border-radius:4px; padding:2px 6px; margin-bottom:6px; }
   .vote-btn { background:transparent; border:1px solid var(--teal-mid); color:var(--teal-light); border-radius:16px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; margin-top:4px; }
   .vote-btn.on { background:var(--teal-light); border-color:var(--teal-light); color:#1a1a1a; }
   .vote-btn:disabled { opacity:0.35; cursor:default; }
@@ -78,6 +83,13 @@
   <div class="section-head">Coming Soon, Maybe</div>
   <div class="section-intro">Current testing items. Names and details will change. Ask me about any of them.</div>
 
+  <div class="filters">
+    <button class="filter-btn on" data-filter="all">All 21</button>
+    <button class="filter-btn" data-filter="pesc">Pescatarian</button>
+    <button class="filter-btn" data-filter="veg">Vegetarian</button>
+  </div>
+  <div class="filter-note" id="filterNote"></div>
+
   <div class="dish" data-dish="Tea-Smoked Chicken">
     <div class="dish-name">Tea-Smoked Chicken, Brown Butter Dashi Grits, Alabama White Sauce</div>
     <div class="dish-origin">Sichuan &middot; Japan &middot; France &middot; Alabama &middot; Texas</div>
@@ -92,7 +104,7 @@
     <div class="contains">Contains: Peanuts, heavily. This one is a hard no if you have a peanut allergy.</div>
   </div>
 
-  <div class="dish" data-dish="Kabocha Char Siu">
+  <div class="dish" data-dish="Kabocha Char Siu" data-diet="veg">
     <div class="dish-name">Kabocha Char Siu, Shiitake-Dashi Rice, Pickles</div>
     <div class="dish-origin">Canton &middot; Italy &middot; Japan &middot; Vegetarian</div>
     <div class="dish-desc">Kabocha squash roasted in wedges and lacquered with Chinese barbecue glaze, the same glaze that goes on char siu pork, plus the fennel and rosemary and garlic that go on Italian porchetta. Squash wearing pork's entire wardrobe. It sits on rice you cook with a mushroom and seaweed packet that goes in the water, and the pickles on the side are there to cut the sweetness. It is vegetarian, and it is not a vegetarian accommodation, it carves and eats like a roast.</div>
@@ -147,7 +159,7 @@
     <div class="dish-note">Heads up: about one shishito in ten is genuinely hot. Fun or a problem, depending on you.</div>
   </div>
 
-  <div class="dish" data-dish="Two-Garum Pasta">
+  <div class="dish" data-dish="Two-Garum Pasta" data-diet="pesc">
     <div class="dish-name">Two-Garum Pasta: Gulf Shrimp, Colatura, Fish Sauce, Garlic Confit</div>
     <div class="dish-origin">Amalfi &middot; Vietnam &middot; Rome &middot; Texas Gulf</div>
     <div class="dish-desc">Pasta with shrimp, garlic, chile, and olive oil, and the sauce is built on two different fermented fish sauces from opposite sides of the planet. Colatura is what southern Italians make from salted anchovies, and it is the direct descendant of the fish sauce ancient Rome ran on. Vietnamese nuoc mam is the same thing, salted fish fermented into liquid, invented on the other side of the world with no knowledge of the first. Nobody uses both because one is Italian and one is Vietnamese, but they are the same ingredient, and the Italian one is clean and round while the Vietnamese one is funkier and deeper. Together they cover a range neither covers alone. It does not taste like fish. It tastes like the best version of garlic and oil pasta you have had.</div>
@@ -161,7 +173,7 @@
     <div class="contains">Contains: Shellfish (shrimp, dried shrimp), Gluten (roux), Dairy (butter).</div>
   </div>
 
-  <div class="dish" data-dish="Collard Saag">
+  <div class="dish" data-dish="Collard Saag" data-diet="veg">
     <div class="dish-name">Collard Saag, Seared Halloumi, Rice</div>
     <div class="dish-origin">Punjab &middot; American South &middot; Cyprus &middot; Vegetarian</div>
     <div class="dish-desc">Saag is the Punjabi dish of greens cooked down for hours with ginger, garlic, and chile until they collapse into something dark and silky. It is traditionally made with mustard greens, and collards are botanically a mustard, which means the South has been growing India's green the whole time without either side noticing. The cheese is halloumi instead of paneer, because both are the two cheeses on earth engineered not to melt in a pan, but halloumi is brined and salty where paneer is blank. You sear it yourself, and it is impossible to get wrong, the cheese physically cannot melt.</div>
@@ -176,7 +188,7 @@
     <div class="contains">Contains: Dairy (butter, parmesan).</div>
   </div>
 
-  <div class="dish" data-dish="Octopus Soy-Dashi-Pimenton">
+  <div class="dish" data-dish="Octopus Soy-Dashi-Pimenton" data-diet="pesc">
     <div class="dish-name">Octopus, Soy-Dashi-Piment&oacute;n, Baby Golds</div>
     <div class="dish-origin">Galicia &middot; Japan</div>
     <div class="dish-desc">Octopus over potatoes, and the braising liquid comes from the two cultures on earth most obsessed with getting octopus tender. Galicia serves it with paprika, olive oil, and potatoes at every festival in the region. Japan simmers it in soy, dashi, and sweet rice wine until you can cut it with a spoon. Same animal, same problem, two answers, and this dish uses both in one pot. Octopus is nearly all collagen, which means it is one of the only proteins that is flatly better the day after it is cooked, the liquid sets into the meat overnight. It is also probably the one protein on this menu nobody has ever served you at home.</div>
@@ -220,7 +232,7 @@
     <div class="contains">Contains: Dairy (parmesan, gruy&egrave;re), Gluten (pasta).</div>
   </div>
 
-  <div class="dish" data-dish="Wok-Smoked Dal Makhani">
+  <div class="dish" data-dish="Wok-Smoked Dal Makhani" data-diet="veg">
     <div class="dish-name">Wok-Smoked Dal Makhani</div>
     <div class="dish-origin">Punjab &middot; Sichuan &middot; Vegetarian</div>
     <div class="dish-desc">The most famous better-the-next-day dish in Indian cooking. Black lentils simmered for hours until they turn creamy from their own starch, finished with butter, a little cream, and tomato. The restaurants that made it famous openly age it a day before serving because day one is considered unfinished. The traditional final step is dhungar: a live coal is nestled into the pot, ghee poured over it, and the lid traps the smoke. This kitchen does the same ritual with its wok smoking rig instead of a coal, so the butter and cream take the smoke before they go in. Mild, rich, and deeply smoky.</div>
@@ -364,6 +376,67 @@
           'That did not go through. Try again in a second.';
       });
   });
+
+  // ── Diet filter ──────────────────────────────────────────────────────────
+  // Pescatarian is a SUPERSET of vegetarian: a veg dish is also fine for a
+  // pescatarian, so 'pesc' shows both. Deliberately no vegan button; nothing
+  // on this board is vegan.
+  var FILTER_NOTES = {
+    all:  '',
+    pesc: 'Fish and shellfish are fine, meat is not. Vegetarian dishes are included.',
+    veg:  'No meat, no fish. Dairy and eggs are in play.',
+  };
+  function matchesFilter(card, mode) {
+    if (mode === 'all') return true;
+    var diet = card.getAttribute('data-diet');
+    if (mode === 'veg') return diet === 'veg';
+    if (mode === 'pesc') return diet === 'veg' || diet === 'pesc';
+    return true;
+  }
+  (function () {
+    var btns = document.querySelectorAll('.filter-btn');
+    var cards = document.querySelectorAll('.dish[data-dish]');
+    var note = document.getElementById('filterNote');
+
+    // A pill on each qualifying card, so the label survives once the filter is
+    // switched back to All and the grouping is no longer visible.
+    for (var i = 0; i < cards.length; i++) {
+      var diet = cards[i].getAttribute('data-diet');
+      if (!diet) continue;
+      var pill = document.createElement('div');
+      pill.className = 'diet-pill';
+      pill.textContent = diet === 'veg' ? 'Vegetarian' : 'Pescatarian';
+      // After the origin line, before the description.
+      var origin = cards[i].querySelector('.dish-origin');
+      if (origin && origin.nextSibling) cards[i].insertBefore(pill, origin.nextSibling);
+      else cards[i].insertBefore(pill, cards[i].firstChild);
+    }
+
+    function apply(mode) {
+      var shown = 0;
+      for (var i = 0; i < cards.length; i++) {
+        var ok = matchesFilter(cards[i], mode);
+        cards[i].style.display = ok ? '' : 'none';
+        if (ok) shown++;
+      }
+      for (var j = 0; j < btns.length; j++) {
+        var on = btns[j].getAttribute('data-filter') === mode;
+        btns[j].className = on ? 'filter-btn on' : 'filter-btn';
+      }
+      var n = FILTER_NOTES[mode] || '';
+      note.textContent = mode === 'all' ? n : (shown + (shown === 1 ? ' dish. ' : ' dishes. ') + n);
+      // A pick that is now hidden STAYS picked. Dropping it silently because a
+      // card scrolled out of view would be worse than the mild oddity of the
+      // counter disagreeing with what is on screen.
+    }
+
+    for (var k = 0; k < btns.length; k++) {
+      btns[k].addEventListener('click', (function (m) {
+        return function () { apply(m); };
+      })(btns[k].getAttribute('data-filter')));
+    }
+    apply('all');
+  })();
 
   loadBoard();
 </script>

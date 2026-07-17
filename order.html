@@ -83,6 +83,7 @@
   .btn-main-menu { background:var(--teal-mid); color:var(--cream); }
   .btn-menu { background:var(--gold); color:var(--teal-dark); }
   .btn-order { background:var(--teal-light); color:#04342C; }
+  .btn-pipeline { background:transparent; border:1px solid var(--teal-mid); color:var(--teal-light); }
   .btn-inactive {
     opacity:0.42; text-decoration:line-through; text-decoration-thickness:3px;
     filter:grayscale(60%); cursor:default;
@@ -134,6 +135,11 @@
     <!-- Menu button: opens in panel on desktop, direct link on mobile -->
     <a class="btn btn-menu" id="menuBtn" href="menu.html">
       <span class="btn-icon">&#9776;</span> This Week's Menu
+    </a>
+
+    <!-- Pipeline button: coming-soon dishes, nothing orderable -->
+    <a class="btn btn-pipeline" id="pipelineBtn" href="pipeline.html">
+      <span class="btn-icon">&#9781;</span> In the Works
     </a>
 
     <!-- Order button: disabled Mon-Wed -->
@@ -214,6 +220,13 @@
   });
 
   document.getElementById('mainMenuBtn').addEventListener('click', function (e) {
+    if (isDesktop()) {
+      e.preventDefault();
+      openInPanel(this.getAttribute('href'));
+    }
+  });
+
+  document.getElementById('pipelineBtn').addEventListener('click', function (e) {
     if (isDesktop()) {
       e.preventDefault();
       openInPanel(this.getAttribute('href'));

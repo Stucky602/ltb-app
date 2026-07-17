@@ -37,6 +37,24 @@
   .menu-cta { display:block; text-align:center; background:var(--gold); color:var(--teal-dark); font-weight:700; font-size:15px; padding:15px; border-radius:12px; text-decoration:none; margin-top:22px; }
   .back-link { display:block; text-align:center; color:var(--teal-light); font-size:14px; padding:14px; margin-top:13px; text-decoration:none; border:1px solid var(--teal-mid); border-radius:12px; }
   .footer { margin-top:22px; font-size:11px; color:#6a726c; text-align:center; line-height:1.5; }
+  .board { background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:15px; margin-bottom:14px; }
+  .board h4 { color:var(--gold); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+  .board-sub { font-size:11.5px; color:var(--dim); font-style:italic; margin-bottom:11px; }
+  .board-row { display:flex; align-items:center; gap:9px; padding:5px 0; }
+  .board-rank { font-size:11px; font-weight:700; color:var(--gold); width:15px; flex-shrink:0; }
+  .board-name { font-size:13px; color:var(--cream); flex:1; min-width:0; }
+  .board-bar { height:5px; background:var(--teal-light); border-radius:3px; margin-top:3px; min-width:2px; }
+  .board-votes { font-size:12px; font-weight:700; color:var(--teal-light); flex-shrink:0; }
+  .board-empty { font-size:12.5px; color:var(--dim); font-style:italic; line-height:1.5; }
+  .vote-btn { background:transparent; border:1px solid var(--teal-mid); color:var(--teal-light); border-radius:16px; padding:6px 14px; font-size:12px; font-weight:700; cursor:pointer; margin-top:4px; }
+  .vote-btn.on { background:var(--teal-light); border-color:var(--teal-light); color:#1a1a1a; }
+  .vote-btn:disabled { opacity:0.35; cursor:default; }
+  .vote-bar { position:sticky; bottom:0; background:var(--card); border:1px solid var(--teal-mid); border-radius:12px; padding:12px 14px; margin-top:22px; display:flex; align-items:center; gap:11px; box-shadow:0 -4px 16px rgba(0,0,0,0.5); }
+  .vote-count { font-size:12.5px; color:var(--dim); flex:1; }
+  .vote-count b { color:var(--cream); }
+  .vote-submit { background:var(--gold); color:var(--teal-dark); border:none; border-radius:10px; padding:11px 18px; font-size:13.5px; font-weight:700; cursor:pointer; flex-shrink:0; }
+  .vote-submit:disabled { opacity:0.35; cursor:default; }
+  .vote-done { font-size:13px; color:var(--teal-light); text-align:center; padding:4px 0; line-height:1.5; }
   .sticky-back { position:fixed; top:max(14px,env(safe-area-inset-top)); left:14px; z-index:999; background:var(--teal-dark); border:1px solid var(--teal-mid); border-radius:10px; padding:8px 14px; color:var(--teal-light); font-size:13px; font-weight:600; text-decoration:none; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
 </style>
 </head>
@@ -51,105 +69,116 @@
     <p>Everything here earned its spot the same way: it has to be as good on Wednesday as it was the day I cooked it, or better. Most of these are dishes that tradition says you are <i>supposed</i> to make ahead. Some have open questions I have not answered yet, whether the smoke holds three days, whether a glaze weeps in the bag, whether a packet of dried mushroom and kombu actually flavors your rice water. When one fails, it comes off this list.</p>
   </div>
 
+  <div class="board" id="board">
+    <h4>What People Want Most</h4>
+    <div class="board-sub">Top 5 only. Pick up to three below.</div>
+    <div class="board-empty" id="boardBody">Loading&hellip;</div>
+  </div>
+
   <div class="section-head">Coming Soon, Maybe</div>
   <div class="section-intro">Current testing items. Names and details will change. Ask me about any of them.</div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Tea-Smoked Chicken">
     <div class="dish-name">Tea-Smoked Chicken, Brown Butter Dashi Grits, Alabama White Sauce</div>
     <div class="dish-origin">Sichuan &middot; Japan &middot; France &middot; Alabama &middot; Texas</div>
     <div class="dish-desc">Smoked chicken thighs over the creamiest grits you have ever eaten, with a cold, tangy white barbecue sauce poured over the top. The smoke happens in a pot on the stove, not a smoker, using tea leaves and sugar, which is how Sichuan cooks have done it for centuries. The grits are cooked with a Japanese seaweed broth that you will not taste as Japanese, you will just taste grits that are somehow deeper than grits should be. The white sauce is an Alabama thing, mayonnaise and vinegar and black pepper, and it is what people from north Alabama put on smoked chicken instead of red barbecue sauce. It is strange the first time and mandatory every time after.</div>
     <div class="dish-note">Still testing: whether day three beats day one on the smoke.</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Suya Flank Steak">
     <div class="dish-name">Suya Flank Steak, Coconut Rice, Cucumber Kachumbari</div>
     <div class="dish-origin">Nigeria &middot; Kenya &middot; Vietnam &middot; Texas</div>
     <div class="dish-desc">Suya is Nigerian street meat, and the whole trick is the crust: ground peanuts, ginger, and cayenne rubbed onto beef so thick that it toasts into a savory, nutty, spicy shell when it hits the pan. It sits on coconut rice, and next to it is kachumbari, the sharp cucumber and red onion salad Kenyans eat with grilled meat, cold and acidic and there to cut everything else. The dark drizzle over the top is burnt sugar and tamarind, sweet-sour and almost bitter. Peanut crust, coconut fat, cold acid, burnt sugar. Nobody in this city is making this.</div>
     <div class="contains">Contains: Peanuts, heavily. This one is a hard no if you have a peanut allergy.</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Kabocha Char Siu">
     <div class="dish-name">Kabocha Char Siu, Shiitake-Dashi Rice, Pickles</div>
     <div class="dish-origin">Canton &middot; Italy &middot; Japan &middot; Vegetarian</div>
     <div class="dish-desc">Kabocha squash roasted in wedges and lacquered with Chinese barbecue glaze, the same glaze that goes on char siu pork, plus the fennel and rosemary and garlic that go on Italian porchetta. Squash wearing pork's entire wardrobe. It sits on rice you cook with a mushroom and seaweed packet that goes in the water, and the pickles on the side are there to cut the sweetness. It is vegetarian, and it is not a vegetarian accommodation, it carves and eats like a roast.</div>
     <div class="dish-note">Still testing: the rice packet, and whether the lacquer holds three days in the bag.</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Kare-Kare with XO">
     <div class="dish-name">Kare-Kare with XO Sauce</div>
     <div class="dish-origin">Philippines &middot; Hong Kong &middot; West Africa &middot; Texas Gulf</div>
     <div class="dish-desc">Filipino oxtail stew in a toasted peanut sauce. Peanut sauce on beef sounds like a dare and eats like a hug. The oxtail cooks until the meat gives up and the collagen turns the whole thing glossy, and the sauce is thickened with ground toasted rice and ground peanuts, no flour, no cream. Long beans and eggplant go in because that is how it is done. On the side is XO sauce, a Hong Kong luxury condiment made of dried shrimp, ham, and chile, and it is what you add when you want the whole bowl to get louder. Made for rice.</div>
     <div class="contains">Contains: Peanuts, Shellfish (dried shrimp in the XO).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Khoresh-e Gheimeh">
     <div class="dish-name">Khoresh-e Gheimeh, Persian Dried Lime Braise</div>
     <div class="dish-origin">Iran</div>
     <div class="dish-desc">A Persian stew of beef and yellow split peas, and the thing that makes it is the dried limes. Whole limes are boiled and dried until they go hard and black inside, which ferments them, and then they get pierced and dropped in the pot where they slowly leak out a sourness that has no equivalent in Western cooking. It is not lemon. It is sour and bitter and funky all at once, savory rather than bright. There is no sweetness in this dish anywhere. The split peas melt down and round it out from the inside. Served over saffron rice, which is there to frame the sourness, not fight it. Most people have never eaten anything like this.</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Fesenjan">
     <div class="dish-name">Fesenjan, Walnut and Pomegranate Braise</div>
     <div class="dish-origin">Iran &middot; Georgia &middot; Mexico</div>
     <div class="dish-desc">Persian chicken braised in a sauce made almost entirely of ground walnuts and pomegranate molasses. It cooks until the walnut oil breaks out and the sauce turns from purple to nearly black. It tastes sour, deeply savory, faintly sweet, and rich in a way that reads almost like chocolate but is not. Nobody guesses what is in it. Iranians make it the day before, always, because the walnut oil needs the time to separate and come back together and the molasses needs the time to get into the meat. A day-one fesenjan is a rough draft. Yours would be served on day three, which is when it is right.</div>
     <div class="contains">Contains: Tree nuts (walnuts).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Sauerbraten Beef Cheeks">
     <div class="dish-name">Sauerbraten Beef Cheeks, Caraway-Juniper Potatoes, Braised Red Cabbage</div>
     <div class="dish-origin">Germany</div>
     <div class="dish-desc">German pot roast, except made with beef cheeks, which are the best braising cut on the animal and almost nobody sells them. The beef sits in a vinegar and wine marinade for four days before it ever hits heat, and that is not a shortcut or a make-ahead trick, that is the recipe. Sauerbraten has been a four-day dish for centuries. The sauce gets thickened with crushed gingersnaps, which sounds insane and is exactly right, and there are dried sour cherries in it that keep the sourness from being sharp. Red cabbage on the side, cooked down with apple and vinegar for an hour until it collapses. Potatoes in a bag with caraway and juniper.</div>
     <div class="contains">Contains: Gluten (gingersnaps), Dairy (butter, in the potato bag).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Yogurt-Braised Lamb">
     <div class="dish-name">Yogurt-Braised Lamb, Alkaline Noodles, Aleppo-Mint Brown Butter</div>
     <div class="dish-origin">Persia &middot; India &middot; Japan &middot; Turkey</div>
     <div class="dish-desc">Lamb shoulder braised in yogurt until it falls apart. The yogurt breaks on purpose during the cook and then comes back together, which is why the sauce is tangy and thick and completely stable, it already did the thing you would be afraid of it doing. Over ramen-style noodles, which are made with an alkaline salt that keeps them chewy where a normal noodle would go to mush. At the table you pour hot brown butter with Aleppo pepper and dried mint over the whole thing and it pools into the sauce. Charred scallions on top, blackened hard, because burnt is a flavor that never fades.</div>
     <div class="contains">Contains: Dairy (yogurt, butter), Gluten (noodles).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Nixtamal Grits">
     <div class="dish-name">Nixtamal Grits, Braised Greens, Country Ham, Bottarga</div>
     <div class="dish-origin">Mexico &middot; American South &middot; Italy</div>
     <div class="dish-desc">Grits, but made from corn that has been treated with lime the way tortilla corn is, which changes the corn completely and makes it taste rounder and deeper than any grits you have had. Braised collards underneath, country ham through it, and then the strange part: bottarga, which is cured fish roe, grated over the top like parmesan. It is salty and deep and it does the same thing anchovy does in the chili, which is make you wonder what is in it without ever tasting like fish. This is a Southern dish that took a detour through Mexico and Italy and came back better.</div>
     <div class="contains">Contains: Fish (bottarga), Dairy (butter).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Umeboshi Chicken">
     <div class="dish-name">Umeboshi and Charred Preserved Lemon Chicken, Negi-Shio, Blistered Shishitos</div>
     <div class="dish-origin">Morocco &middot; Japan &middot; Sichuan</div>
     <div class="dish-desc">Two cultures figured out that if you pack a whole fruit in salt for a month, it turns into something else entirely. Morocco did it with lemons. Japan did it with plums. They are the same idea and they taste nothing alike, so this dish uses both. The preserved lemon gets burned in a screaming hot wok first, which nobody does, and it turns from bright and floral into dark and bitter. The umeboshi brings a sourness that is almost meaty. Over the chicken goes a scallion oil built on that same burnt lemon, and the shishito peppers on the side get blistered hard and stay crisp. Plain rice, because everything else on the plate is already shouting.</div>
     <div class="dish-note">Heads up: about one shishito in ten is genuinely hot. Fun or a problem, depending on you.</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Two-Garum Pasta">
     <div class="dish-name">Two-Garum Pasta: Gulf Shrimp, Colatura, Fish Sauce, Garlic Confit</div>
     <div class="dish-origin">Amalfi &middot; Vietnam &middot; Rome &middot; Texas Gulf</div>
     <div class="dish-desc">Pasta with shrimp, garlic, chile, and olive oil, and the sauce is built on two different fermented fish sauces from opposite sides of the planet. Colatura is what southern Italians make from salted anchovies, and it is the direct descendant of the fish sauce ancient Rome ran on. Vietnamese nuoc mam is the same thing, salted fish fermented into liquid, invented on the other side of the world with no knowledge of the first. Nobody uses both because one is Italian and one is Vietnamese, but they are the same ingredient, and the Italian one is clean and round while the Vietnamese one is funkier and deeper. Together they cover a range neither covers alone. It does not taste like fish. It tastes like the best version of garlic and oil pasta you have had.</div>
     <div class="contains">Contains: Shellfish (shrimp), Fish (colatura, fish sauce), Gluten (pasta).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Shrimp and Grits">
     <div class="dish-name">Shrimp and Grits: &Eacute;touff&eacute;e and XO</div>
     <div class="dish-origin">Louisiana &middot; Hong Kong &middot; Japan &middot; Texas Gulf</div>
     <div class="dish-desc">Shrimp and grits, except two cuisines got asked the same question and gave different answers, and this dish uses both. Louisiana's answer is &eacute;touff&eacute;e: make a stock from the shells, build a roux, smother the shrimp in it. Hong Kong's answer is XO sauce: take shrimp, dry them, and concentrate them with cured ham and chile into a jar. One is fresh, one is aged, and it is the same animal in two states of time. The grits underneath are cooked with a Japanese seaweed broth that you will never identify, you will just notice the grits are deeper than grits should be.</div>
     <div class="contains">Contains: Shellfish (shrimp, dried shrimp), Gluten (roux), Dairy (butter).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Collard Saag">
     <div class="dish-name">Collard Saag, Seared Halloumi, Rice</div>
     <div class="dish-origin">Punjab &middot; American South &middot; Cyprus &middot; Vegetarian</div>
     <div class="dish-desc">Saag is the Punjabi dish of greens cooked down for hours with ginger, garlic, and chile until they collapse into something dark and silky. It is traditionally made with mustard greens, and collards are botanically a mustard, which means the South has been growing India's green the whole time without either side noticing. The cheese is halloumi instead of paneer, because both are the two cheeses on earth engineered not to melt in a pan, but halloumi is brined and salty where paneer is blank. You sear it yourself, and it is impossible to get wrong, the cheese physically cannot melt.</div>
     <div class="contains">Contains: Dairy (halloumi, ghee).</div>
   </div>
 
-  <div class="dish">
+  <div class="dish" data-dish="Pork Tenderloin Agrodolce">
     <div class="dish-name">Pork Tenderloin, Double Dark Vinegar Agrodolce, Seared Polenta Cakes</div>
     <div class="dish-origin">Sicily &middot; Modena &middot; Zhenjiang &middot; France</div>
     <div class="dish-desc">Pork with a dark sweet-sour onion sauce, and the sauce is built on two aged vinegars that have never been in the same kitchen. Balsamic comes from Modena and is grape-based, woody, and round. Chinkiang black vinegar comes from Zhenjiang and is rice-based, malty, and smoky. They are the same invention, a dark vinegar aged into sweetness, arrived at independently on two continents. Blended, they cover a range neither has alone. Under it, polenta that has been set overnight into a slab and cut into cakes, which you sear yourself into something crisp on the outside and molten in the middle.</div>
     <div class="dish-note">Still testing: whether the polenta slab holds three days, and whether your pan really gets that molten center.</div>
     <div class="contains">Contains: Dairy (butter, parmesan).</div>
+  </div>
+
+  <div class="vote-bar" id="voteBar">
+    <div class="vote-count" id="voteCount">Pick up to <b>3</b> favorites.</div>
+    <button class="vote-submit" id="voteSubmit" disabled>Vote</button>
   </div>
 
   <div class="info-card">
@@ -160,5 +189,128 @@
   <a class="menu-cta" href="menu.html">See What's Actually For Sale This Week</a>
   <a class="back-link" href="order.html">&larr; Back to start</a>
   <div class="footer">Lettuce, Turnip, The Beet &middot; Friends-only meal prep &middot; Austin, TX</div>
+
+<script>
+  var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
+  var MAX_PICKS = 3;
+  var picks = [];
+
+  function esc(x){ return String(x==null?"":x).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+  // ── Leaderboard ──────────────────────────────────────────────────────────
+  // The worker returns the top 5 and nothing else, so there is no full ranking
+  // on this page to leak. Bars are scaled to the leader, not to the total.
+  function renderBoard(data) {
+    var body = document.getElementById('boardBody');
+    var top = (data && data.top) || [];
+    if (!top.length) {
+      body.className = 'board-empty';
+      body.innerHTML = 'No votes yet. Be the first.';
+      return;
+    }
+    var max = top[0].votes || 1;
+    var html = '';
+    for (var i = 0; i < top.length; i++) {
+      var r = top[i];
+      var pct = Math.max(2, Math.round((r.votes / max) * 100));
+      html += '<div class="board-row">' +
+                '<div class="board-rank">' + (i + 1) + '</div>' +
+                '<div class="board-name">' + esc(r.dish) +
+                  '<div class="board-bar" style="width:' + pct + '%"></div>' +
+                '</div>' +
+                '<div class="board-votes">' + r.votes + '</div>' +
+              '</div>';
+    }
+    if (data.ballots) {
+      html += '<div class="board-sub" style="margin:9px 0 0;">' + data.ballots +
+              (data.ballots === 1 ? ' ballot' : ' ballots') + ' so far.</div>';
+    }
+    body.className = '';
+    body.innerHTML = html;
+  }
+
+  function loadBoard() {
+    fetch(WORKER + '/votes')
+      .then(function(r){ return r.json(); })
+      .then(renderBoard)
+      .catch(function(){
+        var body = document.getElementById('boardBody');
+        body.className = 'board-empty';
+        body.innerHTML = 'Could not load the tally right now.';
+      });
+  }
+
+  // ── Ballot ───────────────────────────────────────────────────────────────
+  function syncButtons() {
+    var btns = document.querySelectorAll('.vote-btn');
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      var on = picks.indexOf(b.getAttribute('data-key')) >= 0;
+      b.className = on ? 'vote-btn on' : 'vote-btn';
+      b.textContent = on ? '\u2713 Picked' : 'Pick this';
+      // At the cap, unpicked buttons go dead so the limit is visible rather
+      // than something you discover by tapping.
+      b.disabled = (!on && picks.length >= MAX_PICKS);
+    }
+    var left = MAX_PICKS - picks.length;
+    document.getElementById('voteCount').innerHTML = picks.length
+      ? '<b>' + picks.length + '</b> picked' + (left > 0 ? ', ' + left + ' left' : ', that is your three')
+      : 'Pick up to <b>' + MAX_PICKS + '</b> favorites.';
+    document.getElementById('voteSubmit').disabled = !picks.length;
+  }
+
+  function toggle(key) {
+    var i = picks.indexOf(key);
+    if (i >= 0) picks.splice(i, 1);
+    else if (picks.length < MAX_PICKS) picks.push(key);
+    syncButtons();
+  }
+
+  // Wire a button into every dish card.
+  (function () {
+    var cards = document.querySelectorAll('.dish[data-dish]');
+    for (var i = 0; i < cards.length; i++) {
+      var key = cards[i].getAttribute('data-dish');
+      var b = document.createElement('button');
+      b.className = 'vote-btn';
+      b.setAttribute('data-key', key);
+      b.textContent = 'Pick this';
+      b.addEventListener('click', (function (k) {
+        return function () { toggle(k); };
+      })(key));
+      cards[i].appendChild(b);
+    }
+    syncButtons();
+  })();
+
+  document.getElementById('voteSubmit').addEventListener('click', function () {
+    if (!picks.length) return;
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Sending\u2026';
+    fetch(WORKER + '/votes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ picks: picks }),
+    })
+      .then(function (r) { if (!r.ok) throw new Error('vote failed'); return r.json(); })
+      .then(function () {
+        document.getElementById('voteBar').innerHTML =
+          '<div class="vote-done">Got it. Thanks.</div>';
+        var btns = document.querySelectorAll('.vote-btn');
+        for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+        loadBoard();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Vote';
+        document.getElementById('voteCount').innerHTML =
+          'That did not go through. Try again in a second.';
+      });
+  });
+
+  loadBoard();
+</script>
 </body>
 </html>

@@ -240,6 +240,7 @@ export function buildReheatBlocks(order) {
   // tier. Three parts, not four: no sauce, so the butter suggestion at the end
   // does that job for anyone who has butter in the house.
   let porkChopBaseOrdered = items.some(it => it.name === 'Pork Chop with Kabocha Purée and Charred Broccolini');
+  const teaSmokedOrdered = items.some(it => it.name === 'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce');
 
   // Steak au Poivre (Spotlight) — dedicated four-part card: sear the thick
   // filet (30 min counter-warm, 131°F no exceptions), warm the pommes purée +
@@ -423,6 +424,19 @@ export function buildReheatBlocks(order) {
       title: 'Sear the pork, warm the sides',
       dishes: ['Pork Chop with Kabocha Purée and Charred Broccolini'],
       body: 'Three parts: the pork in a sealed bag, the kabocha puree in a bag, and the broccolini in a bag. There are two thick chops here, meant to be sliced and split among four people. Let the pork sit out on the counter for 30 minutes or more before searing since these are very thick cuts, then pat dry and sear hard on each side in a blazing-hot pan until deeply browned. While it rests, reheat the puree and broccolini bags in a pot of simmering water until just heated through, and be careful with the broccolini as it can overcook. To plate: spread the puree down first, slice the chops against the grain and lay them over the top, broccolini alongside. If you have butter in the house, melt a little over the pork and broccolini right before it goes to the table. Not required, but it is doing the job the spotlight version\'s sauce does, and it takes ten seconds.',
+    });
+  }
+
+  // ── Tea-Smoked Chicken — dedicated 3-part card ────────────────────────
+  // Its own bucket, not 'bagged': the chicken ships in a CONTAINER, not a bag,
+  // because Kevin pulls it out of the sous vide bag for the smoke step and is
+  // not going to re-bag it just to save a container. The polenta IS bagged.
+  // The white sauce must never be heated — cold against the smoke is the dish.
+  if (teaSmokedOrdered) {
+    blocks.push({
+      title: 'Sear the chicken, warm the polenta, add the sauce',
+      dishes: ['Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce'],
+      body: 'Two parts: the chicken in a container, the polenta in a sealed bag. Polenta bag into simmering water until hot. The chicken is fully cooked and already smoked, so all it needs is color: pat it very dry, get a pan blazing hot with a neutral oil, and sear hard just until browned. Same treatment as any sous vide protein. Polenta down, chicken over, then the white sauce poured cold across the top. Do not heat the white sauce, it is meant to be cold against the smoke. If you asked for skin-on, do not go blazing hot. Pat it very dry, lay it skin-side down in a moderate pan with a little oil, and let the fat render and the skin tighten before you bring the heat up. Rushing it is how the skin welds itself to the pan.',
     });
   }
 

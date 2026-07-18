@@ -373,6 +373,84 @@ export const DISHES = [
       veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and add the vegetables to the curry. Unlike our other sous vide vegetables, the sauce in this bag is not meant to be used as a glaze — discard it. The liquid contains butter, so avoid pouring it down the drain.',
     },
   },
+  {
+    name: 'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce',
+    // CANON customer copy — the single source for this dish's prose. menu.html
+    // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
+    // main-menu.html's Allergens line is generated from copy.contains
+    // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
+    copy: {
+      desc: "Boneless skinless chicken thighs, dry-brined a day, cooked sous vide, then smoked on the stovetop over black tea, rice, and brown sugar. They go over polenta cooked in dashi and finished with brown butter. Finished with a North Alabama White BBQ sauce. Bone-in skin-on chicken available by request. The skin is good but more delicate to work with and can stick to your pan without proper technique, so the default is boneless. Why is the Large such a bargain? One round of smoking ingredients covers either size, so you get the savings.",
+      reheat: "Two parts: the chicken in a container, the polenta in a sealed bag. Polenta bag into simmering water until hot. The chicken is fully cooked and already smoked, so all it needs is color: pat it very dry, get a pan blazing hot with a neutral oil, and sear hard just until browned. Same treatment as any sous vide protein. Polenta down, chicken over, then the white sauce poured cold across the top. Do not heat the white sauce, it is meant to be cold against the smoke. If you asked for skin-on, do not go blazing hot. Pat it very dry, lay it skin-side down in a moderate pan with a little oil, and let the fat render and the skin tighten before you bring the heat up. Rushing it is how the skin welds itself to the pan.",
+      contains: "Egg (mayonnaise), Dairy (butter), Fish (bonito in the dashi).",
+    },
+    // Structured allergen claims, gated by tests/allergens.mjs against the
+    // resolved recipe. Fish is the non-obvious one: katsuobushi in the dashi
+    // means the polenta is not pescatarian-innocent, and nothing on the plate
+    // announces it.
+    allergens: {
+      // Egg is inside the MAYONNAISE, which resolves to the 'mayonnaise' id, so
+      // the id-regex has nothing to match on (and correctly refuses to guess).
+      // Same shape as the dairy-inside-sv_bag claim on the sous vide dishes.
+      egg: { variants: true, unlisted: 'egg is in the mayonnaise base of the white sauce; the mayonnaise line resolves to the mayonnaise id, which the id-pattern cannot see through' },
+      dairy: true,  // butter, browned into the polenta
+      fish: { variants: true, unlisted: 'katsuobushi (bonito) in the dashi the polenta is cooked in; nothing on the plate announces it and the katsuobushi id does not match the fish pattern' },
+    },
+    cuisine: 'American',
+    reheat: 'teaSmoked', // dedicated card: chicken in a CONTAINER (pulled from the bag to smoke), polenta bagged, sauce cold
+    // 5-gallon pot on the back burner for the smoke; polenta is the back-burner
+    // claim the `polenta` flag already models. Large pot is modeled as ONE
+    // (Kevin has two, but only one fits on the stove at a time), so this fires
+    // red against Chili and Tex-Mex Kit by design.
+    equipment: { fixed: ['largePot'], polenta: true },
+    variants: [
+      { label: 'Small (~4 servings)', price: 40, cost: 16.57 },  // 58.6% @ buffered cost
+      { label: 'Large (~8 servings)', price: 65, cost: 29.77 },  // 54.2%; cost is 1.797x Small, not 2x — see PROPORTION_EXCEPTIONS
+    ],
+    recipe: {
+      factors: { 'Small (~4 servings)': 1, 'Large (~8 servings)': 2 },
+      base: [
+        I('Chicken thighs', 2, 'lb'),   // boneless skinless; Small = 2 lb (Kevin, Jul 17)
+        I('Kosher salt', 2, 'tbs'),     // 50/50 dry brine, 24 hours
+        I('Sugar', 0.125, 'cup'),
+        I('Polenta', 1, 'cup'),         // dry, cooked in dashi. NOT the bagged +Polenta side (that one has parm in it).
+        I('Kombu', 5.7, 'g'),           // ~0.2 oz; Kevin's ratio is ~20 smalls per 4oz pack
+        I('Katsuobushi', 10, 'g'),      // ~10g; ~10 smalls per 100g pack
+        I('Butter', 0.5, 'stick'),      // browned, into the polenta
+        I('Mayonnaise', 0.75, 'cup'),   // white sauce base
+        I('Cider vinegar', 2, 'tbsp'),
+        I('Prepared horseradish', 1, 'tbsp'),
+        I('Black pepper (oz)', 0.25, 'oz'), // white sauce + brine
+      ],
+      // THE SMOKE MIX IS FIXED AT BOTH SIZES. Kevin, Jul 17: one round of smoke
+      // covers a Large, and "the smoke still basically makes the same amount
+      // even if I had 2 large batches at once." The 5-gallon pot is why. So
+      // tea, rice, sugar, orange, and aromatics do NOT double, which is what
+      // makes this a PROPORTION_EXCEPTIONS tenant alongside Bo Ssam's kimchi.
+      // A Large therefore carries a real structural discount. That is correct,
+      // not a bug, and the 2x-gap check would otherwise flag it.
+      extras: {
+        'Small (~4 servings)': [
+          { ...I('Loose black tea', 1, ''), fixed: true },
+          { ...I('Raw rice (smoke mix)', 0.25, 'cup'), fixed: true },
+          { ...I('Brown sugar', 0.25, 'cup'), fixed: true },
+          { ...I('Orange', 1, 'each'), fixed: true },
+          { ...I('Star anise', 2, 'each'), fixed: true },
+          { ...I('Cinnamon stick', 1, 'each'), fixed: true },
+          { ...I('Sichuan peppercorns', 1, 'tsp'), fixed: true },
+        ],
+        'Large (~8 servings)': [
+          { ...I('Loose black tea', 1, ''), fixed: true },
+          { ...I('Raw rice (smoke mix)', 0.25, 'cup'), fixed: true },
+          { ...I('Brown sugar', 0.25, 'cup'), fixed: true },
+          { ...I('Orange', 1, 'each'), fixed: true },
+          { ...I('Star anise', 2, 'each'), fixed: true },
+          { ...I('Cinnamon stick', 1, 'each'), fixed: true },
+          { ...I('Sichuan peppercorns', 1, 'tsp'), fixed: true },
+        ],
+      },
+    },
+  },
   // ── East Asian ─────────────────────────────────────────────────────────────
   {
     name: 'Bo Ssam',
@@ -1030,8 +1108,8 @@ export const DISHES = [
         // never both. Pasta only applies to the non-Polenta variants.
         'Small (~4 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
         'Large (~8 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
-        'Small (~4 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
-        'Large (~8 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+        'Small (~4 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Large (~8 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
       },
     },
   },
@@ -1154,7 +1232,7 @@ export const DISHES = [
         // Polenta REPLACES the pasta, same as Saffron Ragu. Egg pappardelle is
         // required on the pasta variant (this dish isn't the same without it).
         'Small (~4-5 servings)': [I('Egg pappardelle', 2, 'pack')],
-        'Small (~4-5 servings) + Polenta': [I('Polenta + butter + parmesan (bagged)', 1, 'batch')],
+        'Small (~4-5 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
       },
     },
   },

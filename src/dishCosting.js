@@ -343,6 +343,37 @@ export const LINE_MAP = {
   // honestly or fails the gate.
   'Good olive oil':         { id: 'olive_oil', conv: C({ unit: 'oz', fluid: true, also: (q,u)=> u==='' ? 2.5 : undefined }) },
   'Orange juice':           { id: 'orange_juice', conv: () => 1 }, // one small bottle per batch, flat by design
+
+  // ── Tea-smoked chicken program (Jul 17) ──────────────────────────────────
+  // Kombu/katsuobushi seed in OZ, so makeConv gives g, lb, and kg for free off
+  // the weight table. No 'piece' or 'cup' aliases on purpose: Kevin eyeballs
+  // both, and a piece/cup figure would be invented precision that a future
+  // recipe would then trust. Weight is what the scale and the receipt agree on.
+  // Star anise and raw smoking rice had NO LINE_MAP entry, so any recipe naming
+  // them silently cost $0 (the class of bug the 'line was simply missing from
+  // LINE_MAP' note below documents). Added with the tea-smoke program.
+  // Plain dry polenta as a BASE ingredient, by weight. Distinct from
+  // 'Polenta + butter + parmesan (bagged)' above, which is the +Polenta
+  // variant add-on for the ragus: a different product (bagged side, butter and
+  // parm in it) with a flat one-batch conv. The tea-smoked chicken cooks its
+  // polenta in dashi with brown butter and NO cheese, so it needs the raw
+  // ingredient, not that composed line. Density measured: 0.795 lb = 1.75 cups.
+  'Polenta':                { id: 'polenta', conv: C({ unit: 'lb', densityLbPerCup: 0.4543 }) },
+  'Star anise':             { id: 'star_anise', conv: C({ unit: 'each' }) },
+  'Raw rice (smoke mix)':   { id: 'white_rice_raw', conv: C({ unit: 'cup' }) },
+  'Kombu':                  { id: 'kombu', conv: C({ unit: 'oz' }) },
+  'Katsuobushi':            { id: 'katsuobushi', conv: C({ unit: 'oz' }) },
+  'Loose black tea':        { id: 'black_tea', conv: () => 1 }, // flat per batch, by Kevin's call (backstock)
+  // Mayo/horseradish/vinegar are bought by weight-or-volume on the label but
+  // used by volume in the recipe. All three seed per-oz off the jar/bottle, and
+  // `fluid` routes an 'oz' recipe line to floz so cup/tbsp/tsp resolve.
+  'Mayonnaise':             { id: 'mayonnaise', conv: C({ unit: 'oz', fluid: true }) },
+  'Prepared horseradish':   { id: 'horseradish', conv: C({ unit: 'oz', fluid: true }) },
+  'Cider vinegar':          { id: 'cider_vinegar', conv: C({ unit: 'oz', fluid: true }) },
+  // Naval oranges are sold BY THE EACH. Peel is all that's used, but a whole
+  // orange is what gets bought, so it costs 1 each at both sizes. That fixed
+  // quantity is part of why this dish is a PROPORTION_EXCEPTIONS tenant.
+  'Orange':                 { id: 'orange', conv: C({ unit: 'each' }) },
   'Chicken stock':          { id: 'chicken_stock', conv: C({ unit: 'cup', fluid: true }) }, // 8 fl oz = 1 cup
   'Vegetable stock':        { id: 'vegetable_stock', conv: C({ unit: 'cup', fluid: true }) }, // same shape and same cost as chicken stock; separate id so the veg/pesc variants aren't cooked in poultry
   'Beef stock':             { id: 'beef_stock', conv: C({ unit: 'cup', fluid: true }) },
@@ -382,7 +413,14 @@ export const LINE_MAP = {
   'DeLallo instant espresso': { id: 'delallo_espresso', conv: C({ unit: 'tsp' }) }, // priced per tsp
   'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // STALE (Jul 13 rename -> 'Brown + white sugar'); Brownies now cost via the 1.5 cup-equiv entry -- see handoff flag
   'Kosher salt + vanilla':  { id: 'vanilla', conv: () => 1 }, // 1 tbsp imitation vanilla (~$0.07); 1 tsp salt (~$0.01) negligible
-  'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.454 }, // ~1 cup dry = 0.454 lb (measured 0.795 lb = 1.75 cups) @ $5.99/lb ≈ $2.72; bag cost via wrap
+  // BUG (found Jul 17, Kevin): this line is named for three ingredients but
+  // resolved to ONE. The butter and the parmesan in the name were silently
+  // uncosted on every dish carrying this add-on. A LINE_MAP entry maps to a
+  // single id, so a composed line like this needs to be EXPANDED at the recipe
+  // level instead. Kept as an alias to the cornmeal so no old string costs $0,
+  // and marked stale: the recipes now name the three real lines.
+  // Kevin's build: 1 cup dry polenta + 1 oz good parm + 2 tbsp butter + $2 bag.
+  'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.4543 }, // STALE (Jul 17): under-costed by ~$2.90 (parm+butter) plus the bag. Use the expanded lines.
   'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
   'Chickpeas': { id: 'chickpeas', conv: C({ unit: 'lb' }) },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },

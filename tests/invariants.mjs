@@ -210,6 +210,7 @@ for (const d of DISHES) {
 const PROPORTION_EXCEPTIONS = {
   'Bolognese': 'egg pappardelle extras are 2 packs (Small) vs 3 packs (Large) — deliberately not 2x',
   'Bo Ssam': 'kimchi is a fixed 1-jar quantity at both sizes while the batch factor is 0.5/1',
+  'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce': 'ONE round of smoke covers either size (5-gallon pot), so the whole smoke mix — tea, rice, brown sugar, orange, aromatics — is fixed at both sizes while the factor is 1/2. Large costs 1.797x Small, not 2x, and the discount is real (Kevin, Jul 17)',
 };
 const hash = s => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
 const shocked = {};

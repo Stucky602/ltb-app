@@ -81,7 +81,7 @@ export const INGREDIENT_SEED = [
   { id: 'ground_pork', name: 'Ground pork', unit: 'lb', baseline: 5.0, category: 'protein' },
   { id: 'ground_chicken', name: 'Ground chicken', unit: 'lb', baseline: 5.0, category: 'protein' },
   { id: 'ground_lamb', name: 'Ground lamb', unit: 'lb', baseline: 12.99, category: 'protein' },
-  { id: 'chicken_thighs', name: 'Chicken thighs', unit: 'lb', baseline: 5.0, category: 'protein' },
+  { id: 'chicken_thighs', name: 'Chicken thighs', unit: 'lb', baseline: 3.22, category: 'protein' }, // boneless skinless. Was 5.00, stale (Kevin, Jul 17).
   { id: 'chicken_breast', name: 'Chicken breast', unit: 'lb', baseline: 5.0, category: 'protein' },
   { id: 'beef_chuck', name: 'Beef chuck roast', unit: 'lb', baseline: 9.02, category: 'protein' },
   { id: 'pork_butt', name: 'Pork butt roast (bone-in)', unit: 'lb', baseline: 2.75, category: 'protein' },
@@ -180,6 +180,23 @@ export const INGREDIENT_SEED = [
   { id: 'star_anise', name: 'Star anise', unit: 'each', baseline: 0.0625, category: 'spice' },
   { id: 'chili_flakes', name: 'Chili flakes', unit: 'tbs', baseline: 0.166, category: 'spice' },
   { id: 'spices_generic', name: 'Spice blend (generic)', unit: 'batch-use', baseline: 1.0, category: 'spice' },
+  // ── Tea-smoked chicken program (Jul 17) ──────────────────────────────────
+  // Kombu and katsuobushi are seeded BY WEIGHT, not by package or batch.
+  // Kevin eyeballs both ("about a 10th of the package"), so the ratio he gave
+  // is the derivation, not the unit: a 'small-batch' or 'half-package' unit
+  // could never resolve from a receipt (see peanut_butter above, which was
+  // 'half-jar' for exactly this reason). Weight is what a scale and a receipt
+  // agree on, and makeConv gives g/lb/kg for free off an oz seed.
+  // NOT the 'rice' id above: that one is the $1 rice-container surcharge, a
+  // fixed per-order packaging cost. This is actual grain, for the smoke mix.
+  { id: 'white_rice_raw', name: 'White rice (raw, smoke mix)', unit: 'cup', baseline: 0.323, category: 'pantry' }, // 15lb bag (6800g) $10.99, 1 cup = 200g -> $0.323/cup
+  { id: 'orange', name: 'Orange (naval)', unit: 'each', baseline: 0.50, category: 'produce' }, // HEB sells navals BY THE EACH, not by weight (Kevin, Jul 17). Peel only is used in the smoke mix; the whole orange is the purchase either way, so the recipe charges 1 each at BOTH sizes.
+  { id: 'kombu', name: 'Kombu', unit: 'oz', baseline: 1.25, category: 'pantry' }, // H-Mart 4oz pack $5.00 -> $1.25/oz. Kevin's ratio: ~20 small batches per pack = ~0.2 oz (5.7g) each.
+  { id: 'katsuobushi', name: 'Katsuobushi (bonito flakes)', unit: 'oz', baseline: 1.98, category: 'pantry' }, // 100g pack $6.99 = 3.527 oz -> $1.98/oz. Kevin's ratio: ~10 small batches per pack = ~10g each. Weight only: bonito is too light for a 'cup' alias to mean anything.
+  { id: 'black_tea', name: 'Loose black tea (smoke mix)', unit: 'batch-use', baseline: 1.0, category: 'pantry' }, // Kevin, Jul 17: heavy backstock of fancy tea, may never rebuy. $1/batch is his call, not a package derivation. Same treatment as black_pepper_oz.
+  { id: 'mayonnaise', name: 'Mayonnaise', unit: 'oz', baseline: 0.166, category: 'pantry' }, // Duke's 30oz $4.98 -> $0.166/oz (HEB Anderson Mill, Jul 17)
+  { id: 'horseradish', name: 'Prepared horseradish', unit: 'oz', baseline: 0.442, category: 'pantry' }, // Boar's Head 9oz $3.98 -> $0.442/oz (HEB, Jul 17)
+  { id: 'cider_vinegar', name: 'Apple cider vinegar', unit: 'oz', baseline: 0.0522, category: 'pantry' }, // Hill Country Fare 64oz $3.34 -> $0.0522/oz (HEB, Jul 17). Price cut is permanent, not a sale.
   { id: 'cornstarch', name: 'Cornstarch', unit: 'batch-use', baseline: 0.1, category: 'pantry' },
   { id: 'wrap', name: 'Packaging (wrap/jar)', unit: 'each', baseline: 1.0, category: 'pantry', fixed: true },
   { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 2.0, category: 'pantry', fixed: true }, // composed sous vide dishes: bag + seasoning cost tracked separately from packaging ($2.00 small; Large braises use sv_bag_large $3.00)

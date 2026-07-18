@@ -365,6 +365,9 @@ export function buildDishReport(dishName, ctx = {}) {
   return {
     name: dish.name,
     cuisine: dish.cuisine,
+    // Canon pairings from copy — same source the customer menus render, so
+    // this tab can never disagree with what the menu says.
+    pairings: (dish.copy && dish.copy.pairings) || [],
     reheatBucket: DINNER_REHEAT_BUCKET[dish.name] || null,
     flags: { pasta: !!dish.pasta, rice: !!dish.rice, noodle: !!dish.noodle },
     options: dish.options || null,

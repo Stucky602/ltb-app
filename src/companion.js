@@ -5,7 +5,7 @@
 // page can never disagree with the order card or the labels.
 import { buildReheatBlocks, itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
-import { ALWAYS_ITEMS } from './dishes.js';
+import { ALWAYS_ITEMS, DISHES } from './dishes.js';
 import { LTB_LOGO } from './ltbLogo.js';
 import { parseServings } from './dishReport.js';
 
@@ -66,6 +66,25 @@ export function companionHtml(order, pageId = '') {
       <p><b>${noFuss.map(f => esc(f.name)).join(', ')}</b> — nothing to do. Enjoy straight from the fridge.</p>
     </div>` : '';
 
+  // ── Pairings — for exactly what THIS customer ordered ────────────────────
+  // Canon lives in dishes.js copy.pairings, same source the menus render. One
+  // block per ordered dinner that has pairings; dishes without them (always-
+  // available items, per-lb proteins) simply don't appear.
+  const PAIRINGS_BY_NAME = {};
+  for (const d of DISHES) if (d.copy && d.copy.pairings) PAIRINGS_BY_NAME[d.name] = d.copy.pairings;
+  const pairingSections = items
+    .filter(it => PAIRINGS_BY_NAME[it.name])
+    .map(it => {
+      const rows = PAIRINGS_BY_NAME[it.name].map(pr =>
+        `<div class="prow"><b>${esc(pr.drink)}</b> — ${esc(pr.why)}</div>`).join('');
+      return `<div class="pdish"><div class="pname">${esc(it.name)}</div>${rows}</div>`;
+    });
+  const pairingsCard = pairingSections.length ? `
+    <div class="card pair">
+      <h3>What to drink with it</h3>
+      ${pairingSections.join('')}
+    </div>` : '';
+
   const stepsIntro = blocks.length ? `<div class="lead">When you're ready to eat, here's the plan:</div>` : '';
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -87,6 +106,13 @@ export function companionHtml(order, pageId = '') {
   li { padding: 7px 0; font-size: 14.5px; border-bottom: 1px solid #26322e; }
   li:last-child { border-bottom: none; }
   .qty { color: #5DCAA5; font-weight: 800; margin-right: 4px; }
+  .card.pair { border-left: 2px solid #2d6a6a; }
+  .card.pair h3 { color: #5DCAA5; }
+  .pdish { margin-bottom: 12px; }
+  .pdish:last-child { margin-bottom: 0; }
+  .pname { font-size: 12px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: #9aa5a0; margin-bottom: 4px; }
+  .prow { font-size: 13px; color: #cfe0d8; line-height: 1.5; margin-bottom: 3px; }
+  .prow b { color: #e8ede9; font-weight: 600; }
   .v { color: #9aa5a0; font-size: 12.5px; }
   .feeds { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #24413a; color: #5DCAA5; font-size: 11px; font-weight: 700; vertical-align: middle; }
   .card { background: #1c2422; border: 1px solid #2d3a36; border-radius: 14px; padding: 15px 17px; margin: 12px 0; }
@@ -138,6 +164,7 @@ export function companionHtml(order, pageId = '') {
   ${stepCards}
   ${frozenCard}
   ${noFussCard}
+  ${pairingsCard}
   <div class="card fb">
     <h3>How did everything come out?</h3>
     <p class="asknote">One tap per dish tells Kevin what worked, and a line about why helps even more. It makes the food better for everyone. You can submit feedback once per dish for this order.</p>

@@ -134,6 +134,9 @@ for (const item of (ALL_ALWAYS_ITEMS || [])) {
 // ── MATCH LAYER — LIBRARY must equal the registry canon, field by field ─────
 const mismatched = [];
 const COPY_FIELDS = ['desc', 'reheat', 'contains', 'note', 'spice'];
+// pairings is an ARRAY of {drink, why}, so it gets deep-compared below rather
+// than string-compared with the fields above. Same verbatim rule: canon in
+// dishes.js, LIBRARY mirrors it exactly.
 
 const shorten = (s) => {
   const t = String(s == null ? '<absent>' : s);
@@ -156,6 +159,16 @@ for (const d of DISHES) {
     if (canon !== lib) {
       mismatched.push(
         `${d.name} . ${f}\n      canon (dishes.js): ${shorten(canon)}\n      LIBRARY (menu.html): ${shorten(lib)}`
+      );
+    }
+  }
+  // pairings: deep equality, since it's structured.
+  {
+    const canon = d.copy.pairings;
+    const lib = hit.copy.pairings;
+    if (!(canon == null && lib == null) && JSON.stringify(canon) !== JSON.stringify(lib)) {
+      mismatched.push(
+        `${d.name} . pairings\n      canon (dishes.js): ${shorten(JSON.stringify(canon))}\n      LIBRARY (menu.html): ${shorten(JSON.stringify(lib))}`
       );
     }
   }

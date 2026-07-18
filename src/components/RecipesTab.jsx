@@ -698,6 +698,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
             </div>
           )}
 
+          {/* ── Pairings (canon, same as the customer menus) ── */}
+          {report.pairings.length > 0 && (
+            <div style={S.section}>
+              <div style={S.sectionTitle}>Goes well with</div>
+              {report.pairings.map((pr, i) => (
+                <div key={i} style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.5, marginBottom: i < report.pairings.length - 1 ? 5 : 0 }}>
+                  <span style={{ color: CREAM || '#e8e2d4', fontWeight: 600 }}>{pr.drink}</span> — {pr.why}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* ── Equipment + options ── */}
           {(report.equipment.length > 0 || report.options) && (
             <div style={S.section}>

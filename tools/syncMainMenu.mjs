@@ -78,6 +78,37 @@ function syncContains(name, want) {
 }
 for (const d of DISHES) syncContains(d.name, d.copy ? d.copy.contains : null);
 
+// ── Pairings sync ───────────────────────────────────────────────────────────
+// Same contract as allergens: canon lives in dishes.js (copy.pairings), this
+// tool renders it into each card. The block sits directly BEFORE the
+// Allergens line. A card with no block gets one on --write; drift is replaced
+// wholesale. Hand-edits to pairings in main-menu.html will be overwritten —
+// edit dishes.js instead.
+function pairingsBlock(pairs) {
+  const rows = pairs.map(x =>
+    `<div class="pairing-row"><b>${x.drink}</b> — ${x.why}</div>`).join('');
+  return `<div class="pairings"><div class="pairings-head">Goes well with</div>${rows}</div>`;
+}
+const pairingsRe = /<div class="pairings">.*?<\/div><\/div>/s;
+function syncPairings(name, pairs) {
+  if (!pairs || !pairs.length) return;
+  const b = cardBounds(name);
+  if (!b) return;
+  let seg = html.slice(b.start, b.end);
+  const want = pairingsBlock(pairs);
+  const m = seg.match(pairingsRe);
+  if (m && m[0] === want) return;
+  drift++;
+  console.log(`  ${name} pairings: ${m ? 'stale' : 'MISSING'} → ${pairs.length} drinks`);
+  if (write) {
+    if (m) seg = seg.replace(pairingsRe, want);
+    else seg = seg.replace(/<div class="contains">/, want + '<div class="contains">');
+    html = html.slice(0, b.start) + seg + html.slice(b.end);
+    patched++;
+  }
+}
+for (const d of DISHES) syncPairings(d.name, d.copy ? d.copy.pairings : null);
+
 // SCOPE: dinners + card-style bag items only. Veg/add-on SECTIONS use a
 // different HTML shape (no dish-name divs) — the invariant suite still guards
 // their prices; this tool reports them as out-of-scope instead of failing.

@@ -282,6 +282,8 @@ for (const d of DISHES) {
 // editorial and can't be gated; wine + zero-proof can.)
 {
   const { DRINKS, ALC_KINDS, ZERO_KINDS } = await import('../src/drinks.js');
+  const { WINE_STYLES } = await import('../src/drinks.js');
+  const VALID_STYLES = new Set(WINE_STYLES);
   for (const d of DISHES) {
     const pairs = (d.copy && d.copy.pairings) || null;
     if (!pairs) continue;
@@ -295,6 +297,13 @@ for (const d of DISHES) {
     }
     if (!hasWine) F('pairing-rule', `"${d.name}" has no wine pairing — Kevin's rule: wine is always present`);
     if (!hasZero) F('pairing-rule', `"${d.name}" has no zero-proof pairing — Kevin's rule: at least one tea/soda/water/NA option`);
+    // wineStyles: the rule-based pairing set. Must exist, be non-empty, valid.
+    const ws = d.copy.wineStyles;
+    if (!Array.isArray(ws) || ws.length === 0) {
+      F('wine-styles', `"${d.name}" has no wineStyles set — the drink picker can't match wines to it`);
+    } else {
+      for (const st of ws) if (!VALID_STYLES.has(st)) F('wine-styles', `"${d.name}" wineStyles has invalid style '${st}'`);
+    }
   }
 }
 

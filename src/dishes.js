@@ -55,6 +55,7 @@ export const DISHES = [
         { id: "cheerwine", drink: "Cheerwine", why: "the Carolina soda logic: cherry sweetness next to smoke" },
         { id: "unsweet_tea", drink: "Unsweetened iced tea with lemon", why: "the same table, minus the sugar" },
       ],
+      wineStyles: ['light_red', 'bold_red', 'off_dry_white'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -120,6 +121,7 @@ export const DISHES = [
         { id: "big_red", drink: "Big Red", why: "the Waco soda; barbecue-joint credentials and sugar that genuinely works against capsaicin" },
         { id: "horchata", drink: "Horchata", why: "the cooling rice-cinnamon logic Mexico applies to chile heat, and it works on a bowl of red" },
       ],
+      wineStyles: ['bold_red', 'light_red'],
       note: "Happy to grab fixings at cost: tortilla chips, cheddar, sour cream, or macaroni. There's a spot for it on the order form. Trust me on the macaroni.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -172,6 +174,7 @@ export const DISHES = [
         { id: "chenin_blanc", drink: "Chenin Blanc", why: "honeyed body that stands up to a dark roux where lighter whites drown" },
         { id: "chicory_coffee", drink: "Chicory coffee, after", why: "the New Orleans finish more than a pairing; the roasted bitterness echoes the roux" },
       ],
+      wineStyles: ['off_dry_white', 'rich_white', 'crisp_white'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -222,6 +225,7 @@ export const DISHES = [
         { id: "sparkling_water", drink: "Topo Chico", why: "bubbles and minerals to reset between bites" },
         { id: "rose", drink: "Dry rosé, cold", why: "the taco truck won't pour it but it works: cold, dry, and friendly with lime and chile" },
       ],
+      wineStyles: ['rose', 'sparkling', 'crisp_white'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -284,6 +288,7 @@ export const DISHES = [
         { id: "riesling", drink: "Off-dry Riesling", why: "the wine that survives spice; sweetness where tannin would burn" },
         { id: "lager", drink: "Kingfisher or any crisp lager", why: "cold and neutral; lets the sauce do the talking" },
       ],
+      wineStyles: ['off_dry_white', 'sparkling'],
       note: "Chickpea version: vegan available upon request, just put it in the notes on the order form. I swap the butter for oil, use vegetable stock, and leave the cream out.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -368,6 +373,7 @@ export const DISHES = [
         { id: "oolong", drink: "Oolong tea, iced", why: "between green and black; enough body for the roux, no sugar" },
         { id: "pinot_noir", drink: "Pinot Noir", why: "if wine, something light and fruity; the curry is mild and the roux is sweet" },
       ],
+      wineStyles: ['light_red', 'off_dry_white'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -432,6 +438,7 @@ export const DISHES = [
         { id: "amber_ale", drink: "Amber ale", why: "smoked-meat logic; malt sweetness under the lacquer" },
         { id: "barley_tea", drink: "Cold unsweetened barley tea", why: "echoes the dashi's roasted depth without adding sugar to a plate that has plenty" },
       ],
+      wineStyles: ['off_dry_white', 'rose', 'light_red'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe. Fish is the non-obvious one: katsuobushi in the dashi
@@ -518,6 +525,7 @@ export const DISHES = [
         { id: "lager", drink: "Crisp lager", why: "the pragmatic answer; the wrap is salty, fatty, and spicy, and beer resets it" },
         { id: "sparkling_water", drink: "Sparkling water with yuzu or lime", why: "the fat and the saeu-jeot want bubbles and acid more than flavor" },
       ],
+      wineStyles: ['off_dry_white', 'sparkling', 'rose'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -578,6 +586,7 @@ export const DISHES = [
         { id: "grenache", drink: "Grenache or Syrah", why: "the wine that likes cumin; peppery fruit against peppery meat" },
         { id: "sparkling_water", drink: "Sparkling water with lemon", why: "bubbles and acid where the chile oil lands" },
       ],
+      wineStyles: ['light_red', 'bold_red'],
       spice: "Spice level is about a 2-3 out of 5 and can't be dialed down — a large portion of the sauce is chili oil.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -692,6 +701,7 @@ export const DISHES = [
         { id: "lager", drink: "Cold light lager", why: "neutral, cold, and honest about what it's for" },
         { id: "coconut_water", drink: "Coconut water", why: "quietly effective against capsaicin, and doesn't add another flavor" },
       ],
+      wineStyles: ['off_dry_white', 'sparkling', 'light_red'],
       spice: "Spice level is about a 3 out of 5, and this one can't be dialed down.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -741,6 +751,7 @@ export const DISHES = [
         { id: "oolong", drink: "Oolong, iced", why: "more body than jasmine when the sauce runs deep" },
         { id: "sparkling_water", drink: "Sparkling water with lime", why: "reset button; the sauce is the star" },
       ],
+      wineStyles: ['crisp_white', 'off_dry_white', 'sparkling'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -798,6 +809,7 @@ export const DISHES = [
         { id: "rose", drink: "Dry rosé", why: "picnic logic: cold, dry, and friendly with pork and ferment" },
         { id: "barley_tea", drink: "Cold barley tea", why: "roasty, no sugar, no argument with the wok" },
       ],
+      wineStyles: ['rose', 'crisp_white', 'off_dry_white'],
       spice: "Spice level is about a 2 out of 5 and can't be dialed down.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -856,6 +868,7 @@ export const DISHES = [
         { id: "sparkling_water", drink: "Sparkling water with lime", why: "the dish is clean; the drink can be too" },
         { id: "green_tea", drink: "Iced green tea", why: "grassy against the gai lan's bitterness" },
       ],
+      wineStyles: ['crisp_white', 'sparkling'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -923,6 +936,7 @@ export const DISHES = [
         { id: "limeade", drink: "Limeade", why: "tart and cold; the dish's own lime logic in a glass" },
         { id: "coconut_water", drink: "Coconut water", why: "cooling without competing with the basil" },
       ],
+      wineStyles: ['off_dry_white', 'sparkling', 'rose'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -972,6 +986,7 @@ export const DISHES = [
         { id: "aranciata", drink: "San Pellegrino Aranciata Rossa", why: "blood orange bitterness as a palate reset, the Italian soda move" },
         { id: "espresso", drink: "Espresso, after", why: "not a pairing, a tradition" },
       ],
+      wineStyles: ['light_red', 'sparkling', 'bold_red'],
       note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -1034,6 +1049,7 @@ export const DISHES = [
         { id: "pinot_grigio", drink: "Pinot Grigio", why: "if white, something that won't argue with acidity" },
         { id: "chinotto", drink: "Italian chinotto", why: "bitter citrus soda; the amaro of soft drinks" },
       ],
+      wineStyles: ['light_red', 'sparkling', 'crisp_white'],
       note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -1087,6 +1103,7 @@ export const DISHES = [
         { id: "falanghina", drink: "Falanghina", why: "southern Italian answer to a southern Italian plate" },
         { id: "green_tea", drink: "Cold vermentino-style iced green tea", why: "grassy-bitter echo, zero proof" },
       ],
+      wineStyles: ['crisp_white', 'rose'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -1148,6 +1165,7 @@ export const DISHES = [
         { id: "pinot_grigio", drink: "Pinot Grigio", why: "neutral and cold; the vegetables lead" },
         { id: "mint_tea", drink: "Mint iced tea", why: "the mint in the dish, continued" },
       ],
+      wineStyles: ['crisp_white', 'rose', 'sparkling'],
       note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -1202,6 +1220,7 @@ export const DISHES = [
         { id: "sparkling_water", drink: "Sparkling water with orange", why: "saffron and orange are old friends" },
         { id: "chamomile_tea", drink: "Chamomile iced tea", why: "odd on paper, but chamomile's honeyed hay sits next to saffron surprisingly well" },
       ],
+      wineStyles: ['crisp_white', 'rose', 'light_red'],
       note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -1264,6 +1283,7 @@ export const DISHES = [
         { id: "sparkling_apple", drink: "Sparkling apple juice", why: "same logic, zero proof" },
         { id: "pinot_noir", drink: "Pinot Noir", why: "if red, the one light enough for a cream sauce" },
       ],
+      wineStyles: ['rich_white', 'off_dry_white', 'light_red'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -1325,6 +1345,7 @@ export const DISHES = [
         { id: "barley_tea", drink: "Roasted barley tea, cold", why: "toasted depth that mirrors seared mushrooms, no sugar" },
         { id: "mushroom_broth", drink: "Mushroom broth sipper, warm", why: "fully in the pot's own register; more of the same, on purpose" },
       ],
+      wineStyles: ['light_red', 'bold_red'],
       note: "Happy to grab you a block of good parm at cost (about $10-15 extra) to grate fresh over the top. There's a spot for it on the order form.",
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
@@ -1405,6 +1426,7 @@ export const DISHES = [
         { id: "retsina", drink: "Retsina, if you're brave", why: "pine resin against coriander seed; the most Greek move available" },
         { id: "sparkling_water", drink: "Sparkling water with cucumber", why: "cooling against a rich plate of beans and lamb fat" },
       ],
+      wineStyles: ['light_red', 'bold_red', 'crisp_white'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -1461,6 +1483,7 @@ export const DISHES = [
         { id: "sparkling_apple", drink: "Sparkling apple juice", why: "the cider move, zero proof" },
         { id: "genmaicha", drink: "Genmaicha, iced", why: "toasted rice tea against char and squash" },
       ],
+      wineStyles: ['off_dry_white', 'light_red', 'rich_white'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -1509,6 +1532,7 @@ export const DISHES = [
         { id: "sparkling_apple", drink: "Sparkling apple juice", why: "same orchard, no alcohol" },
         { id: "sweet_tea", drink: "Sweet iced tea", why: "the Southern plate's Southern drink" },
       ],
+      wineStyles: ['off_dry_white', 'light_red', 'bold_red'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -1576,6 +1600,7 @@ export const DISHES = [
         { id: "sparkling_water", drink: "Sparkling water, very cold", why: "between bites of cream and pepper, you want a hard reset" },
         { id: "malbec", drink: "Malbec", why: "the value answer that still has the shoulders for it" },
       ],
+      wineStyles: ['bold_red'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'
@@ -1636,6 +1661,7 @@ export const DISHES = [
         { id: "sparkling_water", drink: "Sparkling water with a twist", why: "the stew is wine-dark already; the glass can be quiet" },
         { id: "black_tea", drink: "Strong black tea", why: "tannin's zero-proof cousin, and it stands up to the sauce" },
       ],
+      wineStyles: ['light_red', 'bold_red'],
     },
     // Structured allergen claims, gated by tests/allergens.mjs against the
     // resolved recipe (same machinery as diet flags). Free-text 'contains'

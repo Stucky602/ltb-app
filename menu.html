@@ -45,6 +45,21 @@
   .price-label { font-size:13px; color:var(--cream); }
   .price-amt { font-size:14px; font-weight:700; color:var(--gold); white-space:nowrap; padding-left:12px; }
   .contains { font-size:11px; color:#8a928c; margin-top:7px; }
+  .drink-picker { margin:18px 0; padding:16px; background:rgba(63,184,160,0.06); border:1px solid var(--teal-mid); border-radius:12px; }
+  .dp-head { font-size:15px; font-weight:800; color:var(--teal-light); letter-spacing:0.2px; margin-bottom:4px; }
+  .dp-sub { font-size:12.5px; color:#8a928c; line-height:1.5; margin-bottom:10px; }
+  .drink-picker input { width:100%; box-sizing:border-box; padding:11px; border-radius:8px; border:1px solid var(--teal-mid); background:#0e1a17; color:var(--body); font-size:14px; }
+  .dp-results { margin-top:6px; }
+  .dp-opt { padding:9px 11px; font-size:14px; color:var(--body); cursor:pointer; border-radius:8px; }
+  .dp-opt:hover { background:rgba(63,184,160,0.12); }
+  .dp-kind { font-size:11px; color:#6b7570; margin-left:4px; }
+  .dp-match { margin-top:10px; }
+  .dp-goes { font-size:13.5px; color:var(--body); margin-bottom:6px; }
+  .dp-goes b { color:var(--teal-light); }
+  .dp-style { color:#8a928c; font-size:12px; }
+  .dp-dish { font-size:13px; color:#cfe0d8; line-height:1.7; }
+  .dp-none { font-size:13px; color:#8a928c; line-height:1.5; }
+  .dish { transition:opacity 0.25s; }
   .pairings { margin-top:8px; padding:8px 10px; background:rgba(63,184,160,0.06); border-left:2px solid var(--teal-mid); border-radius:0 8px 8px 0; }
   .pairings-head { font-size:10px; font-weight:700; letter-spacing:0.6px; text-transform:uppercase; color:var(--teal-light); margin-bottom:4px; }
   .pairing-row { font-size:12px; line-height:1.5; color:var(--body); }
@@ -226,6 +241,74 @@
       '</div>';
   }
 
+  // ── Drink pairing index (generated from dishes.js + drinks.js) ────────────
+  var DRINK_INDEX = {"drinks": {"riesling": {"label": "Riesling", "kind": "wine", "style": "off_dry_white"}, "gruner": {"label": "Grüner Veltliner", "kind": "wine", "style": "crisp_white"}, "rose": {"label": "Dry rosé", "kind": "wine", "style": "rose"}, "pinot_noir": {"label": "Pinot Noir", "kind": "wine", "style": "light_red"}, "pinot_grigio": {"label": "Pinot Grigio", "kind": "wine", "style": "crisp_white"}, "sangiovese": {"label": "Sangiovese", "kind": "wine", "style": "light_red"}, "barbera": {"label": "Barbera", "kind": "wine", "style": "light_red"}, "lambrusco": {"label": "Lambrusco", "kind": "wine", "style": "sparkling"}, "nebbiolo": {"label": "Nebbiolo", "kind": "wine", "style": "bold_red"}, "zinfandel": {"label": "Zinfandel", "kind": "wine", "style": "bold_red"}, "chardonnay": {"label": "Chardonnay", "kind": "wine", "style": "rich_white"}, "chenin_blanc": {"label": "Chenin Blanc", "kind": "wine", "style": "off_dry_white"}, "albarino": {"label": "Albariño", "kind": "wine", "style": "crisp_white"}, "vermentino": {"label": "Vermentino", "kind": "wine", "style": "crisp_white"}, "falanghina": {"label": "Falanghina", "kind": "wine", "style": "crisp_white"}, "syrah": {"label": "Syrah", "kind": "wine", "style": "bold_red"}, "cotes_du_rhone": {"label": "Côtes du Rhône", "kind": "wine", "style": "bold_red"}, "grenache": {"label": "Grenache", "kind": "wine", "style": "light_red"}, "cabernet": {"label": "Cabernet Sauvignon", "kind": "wine", "style": "bold_red"}, "malbec": {"label": "Malbec", "kind": "wine", "style": "bold_red"}, "agiorgitiko": {"label": "Agiorgitiko", "kind": "wine", "style": "light_red"}, "retsina": {"label": "Retsina", "kind": "wine", "style": "crisp_white"}, "beaujolais": {"label": "Beaujolais", "kind": "wine", "style": "light_red"}, "makgeolli": {"label": "Makgeolli", "kind": "wine", "style": "off_dry_white"}, "bokbunja": {"label": "Bokbunja", "kind": "wine", "style": "off_dry_white"}, "lager": {"label": "Crisp lager", "kind": "beer", "style": null}, "amber_ale": {"label": "Amber ale", "kind": "beer", "style": null}, "amber_lager": {"label": "Amber lager", "kind": "beer", "style": null}, "shiner_bock": {"label": "Shiner Bock", "kind": "beer", "style": null}, "abita_amber": {"label": "Abita Amber", "kind": "beer", "style": null}, "hard_cider": {"label": "Hard apple cider", "kind": "cider", "style": null}, "cognac": {"label": "Cognac", "kind": "spirit", "style": null}, "margarita": {"label": "Margarita", "kind": "cocktail", "style": null}, "jasmine_tea": {"label": "Jasmine tea", "kind": "tea", "style": null}, "barley_tea": {"label": "Barley tea", "kind": "tea", "style": null}, "green_tea": {"label": "Iced green tea", "kind": "tea", "style": null}, "genmaicha": {"label": "Genmaicha", "kind": "tea", "style": null}, "oolong": {"label": "Oolong tea", "kind": "tea", "style": null}, "lapsang": {"label": "Lapsang souchong", "kind": "tea", "style": null}, "chamomile_tea": {"label": "Chamomile iced tea", "kind": "tea", "style": null}, "mint_tea": {"label": "Mint iced tea", "kind": "tea", "style": null}, "masala_chai": {"label": "Masala chai", "kind": "tea", "style": null}, "thai_iced_tea": {"label": "Thai iced tea", "kind": "tea", "style": null}, "black_tea": {"label": "Strong black tea", "kind": "tea", "style": null}, "sweet_tea": {"label": "Sweet iced tea", "kind": "tea", "style": null}, "unsweet_tea": {"label": "Unsweetened iced tea", "kind": "tea", "style": null}, "chicory_coffee": {"label": "Chicory coffee", "kind": "coffee", "style": null}, "espresso": {"label": "Espresso", "kind": "coffee", "style": null}, "big_red": {"label": "Big Red", "kind": "soda", "style": null}, "cheerwine": {"label": "Cheerwine", "kind": "soda", "style": null}, "ramune": {"label": "Ramune", "kind": "soda", "style": null}, "chinotto": {"label": "Italian chinotto", "kind": "soda", "style": null}, "aranciata": {"label": "San Pellegrino Aranciata Rossa", "kind": "soda", "style": null}, "elderflower": {"label": "Sparkling elderflower", "kind": "soda", "style": null}, "sparkling_water": {"label": "Sparkling water", "kind": "water", "style": null}, "coconut_water": {"label": "Coconut water", "kind": "water", "style": null}, "sparkling_apple": {"label": "Sparkling apple juice", "kind": "juice", "style": null}, "limeade": {"label": "Limeade", "kind": "juice", "style": null}, "jamaica": {"label": "Agua de jamaica", "kind": "zero", "style": null}, "horchata": {"label": "Horchata", "kind": "zero", "style": null}, "mango_lassi": {"label": "Mango lassi", "kind": "zero", "style": null}, "salted_lassi": {"label": "Salted lassi", "kind": "zero", "style": null}, "suanmeitang": {"label": "Suanmeitang", "kind": "zero", "style": null}, "mushroom_broth": {"label": "Mushroom broth sipper", "kind": "zero", "style": null}, "prosecco": {"label": "Prosecco", "kind": "wine", "style": "sparkling"}, "cava": {"label": "Cava", "kind": "wine", "style": "sparkling"}, "champagne": {"label": "Champagne", "kind": "wine", "style": "sparkling"}, "cremant": {"label": "Crémant", "kind": "wine", "style": "sparkling"}, "pet_nat": {"label": "Pét-nat", "kind": "wine", "style": "sparkling"}, "sauv_blanc": {"label": "Sauvignon Blanc", "kind": "wine", "style": "crisp_white"}, "vinho_verde": {"label": "Vinho Verde", "kind": "wine", "style": "crisp_white"}, "muscadet": {"label": "Muscadet", "kind": "wine", "style": "crisp_white"}, "picpoul": {"label": "Picpoul", "kind": "wine", "style": "crisp_white"}, "soave": {"label": "Soave", "kind": "wine", "style": "crisp_white"}, "txakoli": {"label": "Txakoli", "kind": "wine", "style": "crisp_white"}, "white_burgundy": {"label": "White Burgundy", "kind": "wine", "style": "rich_white"}, "viognier": {"label": "Viognier", "kind": "wine", "style": "rich_white"}, "white_rioja": {"label": "White Rioja", "kind": "wine", "style": "rich_white"}, "marsanne": {"label": "Marsanne blend", "kind": "wine", "style": "rich_white"}, "gewurz": {"label": "Gewürztraminer", "kind": "wine", "style": "off_dry_white"}, "vouvray": {"label": "Vouvray", "kind": "wine", "style": "off_dry_white"}, "moscato": {"label": "Moscato", "kind": "wine", "style": "off_dry_white"}, "kabinett": {"label": "Riesling Kabinett", "kind": "wine", "style": "off_dry_white"}, "provence_rose": {"label": "Provence rosé", "kind": "wine", "style": "rose"}, "tavel": {"label": "Tavel", "kind": "wine", "style": "rose"}, "txakoli_rose": {"label": "Rosado", "kind": "wine", "style": "rose"}, "gamay": {"label": "Gamay", "kind": "wine", "style": "light_red"}, "grenache_light": {"label": "Grenache", "kind": "wine", "style": "light_red"}, "dolcetto": {"label": "Dolcetto", "kind": "wine", "style": "light_red"}, "valpolicella": {"label": "Valpolicella", "kind": "wine", "style": "light_red"}, "cab_franc": {"label": "Cabernet Franc", "kind": "wine", "style": "light_red"}, "frappato": {"label": "Frappato", "kind": "wine", "style": "light_red"}, "trousseau": {"label": "Trousseau", "kind": "wine", "style": "light_red"}, "tempranillo": {"label": "Tempranillo", "kind": "wine", "style": "bold_red"}, "rioja": {"label": "Rioja", "kind": "wine", "style": "bold_red"}, "grenache_bold": {"label": "GSM blend", "kind": "wine", "style": "bold_red"}, "monastrell": {"label": "Monastrell", "kind": "wine", "style": "bold_red"}, "petite_sirah": {"label": "Petite Sirah", "kind": "wine", "style": "bold_red"}, "aglianico": {"label": "Aglianico", "kind": "wine", "style": "bold_red"}, "douro_red": {"label": "Douro red", "kind": "wine", "style": "bold_red"}, "primitivo": {"label": "Primitivo", "kind": "wine", "style": "bold_red"}, "carmenere": {"label": "Carmenère", "kind": "wine", "style": "bold_red"}, "chianti_riserva": {"label": "Chianti Riserva", "kind": "wine", "style": "bold_red"}}, "dishPair": {"Brunswick Stew": {"ids": ["sweet_tea", "amber_lager", "zinfandel", "cheerwine", "unsweet_tea"], "styles": ["light_red", "bold_red", "off_dry_white"]}, "Chili": {"ids": ["shiner_bock", "zinfandel", "sparkling_water", "big_red", "horchata"], "styles": ["bold_red", "light_red"]}, "Gumbo": {"ids": ["abita_amber", "riesling", "sweet_tea", "chenin_blanc", "chicory_coffee"], "styles": ["off_dry_white", "rich_white", "crisp_white"]}, "Tex-Mex Kit": {"ids": ["lager", "margarita", "jamaica", "sparkling_water", "rose"], "styles": ["rose", "sparkling", "crisp_white"]}, "Indian Style Curry": {"ids": ["mango_lassi", "salted_lassi", "masala_chai", "riesling", "lager"], "styles": ["off_dry_white", "sparkling"]}, "Leblanc Inspired Japanese Curry": {"ids": ["ramune", "barley_tea", "lager", "oolong", "pinot_noir"], "styles": ["light_red", "off_dry_white"]}, "Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce": {"ids": ["lapsang", "sweet_tea", "riesling", "amber_ale", "barley_tea"], "styles": ["off_dry_white", "rose", "light_red"]}, "Bo Ssam": {"ids": ["makgeolli", "barley_tea", "bokbunja", "lager", "sparkling_water"], "styles": ["off_dry_white", "sparkling", "rose"]}, "Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice": {"ids": ["suanmeitang", "jasmine_tea", "lager", "grenache", "sparkling_water"], "styles": ["light_red", "bold_red"]}, "Mapo Eggplant": {"ids": ["suanmeitang", "jasmine_tea", "riesling", "lager", "coconut_water"], "styles": ["off_dry_white", "sparkling", "light_red"]}, "Shrimp or Tofu with Asparagus in Black Bean Sauce": {"ids": ["jasmine_tea", "riesling", "lager", "oolong", "sparkling_water"], "styles": ["crisp_white", "off_dry_white", "sparkling"]}, "Stir Fried Long Beans with Ground Pork or Tofu": {"ids": ["jasmine_tea", "lager", "suanmeitang", "rose", "barley_tea"], "styles": ["rose", "crisp_white", "off_dry_white"]}, "Texas Gulf Shrimp or Tofu and Chinese Broccoli": {"ids": ["jasmine_tea", "albarino", "lager", "sparkling_water", "green_tea"], "styles": ["crisp_white", "sparkling"]}, "Thai Basil Chicken (Pad Krapow Gai)": {"ids": ["thai_iced_tea", "lager", "riesling", "limeade", "coconut_water"], "styles": ["off_dry_white", "sparkling", "rose"]}, "Bolognese": {"ids": ["lambrusco", "sangiovese", "barbera", "aranciata", "espresso"], "styles": ["light_red", "sparkling", "bold_red"]}, "Pasta with Homegrown Tomato Sauce": {"ids": ["sangiovese", "lambrusco", "sparkling_water", "pinot_grigio", "chinotto"], "styles": ["light_red", "sparkling", "crisp_white"]}, "Orecchiette with Bitter Greens and Anchovies": {"ids": ["vermentino", "rose", "sparkling_water", "falanghina", "green_tea"], "styles": ["crisp_white", "rose"]}, "Pappardelle with Vegetables and Mint": {"ids": ["vermentino", "rose", "elderflower", "pinot_grigio", "mint_tea"], "styles": ["crisp_white", "rose", "sparkling"]}, "Saffron Pork Ragu": {"ids": ["vermentino", "sangiovese", "rose", "sparkling_water", "chamomile_tea"], "styles": ["crisp_white", "rose", "light_red"]}, "Pork with Mustard Tarragon Cream Sauce": {"ids": ["chardonnay", "riesling", "hard_cider", "sparkling_apple", "pinot_noir"], "styles": ["rich_white", "off_dry_white", "light_red"]}, "Mushroom Ragu": {"ids": ["pinot_noir", "nebbiolo", "barbera", "barley_tea", "mushroom_broth"], "styles": ["light_red", "bold_red"]}, "Coriander Lamb Steak over Gigantes Beans": {"ids": ["agiorgitiko", "syrah", "mint_tea", "retsina", "sparkling_water"], "styles": ["light_red", "bold_red", "crisp_white"]}, "Pork Chop with Kabocha Purée and Charred Broccolini": {"ids": ["riesling", "hard_cider", "pinot_noir", "sparkling_apple", "genmaicha"], "styles": ["off_dry_white", "light_red", "rich_white"]}, "Bone-In Pork Rib Chop with All the Fixings": {"ids": ["hard_cider", "riesling", "amber_ale", "sparkling_apple", "sweet_tea"], "styles": ["off_dry_white", "light_red", "bold_red"]}, "Steak au Poivre": {"ids": ["syrah", "cabernet", "cognac", "sparkling_water", "malbec"], "styles": ["bold_red"]}, "Boeuf Bourguignon (Beef Stew)": {"ids": ["pinot_noir", "beaujolais", "cotes_du_rhone", "sparkling_water", "black_tea"], "styles": ["light_red", "bold_red"]}}, "styleLabels": {"sparkling": "Sparkling", "crisp_white": "Crisp white", "rich_white": "Rich white", "off_dry_white": "Off-dry white", "rose": "Rosé", "light_red": "Light red", "bold_red": "Bold red"}};
+
+  function drinkPickerHtml(){
+    return '<div class="drink-picker" id="drinkPicker">' +
+      '<div class="dp-head">\uD83C\uDF77 Find a drink for your dinner</div>' +
+      '<div class="dp-sub">Type a drink you have \u2014 wine, beer, tea, soda, anything \u2014 and see which of this week\'s dishes it goes with.</div>' +
+      '<input id="drinkSearch" type="text" placeholder="Search a drink (e.g. Malbec, jasmine tea, Topo Chico)" autocomplete="off" />' +
+      '<div id="drinkResults" class="dp-results"></div>' +
+      '<div id="drinkMatch" class="dp-match"></div>' +
+      '</div>';
+  }
+
+  // Called AFTER innerHTML is set. thisWeek = names of this week's dinners.
+  function attachDrinkPicker(thisWeek){
+    var search = document.getElementById('drinkSearch');
+    if (!search) return;
+    var results = document.getElementById('drinkResults');
+    var matchBox = document.getElementById('drinkMatch');
+    var IDX = DRINK_INDEX;
+
+    function dishesFor(id){
+      var drink = IDX.drinks[id]; if (!drink) return [];
+      var out = [];
+      for (var i=0;i<thisWeek.length;i++){
+        var name = thisWeek[i];
+        var dp = IDX.dishPair[name]; if (!dp) continue;
+        var hit = dp.ids.indexOf(id) >= 0;
+        if (!hit && drink.kind === 'wine' && drink.style) hit = dp.styles.indexOf(drink.style) >= 0;
+        if (hit) out.push(name);
+      }
+      return out;
+    }
+    function clearDim(){ var c=document.querySelectorAll('.dish'); for(var i=0;i<c.length;i++) c[i].style.opacity=''; }
+    function pick(id){
+      var drink = IDX.drinks[id];
+      var dishes = dishesFor(id);
+      search.value = drink.label;
+      results.innerHTML = '';
+      if (!dishes.length){
+        matchBox.innerHTML = '<div class="dp-none">Nothing on this week\'s menu is a natural match for '+drink.label+'. Try another, or just drink what you like.</div>';
+      } else {
+        var sn = (drink.kind==='wine' && drink.style && IDX.styleLabels[drink.style]) ? ' <span class="dp-style">('+IDX.styleLabels[drink.style]+')</span>' : '';
+        matchBox.innerHTML = '<div class="dp-goes"><b>'+drink.label+'</b>'+sn+' goes with:</div>' +
+          dishes.map(function(n){ return '<div class="dp-dish">\u2022 '+n+'</div>'; }).join('');
+      }
+      var cards = document.querySelectorAll('.dish');
+      for (var i=0;i<cards.length;i++){
+        var el = cards[i].querySelector('.dish-name');
+        var nm = el ? el.textContent.trim() : '';
+        cards[i].style.opacity = dishes.indexOf(nm) >= 0 ? '' : '0.3';
+      }
+    }
+    search.addEventListener('input', function(){
+      var q = search.value.trim().toLowerCase();
+      matchBox.innerHTML = '';
+      if (!q){ results.innerHTML=''; clearDim(); return; }
+      var hits = [];
+      for (var id in IDX.drinks){ if (IDX.drinks[id].label.toLowerCase().indexOf(q) >= 0) hits.push(id); }
+      hits.sort(function(a,b){ return IDX.drinks[a].label.localeCompare(IDX.drinks[b].label); });
+      results.innerHTML = hits.slice(0,8).map(function(id){
+        return '<div class="dp-opt" data-id="'+id+'">'+IDX.drinks[id].label+' <span class="dp-kind">'+IDX.drinks[id].kind+'</span></div>';
+      }).join('');
+      var opts = results.querySelectorAll('.dp-opt');
+      for (var k=0;k<opts.length;k++) opts[k].addEventListener('click', function(){ pick(this.getAttribute('data-id')); });
+    });
+  }
+
   function render(config){
     LAST_CONFIG = config;
     if (config.weekLabel) document.getElementById("weekLabel").textContent = config.weekLabel;
@@ -255,7 +338,9 @@
 
     // Dinners
     var anyBagged = false;
+    var weekDinnerNames = dinnersShown.map(function(d){ return d.name; });
     if (dinnersShown.length){
+      html += drinkPickerHtml();
       html += '<div class="section-head">This Week\'s Dinners</div>';
       dinnersShown.forEach(function(d){
         html += renderDish(d, "dinner");
@@ -411,6 +496,7 @@
     html += '<div class="footer">Lettuce, Turnip, The Beet · Friends-only meal prep · Austin, TX</div>';
 
     document.getElementById("content").innerHTML = html;
+    attachDrinkPicker(weekDinnerNames);
 
     // Wire the request button after the DOM is in place.
     var rb = document.getElementById('requestBtn');

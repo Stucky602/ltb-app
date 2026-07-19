@@ -119,7 +119,7 @@ export const INGREDIENT_SEED = [
   { id: 'peanut_butter', name: 'Peanut butter', unit: 'oz', baseline: 0.141, category: 'pantry' }, // Peter Pan Creamy 40 oz = $5.64 (receipt IMG_9660, Jul 15) -> $0.141/oz. Was 'half-jar' @ $0.70, a unit that predated the universal unit layer and could never resolve from a receipt: he buys whatever jar size is there. Per-oz + the scan's oz prompt handles every size.
   { id: 'vanilla', name: 'Vanilla (imitation)', unit: 'tbs', baseline: 0.07, category: 'pantry' },
   { id: 'vanilla_extract', name: 'Vanilla extract (homemade)', unit: 'tbs', baseline: 1.5, category: 'pantry' },
-  { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.0, category: 'pantry' },
+  { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.146, category: 'pantry' }, // Small rice bag: $0.50 wrap + 2 cups white rice @ $0.323/cup ($0.646) = $1.146. Large = 2 units = $2.292. Was a made-up $1.00 flat.
   { id: 'pasta', name: 'Pasta (dry)', unit: 'lb', baseline: 2.0, category: 'pantry', passthrough: true }, // store-bought, sold at cost
   { id: 'orecchiette', name: 'Orecchiette', unit: 'lb', baseline: 2.78, category: 'pantry', passthrough: true },
   { id: 'lemon_herb_butter', name: 'Lemon herb butter (2oz)', unit: 'each', baseline: 0.488, category: 'dairy' }, // composed: 1lb butter+1 lemon+10 garlic+thyme, batch of 10. Thyme term repriced to $0.1993/sprig (Jul 14): 0.485 → 0.488.

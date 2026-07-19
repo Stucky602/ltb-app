@@ -469,13 +469,15 @@ function wrapUnits(dishName) {
   return 1;
 }
 
-// Rice container surcharge: $1/unit via the 'rice' ingredient baseline, for
-// any dish in RICE_DISHES. The container is bigger for a Large batch, so it's
-// 2 units there vs 1 for Small. Every RICE_DISHES variant label literally
-// contains "Small" or "Large" (checked against all current entries), so that
-// substring is the sizing signal — cheaper and more robust than hardcoding a
-// per-dish factor threshold, since different dishes use different factor
-// scales (some Small=0.5/Large=1, others Small=1/Large=2).
+// Rice + wrap surcharge: $1.146/unit via the 'rice' ingredient baseline
+// ($0.50 rice-bag wrap + 2 cups white rice @ $0.323/cup), for any dish in
+// RICE_DISHES. Large is a bigger bag, so it's 2 units there vs 1 for Small,
+// which lands Large at exactly $2.292 (2 cups -> 4 cups, wrap doubled).
+// Every RICE_DISHES variant label literally contains "Small" or "Large"
+// (checked against all current entries), so that substring is the sizing
+// signal — cheaper and more robust than hardcoding a per-dish factor
+// threshold, since different dishes use different factor scales (some
+// Small=0.5/Large=1, others Small=1/Large=2).
 function riceUnits(dishName, variant) {
   // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice is a mixed dish — only
   // the Beef/Lamb variants include rice (the noodle variants never did and

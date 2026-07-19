@@ -19,7 +19,7 @@ const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 // Compact grounding context for the /ask endpoint: the customer's order and
 // the exact canon reheat text shown on their page. Kept small on purpose —
 // this is the per-question token cost.
-export function companionContext(order) {
+export function companionContext(order, opts = {}) {
   const items = (order.items || []).map(it =>
     `${Number(it.qty) || 1}x ${it.name}${it.variant ? ` (${it.variant})` : ''}`).join('; ');
   const blocks = buildReheatBlocks(order).map(b =>
@@ -28,7 +28,53 @@ export function companionContext(order) {
     const h = itemHandling(it.name, { category: CATEGORY_OF[it.name] || null, isPerLb: isPerLbItem(it.name) });
     return h.cue ? `${it.name}: ${h.cue}` : null;
   }).filter(Boolean).join('\n');
-  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}`;
+
+  // Pairings — the /ask bot must be grounded in what the page shows, or it
+  // contradicts the card printed right above the question box. Same canon as
+  // companionHtml (dishes.js copy.pairings), rendered as text. The one-bottle
+  // intersection mirrors the page's logic so both agree.
+  const PAIRINGS_BY_NAME = {};
+  for (const d of DISHES) if (d.copy && d.copy.pairings) PAIRINGS_BY_NAME[d.name] = d.copy.pairings;
+  const withPairs = (order.items || []).filter(it => PAIRINGS_BY_NAME[it.name]);
+  let pairingText = '';
+  if (withPairs.length) {
+    const secs = withPairs.map(it =>
+      `${it.name}: ` + PAIRINGS_BY_NAME[it.name].map(pr => `${pr.drink} (${pr.why})`).join('; ')
+    ).join('\n');
+    let oneBottle = '';
+    if (withPairs.length >= 2) {
+      const cover = {};
+      for (const it of withPairs) for (const pr of PAIRINGS_BY_NAME[it.name]) {
+        if (!pr.id) continue;
+        (cover[pr.id] = cover[pr.id] || new Set()).add(it.name);
+      }
+      let best = null;
+      for (const [id, set] of Object.entries(cover)) {
+        const kind = (DRINKS[id] || {}).kind;
+        const score = set.size * 10 + (kind === 'wine' ? 1 : 0);
+        if (set.size >= 2 && (!best || score > best.score)) best = { id, set, score };
+      }
+      if (best) {
+        const label = (DRINKS[best.id] || {}).label || best.id;
+        oneBottle = best.set.size === withPairs.length
+          ? `One bottle for the whole order: ${label} works with everything ordered.`
+          : `Closest single bottle: ${label} covers ${best.set.size} of ${withPairs.length} dinners.`;
+      }
+    }
+    pairingText = `\nDRINK PAIRINGS (what their page recommends):\n${oneBottle ? oneBottle + '\n' : ''}${secs}`;
+  }
+
+  // Passport — regulars only; the app supplies opts.passport when the order is
+  // linked to a regular. Absent for everyone else, same as the page card.
+  let passportText = '';
+  if (opts.passport && opts.passport.total > 0) {
+    const pp = opts.passport;
+    const missing = (pp.missing || []).slice(0, 5);
+    passportText = `\nDISH PASSPORT: had ${pp.tried} of ${pp.total} dinners on the full menu.` +
+      (missing.length ? ` Not yet tried: ${missing.join(', ')}.` : ` Has tried everything.`);
+  }
+
+  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}`;
 }
 
 export function companionHtml(order, pageId = '', opts = {}) {

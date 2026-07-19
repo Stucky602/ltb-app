@@ -53,15 +53,18 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   // Fetched once on mount. A count chip next to a dish tells Kevin what people
   // asked for back, next to the compose decision — it does not change it.
   const [requestCounts, setRequestCounts] = useState(null); // { dishName: n }
+  const [requestNotes, setRequestNotes] = useState({}); // { dishName: [{at, note}] }
+  const [expandedReq, setExpandedReq] = useState(null);  // dishName whose notes are open
   useEffect(() => {
     let alive = true;
     fetch(WORKER_BASE + '/requests?token=' + encodeURIComponent(PUBLISH_TOKEN))
       .then(r => r.ok ? r.json() : Promise.reject(new Error('bad')))
       .then(j => {
         if (!alive) return;
-        const m = {};
-        for (const c of (j.counts || [])) m[c.dish] = c.requests;
+        const m = {}, notes = {};
+        for (const c of (j.counts || [])) { m[c.dish] = c.requests; if ((c.notes || []).length) notes[c.dish] = c.notes; }
         setRequestCounts(m);
+        setRequestNotes(notes);
       })
       .catch(() => { if (alive) setRequestCounts({}); });
     return () => { alive = false; };
@@ -181,11 +184,21 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               <div style={styles.cookItemName}>
                 {dish.name}
                 {requestCounts && requestCounts[dish.name] > 0 && (
-                  <span style={{ marginLeft: 6, fontSize: '10px', fontWeight: 700, color: '#5DCAA5', background: 'rgba(93,202,165,0.14)', borderRadius: 6, padding: '1px 6px' }}>
-                    {requestCounts[dish.name]} req
+                  <span
+                    onClick={(ev) => { ev.stopPropagation(); if (requestNotes[dish.name]) setExpandedReq(expandedReq === dish.name ? null : dish.name); }}
+                    style={{ marginLeft: 6, fontSize: '10px', fontWeight: 700, color: '#5DCAA5', background: 'rgba(93,202,165,0.14)', borderRadius: 6, padding: '1px 6px', cursor: requestNotes[dish.name] ? 'pointer' : 'default' }}
+                  >
+                    {requestCounts[dish.name]} req{requestNotes[dish.name] ? (expandedReq === dish.name ? ' ▲' : ' ▾') : ''}
                   </span>
                 )}
               </div>
+              {expandedReq === dish.name && requestNotes[dish.name] && (
+                <div style={{ marginTop: 4, fontSize: '11px', color: '#9aa5a0', lineHeight: 1.5 }} onClick={(ev) => ev.stopPropagation()}>
+                  {requestNotes[dish.name].map((n, ni) => (
+                    <div key={ni}>“{n.note}” <span style={{ color: '#6b7570' }}>· {String(n.at || '').slice(0, 10)}</span></div>
+                  ))}
+                </div>
+              )}
               <div style={styles.cookItemVariant}>
                 {dish.variants.length} option{dish.variants.length !== 1 ? 's' : ''} · {priceLabel}
                 {worst !== null && Math.abs(worst) >= 2 && (

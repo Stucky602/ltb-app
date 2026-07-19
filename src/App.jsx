@@ -67,7 +67,6 @@ import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
 import { baselineCostMap, liveCostMapFrom } from './dishCosting.js';
-import { computeMarginAlerts } from './digest.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -1635,11 +1634,6 @@ export default function LTBOrderTracker() {
   // Money-tab badge: under-floor dishes only (not "watch") so the badge
   // means something and clears when the real problem is fixed, not when
   // every borderline dish happens to drift above 47%.
-  const marginAlerts = useMemo(
-    () => computeMarginAlerts({ liveCostMap, baseCostMap }),
-    [liveCostMap, baseCostMap]
-  );
-
   const toggleWeekDish = useCallback((name) => {
     setWeekDishes(prev => {
       const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
@@ -1749,9 +1743,6 @@ export default function LTBOrderTracker() {
                 onClick={() => setView(key)}
               >
                 {label}
-                {key === 'money' && marginAlerts.underFloor.length > 0 && (
-                  <span style={styles.tabBadge}>{marginAlerts.underFloor.length}</span>
-                )}
               </button>
             ))}
           </div>

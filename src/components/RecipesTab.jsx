@@ -369,6 +369,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     setJNote(''); setJDayN(''); setJVerdict(''); setJQ('');
   };
 
+  // Delete one journal entry. Entries are a dataset Kevin builds over months, so
+  // a typo'd verdict shouldn't be permanent. Matched by its `at` timestamp
+  // (unique per add). No confirm dialog — it's one line, and re-adding is trivial.
+  const deleteJournalEntry = (at) => {
+    if (!pipeDish) return;
+    onSavePipelineJournal(prev => {
+      const cur = prev[pipeDish.key];
+      if (!cur) return prev;
+      return { ...prev, [pipeDish.key]: { ...cur, journal: (cur.journal || []).filter(e => e.at !== at) } };
+    });
+  };
+
   const doPromote = () => {
     if (!pipeDish) return;
     const text = buildPromoteScaffold(pipeDish, promoteCuisine);
@@ -384,6 +396,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     onSavePipelineJournal(prev => {
       const cur = prev[pipeDish.key] || { journal: [], status: 'testing' };
       return { ...prev, [pipeDish.key]: { ...cur, status } };
+    });
+  };
+
+  // Toggle one promote-checklist surface done/undone, so a half-finished promote
+  // is visible at a glance instead of hiding behind a single "promoting" label.
+  const toggleChecklistItem = (itemId) => {
+    if (!pipeDish) return;
+    onSavePipelineJournal(prev => {
+      const cur = prev[pipeDish.key];
+      if (!cur || !cur.promoteChecklist) return prev;
+      const items = cur.promoteChecklist.items.map(it => it.id === itemId ? { ...it, done: !it.done } : it);
+      return { ...prev, [pipeDish.key]: { ...cur, promoteChecklist: { ...cur.promoteChecklist, items } } };
     });
   };
 
@@ -467,10 +491,15 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   <div style={S.sectionTitle}>Test-kitchen journal</div>
                   {pipeLog.length === 0 && <div style={{ fontSize: 12, color: C.dim, marginBottom: 8 }}>No entries yet.</div>}
                   {pipeLog.map((e, i) => (
-                    <div key={i} style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 6, borderLeft: `2px solid ${C.border}`, paddingLeft: 8 }}>
+                    <div key={i} style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 6, borderLeft: `2px solid ${C.border}`, paddingLeft: 8, position: 'relative' }}>
                       <span style={{ color: C.faint }}>{String(e.at || '').slice(0, 10)}</span>{' '}
                       <span style={{ color: C.dim }}>{e.kind}{e.dayN ? ` · day ${e.dayN}` : ''}</span>
                       {e.verdict && <span style={{ color: e.verdict === 'held' ? C.good : C.badText, marginLeft: 4 }}> · {e.verdict}</span>}
+                      <button
+                        onClick={() => deleteJournalEntry(e.at)}
+                        title="Delete this entry"
+                        style={{ position: 'absolute', top: 0, right: 0, border: 'none', background: 'none', color: C.faint, fontSize: 14, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+                      >×</button>
                       {e.note && <div style={{ color: C.text }}>{e.note}</div>}
                     </div>
                   ))}
@@ -526,8 +555,25 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   </div>
                 )}
                 {pipeStatus === 'promoting' && (
-                  <div style={{ fontSize: 12, color: C.warn, marginTop: 6 }}>
-                    Promoting — finish the scaffold with Claude, then run the gate. <button style={{ ...S.chip(false), marginLeft: 6 }} onClick={() => setPipeStatus('testing')}>Back to testing</button>
+                  <div style={S.section}>
+                    <div style={S.sectionTitle}>Promote checklist</div>
+                    {(pipeJournal.promoteChecklist ? pipeJournal.promoteChecklist.items : []).map(it => (
+                      <div key={it.id} onClick={() => toggleChecklistItem(it.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, lineHeight: 1.6, cursor: 'pointer', color: it.done ? C.faint : C.text }}>
+                        <span style={{ display: 'inline-block', width: 15, height: 15, borderRadius: 4, border: `1px solid ${it.done ? C.good : C.border}`, background: it.done ? 'rgba(93,202,165,0.2)' : 'transparent', color: C.good, textAlign: 'center', fontSize: 11, lineHeight: '14px', flexShrink: 0 }}>{it.done ? '✓' : ''}</span>
+                        <span style={{ textDecoration: it.done ? 'line-through' : 'none' }}>{it.label}</span>
+                      </div>
+                    ))}
+                    <div style={{ fontSize: 12, color: C.warn, marginTop: 8 }}>
+                      Finish the scaffold with Claude, then run the gate.{' '}
+                      <button style={{ ...S.chip(false), marginLeft: 6 }} onClick={() => setPipeStatus('testing')}>Back to testing</button>
+                    </div>
+                    {promoteText && (
+                      <div style={{ marginTop: 8 }}>
+                        <button style={S.chip(false)} onClick={() => { copyText(promoteText); setCopiedPromote(true); setTimeout(() => setCopiedPromote(false), 1500); }}>
+                          {copiedPromote ? 'Copied ✓' : 'Copy scaffold again'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

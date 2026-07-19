@@ -54,6 +54,9 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   // asked for back, next to the compose decision — it does not change it.
   const [requestCounts, setRequestCounts] = useState(null); // { dishName: n }
   const [requestNotes, setRequestNotes] = useState({}); // { dishName: [{at, note}] }
+  const [requestRanked, setRequestRanked] = useState([]); // [{ dish, requests, notes }] ranked
+  const [requestTotal, setRequestTotal] = useState(0);
+  const [showRequests, setShowRequests] = useState(false); // panel collapsed by default
   const [expandedReq, setExpandedReq] = useState(null);  // dishName whose notes are open
   useEffect(() => {
     let alive = true;
@@ -65,6 +68,8 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
         for (const c of (j.counts || [])) { m[c.dish] = c.requests; if ((c.notes || []).length) notes[c.dish] = c.notes; }
         setRequestCounts(m);
         setRequestNotes(notes);
+        setRequestRanked(j.counts || []);
+        setRequestTotal(j.total || 0);
       })
       .catch(() => { if (alive) setRequestCounts({}); });
     return () => { alive = false; };
@@ -140,6 +145,48 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
 
   return (
     <div>
+      {/* ── Most-wanted this week ── a ranked view of customer requests, so the
+          stream is something Kevin CHECKS, not something he walks past on the
+          tiles. The per-tile chips stay too; this is the summary. */}
+      {requestRanked.length > 0 && (
+        <div style={styles.genCard}>
+          <button
+            onClick={() => setShowRequests(o => !o)}
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', background: 'none', border: 'none', cursor: 'pointer', color: '#5DCAA5', fontSize: '14px', fontWeight: 700, padding: 0 }}
+          >
+            <span>Most wanted this week · {requestTotal} request{requestTotal === 1 ? '' : 's'}</span>
+            <span>{showRequests ? '▲' : '▼'}</span>
+          </button>
+          {showRequests && (
+            <div style={{ marginTop: 10 }}>
+              {requestRanked.map((r, i) => {
+                const isOn = selected.includes(r.dish);
+                return (
+                  <div key={r.dish} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: i < requestRanked.length - 1 ? '1px solid #24312d' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 20, textAlign: 'right', color: '#6b7570', fontSize: '12px', flexShrink: 0 }}>{i + 1}.</span>
+                      <span style={{ flex: 1, fontSize: '13.5px', color: '#d8d2c4' }}>{r.dish}</span>
+                      {isOn && <span style={{ fontSize: '10px', fontWeight: 700, color: '#5DCAA5', background: 'rgba(93,202,165,0.14)', borderRadius: 6, padding: '1px 6px' }}>on the menu ✓</span>}
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#5DCAA5' }}>{r.requests}</span>
+                    </div>
+                    {(r.notes || []).length > 0 && (
+                      <div style={{ marginLeft: 28, marginTop: 3, fontSize: '11px', color: '#9aa5a0', lineHeight: 1.5 }}>
+                        {r.notes.map((n, ni) => (
+                          <div key={ni}>“{n.note}” <span style={{ color: '#6b7570' }}>· {String(n.at || '').slice(0, 10)}</span></div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: '11px', color: '#6b7570', marginTop: 4 }}>
+                Requests are a signal, not a rule. They don't change the lineup on their own.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={styles.genCard}>
         <div style={styles.genTitle}>This week's dinner lineup</div>
         <div style={styles.genHint}>

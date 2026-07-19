@@ -638,6 +638,17 @@ export default function LTBOrderTracker() {
       const txt = await res.text();
       throw new Error('Publish failed (' + res.status + '): ' + txt.slice(0, 120));
     }
+    // Publish the full dinner catalog as the request whitelist. Fire-and-forget:
+    // a failure here must never block the week publish, and POST /requests just
+    // rejects everything until the next successful write. Full ALL_DINNERS, not
+    // this week's subset — customers request dishes that AREN'T on this week.
+    try {
+      await fetch(WORKER_BASE + '/requestable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: PUBLISH_TOKEN, dishes: ALL_DINNERS.map(d => d.name) }),
+      });
+    } catch (e) { /* non-fatal: week publish already succeeded */ }
     // Logged only on SUCCESS — a failed publish changed nothing customer-facing
     // and shouldn't leave a trail suggesting it did. Records WHEN a price set
     // went live, which is the other half of "why did a customer see that

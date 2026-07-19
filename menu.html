@@ -56,6 +56,15 @@
   .loop h4 { color:var(--gold); font-size:14px; font-weight:700; margin-bottom:6px; }
   .loop p { font-size:12.5px; line-height:1.55; color:var(--body); }
   .order-cta { display:block; text-align:center; background:var(--teal-light); color:#04342C; font-weight:700; font-size:15px; padding:15px; border-radius:12px; text-decoration:none; margin-top:22px; }
+  .request-box { margin-top:22px; padding:16px; background:rgba(63,184,160,0.06); border:1px solid var(--teal-mid); border-radius:12px; }
+  .request-head { font-size:14px; font-weight:800; color:var(--teal-light); letter-spacing:0.3px; margin-bottom:4px; }
+  .request-sub { font-size:12.5px; color:#8a928c; line-height:1.5; margin-bottom:10px; }
+  .request-box select, .request-box input { width:100%; box-sizing:border-box; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid var(--teal-mid); background:#0e1a17; color:var(--body); font-size:14px; }
+  .request-box button { width:100%; padding:11px; border:none; border-radius:8px; background:var(--teal-mid); color:#04342C; font-weight:700; font-size:14px; cursor:pointer; }
+  .request-box button:disabled { opacity:0.5; cursor:default; }
+  .request-done { font-size:12.5px; margin-top:8px; min-height:16px; }
+  .request-done.ok { color:var(--teal-light); }
+  .request-done.err { color:#d98a7a; }
   .pipeline-cta { display:block; text-align:center; color:var(--teal-light); font-size:14px; padding:14px; margin-top:13px; text-decoration:none; border:1px solid var(--teal-mid); border-radius:12px; }
   .footer { margin-top:22px; font-size:11px; color:#6a726c; text-align:center; line-height:1.5; }
   .loading { text-align:center; color:var(--dim); padding:50px 0; font-style:italic; }
@@ -381,9 +390,53 @@
       html += '<a class="order-cta" href="form.html">Place Your Order →</a>';
     }
     html += '<a class="pipeline-cta" href="pipeline.html">In the Works — what I\'m testing next →</a>';
+
+    // ── "Want something back?" request block ────────────────────────────────
+    // Trust-based, anonymous, same grammar as the pipeline vote. Built from the
+    // FULL dinner library so people can ask for dishes that AREN'T on this week.
+    // It must read as a REQUEST, not an order — different verb, different color.
+    var dinnerKeys = Object.keys((LIBRARY && LIBRARY.dinners) || {}).sort();
+    if (dinnerKeys.length) {
+      var opts = dinnerKeys.map(function(n){ return '<option value="'+n.replace(/"/g,'&quot;')+'">'+n+'</option>'; }).join('');
+      html += '<div class="request-box" id="requestBox">' +
+        '<div class="request-head">Want a dish back next week?</div>' +
+        '<div class="request-sub">Not an order — just tell me what you\'re hoping to see. No promises, but it helps me plan.</div>' +
+        '<select id="requestSelect"><option value="">Pick a dish…</option>' + opts + '</select>' +
+        '<input id="requestNote" type="text" maxlength="200" placeholder="Optional note (why, when, etc.)" />' +
+        '<button id="requestBtn" type="button">Send request</button>' +
+        '<div class="request-done" id="requestDone"></div>' +
+        '</div>';
+    }
+
     html += '<div class="footer">Lettuce, Turnip, The Beet · Friends-only meal prep · Austin, TX</div>';
 
     document.getElementById("content").innerHTML = html;
+
+    // Wire the request button after the DOM is in place.
+    var rb = document.getElementById('requestBtn');
+    if (rb) {
+      rb.addEventListener('click', function(){
+        var sel = document.getElementById('requestSelect');
+        var note = document.getElementById('requestNote');
+        var done = document.getElementById('requestDone');
+        var dish = sel ? sel.value : '';
+        if (!dish) { done.textContent = 'Pick a dish first.'; done.className = 'request-done err'; return; }
+        rb.disabled = true;
+        fetch(WORKER + '/requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dish: dish, note: note ? note.value : '' }),
+        }).then(function(r){
+          if (!r.ok) throw new Error('bad');
+          done.textContent = 'Got it — thanks. I\'ll take it into account.';
+          done.className = 'request-done ok';
+          sel.value = ''; if (note) note.value = '';
+        }).catch(function(){
+          done.textContent = 'Could not send that just now. Try again in a moment.';
+          done.className = 'request-done err';
+        }).then(function(){ rb.disabled = false; });
+      });
+    }
   }
 
   fetch(WORKER + "/config")

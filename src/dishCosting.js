@@ -316,7 +316,7 @@ export const LINE_MAP = {
   // 8 squares, so 1 square = 0.5 oz = 14.2 g. Baseline $0.535/square
   // ($4.28/bar, Kevin-approved Jul 14; was $0.50).
   '100% dark chocolate':    { id: 'chocolate_100', conv: C({ unit: 'square', pieceWeightLb: 0.03125, aliases: { bar: 8 } }) },
-  'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: C({ unit: 'g' }) },
+  'Guittard chocolate (low + high %)': { id: 'guittard_low', conv: C({ unit: 'g' }) },  // composed-ok: two cacao grades of the SAME chocolate, priced together as guittard_low
   'Valrhona chocolate':     { id: 'valrhona', conv: C({ unit: '290g', pieceWeightLb: 290/GRAMS_PER_LB, aliases: { bar: 1 } }) }, // priced per 290g bar — that IS the bar weight
   'Peanut butter':          { id: 'peanut_butter', conv: C({ unit: 'oz', aliases: { cup: OZ_PER_CUP_PEANUT_BUTTER } }) }, // priced per oz off the real jar (Jul 15); 1 cup of PB weighs ~9.5 oz
   'Saffron':                { id: 'saffron', conv: C({ unit: 'pinch' }) }, // pinch IS the pricing unit ($4.68 bag ÷ 4 uses = $1.17); pinch = 1/16 tsp in the volume family for any future tsp line
@@ -388,31 +388,31 @@ export const LINE_MAP = {
   // Composite staple lines (single batch-use cost — flat by design, the conv
   // ignores quantity and unit deliberately; 'batch'/'blend' ARE the unit)
   'Curry powder':           { id: 'curry_powder', conv: () => 1 }, // a cup of curry powder = one batch-use by design
-  'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },
-  'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },
-  'Oyster + soy + fish sauce + sugar':    { id: 'spices_generic', conv: () => 1 },
-  'Marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },
+  'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },  // composed-ok: seasoning blend priced as one spices_generic bucket; no separate real-ingredient cost hidden
+  'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },  // composed-ok: aromatic seasoning blend → spices_generic bucket; components are pantry splashes, not costed lines
+  'Oyster + soy + fish sauce + sugar':    { id: 'spices_generic', conv: () => 1 },  // composed-ok: sauce seasoning blend → spices_generic bucket
+  'Marmite + soy + spices': { id: 'spices_generic', conv: () => 1 },  // composed-ok: seasoning blend → spices_generic bucket
   'Tex-Mex spices':         { id: 'spices_generic', conv: () => 1 },
-  'Vinegar + smoked paprika': { id: 'spices_generic', conv: () => 1 },
+  'Vinegar + smoked paprika': { id: 'spices_generic', conv: () => 1 },  // composed-ok: Brunswick seasoning → spices_generic bucket (the corrected line; no flour/Worcestershire)
   'Worcestershire':         { id: 'worcestershire', conv: C({ unit: 'tbs' }) }, // 1 tbs recipe = 1 tbs ingredient ($0.2485/tbs)
-  'Bay + salt + pepper + vinegar': { id: 'spices_generic', conv: () => 1 },
+  'Bay + salt + pepper + vinegar': { id: 'spices_generic', conv: () => 1 },  // composed-ok: braise seasoning blend → spices_generic bucket
   'Cajun spices':           { id: 'spices_generic', conv: () => 1 },
   'Filé powder':            { id: 'spices_generic', conv: () => 0.5 },
-  'Honey + fish sauce + butter': { id: 'spices_generic', conv: () => 1 },
+  'Honey + fish sauce + butter': { id: 'spices_generic', conv: () => 1 },  // composed-ok: glaze seasoning blend → spices_generic bucket; splashes, not costed lines
   'Curry spice blend':      { id: 'curry_spices', conv: () => 1 },
   'Sodium citrate':         { id: 'sodium_citrate', conv: C({ unit: 'g' }) },
-  'Pickling vinegar + spices': { id: 'spices_generic', conv: () => 0.5 },
-  'Chili flakes + whole spices + oil': { id: 'chili_oil', conv: () => 1 },
-  'House vanilla extract + beans': { id: 'vanilla', conv: () => 4 },
-  'Brown + white sugar':    { id: 'white_sugar', conv: () => 1.5 },
-  'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },
+  'Pickling vinegar + spices': { id: 'spices_generic', conv: () => 0.5 },  // composed-ok: pickle brine seasoning → spices_generic bucket
+  'Chili flakes + whole spices + oil': { id: 'chili_oil', conv: () => 1 },  // composed-ok: the chili_oil id IS the finished composite product cost
+  'House vanilla extract + beans': { id: 'vanilla', conv: () => 4 },  // composed-ok: beans are the input to the extract; not a separate ingredient, same vanilla id
+  'Brown + white sugar':    { id: 'white_sugar', conv: () => 1.5 },  // composed-ok: two grades of sugar at ~equal price; one white_sugar id is correct
+  'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },  // composed-ok: the white_karo id IS the composite fudge-sugar cost
   // ── Brownies (per-batch dessert, Jul 2026) ──
   'Butter (browned)':       { id: 'butter', conv: C({ unit: 'stick', pieceWeightLb: 0.25, aliases: { tbsp: 1/TBSP_PER_STICK, cup: 2, tsp: 1/24 } }) },
   'Dutch cocoa':            { id: 'cocoa', conv: C({ unit: 'tbs' }) }, // cocoa priced per tbsp
   'Guittard chocolate (semisweet)': { id: 'guittard_high', conv: C({ unit: 'g' }) }, // priced per gram
   'DeLallo instant espresso': { id: 'delallo_espresso', conv: C({ unit: 'tsp' }) }, // priced per tsp
-  'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // STALE (Jul 13 rename -> 'Brown + white sugar'); Brownies now cost via the 1.5 cup-equiv entry -- see handoff flag
-  'Kosher salt + vanilla':  { id: 'vanilla', conv: () => 1 }, // 1 tbsp imitation vanilla (~$0.07); 1 tsp salt (~$0.01) negligible
+  'Sugar (white + brown)':  { id: 'white_sugar', conv: () => 2.2 }, // STALE (Jul 13 rename -> 'Brown + white sugar'); Brownies now cost via the 1.5 cup-equiv entry -- see handoff flag  // composed-ok: STALE alias kept so old recipe strings don't cost $0; live cost via 'Brown + white sugar'
+  'Kosher salt + vanilla':  { id: 'vanilla', conv: () => 1 }, // 1 tbsp imitation vanilla (~$0.07); 1 tsp salt (~$0.01) negligible  // composed-ok: salt cost negligible (~$0.01); vanilla id carries the real cost, noted below
   // BUG (found Jul 17, Kevin): this line is named for three ingredients but
   // resolved to ONE. The butter and the parmesan in the name were silently
   // uncosted on every dish carrying this add-on. A LINE_MAP entry maps to a
@@ -420,8 +420,8 @@ export const LINE_MAP = {
   // level instead. Kept as an alias to the cornmeal so no old string costs $0,
   // and marked stale: the recipes now name the three real lines.
   // Kevin's build: 1 cup dry polenta + 1 oz good parm + 2 tbsp butter + $2 bag.
-  'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.4543 }, // STALE (Jul 17): under-costed by ~$2.90 (parm+butter) plus the bag. Use the expanded lines.
-  'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },
+  'Polenta + butter + parmesan (bagged)': { id: 'polenta', conv: () => 0.4543 }, // STALE (Jul 17): under-costed by ~$2.90 (parm+butter) plus the bag. Use the expanded lines.  // composed-ok: STALE alias; live cost via the expanded Polenta/parm/butter/bag lines
+  'Xanthan gum + lecithin powder': { id: 'spices_generic', conv: () => 0.3 },  // composed-ok: food-science stabilizer pair → spices_generic micro-cost bucket
   'Chickpeas': { id: 'chickpeas', conv: C({ unit: 'lb' }) },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },
   'Seasonal cantaloupe (HEB melons)': { id: 'cantaloupe', conv: C({ unit: 'each' }) },
@@ -436,9 +436,9 @@ export const LINE_MAP = {
   'Salt':                   { skip: true },
   'Pint mason jar':         { skip: true },
   'Gallon ziplock bag':     { skip: true },
-  'Sous vide bag + seasonings': { skip: true },
-  'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $2.00 sv_bag ingredient; separate from $1 packaging wrap
-  'Sous vide bag + butter + herbs (costed, large)': { id: 'sv_bag_large', conv: () => 1 }, // 1 unit of the $3.00 sv_bag_large ingredient; Large braises use ONE longer bag, not two small bags
+  'Sous vide bag + seasonings': { skip: true },  // composed-ok: skip line; packaging placeholder with no cost by design
+  'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $2.00 sv_bag ingredient; separate from $1 packaging wrap  // composed-ok: the $2.00 sv_bag id IS the composed bag+butter+herbs price
+  'Sous vide bag + butter + herbs (costed, large)': { id: 'sv_bag_large', conv: () => 1 }, // 1 unit of the $3.00 sv_bag_large ingredient; Large braises use ONE longer bag, not two small bags  // composed-ok: the $3.00 sv_bag_large id IS the composed large-bag price
   'Pork tenderloin (sous vide)': { id: 'pork_tenderloin', conv: C({ unit: 'lb' }) },
   'Shallot':                { id: 'shallot', conv: C({ unit: 'lb' }) },
   'Whole grain mustard':    { id: 'whole_grain_mustard', conv: C({ unit: 'oz', fluid: true }) }, // ~0.5 fl oz per tbsp

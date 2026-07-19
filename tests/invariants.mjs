@@ -135,6 +135,50 @@ for (const i of INGREDIENT_SEED) {
   }
 }
 
+// ─── 4c. Composed-line audit (Jul 18, SOURCE-TEXT scan) ─────────────────────
+// THE +Polenta bug: a LINE_MAP line named for THREE ingredients
+// ('Polenta + butter + parmesan') that resolved to ONE id ('polenta'), so the
+// butter and parmesan were silently uncosted on every dish carrying it — about
+// $3/order lost until Kevin caught it by eye. The [line-cost-finite] rule
+// can't see this: the line resolves fine, it just resolves to LESS than its
+// name claims. Only a source scan catches the gap between a composite NAME and
+// a single-id MAPPING.
+//
+// Rule: any LINE_MAP key whose name lists multiple components (contains ' + '
+// or ' and ') must carry an explicit '// composed-ok:' marker on its source
+// line, giving the reason the single mapping is nonetheless correct. Two
+// legitimate shapes: (a) the target id is itself a blend/bucket cost
+// (spices_generic, chili_oil, a named composite like sv_bag or white_karo), or
+// (b) the extra named components are the same ingredient in another grade, or
+// negligible. Anything else must be EXPANDED into real lines (the +Polenta
+// fix). The marker is deliberate friction: adding a composed line forces a
+// one-line justification, which is exactly the decision that got skipped.
+{
+  const dcSrc = fs.readFileSync(path.join(ROOT, 'src', 'dishCosting.js'), 'utf8');
+  const lmStart = dcSrc.indexOf('export const LINE_MAP');
+  const lmEnd = dcSrc.indexOf('\n};', lmStart);
+  if (lmStart === -1 || lmEnd === -1) {
+    F('composed-line', 'could not locate the LINE_MAP block in src/dishCosting.js — scan needs updating');
+  } else {
+    const block = dcSrc.slice(lmStart, lmEnd);
+    // One logical entry per source line in this block.
+    for (const line of block.split('\n')) {
+      // key is the leading quoted string; only lines that are LINE_MAP entries
+      const km = line.match(/^\s*(['"])((?:\\.|(?!\1).)*)\1\s*:/);
+      if (!km) continue;
+      const key = km[2];
+      const composite = / \+ | and /.test(key);
+      if (!composite) continue;
+      if (!line.includes('composed-ok:')) {
+        F('composed-line',
+          `LINE_MAP "${key}" names multiple components but has no "// composed-ok:" marker — ` +
+          `either the extra ingredients are uncosted (the +Polenta bug: expand into real lines) ` +
+          `or the mapping is legitimately a blend/grade (add "// composed-ok: <reason>")`);
+      }
+    }
+  }
+}
+
 // ─── Universal unit layer (Jul 14): named conversion spot checks ─────────────
 // The [line-cost-finite] rule above already fails ANY recipe line whose unit
 // an ingredient can't convert (makeConv returns null, which is not finite —
@@ -200,6 +244,33 @@ for (const d of DISHES) {
     if (r.unknown) { F('costable', `"${d.name}" / "${v.label}" cannot be costed (no recipe resolution)`); continue; }
     if (Math.abs(r.pctDrift) > 0.5) F('baseline-drift', `"${d.name}" / "${v.label}" drifts ${r.pctDrift}% at baseline (anchor stale or recipe/costing changed)`);
     if (Math.abs(r.adjustedCost - v.cost) > 0.005) F('anchor-roundtrip', `"${d.name}" / "${v.label}" adjustedCost ${r.adjustedCost} != anchor ${v.cost} at baseline`);
+  }
+}
+
+// ─── 2b. Promote-placeholder guard (Jul 18) ────────────────────────────────
+// A promoted-but-unfinished dish must NOT ship. The promote scaffold leaves the
+// Big 3 as __PENDING__ placeholders and cost:0 anchors; this guard fails the
+// gate on any of them so a half-promoted dish can't reach customers. This is
+// what makes the "Big 3 are conversational, never scaffolded" rule mechanical
+// rather than a matter of discipline.
+for (const d of DISHES) {
+  const copy = d.copy || {};
+  for (const f of ['desc', 'reheat', 'contains']) {
+    if (typeof copy[f] === 'string' && /__PENDING|__QTY__|__LABEL__|__PRICE__/.test(copy[f])) {
+      F('promote-incomplete', `"${d.name}" copy.${f} still has a scaffold placeholder — finish it with Kevin before shipping`);
+    }
+  }
+  if (typeof d.reheat === 'string' && /__PENDING/.test(d.reheat)) {
+    F('promote-incomplete', `"${d.name}" reheat bucket is still a placeholder`);
+  }
+  // A dish carrying a copy block is menu-facing; a 0 cost anchor there is an
+  // unfinished promote, not a real free item (those are ALWAYS_ITEMS, no copy).
+  if (d.copy && Array.isArray(d.variants)) {
+    for (const v of d.variants) {
+      if (v.cost === 0 && !/__/.test(String(v.price))) {
+        F('promote-incomplete', `"${d.name}" / "${v.label}" has cost:0 with a real price — unfinished margin, set the anchor with Kevin`);
+      }
+    }
   }
 }
 

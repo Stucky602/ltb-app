@@ -34,6 +34,26 @@
  *     /backup/list never reads a payload.
  *   • Pruning is AGE-SHAPED, not newest-N. See pruneBackups().
  *
+ * v10 (pipeline vote):
+ *   • Public, unauthenticated vote on the "In the Works" dishes (pipeline.html).
+ *     Deliberately trust-based: no identity, no dedupe, no cookie. Kevin's call.
+ *     Friends-only audience; the ballot cap and the queue cap are the only guards.
+ *   • ONE KV KEY PER BALLOT ('vote:<uuid>'), never a single running counter.
+ *     A counter would be read-modify-write and would silently drop concurrent
+ *     votes for exactly the reason the v4 note above describes. Tallying is a
+ *     list on GET instead (picks ride in KV metadata, so no value body is read).
+ *   • The write path is a single put() and does NOT list KV.
+ *   • TWO bugs died here, both from writing against assumed KV behavior:
+ *     (1) the write path listed KV with limit:2000; list() caps at 1000, so it
+ *         threw and every POST 500'd.
+ *     (2) the ballot was put() with an EMPTY value and picks in metadata only.
+ *         KV rejects an empty value. Every POST 500'd. The value is now the
+ *         ballot JSON; metadata is a tally-speed mirror, not the storage.
+ *   • GET /votes returns ONLY the top VOTE_TOP_N (currently 10, was 5). The
+ *     full ranking is never exposed. Zero-vote dishes never appear at all.
+ *   • PIPELINE_DISHES is the whitelist. It MUST stay in sync with the dish
+ *     names in pipeline.html or a vote for a real dish will 400.
+ *
  * ACTIVE endpoints:
  *   GET  /config              — returns the current published week config
  *   POST /config              — app publishes a new week config (requires PUBLISH_TOKEN)
@@ -51,6 +71,12 @@
  *   POST /parse-amendment     — parses an amendment to an existing order via Claude
  *   POST /parse-notes         — parses free-text notes on an order via Claude
  *   POST /parse-receipt       — extracts line items from a store receipt photo via Claude
+ *   GET  /votes               — public pipeline tallies (top 5 only) + total voters
+ *   POST /votes               — public: cast up to 3 votes for pipeline dishes
+ *   GET  /votes/full          — TOKEN: full ranking (incl. zero-vote) + last 50 ballots
+ *   POST /requestable         — TOKEN: app publishes the requestable dish catalog
+ *   POST /requests            — public: request a catalog dish back next week
+ *   GET  /requests            — TOKEN: request counts + recent (live keys only)
  *
  * Requires a KV namespace bound as LTB_KV.
  *
@@ -71,6 +97,74 @@ const CLAUDE_MODEL  = 'claude-sonnet-4-6';
 
 // ── KV keys ──────────────────────────────────────────────────────────────────
 const KV_CONFIG       = 'week-config';
+
+// ── Pipeline vote (v10) ────────────────────────────────────────────────────
+// Whitelist of votable dishes. These strings MUST match the data-dish
+// attributes in pipeline.html exactly. Cheesecake is deliberately absent: it
+// is not pipeline. Removing a dish here retires it from voting; old ballots
+// naming it are ignored at tally time, so no cleanup is needed.
+const PIPELINE_DISHES = [
+  // RETIRED Jul 17: Tea-Smoked Chicken won the vote and shipped to the real
+  // menu. Removing it here stops it tallying and 400s any new vote naming it.
+  // Ballots that picked it are NOT deleted — GET /votes ignores unknown dish
+  // names at tally time, so those ballots simply carry one fewer pick. That is
+  // the graceful path; do not "clean up" KV to match.
+  //   'Tea-Smoked Chicken',
+  'Suya Flank Steak',
+  'Kabocha Char Siu',
+  'Kare-Kare with XO',
+  'Khoresh-e Gheimeh',
+  'Fesenjan',
+  'Sauerbraten Beef Cheeks',
+  'Yogurt-Braised Lamb',
+  'Nixtamal Grits',
+  'Umeboshi Chicken',
+  'Two-Garum Pasta',
+  'Shrimp and Grits',
+  'Collard Saag',
+  'Pork Tenderloin Agrodolce',
+  // Second pass, July 2026. Appended, never reordered: the existing keys are
+  // load-bearing for votes already in KV. Renaming one orphans its ballots.
+  'Octopus Soy-Dashi-Pimenton',
+  'Three-Branch Caramel Pork',
+  'Kufteh Tabrizi',
+  'Garlic in Two Times Pork Chop',
+  'Wok-Smoked Tri-Tip',
+  'Pasta alla Genovese',
+  'Wok-Smoked Dal Makhani',
+  // Third pass, Jul 18. Appended, never reordered (existing keys are
+  // load-bearing for votes already in KV). These keys are terse on purpose;
+  // pipeline.html maps each to its full card title for the board via
+  // DISPLAY_NAMES, so the key and the customer-facing label can differ safely.
+  'Georgia Bomb Meatballs',
+  'Smothered Turkey Yassa',
+  'Quail Black Oil Celery Root',
+  'Viet-Cajun Skillet Boil',
+  'Wok-Smoked Flank White Sauce',
+  'Hoja Santa Pork Tenderloin',
+  'Charred Allium Trinity Pasta',
+  'Lamb Leg Steak Black Lime Freekeh',
+  'Mushroom Escabeche Polenta Cakes',
+  'Blackened Hanger Steak Coconut Corn',
+];
+const VOTE_PREFIX      = 'vote:';
+const VOTE_MAX_PICKS   = 3;    // per ballot, per Kevin: "up to 3"
+// Was 5. Raised to 10 at Kevin's call once the board hit 21 dishes: at these
+// vote counts a 2-vote cluster is real signal that a top-5 hides completely.
+// The tradeoff he accepted: more visible losers. Still a hard ceiling — the
+// full 21-dish ranking is never exposed.
+const VOTE_TOP_N       = 10;   // public board shows this many, never more
+// ── Dish requests (Jul 18) ──────────────────────────────────────────────────
+// Customers ask for catalog dishes back next week. Same trust model as votes:
+// public, anonymous, no dedupe, single-put write path (the v10 lesson — a
+// pre-flight list in the write path is what 500'd every vote). One key per
+// request, 14-day TTL so the signal stays fresh and cleanup is automatic.
+// Validated against a whitelist the APP publishes (KV 'requestable-dishes'),
+// not a second hand-kept list in this file.
+const REQ_PREFIX       = 'req:';
+const REQ_TTL          = 60 * 60 * 24 * 14;  // 14 days; requests are a freshness signal
+const REQ_NOTE_MAX     = 200;                // note is stored, never rendered customer-facing
+const REQUESTABLE_KEY  = 'requestable-dishes'; // JSON string[] the app writes on publish
 const KV_PENDING      = 'pending-orders';    // LEGACY array key — read+cleared only, never written (drains, then dead)
 const PENDING_PREFIX  = 'pending:';          // one key per order: 'pending:<id>'
 const PENDING_CAP     = 200;                 // max queued submissions (spam bound on the open endpoint)
@@ -477,6 +571,207 @@ export default {
       }
 
       // ── Legacy sheet ──────────────────────────────────────────────────────────
+      // ── GET /votes — public tally, TOP 5 ONLY ────────────────────────────
+      // Tallies by listing ballots rather than reading a counter key. Costs a
+      // list + N reads, which is nothing at this volume, and cannot lose a
+      // concurrent write the way a counter would.
+      if (request.method === 'GET' && url.pathname === '/votes') {
+        const counts = {};
+        for (const d of PIPELINE_DISHES) counts[d] = 0;
+        let ballots = 0;
+        let cursor;
+        do {
+          // 1000 is KV's hard ceiling per list() call; the cursor loop below
+          // handles anything beyond it.
+          const listing = await env.LTB_KV.list({ prefix: VOTE_PREFIX, limit: 1000, cursor });
+          for (const k of listing.keys) {
+            // Picks ride in metadata so tallying never reads a value body.
+            // The value carries the same list as the source of truth; if
+            // metadata is ever missing, fall back to it rather than dropping
+            // a real ballot on the floor.
+            let picks = (k.metadata && Array.isArray(k.metadata.p)) ? k.metadata.p : null;
+            if (!picks) {
+              const raw = await env.LTB_KV.get(k.name);
+              if (!raw) continue;
+              try { picks = JSON.parse(raw).p || []; } catch (e) { continue; }
+            }
+            if (!picks.length) continue;
+            ballots++;
+            for (const d of picks) {
+              // A dish retired from PIPELINE_DISHES silently stops counting.
+              if (Object.prototype.hasOwnProperty.call(counts, d)) counts[d]++;
+            }
+          }
+          cursor = listing.list_complete ? null : listing.cursor;
+        } while (cursor);
+
+        const top = Object.keys(counts)
+          .map(d => ({ dish: d, votes: counts[d] }))
+          .sort((a, b) => b.votes - a.votes || a.dish.localeCompare(b.dish))
+          .slice(0, VOTE_TOP_N)
+          .filter(r => r.votes > 0); // nothing shows until something is voted for
+
+        return json({ top, ballots }, origin);
+      }
+
+      // ── GET /votes/full — token-gated, FULL ranking + recent ballots ─────
+      // Kevin's private view. Everything the public route hides: every
+      // whitelist dish including zero-vote ones, and the last 50 ballots
+      // newest-first so a vote-stuffing burst is visible (he caught a friend's
+      // four-minute run by hand from the raw KV; this gives it to him properly).
+      // Same list()+metadata tally as the public route — never a counter.
+      if (request.method === 'GET' && url.pathname === '/votes/full') {
+        const tok = request.headers.get('X-LTB-Token') || url.searchParams.get('token') || '';
+        if (tok !== env.PUBLISH_TOKEN) return json({ error: 'Unauthorized' }, origin, 401);
+
+        const counts = {};
+        for (const d of PIPELINE_DISHES) counts[d] = 0;
+        let ballots = 0;
+        const recent = [];
+        let cursor;
+        do {
+          const listing = await env.LTB_KV.list({ prefix: VOTE_PREFIX, limit: 1000, cursor });
+          for (const k of listing.keys) {
+            let picks = (k.metadata && Array.isArray(k.metadata.p)) ? k.metadata.p : null;
+            let at = null;
+            const raw = await env.LTB_KV.get(k.name);
+            if (raw) {
+              try { const parsed = JSON.parse(raw); if (!picks) picks = parsed.p || []; at = parsed.at || null; }
+              catch (e) { if (!picks) continue; }
+            }
+            if (!picks || !picks.length) continue;
+            ballots++;
+            for (const d of picks) {
+              if (Object.prototype.hasOwnProperty.call(counts, d)) counts[d]++;
+            }
+            recent.push({ at, picks });
+          }
+          cursor = listing.list_complete ? null : listing.cursor;
+        } while (cursor);
+
+        const ranking = Object.keys(counts)
+          .map(d => ({ dish: d, votes: counts[d] }))
+          .sort((a, b) => b.votes - a.votes || a.dish.localeCompare(b.dish));
+
+        recent.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+
+        return json({ ranking, ballots, recent: recent.slice(0, 50) }, origin);
+      }
+
+      // ── POST /votes — cast a ballot of up to 3 ───────────────────────────
+      // Open and unauthenticated on purpose. No identity, no dedupe: Kevin
+      // trusts the list. Do NOT add a localStorage id here and call it one
+      // vote per person; it would not be, and it would imply a guarantee the
+      // endpoint cannot make.
+      if (request.method === 'POST' && url.pathname === '/votes') {
+        const body = await request.json().catch(() => ({}));
+        const raw = Array.isArray(body.picks) ? body.picks : [];
+
+        // Validate against the whitelist, dedupe within the ballot, then cap.
+        const seen = {};
+        const picks = [];
+        for (const item of raw) {
+          if (typeof item !== 'string') continue;
+          if (!PIPELINE_DISHES.includes(item)) continue;
+          if (seen[item]) continue;
+          seen[item] = 1;
+          picks.push(item);
+          if (picks.length >= VOTE_MAX_PICKS) break;
+        }
+        if (!picks.length) return json({ error: 'bad request' }, origin, 400);
+
+        // No pre-flight cap check here on purpose. It used to list the whole
+        // namespace on every vote to enforce a ceiling this audience will never
+        // reach: a KV read on every write, for nothing.
+        //
+        // The picks are the VALUE. They are also mirrored into metadata so
+        // GET /votes can tally straight off list() without reading each body.
+        // Do NOT "optimize" this back to an empty value with metadata-only:
+        // KV rejects an empty value and every POST 500s. That was the bug.
+        const ballot = JSON.stringify({ p: picks, at: new Date().toISOString() });
+        await env.LTB_KV.put(VOTE_PREFIX + crypto.randomUUID(), ballot, {
+          metadata: { p: picks },
+        });
+        return json({ ok: true, counted: picks.length }, origin);
+      }
+
+      // ── POST /requestable — TOKEN: app publishes the requestable dish list ─
+      // The full dinner catalog, written on every week publish. POST /requests
+      // validates against this, so the worker never hand-keeps a dish list.
+      if (request.method === 'POST' && url.pathname === '/requestable') {
+        const body = await request.json().catch(() => ({}));
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const dishes = Array.isArray(body.dishes) ? body.dishes.filter(d => typeof d === 'string') : [];
+        await env.LTB_KV.put(REQUESTABLE_KEY, JSON.stringify(dishes));
+        return json({ ok: true, count: dishes.length }, origin);
+      }
+
+      // ── POST /requests — public, "want this dish back next week" ─────────
+      // Trust model identical to votes: anonymous, no dedupe, single put(), no
+      // pre-flight list. Validated against the app-published whitelist so the
+      // worker never carries a second dish list to drift.
+      if (request.method === 'POST' && url.pathname === '/requests') {
+        const body = await request.json().catch(() => ({}));
+        const dish = typeof body.dish === 'string' ? body.dish : '';
+        if (!dish) return json({ error: 'bad request' }, origin, 400);
+
+        let allowed = [];
+        try {
+          const raw = await env.LTB_KV.get(REQUESTABLE_KEY);
+          if (raw) allowed = JSON.parse(raw);
+        } catch (e) { allowed = []; }
+        if (!Array.isArray(allowed) || !allowed.includes(dish)) {
+          return json({ error: 'unknown dish' }, origin, 400);
+        }
+
+        const note = (typeof body.note === 'string' ? body.note : '').slice(0, REQ_NOTE_MAX);
+        const rec = JSON.stringify({ d: dish, n: note, at: new Date().toISOString() });
+        await env.LTB_KV.put(REQ_PREFIX + crypto.randomUUID(), rec, {
+          metadata: { d: dish },
+          expirationTtl: REQ_TTL,
+        });
+        return json({ ok: true }, origin);
+      }
+
+      // ── GET /requests — token-gated, counts + recent ─────────────────────
+      // Counts only live (unexpired) keys — the TTL already dropped the dead
+      // ones, so no windowing needed. Tally off metadata like votes.
+      if (request.method === 'GET' && url.pathname === '/requests') {
+        const tok = request.headers.get('X-LTB-Token') || url.searchParams.get('token') || '';
+        if (tok !== env.PUBLISH_TOKEN) return json({ error: 'Unauthorized' }, origin, 401);
+
+        const counts = {};
+        const recent = [];
+        let total = 0;
+        let cursor;
+        do {
+          const listing = await env.LTB_KV.list({ prefix: REQ_PREFIX, limit: 1000, cursor });
+          for (const k of listing.keys) {
+            let dish = (k.metadata && k.metadata.d) || null;
+            let at = null;
+            if (!dish) {
+              const raw = await env.LTB_KV.get(k.name);
+              if (!raw) continue;
+              try { const pp = JSON.parse(raw); dish = pp.d; at = pp.at || null; } catch (e) { continue; }
+            }
+            if (!dish) continue;
+            total++;
+            counts[dish] = (counts[dish] || 0) + 1;
+            recent.push({ at, dish });
+          }
+          cursor = listing.list_complete ? null : listing.cursor;
+        } while (cursor);
+
+        const out = Object.keys(counts)
+          .map(d => ({ dish: d, requests: counts[d] }))
+          .sort((a, b) => b.requests - a.requests || a.dish.localeCompare(b.dish));
+        recent.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+
+        return json({ counts: out, total, recent: recent.slice(0, 50) }, origin);
+      }
+
       if (request.method === 'GET' && url.pathname === '/sheet') {
         if (!LEGACY_SHEET_ENABLED) {
           return json({ error: 'Legacy sheet endpoint disabled' }, origin, 410);

@@ -5,6 +5,7 @@ export const ORDERS_KEY = 'ltb-orders';
 export const CHECKS_KEY = 'ltb-cook-checks';
 export const DELIVER_CHECKS_KEY = 'ltb-deliver-checks';
 export const DISH_NOTES_KEY = 'ltb-dish-notes';
+export const PIPELINE_JOURNAL_KEY = 'ltb-pipeline-journal';
 export const WEEK_NOTES_KEY = 'ltb-week-notes';
 export const SHOPPING_KEY = 'ltb-shopping';
 export const WEEK_KEY = 'ltb-week';

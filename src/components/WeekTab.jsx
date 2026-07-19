@@ -49,6 +49,24 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   const [weekLabel, setWeekLabel] = useState('');
   const [showConflicts, setShowConflicts] = useState(false);
 
+  // ── Customer dish requests (informational; NOT wired into scoring) ─────────
+  // Fetched once on mount. A count chip next to a dish tells Kevin what people
+  // asked for back, next to the compose decision — it does not change it.
+  const [requestCounts, setRequestCounts] = useState(null); // { dishName: n }
+  useEffect(() => {
+    let alive = true;
+    fetch(WORKER_BASE + '/requests?token=' + encodeURIComponent(PUBLISH_TOKEN))
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('bad')))
+      .then(j => {
+        if (!alive) return;
+        const m = {};
+        for (const c of (j.counts || [])) m[c.dish] = c.requests;
+        setRequestCounts(m);
+      })
+      .catch(() => { if (alive) setRequestCounts({}); });
+    return () => { alive = false; };
+  }, []);
+
   // Compute the next Sunday (order due date) and following Wednesday (delivery).
   const computeWeekLabel = () => {
     const now = new Date();
@@ -160,7 +178,14 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               {isOn && <Check size={14} color="#1a1a1a" />}
             </div>
             <div style={styles.cookItemText}>
-              <div style={styles.cookItemName}>{dish.name}</div>
+              <div style={styles.cookItemName}>
+                {dish.name}
+                {requestCounts && requestCounts[dish.name] > 0 && (
+                  <span style={{ marginLeft: 6, fontSize: '10px', fontWeight: 700, color: '#5DCAA5', background: 'rgba(93,202,165,0.14)', borderRadius: 6, padding: '1px 6px' }}>
+                    {requestCounts[dish.name]} req
+                  </span>
+                )}
+              </div>
               <div style={styles.cookItemVariant}>
                 {dish.variants.length} option{dish.variants.length !== 1 ? 's' : ''} · {priceLabel}
                 {worst !== null && Math.abs(worst) >= 2 && (

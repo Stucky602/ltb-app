@@ -7,6 +7,8 @@ import { MARGIN_BUFFER } from '../dishCosting.js';
 import {
   buildDishReport, buildPortfolioSummary, reportableDishes, buildServingAudit, dishSalesHistory,
 } from '../dishReport.js';
+import { PIPELINE_DISHES } from '../pipelineDishes.js';
+import { buildPromoteScaffold, newPromoteChecklist } from '../promoteScaffold.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
 const C = {
@@ -184,7 +186,7 @@ function FeedbackStrip({ fb, dish, onReset }) {
   );
 }
 
-export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders }) {
+export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders, pipelineJournal, onSavePipelineJournal }) {
   const [dish, setDish] = useState('');
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [size, setSize] = useState('small'); // 'small' | 'large' | 'only'
@@ -285,10 +287,255 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     return arr;
   }, [portfolio, portSort]);
 
+  // ── Pipeline section state ──────────────────────────────────────────────
+  const [showPipeline, setShowPipeline] = useState(false); // collapsed by default
+  const [pipeKey, setPipeKey] = useState('');
+  const [voteFull, setVoteFull] = useState(null); // { ranking, ballots } from /votes/full
+  const [voteErr, setVoteErr] = useState(false);
+  // new-journal-entry form
+  const [jKind, setJKind] = useState('reheat');
+  const [jDayN, setJDayN] = useState('');
+  const [jVerdict, setJVerdict] = useState('');
+  const [jQ, setJQ] = useState('');
+  const [jNote, setJNote] = useState('');
+  const [promoteText, setPromoteText] = useState('');
+  const [promoteCuisine, setPromoteCuisine] = useState('American');
+  const [copiedPromote, setCopiedPromote] = useState(false);
+
+  const journalEntries = (pipelineJournal && pipelineJournal.entries) || {};
+  const statusOf = (key) => (journalEntries[key] && journalEntries[key].status) || 'testing';
+
+  // Group the dropdown: testing (alpha) → promoting → shipped/killed.
+  const pipeGroups = useMemo(() => {
+    const g = { testing: [], promoting: [], done: [] };
+    for (const d of PIPELINE_DISHES) {
+      const st = d.status || statusOf(d.key);
+      if (st === 'shipped' || st === 'killed') g.done.push(d);
+      else if (st === 'promoting') g.promoting.push(d);
+      else g.testing.push(d);
+    }
+    const byTitle = (a, b) => a.title.localeCompare(b.title);
+    g.testing.sort(byTitle); g.promoting.sort(byTitle); g.done.sort(byTitle);
+    return g;
+  }, [pipelineJournal]);
+
+  const pipeDish = useMemo(() => PIPELINE_DISHES.find(d => d.key === pipeKey) || null, [pipeKey]);
+  const pipeStatus = pipeDish ? (pipeDish.status || statusOf(pipeDish.key)) : null;
+
+  // Fetch full vote standing once when the section opens.
+  useEffect(() => {
+    if (!showPipeline || voteFull || voteErr) return;
+    let alive = true;
+    fetch(WORKER_BASE + '/votes/full?token=' + encodeURIComponent(PUBLISH_TOKEN))
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('bad')))
+      .then(j => { if (alive) setVoteFull(j); })
+      .catch(() => { if (alive) setVoteErr(true); });
+    return () => { alive = false; };
+  }, [showPipeline]); // eslint-disable-line
+
+  const pipeVote = useMemo(() => {
+    if (!voteFull || !pipeDish) return null;
+    const idx = voteFull.ranking.findIndex(r => r.dish === pipeDish.key);
+    if (idx < 0) return null;
+    return { rank: idx + 1, of: voteFull.ranking.length, votes: voteFull.ranking[idx].votes, ballots: voteFull.ballots };
+  }, [voteFull, pipeDish]);
+
+  const pipeJournal = pipeDish ? (journalEntries[pipeDish.key] || {}) : {};
+  const pipeLog = (pipeJournal.journal || []).slice().sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+
+  // Which open questions have a verdict logged against them.
+  const answeredQ = useMemo(() => {
+    const m = {};
+    for (const e of (pipeJournal.journal || [])) {
+      if (e.questionIdx != null && e.verdict) m[e.questionIdx] = e;
+    }
+    return m;
+  }, [pipeJournal]);
+
+  const addJournalEntry = () => {
+    if (!pipeDish) return;
+    const entry = {
+      at: new Date().toISOString(),
+      kind: jKind,
+      dayN: jKind === 'reheat' && jDayN ? Number(jDayN) : null,
+      verdict: jVerdict || null,
+      questionIdx: jQ !== '' ? Number(jQ) : null,
+      note: jNote.trim(),
+    };
+    onSavePipelineJournal(prev => {
+      const cur = prev[pipeDish.key] || { journal: [], status: 'testing' };
+      return { ...prev, [pipeDish.key]: { ...cur, journal: [...(cur.journal || []), entry] } };
+    });
+    setJNote(''); setJDayN(''); setJVerdict(''); setJQ('');
+  };
+
+  const doPromote = () => {
+    if (!pipeDish) return;
+    const text = buildPromoteScaffold(pipeDish, promoteCuisine);
+    setPromoteText(text);
+    onSavePipelineJournal(prev => {
+      const cur = prev[pipeDish.key] || { journal: [], status: 'testing' };
+      return { ...prev, [pipeDish.key]: { ...cur, status: 'promoting', promoteChecklist: newPromoteChecklist(pipeDish, promoteCuisine) } };
+    });
+  };
+
+  const setPipeStatus = (status) => {
+    if (!pipeDish) return;
+    onSavePipelineJournal(prev => {
+      const cur = prev[pipeDish.key] || { journal: [], status: 'testing' };
+      return { ...prev, [pipeDish.key]: { ...cur, status } };
+    });
+  };
+
   return (
     <div style={S.wrap}>
       <h2 style={S.h2}>Recipes</h2>
       <p style={S.hint}>Full recipe, cost, and margin intelligence for any dinner. Pick a dish, then a version.</p>
+
+      {/* ── PIPELINE — candidates in testing ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowPipeline(o => !o)}>
+          <span>Pipeline · {pipeGroups.testing.length} in testing</span>
+          <span>{showPipeline ? '▲' : '▼'}</span>
+        </button>
+        {showPipeline && (
+          <div style={{ marginTop: 10 }}>
+            <select style={S.select} value={pipeKey} onChange={e => { setPipeKey(e.target.value); setPromoteText(''); }}>
+              <option value="">Pick a candidate…</option>
+              <optgroup label="Testing">
+                {pipeGroups.testing.map(d => <option key={d.key} value={d.key}>{d.title}</option>)}
+              </optgroup>
+              {pipeGroups.promoting.length > 0 && (
+                <optgroup label="Promoting">
+                  {pipeGroups.promoting.map(d => <option key={d.key} value={d.key}>{d.title}</option>)}
+                </optgroup>
+              )}
+              {pipeGroups.done.length > 0 && (
+                <optgroup label="Shipped / Killed">
+                  {pipeGroups.done.map(d => <option key={d.key} value={d.key}>{d.title} ({d.status || statusOf(d.key)})</option>)}
+                </optgroup>
+              )}
+            </select>
+
+            {pipeDish && (
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{pipeDish.title}</div>
+                <div style={{ fontSize: 12, color: C.dim, marginBottom: 6 }}>{pipeDish.origin.replace(/&middot;/g, '·')}</div>
+                <div style={S.chipRow}>
+                  {pipeDish.diet && <span style={{ ...S.chip(true), cursor: 'default' }}>{pipeDish.diet}</span>}
+                  {Object.keys(pipeDish.allergenFlags || {}).map(a => (
+                    <span key={a} style={{ ...S.chip(false), cursor: 'default' }}>{a}</span>
+                  ))}
+                  <span style={{ ...S.chip(false), cursor: 'default', color: pipeStatus === 'testing' ? C.good : C.warn }}>{pipeStatus}</span>
+                </div>
+                <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.5, marginBottom: 4 }}>{pipeDish.desc}</div>
+                <div style={{ fontSize: 10.5, color: C.faint, marginBottom: 10 }}>Copy is canon; edit in pipelineDishes.js.</div>
+
+                {/* Vote standing */}
+                <div style={S.section}>
+                  <div style={S.sectionTitle}>Vote standing</div>
+                  {voteErr && <div style={{ fontSize: 12, color: C.dim }}>Couldn't load votes.</div>}
+                  {!voteErr && !voteFull && <div style={{ fontSize: 12, color: C.dim }}>Loading…</div>}
+                  {pipeVote && (
+                    <div style={{ fontSize: 13, color: C.text }}>
+                      Rank <b style={{ color: C.good }}>#{pipeVote.rank}</b> of {pipeVote.of} · <b>{pipeVote.votes}</b> vote{pipeVote.votes === 1 ? '' : 's'} · {pipeVote.ballots} ballot{pipeVote.ballots === 1 ? '' : 's'} total
+                    </div>
+                  )}
+                  {voteFull && !pipeVote && <div style={{ fontSize: 12, color: C.dim }}>Not on the current vote board.</div>}
+                </div>
+
+                {/* Open questions */}
+                {(pipeDish.openQuestions || []).length > 0 && (
+                  <div style={S.section}>
+                    <div style={S.sectionTitle}>Open questions</div>
+                    {pipeDish.openQuestions.map((q, i) => {
+                      const a = answeredQ[i];
+                      return (
+                        <div key={i} style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 4, color: a ? C.faint : C.text }}>
+                          <span style={{ textDecoration: a ? 'line-through' : 'none' }}>{q}</span>
+                          {a && <span style={{ color: a.verdict === 'held' ? C.good : C.badText, marginLeft: 6 }}>
+                            {a.verdict}{a.dayN ? ` · day ${a.dayN}` : ''}
+                          </span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Test-kitchen journal */}
+                <div style={S.section}>
+                  <div style={S.sectionTitle}>Test-kitchen journal</div>
+                  {pipeLog.length === 0 && <div style={{ fontSize: 12, color: C.dim, marginBottom: 8 }}>No entries yet.</div>}
+                  {pipeLog.map((e, i) => (
+                    <div key={i} style={{ fontSize: 12.5, lineHeight: 1.5, marginBottom: 6, borderLeft: `2px solid ${C.border}`, paddingLeft: 8 }}>
+                      <span style={{ color: C.faint }}>{String(e.at || '').slice(0, 10)}</span>{' '}
+                      <span style={{ color: C.dim }}>{e.kind}{e.dayN ? ` · day ${e.dayN}` : ''}</span>
+                      {e.verdict && <span style={{ color: e.verdict === 'held' ? C.good : C.badText, marginLeft: 4 }}> · {e.verdict}</span>}
+                      {e.note && <div style={{ color: C.text }}>{e.note}</div>}
+                    </div>
+                  ))}
+
+                  {/* Add entry */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                    <select style={{ ...S.select, width: 'auto', marginBottom: 6 }} value={jKind} onChange={e => setJKind(e.target.value)}>
+                      <option value="cook">cook</option>
+                      <option value="reheat">reheat</option>
+                      <option value="note">note</option>
+                    </select>
+                    {jKind === 'reheat' && (
+                      <input style={{ ...S.select, width: 70, marginBottom: 6 }} type="number" placeholder="day" value={jDayN} onChange={e => setJDayN(e.target.value)} />
+                    )}
+                    <select style={{ ...S.select, width: 'auto', marginBottom: 6 }} value={jVerdict} onChange={e => setJVerdict(e.target.value)}>
+                      <option value="">verdict…</option>
+                      <option value="held">held</option>
+                      <option value="died">died</option>
+                    </select>
+                    {(pipeDish.openQuestions || []).length > 0 && (
+                      <select style={{ ...S.select, width: 'auto', marginBottom: 6 }} value={jQ} onChange={e => setJQ(e.target.value)}>
+                        <option value="">answers Q…</option>
+                        {pipeDish.openQuestions.map((q, i) => <option key={i} value={i}>Q{i + 1}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  <textarea style={{ ...S.select, minHeight: 44 }} placeholder="What happened?" value={jNote} onChange={e => setJNote(e.target.value)} />
+                  <button style={S.chip(false)} onClick={addJournalEntry}>Add journal entry</button>
+                </div>
+
+                {/* Promote */}
+                {pipeStatus === 'testing' && (
+                  <div style={S.section}>
+                    <div style={S.sectionTitle}>Promote to the menu</div>
+                    <div style={{ fontSize: 11.5, color: C.dim, lineHeight: 1.5, marginBottom: 8 }}>
+                      Generates the scaffold for every surface. The Big 3 — description, reheat card, and margins — stay blank on purpose; fill them with Claude. The gate stays red until they're real.
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: C.dim }}>Cuisine:</span>
+                      <select style={{ ...S.select, width: 'auto', marginBottom: 0 }} value={promoteCuisine} onChange={e => setPromoteCuisine(e.target.value)}>
+                        {['American', 'Southern', 'Tex-Mex', 'Indian', 'Japanese', 'Korean', 'Chinese', 'Thai', 'Italian', 'German', 'Spotlight'].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                    <button style={S.chip(true)} onClick={doPromote}>Generate promote scaffold</button>
+                    {promoteText && (
+                      <div style={{ marginTop: 8 }}>
+                        <button style={S.chip(false)} onClick={() => { copyText(promoteText); setCopiedPromote(true); setTimeout(() => setCopiedPromote(false), 1500); }}>
+                          {copiedPromote ? 'Copied ✓' : 'Copy scaffold'}
+                        </button>
+                        <pre style={{ fontSize: 10.5, color: C.dim, background: C.panelAlt, border: `1px solid ${C.border}`, borderRadius: 8, padding: 8, marginTop: 8, overflowX: 'auto', whiteSpace: 'pre-wrap', maxHeight: 260 }}>{promoteText}</pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {pipeStatus === 'promoting' && (
+                  <div style={{ fontSize: 12, color: C.warn, marginTop: 6 }}>
+                    Promoting — finish the scaffold with Claude, then run the gate. <button style={{ ...S.chip(false), marginLeft: 6 }} onClick={() => setPipeStatus('testing')}>Back to testing</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
 
       {/* ── Portfolio radar ── */}
       <div style={S.section}>

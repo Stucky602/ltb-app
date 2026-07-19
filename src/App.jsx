@@ -16,7 +16,7 @@ import {
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
-  ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
+  ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -120,6 +120,10 @@ export default function LTBOrderTracker() {
   const [deliverChecks, setDeliverChecks] = useState({});
   const [cookSubView, setCookSubView] = useState('cook');
   const [dishNotes, setDishNotes] = useState({});
+  // Pipeline test-kitchen journal: { version, entries: { key: { journal:[], status, promoteChecklist } } }
+  // Rides the backup ring (below) — day-three verdicts are the whole point of
+  // the feature and a device wipe must not lose them.
+  const [pipelineJournal, setPipelineJournal] = useState({ version: 1, entries: {} });
   // Per-dish feedback store (persistent) + incoming triage queue (transient).
   // Feedback is dish-linked only — never attached to orders. Queue entries
   // keep their worker pageId; a pageId is cleared from KV only once ALL its
@@ -207,7 +211,7 @@ export default function LTBOrderTracker() {
         await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
       }
 
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback] = await Promise.all([
+      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
         loadJSON(SHOPPING_KEY, []),
@@ -215,6 +219,7 @@ export default function LTBOrderTracker() {
         loadJSON(DELIVER_CHECKS_KEY, {}),
         loadJSON(DISH_NOTES_KEY, {}),
         loadJSON(FEEDBACK_KEY, {}),
+        loadJSON(PIPELINE_JOURNAL_KEY, { version: 1, entries: {} }),
       ]);
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
@@ -245,6 +250,9 @@ export default function LTBOrderTracker() {
       setDeliverChecks(loadedDeliverChecks || {});
       setDishNotes(loadedDishNotes || {});
       setDishFeedback(loadedDishFeedback || {});
+      if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
+        setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
+      }
       setShopping(loadedShopping || []);
       setBooted(true);
       if (loadedWeek && Array.isArray(loadedWeek.selected)) {
@@ -1190,7 +1198,8 @@ export default function LTBOrderTracker() {
     costHistory,
     receiptAliases,
     auditLog,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog]);
+    pipelineJournal,
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1345,6 +1354,11 @@ export default function LTBOrderTracker() {
     if (payload.inventory && typeof payload.inventory === 'object') {
       setInventory(payload.inventory);
       await saveJSON(INVENTORY_KEY, payload.inventory);
+    }
+    if (payload.pipelineJournal && typeof payload.pipelineJournal === 'object') {
+      const pj = { version: 1, entries: payload.pipelineJournal.entries || {} };
+      setPipelineJournal(pj);
+      await saveJSON(PIPELINE_JOURNAL_KEY, pj);
     }
     // Seed reconciliation on restore. A snapshot is a photograph of the DB as
     // it was up to three days ago, so it carries whatever baselines were
@@ -1598,6 +1612,16 @@ export default function LTBOrderTracker() {
     setDishNotes(prev => {
       const next = { ...prev, [dishName]: text };
       saveJSON(DISH_NOTES_KEY, next);
+      return next;
+    });
+  }, []);
+
+  // Pipeline journal: full-object replace, matching the localStorage-JSON pattern.
+  // RecipesTab hands back the whole next-state (add entry, set status, etc).
+  const savePipelineJournal = useCallback((nextEntries) => {
+    setPipelineJournal(prev => {
+      const next = { version: 1, entries: typeof nextEntries === 'function' ? nextEntries(prev.entries || {}) : nextEntries };
+      saveJSON(PIPELINE_JOURNAL_KEY, next);
       return next;
     });
   }, []);
@@ -2101,6 +2125,8 @@ export default function LTBOrderTracker() {
             onSaveDishNote={saveDishNote}
             weekDishes={weekDishes}
             orders={orders || []}
+            pipelineJournal={pipelineJournal}
+            onSavePipelineJournal={savePipelineJournal}
           />
         )}
 

@@ -36,7 +36,29 @@ import {
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { InvoiceModal, ReheatModal, WeightPhotoModal } from './Modals.jsx';
 
-export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular }) {
+// Dish passport for the companion page — REGULARS ONLY. An order linked to a
+// regular (regularId, or exact name match) gets { tried, total, missing } over
+// the full dinner catalog; anyone else gets null and no card. History is that
+// customer's orders by the same linkage.
+function buildPassport(order, regulars, allOrders) {
+  const reg = (order.regularId && (regulars || []).find(r => r.id === order.regularId))
+    || (regulars || []).find(r => (r.name || '').toLowerCase() === (order.customer || '').toLowerCase());
+  if (!reg) return null;
+  const mine = (allOrders || []).filter(o =>
+    (o.regularId && o.regularId === reg.id) ||
+    ((o.customer || '').toLowerCase() === (reg.name || '').toLowerCase()));
+  const tried = new Set();
+  for (const o of mine) for (const it of (o.items || [])) tried.add(it.name);
+  const dinnerNames = ALL_DINNERS.map(d => d.name);
+  const triedDinners = dinnerNames.filter(n => tried.has(n));
+  return {
+    tried: triedDinners.length,
+    total: dinnerNames.length,
+    missing: dinnerNames.filter(n => !tried.has(n)),
+  };
+}
+
+export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -462,7 +484,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 setCopyMsg('Kitchen link copied. Uploading the page…');
                 fetch(WORKER_BASE + '/companion', {
                   method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid), context: companionContext(order) }),
+                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, { passport: buildPassport(order, regulars, allOrders) }), context: companionContext(order) }),
                 }).then(res => {
                   if (!res.ok) throw new Error('push failed');
                   setCopyMsg('Kitchen link copied and live. Send it to ' + (order.customer || 'them') + '.');

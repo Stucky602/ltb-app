@@ -2003,7 +2003,7 @@ export default function LTBOrderTracker() {
 
             <div style={styles.orderList}>
               {activeOrders.map(order => (
-                <OrderCard
+                <OrderCard allOrders={orders || []}
                   key={order.id}
                   order={order}
                   regulars={regulars}
@@ -2025,7 +2025,7 @@ export default function LTBOrderTracker() {
                 </summary>
                 <div style={styles.orderList}>
                   {deliveredOrders.map(order => (
-                    <OrderCard
+                    <OrderCard allOrders={orders || []}
                       key={order.id}
                       order={order}
                       regulars={regulars}

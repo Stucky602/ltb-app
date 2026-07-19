@@ -274,6 +274,30 @@ for (const d of DISHES) {
   }
 }
 
+// ─── 2c. Pairing taxonomy (Jul 18) ──────────────────────────────────────────
+// Every pairing carries an id into the drinks.js catalog, and every dish keeps
+// Kevin's composition rule: wine always present, plus at least one zero-proof
+// option. The rule held before only because it was followed carefully once;
+// now it's mechanical, and every future dish inherits it. (Wildcard-heavy is
+// editorial and can't be gated; wine + zero-proof can.)
+{
+  const { DRINKS, ALC_KINDS, ZERO_KINDS } = await import('../src/drinks.js');
+  for (const d of DISHES) {
+    const pairs = (d.copy && d.copy.pairings) || null;
+    if (!pairs) continue;
+    let hasWine = false, hasZero = false;
+    for (const p of pairs) {
+      if (!p.id) { F('pairing-id', `"${d.name}" pairing "${p.drink}" has no catalog id`); continue; }
+      const cat = DRINKS[p.id];
+      if (!cat) { F('pairing-id', `"${d.name}" pairing "${p.drink}" has unknown id '${p.id}' — add it to drinks.js`); continue; }
+      if (cat.kind === 'wine') hasWine = true;
+      if (ZERO_KINDS.has(cat.kind)) hasZero = true;
+    }
+    if (!hasWine) F('pairing-rule', `"${d.name}" has no wine pairing — Kevin's rule: wine is always present`);
+    if (!hasZero) F('pairing-rule', `"${d.name}" has no zero-proof pairing — Kevin's rule: at least one tea/soda/water/NA option`);
+  }
+}
+
 // ─── 3. Proportion invariance under a NON-uniform price shock ───────────────
 // All variants of a dish with the same ingredient composition must show the
 // same drift %. Known structural exceptions (explicit, with reasons — do NOT

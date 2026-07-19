@@ -6,6 +6,7 @@
 import { buildReheatBlocks, itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
+import { DRINKS } from './drinks.js';
 import { LTB_LOGO } from './ltbLogo.js';
 import { parseServings } from './dishReport.js';
 
@@ -30,7 +31,7 @@ export function companionContext(order) {
   return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}`;
 }
 
-export function companionHtml(order, pageId = '') {
+export function companionHtml(order, pageId = '', opts = {}) {
   const customer = esc(order.customer || 'Friend');
   const firstName = customer.split(' ')[0];
   const blocks = buildReheatBlocks(order);
@@ -72,6 +73,36 @@ export function companionHtml(order, pageId = '') {
   // available items, per-lb proteins) simply don't appear.
   const PAIRINGS_BY_NAME = {};
   for (const d of DISHES) if (d.copy && d.copy.pairings) PAIRINGS_BY_NAME[d.name] = d.copy.pairings;
+  // ── One bottle for the whole order ──────────────────────────────────────
+  // Canonical drink ids make the intersection trivial: if one drink appears in
+  // every ordered dinner's pairings, say so up top. If no perfect cover, take
+  // the drink covering the most dinners (>=2). Wine wins ties — it's the
+  // bottle someone actually brings.
+  const dinnersWithPairs = items.filter(it => PAIRINGS_BY_NAME[it.name]);
+  let oneBottle = '';
+  if (dinnersWithPairs.length >= 2) {
+    const cover = {}; // id -> Set of dish names
+    for (const it of dinnersWithPairs) {
+      for (const pr of PAIRINGS_BY_NAME[it.name]) {
+        if (!pr.id) continue;
+        (cover[pr.id] = cover[pr.id] || new Set()).add(it.name);
+      }
+    }
+    let best = null;
+    for (const [id, set] of Object.entries(cover)) {
+      const kind = (DRINKS[id] || {}).kind;
+      const score = set.size * 10 + (kind === 'wine' ? 1 : 0);
+      if (set.size >= 2 && (!best || score > best.score)) best = { id, set, score };
+    }
+    if (best) {
+      const label = (DRINKS[best.id] || {}).label || best.id;
+      const all = best.set.size === dinnersWithPairs.length;
+      oneBottle = `<div class="one-bottle">${all
+        ? `One bottle covers it: <b>${esc(label)}</b> works with everything you ordered this week.`
+        : `Closest to one bottle: <b>${esc(label)}</b> covers ${best.set.size} of your ${dinnersWithPairs.length} dinners.`}</div>`;
+    }
+  }
+
   const pairingSections = items
     .filter(it => PAIRINGS_BY_NAME[it.name])
     .map(it => {
@@ -82,8 +113,25 @@ export function companionHtml(order, pageId = '') {
   const pairingsCard = pairingSections.length ? `
     <div class="card pair">
       <h3>What to drink with it</h3>
+      ${oneBottle}
       ${pairingSections.join('')}
     </div>` : '';
+
+  // ── Dish passport — REGULARS ONLY (opts.passport supplied by the app when
+  // the order is linked to a regular; absent = card absent). A quiet nudge
+  // toward breadth, not gamification: what they've had, what they haven't.
+  let passportCard = '';
+  if (opts.passport && opts.passport.total > 0) {
+    const pp = opts.passport;
+    const missing = (pp.missing || []).slice(0, 5);
+    const more = (pp.missing || []).length - missing.length;
+    passportCard = `
+    <div class="card passport">
+      <h3>Your dish passport</h3>
+      <div class="pp-line">You've had <b>${pp.tried}</b> of the <b>${pp.total}</b> dinners on the full menu.</div>
+      ${missing.length ? `<div class="pp-missing">Still out there: ${missing.map(esc).join(', ')}${more > 0 ? `, and ${more} more` : ''}.</div>` : `<div class="pp-missing">You've tried everything. Respect.</div>`}
+    </div>`;
+  }
 
   const stepsIntro = blocks.length ? `<div class="lead">When you're ready to eat, here's the plan:</div>` : '';
 
@@ -113,6 +161,13 @@ export function companionHtml(order, pageId = '') {
   .pname { font-size: 12px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; color: #9aa5a0; margin-bottom: 4px; }
   .prow { font-size: 13px; color: #cfe0d8; line-height: 1.5; margin-bottom: 3px; }
   .prow b { color: #e8ede9; font-weight: 600; }
+  .one-bottle { font-size: 13.5px; color: #cfe0d8; background: rgba(93,202,165,0.10); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.5; }
+  .one-bottle b { color: #5DCAA5; }
+  .card.passport { border-left: 2px solid #b8985a; }
+  .card.passport h3 { color: #d4b06a; }
+  .pp-line { font-size: 13.5px; color: #cfe0d8; margin-bottom: 4px; }
+  .pp-line b { color: #d4b06a; }
+  .pp-missing { font-size: 12.5px; color: #9aa5a0; line-height: 1.5; }
   .v { color: #9aa5a0; font-size: 12.5px; }
   .feeds { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #24413a; color: #5DCAA5; font-size: 11px; font-weight: 700; vertical-align: middle; }
   .card { background: #1c2422; border: 1px solid #2d3a36; border-radius: 14px; padding: 15px 17px; margin: 12px 0; }
@@ -165,6 +220,7 @@ export function companionHtml(order, pageId = '') {
   ${frozenCard}
   ${noFussCard}
   ${pairingsCard}
+  ${passportCard}
   <div class="card fb">
     <h3>How did everything come out?</h3>
     <p class="asknote">One tap per dish tells Kevin what worked, and a line about why helps even more. It makes the food better for everyone. You can submit feedback once per dish for this order.</p>

@@ -424,6 +424,25 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         </button>
         {showPipeline && (
           <div style={{ marginTop: 10 }}>
+            {/* Full board — every candidate, ranked, titles not keys. */}
+            {voteFull && (
+              <div style={{ ...S.section, maxHeight: 220, overflowY: 'auto' }}>
+                <div style={S.sectionTitle}>The board · {voteFull.ballots} ballot{voteFull.ballots === 1 ? '' : 's'}</div>
+                {voteFull.ranking.map((r, i) => {
+                  const cd = PIPELINE_DISHES.find(x => x.key === r.dish);
+                  return (
+                    <div key={r.dish} onClick={() => { setPipeKey(r.dish); setPromoteText(''); }}
+                      style={{ display: 'flex', gap: 8, fontSize: 12.5, lineHeight: 1.7, cursor: 'pointer', color: r.dish === pipeKey ? C.good : (r.votes === 0 ? C.faint : C.text) }}>
+                      <span style={{ width: 22, textAlign: 'right', color: C.faint, flexShrink: 0 }}>{i + 1}.</span>
+                      <span style={{ flex: 1 }}>{cd ? cd.title : r.dish}</span>
+                      <span style={{ color: r.votes > 0 ? C.good : C.faint, fontWeight: 700 }}>{r.votes}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {voteErr && <div style={{ fontSize: 12, color: C.dim, marginBottom: 8 }}>Couldn't load the vote board.</div>}
+
             <select style={S.select} value={pipeKey} onChange={e => { setPipeKey(e.target.value); setPromoteText(''); }}>
               <option value="">Pick a candidate…</option>
               <optgroup label="Testing">

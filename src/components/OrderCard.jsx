@@ -484,7 +484,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 setCopyMsg('Kitchen link copied. Uploading the page…');
                 fetch(WORKER_BASE + '/companion', {
                   method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, { passport: buildPassport(order, regulars, allOrders) }), context: companionContext(order) }),
+                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, { passport: buildPassport(order, regulars, allOrders) }), context: companionContext(order, { passport: buildPassport(order, regulars, allOrders) }) }),
                 }).then(res => {
                   if (!res.ok) throw new Error('push failed');
                   setCopyMsg('Kitchen link copied and live. Send it to ' + (order.customer || 'them') + '.');

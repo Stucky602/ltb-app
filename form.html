@@ -264,6 +264,7 @@
 
       // Customer details
       html += '<div class="section"><div class="section-title">Your Details</div>' +
+        '<div id="notYouRow" style="display:none;font-size:12px;color:var(--dim);margin-bottom:10px;"></div>' +
         '<label class="field-label">Name <span class="req">*</span></label>' +
         '<input type="text" id="custName" placeholder="First and last name" autocomplete="name">' +
         '<label class="field-label">Address <span class="rec">(recommended)</span></label>' +
@@ -289,6 +290,7 @@
       '</div>';
 
       document.getElementById("content").innerHTML = html;
+      prefillIdentity();
     }
 
     function changeQty(key, delta) {
@@ -535,14 +537,19 @@
         .then(function (r) { return r.json(); })
         .then(function (res) {
           if (res.ok) {
-            // Success: this order is done. The next one is a genuinely new
-            // order and must get its own key, or it would overwrite this one.
+            // Success: this order is done. The next one is a new order and
+            // must get its own key, or it would overwrite this one.
             pendingClientId = null;
+            // Persist identity (name/address/phone) for next week's prefill.
+            saveIdentity(name, address, phone);
             document.getElementById("content").innerHTML =
-              '<div class="msg success">Thanks, ' + esc(name) + '! Your order is in.<br><br>' +
-              'You will get a confirmation directly once it is reviewed. ' +
-              'Need to change something? Just reach out.<br><br>' +
-              '<a href="order.html" style="display:inline-block;margin-top:10px;padding:10px 20px;background:var(--teal-mid);color:var(--cream);font-weight:700;font-size:14px;border-radius:10px;text-decoration:none;">← Back to start</a></div>';
+              '<div class="msg success">Thanks, ' + esc(name) + '! Your order is in.<br>' +
+              'You will get a confirmation directly once it is reviewed.</div>' +
+              '<div class="section"><div class="section-title">Your order</div>' +
+              buildReceiptHtml(items) +
+              '<div style="font-size:12px;color:var(--dim);font-style:italic;text-align:center;margin-top:2px;">Screenshot this if you want a record.</div>' +
+              '</div>' +
+              '<a href="order.html" style="display:block;text-align:center;margin-top:16px;padding:12px 20px;background:var(--teal-mid);color:var(--cream);font-weight:700;font-size:14px;border-radius:10px;text-decoration:none;">← Back to start</a>';
             window.scrollTo(0, 0);
           } else {
             msgArea.innerHTML = '<div class="msg error">' + esc(res.error || "Something went wrong.") + ' Please try again.</div>';
@@ -553,6 +560,86 @@
           msgArea.innerHTML = '<div class="msg error">Could not submit. Check your connection and try again.</div>';
           btn.disabled = false; btn.textContent = "Submit Order";
         });
+    }
+
+    // ── Identity memory (v9.24) ────────────────────────────────────────────
+    // Regulars re-type the same name, address, and phone every single week.
+    // Those three fields never change, so persist them on a successful submit
+    // and prefill on the next visit. Identity only: never the cart, never the
+    // notes, nothing menu-dependent. One "Not you?" link clears it. ES5 only,
+    // and wrapped in try/catch because localStorage throws in private mode on
+    // some phones.
+    var IDENTITY_KEY = "ltb-order-identity";
+    function loadIdentity() {
+      try {
+        var raw = localStorage.getItem(IDENTITY_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+    function saveIdentity(name, address, phone) {
+      try {
+        localStorage.setItem(IDENTITY_KEY, JSON.stringify({ name: name, address: address, phone: phone }));
+      } catch (e) {}
+    }
+    function clearIdentity() {
+      try { localStorage.removeItem(IDENTITY_KEY); } catch (e) {}
+      var n = document.getElementById("custName"); if (n) { n.value = ""; }
+      var a = document.getElementById("custAddress"); if (a) { a.value = ""; }
+      var p = document.getElementById("custPhone"); if (p) { p.value = ""; }
+      var row = document.getElementById("notYouRow"); if (row) { row.style.display = "none"; }
+      if (n) { n.focus(); }
+    }
+    function prefillIdentity() {
+      var id = loadIdentity();
+      if (!id) return;
+      var n = document.getElementById("custName");
+      var a = document.getElementById("custAddress");
+      var p = document.getElementById("custPhone");
+      if (n && !n.value && id.name) n.value = id.name;
+      if (a && !a.value && id.address) a.value = id.address;
+      if (p && !p.value && id.phone) p.value = id.phone;
+      var row = document.getElementById("notYouRow");
+      if (row && id.name) {
+        row.innerHTML = 'Saved as <b>' + esc(id.name) + '</b>. ' +
+          '<a href="#" onclick="clearIdentity();return false;" style="color:var(--teal-light);">Not you?</a>';
+        row.style.display = "block";
+      }
+    }
+
+    // ── Success receipt ────────────────────────────────────────────────────
+    // Renders what the customer just ordered, with the estimated total, on the
+    // success screen so they can screenshot a record instead of texting to ask
+    // what they picked. Mirrors the review modal's item + total math (per-lb
+    // aware); kept as its own function so the working review path is untouched.
+    function buildReceiptHtml(items) {
+      var total = 0, hasPerLb = false, rows = "";
+      items.forEach(function (it) {
+        var isPerLb = !!it.perLb, lineTotal, variantLabel;
+        if (isPerLb) {
+          hasPerLb = true;
+          var avgW = it.avgWeightLb || 0;
+          lineTotal = (it.price * avgW + 2.00) * it.qty;
+          variantLabel = it.qty + ' piece' + (it.qty === 1 ? '' : 's') + ' &middot; priced by weight';
+        } else {
+          lineTotal = it.price * it.qty;
+          variantLabel = esc(it.variant);
+        }
+        total += lineTotal;
+        var lineTotalStr = (lineTotal % 1 === 0 ? lineTotal : lineTotal.toFixed(2));
+        rows += '<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--cream);padding:4px 0;border-bottom:1px solid #2d3a36;">' +
+          '<div>' + esc(it.qty) + '× ' + esc(it.name) + '<br><span style="font-size:12px;color:var(--dim);">' + variantLabel + '</span></div>' +
+          '<div style="font-weight:700;color:var(--gold);white-space:nowrap;padding-left:12px;">' + (isPerLb ? '~' : '') + '$' + lineTotalStr + '</div>' +
+          '</div>';
+      });
+      var totalStr = (total % 1 === 0 ? total : total.toFixed(2));
+      var html = '<div style="text-align:left;margin:14px 0 6px;">' + rows +
+        '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--gold);padding:10px 0 4px;">' +
+        '<span>Total' + (hasPerLb ? ' (est.)' : '') + '</span><span>' + (hasPerLb ? '~' : '') + '$' + totalStr + '</span></div>';
+      if (hasPerLb) {
+        html += '<div style="font-size:11px;color:var(--dim);font-style:italic;padding-top:2px;">Items priced by weight settle at the actual weight of your cuts.</div>';
+      }
+      html += '</div>';
+      return html;
     }
 
     loadConfig();

@@ -282,13 +282,15 @@ export default function LTBOrderTracker() {
       // Catches orders that predate the flag or were linked via a path that
       // didn't stamp it. The wife must not touch any number. Idempotent: once an
       // order is house + $0 it no longer matches.
-      const houseRegIds = new Set(migratedRegulars.filter(r => r.house).map(r => r.id));
-      if (houseRegIds.size > 0) {
+      const houseRegs = migratedRegulars.filter(r => r.house);
+      if (houseRegs.length > 0) {
+        const houseMatch = (o) => houseRegs.find(r => o.regularId === r.id || regularMatchType(r, o.customer) === 'exact');
         let houseFixed = 0;
         const houseBackfilled = migrated.map(o => {
-          if (o.regularId && houseRegIds.has(o.regularId) && (!o.house || o.total !== 0)) {
+          const reg = houseMatch(o);
+          if (reg && (!o.house || o.total !== 0 || o.regularId !== reg.id)) {
             houseFixed++;
-            return { ...o, house: true, waiveSurcharge: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT, total: 0 };
+            return { ...o, house: true, regularId: reg.id, waiveSurcharge: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT, total: 0 };
           }
           return o;
         });
@@ -427,14 +429,25 @@ export default function LTBOrderTracker() {
   };
 
   const saveOrder = useCallback((order) => {
+    // Auto-house: a manual "New order" builds the order in OrderForm without a
+    // regularId or house flag, so an order for the wife (a house regular) was
+    // counted against metrics and Kevin had to enter the 100% by hand. If the
+    // customer matches a house regular by link OR exact name, make it a proper
+    // house order here (free, flagged, linked) so isHouseOrder excludes it
+    // everywhere. Exact name only, since house means free. Idempotent.
+    let o = order;
+    const houseReg = (regulars || []).find(r => r.house && (o.regularId === r.id || regularMatchType(r, o.customer) === 'exact'));
+    if (houseReg && (!o.house || o.total !== 0 || o.regularId !== houseReg.id)) {
+      o = { ...o, house: true, regularId: houseReg.id, waiveSurcharge: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT, total: 0 };
+    }
     setOrders(prev => {
-      const exists = (prev || []).some(o => o.id === order.id);
+      const exists = (prev || []).some(x => x.id === o.id);
       const next = exists
-        ? (prev || []).map(o => (o.id === order.id ? order : o))
-        : [order, ...(prev || [])];
+        ? (prev || []).map(x => (x.id === o.id ? o : x))
+        : [o, ...(prev || [])];
       saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
       if (!exists) {
-        (order.items || []).forEach(it => {
+        (o.items || []).forEach(it => {
           const invKey = INVENTORY_ADDON_MAP[it.name];
           if (invKey) {
             setInventory(inv => {
@@ -449,7 +462,7 @@ export default function LTBOrderTracker() {
       return next;
     });
     setFormMode(null);
-  }, []);
+  }, [regulars]);
 
   const importOrders = useCallback((parsedOrders) => {
     const newOrders = parsedOrders.map(p => {

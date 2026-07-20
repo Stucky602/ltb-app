@@ -89,6 +89,18 @@ export const INGREDIENT_SEED = [
   { id: 'pork_shoulder', name: 'Pork shoulder (bone-in)', unit: 'lb', baseline: 2.59, category: 'protein' },
   { id: 'wagyu_london_broil', name: 'Wagyu london broil', unit: 'lb', baseline: 12.0, category: 'protein' },
   { id: 'pork_tenderloin', name: 'Pork tenderloin', unit: 'lb', baseline: 7.29, category: 'protein' }, // raw cost for recipe use (the bag item carries its own costPerLb)
+  // Sous vide per-lb bag proteins, added so receipts can match and cost them
+  // (the bag items keep their own costPerLb; these are for matching + recipe
+  // use, same pattern as pork_tenderloin above). Baselines = each item's
+  // costPerLb (Jul 20). Air-chilled chicken breast is a distinct product from
+  // the regular chicken_breast, per Kevin.
+  { id: 'ribeye', name: 'Ribeye steak', unit: 'lb', baseline: 16.49, category: 'protein' },
+  { id: 'ribeye_prime', name: 'Prime ribeye steak', unit: 'lb', baseline: 19.99, category: 'protein' },
+  { id: 'ny_strip', name: 'NY strip steak', unit: 'lb', baseline: 14.49, category: 'protein' },
+  { id: 'ny_strip_prime', name: 'Prime NY strip steak', unit: 'lb', baseline: 17.99, category: 'protein' },
+  { id: 'flank_steak', name: 'Flank steak', unit: 'lb', baseline: 11.0, category: 'protein' },
+  { id: 'filet_mignon_prime', name: 'Prime filet mignon', unit: 'lb', baseline: 34.99, category: 'protein' },
+  { id: 'air_chilled_chicken_breast', name: 'Air chilled chicken breast', unit: 'lb', baseline: 7.27, category: 'protein' },
   { id: 'shrimp', name: 'Shrimp', unit: 'lb', baseline: 14.0, category: 'protein' },
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },

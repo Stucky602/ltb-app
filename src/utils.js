@@ -363,11 +363,17 @@ export function orderTotal(items, jarSwaps, containerReturns, discountType, disc
 // defaulted to 1 lb, which meant the "reprice all" button silently fabricated
 // a weight for any still-pending protein, cleared weightPending, and (post
 // cost-basis) froze the fabricated number as a permanent snapshot.
-export function repricePerLbItem(it) {
+export function repricePerLbItem(it, liveCostMap = null) {
   const info = PER_LB_ITEMS[it.name];
   if (!info) return it;
   if (!(typeof it.weight === 'number' && it.weight > 0)) return it; // not weighed yet
   const lbs = it.weight;
+  // Cost per lb prefers the LIVE linked-ingredient cost (receipt-updated) so a
+  // ribeye buy that moves the ingredient cost moves this margin too; falls back
+  // to the static bag costPerLb when no live map or link is present (Jul 20).
+  const live = liveCostMap && info.costIngredient && typeof liveCostMap[info.costIngredient] === 'number'
+    ? liveCostMap[info.costIngredient] : null;
+  const costPerLb = live != null ? live : info.costPerLb;
   // price/cost are MEAT ONLY for the full weighed amount (all pieces weighed
   // once). The bag charge is added per-piece in itemsUpchargeTotal
   // (ceil(qty/2) bags), so it must NOT be baked in here anymore.
@@ -375,8 +381,8 @@ export function repricePerLbItem(it) {
     ...it,
     weightPending: false,
     price: round2(info.pricePerLb * lbs),
-    cost: round2(info.costPerLb * lbs),
-    costSource: 'snapshot',
+    cost: round2(costPerLb * lbs),
+    costSource: live != null ? 'live' : 'snapshot',
   };
 }
 
@@ -688,12 +694,16 @@ export function orderCostInfo(order) {
 export function groupKeyFor(order, mode) {
   const d = new Date(order.createdAt || 0);
   if (mode === 'week') {
-    const day = (d.getDay() + 6) % 7; // Mon=0
-    const mon = new Date(d);
-    mon.setDate(d.getDate() - day);
+    // Kevin's business week runs Wednesday through the following Tuesday: an
+    // order PLACED any time Wed–Tue belongs to that week. getDay() Wed=3, so
+    // (getDay()+4)%7 = days elapsed since this week's Wednesday. Retroactive by
+    // construction, since every order re-buckets from its createdAt.
+    const day = (d.getDay() + 4) % 7; // Wed=0
+    const wed = new Date(d);
+    wed.setDate(d.getDate() - day);
     return {
-      label: `Week of ${mon.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
-      stamp: new Date(mon.getFullYear(), mon.getMonth(), mon.getDate()).getTime(),
+      label: `Week of ${wed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`,
+      stamp: new Date(wed.getFullYear(), wed.getMonth(), wed.getDate()).getTime(),
     };
   }
   if (mode === 'month') {

@@ -58,7 +58,7 @@ function buildPassport(order, regulars, allOrders) {
   };
 }
 
-export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders }) {
+export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -87,7 +87,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
   const applyWeight = async (itemIdx, weight, photoBase64) => {
     const items = order.items.map((it, i) => {
       if (i !== itemIdx) return it;
-      const updated = repricePerLbItem({ ...it, weight });
+      const updated = repricePerLbItem({ ...it, weight }, perLbLiveCost);
       if (photoBase64) updated.hasPhoto = true;
       return updated;
     });

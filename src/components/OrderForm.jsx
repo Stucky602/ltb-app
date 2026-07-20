@@ -96,7 +96,7 @@ function itemOptionDefs(menu, it) {
   return Object.keys(out).length ? out : null;
 }
 
-export function OrderForm({ menu, initial, recentCustomers, regulars, orders, weekDishes, onSave, onCancel }) {
+export function OrderForm({ menu, initial, recentCustomers, regulars, orders, weekDishes, perLbLiveCost, onSave, onCancel }) {
   const isEdit = !!initial?.id;
   const [customer, setCustomer] = useState(initial?.customer || '');
   // ── Order-entry guard: when the typed name matches a regular, surface their
@@ -216,14 +216,14 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, orders, we
       if (i !== idx) return it;
       const w = parseFloat(weightStr);
       const updated = { ...it, weight: w > 0 ? w : undefined };
-      return isPerLbItem(it.name) && w > 0 ? repricePerLbItem(updated) : updated;
+      return isPerLbItem(it.name) && w > 0 ? repricePerLbItem(updated, perLbLiveCost) : updated;
     }));
   };
 
   // Reprice every per-lb protein in this order from its current weight (post-shopping button)
   const hasPerLbItems = items.some(it => isPerLbItem(it.name));
   const repriceAllSousVide = () => {
-    setItems(prev => prev.map(it => (isPerLbItem(it.name) ? repricePerLbItem(it) : it)));
+    setItems(prev => prev.map(it => (isPerLbItem(it.name) ? repricePerLbItem(it, perLbLiveCost) : it)));
   };
 
   const addCustomCharge = () => setCustomCharges(prev => [...prev, { id: uid(), label: '', amount: '' }]);

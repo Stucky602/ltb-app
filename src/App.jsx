@@ -276,6 +276,27 @@ export default function LTBOrderTracker() {
         return { ...r, names, name: names[0] || '' };
       });
       if (mounted) setRegulars(migratedRegulars);
+      // Retroactive house backfill (Jul 20): stamp house:true and the free-order
+      // fields onto any order linked to a house regular that's missing them, so
+      // isHouseOrder (books, Money tab, digest) excludes it from every metric.
+      // Catches orders that predate the flag or were linked via a path that
+      // didn't stamp it. The wife must not touch any number. Idempotent: once an
+      // order is house + $0 it no longer matches.
+      const houseRegIds = new Set(migratedRegulars.filter(r => r.house).map(r => r.id));
+      if (houseRegIds.size > 0) {
+        let houseFixed = 0;
+        const houseBackfilled = migrated.map(o => {
+          if (o.regularId && houseRegIds.has(o.regularId) && (!o.house || o.total !== 0)) {
+            houseFixed++;
+            return { ...o, house: true, waiveSurcharge: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT, total: 0 };
+          }
+          return o;
+        });
+        if (houseFixed > 0 && mounted) {
+          setOrders(houseBackfilled);
+          saveJSON(ORDERS_KEY, houseBackfilled);
+        }
+      }
       const savedInventory = await loadJSON(INVENTORY_KEY, {});
       if (mounted) setInventory(savedInventory || {});
 
@@ -1953,6 +1974,7 @@ export default function LTBOrderTracker() {
                 regulars={regulars}
                 orders={orders || []}
                 weekDishes={weekDishes}
+                perLbLiveCost={liveCostMap}
                 onSave={saveOrder}
                 onCancel={() => setFormMode(null)}
               />
@@ -2070,7 +2092,7 @@ export default function LTBOrderTracker() {
 
             <div style={styles.orderList}>
               {activeOrders.map(order => (
-                <OrderCard allOrders={orders || []}
+                <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap}
                   key={order.id}
                   order={order}
                   regulars={regulars}
@@ -2092,7 +2114,7 @@ export default function LTBOrderTracker() {
                 </summary>
                 <div style={styles.orderList}>
                   {deliveredOrders.map(order => (
-                    <OrderCard allOrders={orders || []}
+                    <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap}
                       key={order.id}
                       order={order}
                       regulars={regulars}

@@ -1970,45 +1970,45 @@ export const ALWAYS_ITEMS = {
     // form.html render, so this array IS the customer-facing order.
     // ── BEEF (alphabetical) ──────────────────────────────────────────────────
     {
-      name: 'Filet Mignon', packaging: 'none', perLb: true, pricePerLb: 34, costPerLb: 23.49, avgWeightLb: 0.5,
+      name: 'Filet Mignon', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_dinner', pricePerLb: 34, costPerLb: 23.49, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 34, cost: 23.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet mignon', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Filet Mignon - Prime', packaging: 'none', perLb: true, pricePerLb: 55, costPerLb: 34.99, avgWeightLb: 0.5,
+      name: 'Filet Mignon - Prime', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_prime', pricePerLb: 55, costPerLb: 34.99, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 55, cost: 34.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Flank Steak', packaging: 'none', perLb: true, pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
+      name: 'Flank Steak', packaging: 'none', perLb: true, costIngredient: 'flank_steak', pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
       variants: [{ label: 'price by weight', price: 20, cost: 11 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'NY Strip', packaging: 'none', perLb: true, pricePerLb: 26, costPerLb: 14.49, avgWeightLb: 0.75,
+      name: 'NY Strip', packaging: 'none', perLb: true, costIngredient: 'ny_strip', pricePerLb: 26, costPerLb: 14.49, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 26, cost: 14.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'NY Strip - Prime', packaging: 'none', perLb: true, pricePerLb: 32, costPerLb: 17.99, avgWeightLb: 0.75,
+      name: 'NY Strip - Prime', packaging: 'none', perLb: true, costIngredient: 'ny_strip_prime', pricePerLb: 32, costPerLb: 17.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 32, cost: 17.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
-      name: 'Ribeye', packaging: 'none', perLb: true, pricePerLb: 30, costPerLb: 16.49, avgWeightLb: 0.75,
+      name: 'Ribeye', packaging: 'none', perLb: true, costIngredient: 'ribeye', pricePerLb: 30, costPerLb: 16.49, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 30, cost: 16.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       // Prime line: renders directly under the regular Ribeye. Separate perLb
       // item (name-keyed pricing) so the whole weight pipeline works unchanged.
-      name: 'Ribeye - Prime', packaging: 'none', perLb: true, pricePerLb: 35, costPerLb: 19.99, avgWeightLb: 0.75,
+      name: 'Ribeye - Prime', packaging: 'none', perLb: true, costIngredient: 'ribeye_prime', pricePerLb: 35, costPerLb: 19.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 35, cost: 19.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── PORK (alphabetical) ──────────────────────────────────────────────────
     {
-      name: 'Pork Tenderloin', packaging: 'none', perLb: true, pricePerLb: 15, costPerLb: 7.29, avgWeightLb: 1.25,
+      name: 'Pork Tenderloin', packaging: 'none', perLb: true, costIngredient: 'pork_tenderloin', pricePerLb: 15, costPerLb: 7.29, avgWeightLb: 1.25,
       variants: [{ label: 'price by weight', price: 15, cost: 7.29 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
@@ -2017,13 +2017,13 @@ export const ALWAYS_ITEMS = {
       // ($6.29/lb, avg 0.75 lb). The old $4.19 anchor was CORRECT for the
       // thinner chop it replaced ($3.99/lb) — this is a product change, not a
       // fix. $6.29 raw x 1.0825 = $6.81 buffered; $13/lb holds 47.6%.
-      name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 6.81, avgWeightLb: 0.75,
+      name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, costIngredient: 'pork_chop_boneless', pricePerLb: 13, costPerLb: 6.81, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 13, cost: 6.81 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── CHICKEN ──────────────────────────────────────────────────────────────
     {
-      name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
+      name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, costIngredient: 'air_chilled_chicken_breast', pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
       variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },

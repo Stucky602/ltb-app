@@ -25,7 +25,7 @@ export const ALL_DINNERS = DISHES.map(d => {
 export const ALWAYS_MENU = {};
 for (const [cat, items] of Object.entries(ALWAYS_ITEMS)) {
   ALWAYS_MENU[cat] = items.map(it => it.perLb
-    ? { name: it.name, perLb: true, pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, variants: it.variants }
+    ? { name: it.name, perLb: true, pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, costIngredient: it.costIngredient, variants: it.variants }
     : { name: it.name, variants: it.variants });
 }
 
@@ -35,7 +35,7 @@ export const DEFAULT_WEEK = ['Shrimp or Tofu with Asparagus in Black Bean Sauce'
 // Which catalog items are priced by weight (sous vide proteins)
 export const PER_LB_ITEMS = {};
 ALWAYS_MENU.bag.forEach(it => {
-  if (it.perLb) PER_LB_ITEMS[it.name] = { pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb };
+  if (it.perLb) PER_LB_ITEMS[it.name] = { pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, costIngredient: it.costIngredient };
 });
 export function isPerLbItem(name) {
   return !!PER_LB_ITEMS[name];

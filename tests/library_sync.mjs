@@ -97,6 +97,7 @@ const isPrimeSubline = (name) => / - Prime$/.test(name);
 // there is nothing for a description to describe.
 const OFF_MENU = new Set([
   'Homemade Waffles', // breakfast item, costed in the app, never listed on menu.html
+  'Pecan Mole-Fesenjan, Beef and Kabocha', // OFF-MENU DRAFT (Jul 20): costed + built, not yet live; no menu.html copy on purpose
 ]);
 
 const exempt = (name) => isPrimeSubline(name) || OFF_MENU.has(name);

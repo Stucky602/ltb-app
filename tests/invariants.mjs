@@ -439,7 +439,9 @@ else {
   try { LIB = JSON.parse(libMatch[1]); } catch (e) { F('library', 'LIBRARY in menu.html is not valid JSON: ' + e.message); }
   if (LIB) {
     const libDinners = LIB.dinners || {};
+    const OFF_MENU_LIB = new Set(['Pecan Mole-Fesenjan, Beef and Kabocha']); // off-menu drafts have no customer LIBRARY copy by design
     for (const d of DISHES) {
+      if (OFF_MENU_LIB.has(d.name)) continue;
       const e = libDinners[d.name];
       if (!e) { F('library-entry', `dinner "${d.name}" has no menu.html LIBRARY entry (customer menu/order form show nothing for it)`); continue; }
       for (const field of ['desc', 'reheat', 'contains']) {
@@ -467,7 +469,9 @@ const cards = mainHtml.split('<div class="dish">').slice(1).map(chunk => {
   return { name, amounts };
 });
 const cardByName = new Map(cards.filter(c => c.name).map(c => [c.name, c]));
+const OFF_MENU_MAINMENU = new Set(['Pecan Mole-Fesenjan, Beef and Kabocha']); // off-menu drafts: costed, no customer card by design
 for (const d of DISHES) {
+  if (OFF_MENU_MAINMENU.has(d.name)) continue;
   const card = cardByName.get(d.name);
   if (!card) { F('mainmenu-card', `dinner "${d.name}" has no main-menu.html card`); continue; }
   const prices = d.variants.map(v => v.price);

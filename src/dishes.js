@@ -1708,6 +1708,55 @@ export const DISHES = [
       veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold the vegetables into the stew right before serving. The liquid contains butter, so avoid pouring it down the drain.',
     },
   },
+  {
+    // OFF-MENU DRAFT (Jul 20): built and costed, but exempted from library_sync
+    // (OFF_MENU) and syncMainMenu (CARDLESS) so it renders on NO customer page.
+    // To go live: remove it from both exemption sets and add its LIBRARY copy to
+    // menu.html. Sizing is a normal Large = 2x Small (the sauce is batched at
+    // half for a Small). Prices are FLOOR-HOLDING PLACEHOLDERS pending Kevin.
+    name: 'Pecan Mole-Fesenjan, Beef and Kabocha',
+    copy: {
+      desc: "A Persian fesenjan that walked west into mole. The sauce is built from toasted Texas pecans and pomegranate molasses, cooked down dark with dried chiles and a whisper of unsweetened chocolate until it is sour, bitter, and deep, and nobody guesses what is in it. Beef chuck in big chunks over kabocha squash cooked in the same warm spices, with cold pickled onion to cut it, pepitas for crunch, and charred tortillas for scooping. Made a day ahead on purpose.",
+      reheat: "Comes as the braise and kabocha in a container, rice to cook fresh, tortillas, and the cold pickled onion and pepitas separately. Cook the rice. Warm the braise gently on the stove over medium-low until it loosens and comes back to a gloss, adding a splash of water if it has tightened. Char the tortillas straight over a burner or in a dry hot pan until they blister. Braise over rice, tortillas alongside, the pickled onion and pepitas cold over the top, and the pomegranate seeds if they came with it.",
+      contains: "Tree nuts (pecans). Gluten (the flour in the tortillas).",
+      pairings: [
+        { id: "tempranillo", drink: "Tempranillo or Rioja", why: "earthy Spanish red that meets the mole's chile-and-chocolate depth without fighting it" },
+        { id: "zinfandel", drink: "Zinfandel", why: "jammy and high-toned enough to stand up to the sour-sweet braise and the beef" },
+        { id: "jamaica", drink: "Agua de jamaica (hibiscus)", why: "tart cold hibiscus cuts the richness; the Mexican table's own answer" },
+        { id: "horchata", drink: "Horchata", why: "cinnamon-rice sweetness soothes the chile heat if you want calm instead of contrast" },
+        { id: "abita_amber", drink: "Amber ale", why: "malt against the pecan and beef without arguing with the pomegranate" },
+      ],
+      wineStyles: ['bold_red'],
+    },
+    allergens: { tree_nut: true, gluten: true },
+    cuisine: 'Persian',
+    reheat: 'stovetop',
+    rice: true,
+    equipment: { fixed: ['dutch'] },
+    variants: [
+      { label: 'Small (~4 servings)', price: 75, cost: 38.58 },  // PLACEHOLDER price; ~49% @ buffered cost
+      { label: 'Large (~8 servings)', price: 150, cost: 76.08 }, // PLACEHOLDER price; ~49%. Large is 1.97x Small (flat dried-chili bag + spice bucket)
+    ],
+    recipe: {
+      factors: { 'Small (~4 servings)': 0.5, 'Large (~8 servings)': 1 },
+      base: [
+        I('Prime boneless chuck roast', 4, 'lb'),
+        I('Pecans', 12, 'oz'),
+        I('Pomegranate molasses', 0.75, 'cup'),
+        I('100% dark chocolate', 1, 'square'),
+        I('Assorted dried chilis', 1, 'bag'),
+        I('Onion', 2, ''),
+        I('Mole spice blend', 1, 'blend', true),
+        I('Garlic', 3, 'cloves'),
+        I('Honey', 2, 'tbs'),
+        I('Kabocha squash', 3, 'lb'),
+        I('Pickled onion (house)', 1, 'container'),
+        I('Pepitas', 2, 'oz'),
+        I('Pomegranate seeds', 2, 'oz'),
+        I('Mitad-y-mitad tortillas', 2, '10ct'),
+      ],
+    },
+  },
 ];
 // Same registry idea: each item's recipe/equipment/packaging lives on the
 // record. packaging: 'jar' → $2 wrap, 'none' → $0, absent → default $1.

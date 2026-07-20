@@ -84,6 +84,7 @@ export const INGREDIENT_SEED = [
   { id: 'chicken_thighs', name: 'Chicken thighs', unit: 'lb', baseline: 3.22, category: 'protein' }, // boneless skinless. Was 5.00, stale (Kevin, Jul 17).
   { id: 'chicken_breast', name: 'Chicken breast', unit: 'lb', baseline: 5.0, category: 'protein' },
   { id: 'beef_chuck', name: 'Beef chuck roast', unit: 'lb', baseline: 9.02, category: 'protein' },
+  { id: 'prime_chuck', name: 'Prime boneless chuck roast', unit: 'lb', baseline: 8.99, category: 'protein' },
   { id: 'pork_butt', name: 'Pork butt roast (bone-in)', unit: 'lb', baseline: 2.75, category: 'protein' },
   { id: 'pork_shoulder', name: 'Pork shoulder (bone-in)', unit: 'lb', baseline: 2.59, category: 'protein' },
   { id: 'wagyu_london_broil', name: 'Wagyu london broil', unit: 'lb', baseline: 12.0, category: 'protein' },
@@ -209,6 +210,12 @@ export const INGREDIENT_SEED = [
   { id: 'chicken_basics_stock', name: 'Kitchen Basics stock', unit: 'carton', baseline: 2.98, category: 'pantry' },
   { id: 'orange_juice', name: 'Orange juice', unit: 'batch-use', baseline: 2.0, category: 'pantry' },
   { id: 'lime_juice', name: 'Lime juice', unit: 'g', baseline: 0.0125, category: 'produce' },
+  { id: 'pecans', name: 'Pecans (shelled)', unit: 'oz', baseline: 0.56, category: 'pantry' },
+  { id: 'pomegranate_molasses', name: 'Pomegranate molasses', unit: 'cup', baseline: 3.333, category: 'pantry' }, // ~$2.50 per 3/4 cup
+  { id: 'pepitas', name: 'Pepitas (toasted)', unit: 'oz', baseline: 0.57, category: 'pantry' },
+  { id: 'mitad_tortillas', name: 'Mitad-y-mitad tortillas (flour+corn)', unit: '10ct', baseline: 2.98, category: 'pantry' },
+  { id: 'pickled_onion', name: 'Pickled onion (house)', unit: 'container', baseline: 2.0, category: 'produce' },
+  { id: 'pomegranate_seeds', name: 'Pomegranate seeds', unit: 'oz', baseline: 1.0, category: 'produce' },
 ];
 
 // Conversion anchors for mapping recipe quantities to purchase units (phase 2 dish linkage)

@@ -14,6 +14,10 @@ const write = process.argv.includes('--write');
 const money = (n) => Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`;
 let drift = 0, patched = 0;
 
+// Off-menu dinners: costed and built in the registry, but never rendered on the
+// customer menu (mirror of tests/library_sync.mjs OFF_MENU). No card, by design.
+const OFF_MENU = new Set(['Pecan Mole-Fesenjan, Beef and Kabocha']);
+
 function cardBounds(name) {
   const tag = `<div class="dish-name">${name}</div>`;
   const start = html.indexOf(tag);
@@ -23,6 +27,7 @@ function cardBounds(name) {
 }
 
 function syncCard(name, expected) {
+  if (OFF_MENU.has(name)) return;
   const b = cardBounds(name);
   if (!b) { console.log(`  MISSING card: ${name}`); drift++; return; }
   let seg = html.slice(b.start, b.end);
@@ -58,6 +63,7 @@ for (const d of DISHES) syncCard(d.name, d.variants.map(v => money(v.price)));
 // Same contract as prices: report drift, --write to fix, idempotent.
 const containsRe = /<div class="contains">Allergens: ([^<]*)<\/div>/;
 function syncContains(name, want) {
+  if (OFF_MENU.has(name)) return;
   if (want == null) return; // dish without a contains canon: nothing to hold
   const b = cardBounds(name);
   if (!b) return; // MISSING card already reported by the price sync above
@@ -91,6 +97,7 @@ function pairingsBlock(pairs) {
 }
 const pairingsRe = /<div class="pairings">.*?<\/div><\/div>/s;
 function syncPairings(name, pairs) {
+  if (OFF_MENU.has(name)) return;
   if (!pairs || !pairs.length) return;
   const b = cardBounds(name);
   if (!b) return;
@@ -148,7 +155,7 @@ for (const d of DISHES) {
 // SCOPE: dinners + card-style bag items only. Veg/add-on SECTIONS use a
 // different HTML shape (no dish-name divs) — the invariant suite still guards
 // their prices; this tool reports them as out-of-scope instead of failing.
-const CARDLESS = new Set(['Homemade Waffles', 'Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Kabocha Squash', 'Parsnips', 'Asparagus', 'Garlic Confit']);
+const CARDLESS = new Set(['Homemade Waffles', 'Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Kabocha Squash', 'Parsnips', 'Asparagus', 'Garlic Confit', 'Pecan Mole-Fesenjan, Beef and Kabocha']);
 // Prime steaks render as a sub-line inside their parent steak's card (not their
 // own card), so they're cardless for the card sync — but we still verify the
 // Prime price appears correctly, guarding against drift on that sub-line.

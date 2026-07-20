@@ -1260,10 +1260,20 @@ TAX  0.00
   if (!mrPasta.hasPassthrough || mrPasta.passthroughRaw < 8) F('report-floor', `Ragu pasta passthrough missing: ${JSON.stringify({ h: mrPasta.hasPassthrough, p: mrPasta.passthroughRaw })}`);
   if (mrPasta.valueAddMarginPct < 45) F('report-floor', `Ragu value-add should clear the floor: ${mrPasta.valueAddMarginPct.toFixed(1)}%`);
   if (mrPasta.underFloorEffective) F('report-floor', 'Ragu pasta must NOT flag on the effective (value-add) basis');
-  // A NON-passthrough dish: effective === blended, no VA divergence.
+  // PASSTHROUGH ERA continued: kimchi is store-bought and sold at cost, no
+  // margin buffer (Kevin's call, Jul 20), same convention as pasta above. Bo
+  // Ssam Small is blended under-floor (41.7%, kimchi dilutes it) but healthy
+  // on value-add (~54%, the cooking Kevin actually does), so the EFFECTIVE
+  // flag must clear while the blended flag stays true — the reporting layer's
+  // whole point.
   const boChk = buildDishReport('Bo Ssam', { baseCostMap: base }).variants[0];
-  if (boChk.hasPassthrough) F('report-floor', 'Bo Ssam has no passthrough items');
-  if (boChk.underFloorEffective !== boChk.underFloor) F('report-floor', 'non-passthrough effective flag must equal blended');
+  if (!boChk.hasPassthrough || boChk.passthroughRaw < 7) F('report-floor', `Bo Ssam kimchi passthrough missing: ${JSON.stringify({ h: boChk.hasPassthrough, p: boChk.passthroughRaw })}`);
+  if (!boChk.underFloor) F('report-floor', 'Bo Ssam Small should still be blended-under-floor (kimchi dilutes the blend)');
+  if (boChk.underFloorEffective) F('report-floor', 'Bo Ssam Small must NOT flag on the effective (value-add) basis once kimchi is passthrough');
+  // A NON-passthrough dish: effective === blended, no VA divergence.
+  const clChk = buildDishReport('Coriander Lamb Steak over Gigantes Beans', { baseCostMap: base }).variants[0];
+  if (clChk.hasPassthrough) F('report-floor', 'Coriander Lamb has no passthrough items');
+  if (clChk.underFloorEffective !== clChk.underFloor) F('report-floor', 'non-passthrough effective flag must equal blended');
 
   // 11. Reheat parity: the report's reheat text is the ORDER engine's, not a copy.
   const porkReheat = buildDishReport('Pork with Mustard Tarragon Cream Sauce', { baseCostMap: base })
@@ -1272,12 +1282,16 @@ TAX  0.00
   const mrPolReheat = mrRep.reheatFor('Small (~4-5 servings) + Polenta');
   if (!mrPolReheat.some(b => /polenta bag/i.test(b.body))) F('report-reheat', 'Mushroom Ragu polenta variant must show the polenta card');
 
-  // 12. Portfolio summary: one row per dinner; the known under-floor dishes
-  // flag; Bo Ssam's worst variant is its Small.
+  // 12. Portfolio summary: one row per dinner. Bo Ssam is blended-worst on its
+  // Small but must NOT flag in the radar (kimchi passthrough, judged on
+  // value-add) — same treatment Mushroom Ragu got when its pasta was flagged
+  // passthrough.
   const port = buildPortfolioSummary({ baseCostMap: base });
   if (port.length !== REPORTABLE_DISHES.length) F('report-portfolio', `expected ${REPORTABLE_DISHES.length} rows, got ${port.length}`);
   const boRow = port.find(r => r.name === 'Bo Ssam');
-  if (!boRow.underFloor || !/Small/.test(boRow.worstMarginVariant)) F('report-portfolio', JSON.stringify(boRow));
+  if (!/Small/.test(boRow.worstMarginVariant)) F('report-portfolio', `Bo Ssam worst variant should still be Small: ${JSON.stringify(boRow)}`);
+  if (boRow.underFloor) F('report-portfolio', 'Bo Ssam must NOT flag in the radar anymore — kimchi passthrough, judged on value-add');
+  if (!boRow.hasPassthrough || boRow.worstValueAddPct == null) F('report-portfolio', `Bo Ssam portfolio VA fields: ${JSON.stringify(boRow)}`);
   const mrRow = port.find(r => r.name === 'Mushroom Ragu');
   if (mrRow.underFloor) F('report-portfolio', 'Mushroom Ragu must NOT flag in the radar anymore — pasta dishes are judged on value-add');
   if (!mrRow.hasPassthrough || mrRow.worstValueAddPct == null) F('report-portfolio', `Ragu portfolio VA fields: ${JSON.stringify(mrRow)}`);

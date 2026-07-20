@@ -105,7 +105,7 @@ export const INGREDIENT_SEED = [
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },
   { id: 'salt_pork', name: 'Salt pork', unit: 'oz', baseline: 0.17, category: 'protein' },
   { id: 'anchovies', name: 'Anchovies (fillet)', unit: 'fillet', baseline: 0.3, category: 'pantry' }, // Kevin's jar: $6.07 / ~20 fillets = $0.30/fillet. ALWAYS the same container — receipt scans convert jar price via packQty 20.
-  { id: 'kimchi', name: 'Kimchi', unit: 'jar', baseline: 8.0, category: 'pantry' },
+  { id: 'kimchi', name: 'Kimchi', unit: 'jar', baseline: 8.0, category: 'pantry', passthrough: true }, // store-bought, sold at cost, no margin buffer (Kevin's call, Jul 20)
   { id: 'butter', name: 'Butter', unit: 'stick', baseline: 0.95, category: 'dairy' },
   { id: 'milk', name: 'Milk', unit: 'cup', baseline: 0.275, category: 'dairy' },
   { id: 'evaporated_milk', name: 'Evaporated milk', unit: 'cup', baseline: 1.53, category: 'dairy' },

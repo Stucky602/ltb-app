@@ -23,6 +23,10 @@ import {
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 const COST_HISTORY_KEY = 'ltb_cost_history_v1';
 const RECEIPT_ALIASES_KEY = 'ltb_receipt_aliases_v1';
+// Worker pending ids Kevin has already accepted or rejected. The worker is the
+// durable order queue; this ledger stops a re-poll from resurrecting an order
+// he already handled if the worker's own delete didn't land.
+const HANDLED_PENDING_KEY = 'ltb_handled_pending_v1';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
@@ -142,6 +146,8 @@ export default function LTBOrderTracker() {
   const [showAmend, setShowAmend] = useState(false);
   const [showCsv, setShowCsv] = useState(false);
   const [pendingOrders, setPendingOrders] = useState([]);
+  // Ledger of worker pending ids already accepted/rejected (see HANDLED_PENDING_KEY).
+  const handledPendingRef = useRef({});
   const [ingredientsDb, setIngredientsDb] = useState([]);
   const [costHistory, setCostHistory] = useState([]); // [{ t, id, cost }] lightweight time-series
   const [receiptAliases, setReceiptAliases] = useState({}); // normReceiptStr -> { ingredientId?, action?, pricing? }
@@ -260,6 +266,8 @@ export default function LTBOrderTracker() {
       }
       const savedPending = await loadJSON(PENDING_KEY, []);
       if (mounted) setPendingOrders(savedPending || []);
+      const savedHandled = await loadJSON(HANDLED_PENDING_KEY, {});
+      handledPendingRef.current = savedHandled || {};
 
       const savedRegulars = await loadJSON(REGULARS_KEY, []);
       const migratedRegulars = (savedRegulars || []).map(r => {
@@ -574,18 +582,20 @@ export default function LTBOrderTracker() {
           }));
           setPendingOrders(prev => {
             const have = new Set((prev || []).map(p => p.pendingId));
-            const fresh = mapped.filter(m => !have.has(m.pendingId));
+            const handled = handledPendingRef.current || {};
+            const fresh = mapped.filter(m => !have.has(m.pendingId) && !handled[m.pendingId]);
             if (fresh.length === 0) return prev;
             const updated = [...(prev || []), ...fresh];
             saveJSON(PENDING_KEY, updated);
             return updated;
           });
-          const ids = submissions.map(s => s.id);
-          fetch(WORKER_BASE + '/pending/clear', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids, token: PUBLISH_TOKEN }),
-          }).catch(() => {});
+          // Do NOT clear the worker here. The worker is the durable queue; an
+          // order leaves it only when Kevin accepts or rejects it (see
+          // dismissPending). Poll is a pure idempotent sync, so a failed local
+          // save, a reload, or a restore-over-pending can no longer lose an
+          // order the worker had already deleted. Re-syncing a still-queued
+          // order is harmless: dedup skips anything already in local pending or
+          // in the handled ledger.
         }
       }
     } catch (e) {}
@@ -693,6 +703,17 @@ export default function LTBOrderTracker() {
   }, []);
 
   const acceptPending = useCallback((pending) => {
+    // EC-1 idempotency guard: a double-tap on a slow phone fires acceptPending
+    // twice before the card unmounts, and each call mints a fresh uid() order,
+    // doubles the inventory decrement, and double-links the regular. Claim the
+    // id synchronously up front so a repeat call bails. dismissPending marks it
+    // again at the end, which is idempotent.
+    if (!pending) return;
+    const claimId = pending.pendingId;
+    if (claimId) {
+      if (handledPendingRef.current[claimId]) return;
+      handledPendingRef.current[claimId] = Date.now();
+    }
     const orderId = uid();
 
     let exactReg = null;
@@ -716,7 +737,7 @@ export default function LTBOrderTracker() {
     // normalizing counts a rate as a price; stamping before normalizing freezes
     // a rate as a cost basis.
     const normalizedItems = normalizePendingItems(pending.items);
-    const total = orderTotal(normalizedItems, 0, 0, discountType, discountValue, [], false);
+    const total = orderTotal(normalizedItems, 0, 0, discountType, discountValue, [], isHouse);
 
     // Re-stamp cost bases from the app's own registry at acceptance — the
     // registry is authoritative over whatever the customer form submitted
@@ -736,7 +757,10 @@ export default function LTBOrderTracker() {
       discountType,
       discountValue,
       customCharges: [],
-      waiveSurcharge: false,
+      // EC-6: a house order (the wife) is free, full stop, so the $2 surcharge
+      // is waived too. Leaving it false billed her $2 and fed $2 of phantom
+      // revenue into books on every house order.
+      waiveSurcharge: isHouse,
       total,
       status: 'Ordered',
       paid: false,
@@ -775,6 +799,29 @@ export default function LTBOrderTracker() {
       saveJSON(PENDING_KEY, next);
       return next;
     });
+    // This is where an order actually leaves the worker queue: Kevin accepted
+    // it (acceptPending calls through here) or rejected it. Record the id as
+    // handled so a re-poll can't resurrect it, then tell the worker to drop it.
+    // The ledger is the durable guard; the network clear is best-effort on top,
+    // so a failed clear degrades to a harmless dedup, never a lost order.
+    if (pendingId) {
+      const ledger = handledPendingRef.current || {};
+      ledger[pendingId] = Date.now();
+      const keys = Object.keys(ledger);
+      if (keys.length > 800) {
+        const trimmed = {};
+        keys.slice(-400).forEach(k => { trimmed[k] = ledger[k]; });
+        handledPendingRef.current = trimmed;
+      } else {
+        handledPendingRef.current = ledger;
+      }
+      saveJSON(HANDLED_PENDING_KEY, handledPendingRef.current);
+      fetch(WORKER_BASE + '/pending/clear', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [pendingId], token: PUBLISH_TOKEN }),
+      }).catch(() => {});
+    }
     setShowPendingIdx(null);
   }, []);
 
@@ -1198,6 +1245,10 @@ export default function LTBOrderTracker() {
     receiptAliases,
     auditLog,
     pipelineJournal,
+    // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
+    // order Kevin already accepted (when a worker clear failed). It lived only
+    // on-device, so a restore blanked it and could resurrect. Ride the backup.
+    handledPending: handledPendingRef.current,
   }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal]);
 
   const copyBackupToClipboard = useCallback(async () => {
@@ -1286,7 +1337,13 @@ export default function LTBOrderTracker() {
   const pushBackup = useCallback(async () => {
     try {
       const payload = payloadRef.current();
-      if ((payload.orders || []).length === 0 && (payload.costHistory || []).length === 0) return;
+      // EC-4: skip the push whenever there are no orders, not only when BOTH
+      // orders and costHistory are empty. costHistory is effectively permanent,
+      // so the old AND-guard let every post-wipe (or post-archive-to-empty)
+      // state push a 0-order snapshot into the most-recent ring slot. Over days
+      // that evicts the good buckets. A 0-order state has nothing worth saving,
+      // so it never enters the ring.
+      if ((payload.orders || []).length === 0) return;
       const { exportedAt, ...stable } = payload;
       const hash = String(djb2(JSON.stringify(stable)));
       // Hash match = the ring already holds exactly this data. That's a
@@ -1380,6 +1437,16 @@ export default function LTBOrderTracker() {
     if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
       setReceiptAliases(payload.receiptAliases);
       await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
+    }
+    // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
+    // state back to the backup point, so the ledger of what was handled THEN is
+    // the correct guard: orders accepted before the backup stay suppressed;
+    // orders accepted after it are rolled back and correctly re-sync as pending.
+    // Only overwrite when the field is present, so restoring a pre-EC-3 backup
+    // doesn't blank a good live ledger.
+    if (payload.handledPending && typeof payload.handledPending === 'object') {
+      handledPendingRef.current = payload.handledPending;
+      await saveJSON(HANDLED_PENDING_KEY, handledPendingRef.current);
     }
     // The trail rides the snapshot, so a restore rewinds it to whatever that
     // snapshot held. That's the accepted cost of not giving it its own

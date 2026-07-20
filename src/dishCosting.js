@@ -219,6 +219,7 @@ export const LINE_MAP = {
   'Kabocha squash':         { id: 'kabocha', conv: C({ unit: 'lb' }) },
   'Prime boneless chuck roast': { id: 'prime_chuck', conv: C({ unit: 'lb' }) },
   'Pecans':                 { id: 'pecans', conv: C({ unit: 'oz' }) },
+  'Dried orange peel':      { id: 'dried_orange_peel', conv: C({ unit: 'tbs' }) },
   'Pomegranate molasses':   { id: 'pomegranate_molasses', conv: C({ unit: 'cup' }) },
   'Pickled onion (house)':  { id: 'pickled_onion', conv: () => 1 },
   'Pepitas':                { id: 'pepitas', conv: C({ unit: 'oz' }) },

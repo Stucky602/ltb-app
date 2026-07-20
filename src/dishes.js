@@ -490,7 +490,7 @@ export const DISHES = [
           { ...I('Loose black tea', 1, ''), fixed: true },
           { ...I('Raw rice (smoke mix)', 0.25, 'cup'), fixed: true },
           { ...I('Brown sugar', 0.25, 'cup'), fixed: true },
-          { ...I('Orange', 1, 'each'), fixed: true },
+          { ...I('Dried orange peel', 1, 'tbs'), fixed: true }, // was fresh Orange; dried stores better + cheaper (Kevin, Jul 20)
           { ...I('Star anise', 2, 'each'), fixed: true },
           { ...I('Cinnamon stick', 1, 'each'), fixed: true },
           { ...I('Sichuan peppercorns', 1, 'tsp'), fixed: true },
@@ -499,7 +499,7 @@ export const DISHES = [
           { ...I('Loose black tea', 1, ''), fixed: true },
           { ...I('Raw rice (smoke mix)', 0.25, 'cup'), fixed: true },
           { ...I('Brown sugar', 0.25, 'cup'), fixed: true },
-          { ...I('Orange', 1, 'each'), fixed: true },
+          { ...I('Dried orange peel', 1, 'tbs'), fixed: true }, // was fresh Orange; dried stores better + cheaper (Kevin, Jul 20)
           { ...I('Star anise', 2, 'each'), fixed: true },
           { ...I('Cinnamon stick', 1, 'each'), fixed: true },
           { ...I('Sichuan peppercorns', 1, 'tsp'), fixed: true },
@@ -1022,6 +1022,7 @@ export const DISHES = [
         I('Fresh thyme', 1, 'sprig'),
         I('Onion', 1, ''),
         I('Carrot', 1, ''),
+        I('Celery', 2, 'stalks'),
         I('Garlic', 4, 'cloves'),
         I('Pasta (ask customer for shape!)', 2, 'lb'),
         I('Nutmeg', 1, 'pinch', true),

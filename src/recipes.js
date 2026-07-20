@@ -22,6 +22,18 @@ export const RECIPES = {};
 DISHES.forEach(d => { if (d.recipe) RECIPES[d.name] = d.recipe; });
 ALL_ALWAYS_ITEMS.forEach(it => { if (it.recipe) RECIPES[it.name] = it.recipe; });
 
+// Pantry staples Kevin always keeps stocked: they never belong on a shopping
+// list even when a recipe line forgot the staple flag. Centralized here (by
+// recipe-line NAME) so the rule holds for every dish, present and future, and
+// one edit adds a new staple everywhere. Kevin's rule (Jul 20): ALL spices, the
+// black tea, raw rice, sugars, salt, the queso mason jar, and dried orange peel.
+export const ALWAYS_STAPLE = new Set([
+  'Kosher salt', 'Salt', 'Sugar', 'Brown sugar',
+  'Cinnamon stick', 'Star anise', 'Sichuan peppercorns', 'Black pepper (oz)',
+  'Loose black tea', 'Raw rice (smoke mix)', 'Dried orange peel',
+  'Pint mason jar',
+]);
+
 // Normalize an ingredient name so near-duplicates merge:
 // lowercase, strip trailing parenthetical notes, singularize simple plurals,
 // collapse whitespace, and map a few known synonyms.
@@ -109,9 +121,10 @@ export function generateShoppingItems(activeOrders, includeStaples) {
       const factor = (recipe.factors?.[it.variant] ?? 1) * it.qty;
       const ings = [...(recipe.base || []), ...((recipe.extras || {})[it.variant] || [])];
       ings.forEach(ing => {
-        if (ing.staple && !includeStaples) return;
+        const staple = ing.staple || ALWAYS_STAPLE.has(ing.name);
+        if (staple && !includeStaples) return;
         // fixed extras (e.g. Asian Greens) are always 1 lb per order regardless of batch size
-        addIng(ing.name, ing.q, ing.u, ing.staple, ing.fixed ? it.qty : factor);
+        addIng(ing.name, ing.q, ing.u, staple, ing.fixed ? it.qty : factor);
       });
     });
   });

@@ -311,10 +311,10 @@ export const DISHES = [
     variants: [
       { label: 'Chickpea, Small (~4-5)', price: 30, cost: 14.88 },
       { label: 'Chicken, Small (~4-5)', price: 35, cost: 18.68 },
-      { label: 'Shrimp, Small (~4-5)', price: 50, cost: 28.41 },
+      { label: 'Shrimp, Small (~4-5)', price: 55, cost: 28.41 }, // repriced Jul 20: 43.2%->48.3% margin, Kevin approved
       { label: 'Chickpea, Large (~8-10)', price: 55, cost: 27.59 },
       { label: 'Chicken, Large (~8-10)', price: 65, cost: 35.17 },
-      { label: 'Shrimp, Large (~8-10)', price: 90, cost: 54.66 },
+      { label: 'Shrimp, Large (~8-10)', price: 100, cost: 54.66 }, // repriced Jul 20: 39.3%->45.3% margin, Kevin approved
     ],
     recipe: {
       factors: {
@@ -766,8 +766,8 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['wok'], tofu: true },
     variants: [
-      { label: 'Shrimp, Small Batch (~3-4)', price: 40, cost: 20.9 },
-      { label: 'Shrimp, Large Batch (~7-8)', price: 75, cost: 40.79 },
+      { label: 'Shrimp, Small Batch (~3-4)', price: 45, cost: 20.9 }, // repriced Jul 20: 47.8%->53.6% margin, Kevin approved
+      { label: 'Shrimp, Large Batch (~7-8)', price: 80, cost: 40.79 }, // repriced Jul 20: 45.6%->49.0% margin, Kevin approved
       { label: 'Tofu, Small Batch (~3-4)', price: 25, cost: 9.51 },
       { label: 'Tofu, Large Batch (~7-8)', price: 45, cost: 18.01 },
     ],

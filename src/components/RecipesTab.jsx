@@ -624,8 +624,11 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>
                       {thisWeek.has(r.name) ? '● ' : ''}{r.name}
                     </td>
-                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
-                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
+                      {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                      {r.hasPassthrough && (
+                        <div style={{ fontSize: 9, fontWeight: 400, color: C.faint }}>{r.worstMarginPct}% blended</div>
+                      )}
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
                       {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
@@ -669,8 +672,11 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 {sortedPortfolio.filter(r => r.group === 'protein').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
-                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
-                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
+                      {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                      {r.hasPassthrough && (
+                        <div style={{ fontSize: 9, fontWeight: 400, color: C.faint }}>{r.worstMarginPct}% blended</div>
+                      )}
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
                       {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
@@ -703,8 +709,11 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 {sortedPortfolio.filter(r => r.group === 'veg').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
-                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
-                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
+                      {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                      {r.hasPassthrough && (
+                        <div style={{ fontSize: 9, fontWeight: 400, color: C.faint }}>{r.worstMarginPct}% blended</div>
+                      )}
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
                       {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
@@ -737,8 +746,11 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 {sortedPortfolio.filter(r => r.group === 'dessert').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
-                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.worstMarginPct), fontWeight: 700 }}>
-                      {r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
+                      {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                      {r.hasPassthrough && (
+                        <div style={{ fontSize: 9, fontWeight: 400, color: C.faint }}>{r.worstMarginPct}% blended</div>
+                      )}
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
                       {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
@@ -856,7 +868,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                     <span style={{ color: marginColor(econ.valueAddMarginPct), fontWeight: 700 }}>{econ.valueAddMarginPct.toFixed(0)}%</span>
                   </div>
                   <div style={{ fontSize: 10.5, color: C.faint, padding: '2px 0' }}>
-                    {currency(econ.passthroughRaw)} of pasta sold at cost — value-add excludes it from both sides. Pasta dishes are judged on this number.
+                    {currency(econ.passthroughRaw)} sold at cost, no markup — value-add excludes it from both sides. Judged on this number.
                   </div>
                 </>
               )}

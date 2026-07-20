@@ -283,9 +283,19 @@ const PORTION_UNITS = new Set(['tbs', 'tbsp', 'tsp', 'cup', 'shot', 'square', 's
 // or not needed).
 export function convertPerUnit(perUnit, fromUnit, toUnit, ingredientId, opts = {}) {
   if (perUnit == null) return null;
-  // 1) fixed pack override
+  // 1) fixed pack override. Mirror the main path's packUnitLooksSingle test
+  // (classifyLine): an override with matchNullUnit/eachIsPack must ALSO fire on
+  // a flat line whose unit is null or 'each', not only when fromUnit is the
+  // literal ov.fromUnit. Without this the override silently no-ops on the UI's
+  // convertPerUnit call and the raw jar total leaks out as the per-unit price
+  // (the $4.82/fillet anchovy and $3.12/egg-each bug, Jul 20).
   const ov = ingredientId && PACK_OVERRIDE[ingredientId];
-  if (ov && fromUnit === ov.fromUnit) {
+  const ovMatches = ov && (
+    fromUnit === ov.fromUnit ||
+    (fromUnit === 'each' && ov.eachIsPack) ||
+    (!fromUnit && (ov.eachIsPack || ov.matchNullUnit))
+  );
+  if (ovMatches) {
     return { perUnit: round3(perUnit / ov.perBase), factor: ov.perBase, fromUnit, toUnit };
   }
   // 2) avg-weight bridge, both directions

@@ -575,6 +575,11 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
   const cur = ing ? ing.current : null;
   const implied = effectivePerUnit(r);
   const mismatchRisk = r.basis === 'line_total'; // box-vs-stick guard
+  // Mayo and other per-oz/lb/g jars arrive as a flat line total with no size on
+  // the receipt. Offer the same size prompt proteins get (enter the jar oz) so
+  // Kevin stops converting by hand. Anchovies/eggs never reach here now — their
+  // PACK_OVERRIDE converts them first, so basis is 'converted', not 'line_total'.
+  const canWeight = ing && WEIGHT_ENTRY_UNITS.has(ing.unit);
   // v3.3 drift intelligence: big move vs recent buys + margin blast radius
   const drift = useMemo(() => (r.ingredientId && implied > 0 && seed)
     ? priceDriftReport(r.ingredientId, implied, costHistory || [], seed)
@@ -653,8 +658,17 @@ function MatchedRow({ r, idx, patchRow, onOpenPicker, costHistory, seed }) {
             </div>
           )}
         </div>
-      )}), not a per-{ing ? ing.unit : 'unit'} price. Confirm this equals one {ing ? ing.unit : 'unit'}, or edit below.
+      )}), not a per-{ing ? ing.unit : 'unit'} price. {canWeight
+        ? `Enter the jar size in ${ing.unit} below, or edit the price.`
+        : `Confirm this equals one ${ing ? ing.unit : 'unit'}, or edit below.`}
         </div>
+      )}
+      {mismatchRisk && canWeight && (
+        <WeightEntry
+          lineTotal={r.line.line_total}
+          ingUnit={ing.unit}
+          onApply={(pu) => patchRow(idx, { acceptedPerUnit: pu, perUnit: pu, basis: 'user_weight', accept: true })}
+        />
       )}
       <EditablePerUnit r={r} idx={idx} patchRow={patchRow} />
     </div>

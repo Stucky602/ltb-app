@@ -1732,6 +1732,11 @@ export default function LTBOrderTracker() {
   // live reflects the current edited ingredient costs.
   const baseCostMap = useMemo(() => baselineCostMap(), []);
   const liveCostMap = useMemo(() => liveCostMapFrom(ingredientsDb), [ingredientsDb]);
+  // (id) => name lookup for the Money-tab margin-trend "driven by [ingredients]" line.
+  const ingredientName = useMemo(() => {
+    const m = new Map((ingredientsDb || []).map(i => [i.id, i.name]));
+    return (id) => m.get(id) || id;
+  }, [ingredientsDb]);
   // Money-tab badge: under-floor dishes only (not "watch") so the badge
   // means something and clears when the real problem is fixed, not when
   // every borderline dish happens to drift above 47%.
@@ -2202,7 +2207,7 @@ export default function LTBOrderTracker() {
 
         {view === 'money' && (
           <>
-            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} />
+            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} />
             <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} />
           </>
         )}

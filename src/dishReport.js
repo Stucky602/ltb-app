@@ -396,6 +396,13 @@ export function buildPortfolioSummary(ctx = {}) {
   const baseCostMap = ctx.baseCostMap || baselineCostMap();
   const liveCostMap = ctx.liveCostMap || baseCostMap;
   const floorPct = ctx.floorPct ?? 45;
+  // Optional real-sales join: when the caller passes orders + costOf, each row
+  // also carries profitContribution (total margin $ over ctx.period). Absent
+  // those, the field is null and every existing field is unchanged — purely
+  // additive so no fixture pinning the current shape can break.
+  const orders = ctx.orders || null;
+  const costOf = ctx.costOf || null;
+  const period = ctx.period || 'all';
   const proteinNames = new Set(REPORTABLE_BAG_PROTEINS.map(d => d.name));
   const vegNames = new Set(REPORTABLE_BAG_VEG.map(d => d.name));
   const dessertNames = new Set(['Chocolate Chip Cookies', 'Peanut Butter Fudge', 'Brownies']);
@@ -423,6 +430,9 @@ export function buildPortfolioSummary(ctx = {}) {
       underFloor: judged.some(v => v.underFloorEffective), // pasta judged on value-add; Smalls only
       maxAnchorGapPct: gappiest.anchorGapPct,
       maxDriftPct: Math.round(driftiest.driftPct * 10) / 10,
+      // Additive: total margin dollars this dish threw off over the window, or
+      // null when the caller didn't pass orders+costOf. Never removes a field.
+      profitContribution: (orders && costOf) ? dishSalesHistory(dish.name, orders, costOf, period).profit : null,
     };
   });
 }
@@ -525,6 +535,47 @@ export function reportableVeg() {
   return REPORTABLE_BAG_VEG.map(d => d.name);
 }
 
+// ── Profit contribution ranking ──────────────────────────────────────────────
+// Margin % tells you the health of ONE sale. This tells you where the money
+// actually COMES FROM: total margin dollars a dish threw off over a window
+// (margin per sale × how often it sold). Surfaces the quiet workhorses
+// (mid-margin, sells every week) and the dead weight (fat margin, sells twice a
+// quarter) that a margin-only view hides.
+//
+// Built by joining real sales (dishSalesHistory, which already returns per-dish
+// profit over a period) onto the portfolio row set, so it never disagrees with
+// the radar or the Money tab. `costOf` is injected (App/RecipesTab pass
+// utils.itemCost) to keep this module free of a utils import. `period` is
+// 'week' | 'month' | 'quarter' | 'year' | 'all'.
+//
+// Returns rows sorted by profitContribution desc:
+//   { name, group, units, orderCount, revenue, cost, profitContribution,
+//     marginPct, unknown, est, hasData }
+// A dish with no sales in the window still appears (profitContribution 0), so
+// the dead weight is visible, not missing.
+export function portfolioProfitContribution(orders, costOf, ctx = {}, period = 'all') {
+  const summary = buildPortfolioSummary(ctx); // gives us the canonical name+group set
+  const rows = summary.map(s => {
+    const h = dishSalesHistory(s.name, orders || [], costOf, period);
+    return {
+      name: s.name,
+      group: s.group,
+      cuisine: s.cuisine,
+      units: h.units,
+      orderCount: h.orderCount,
+      revenue: h.revenue,
+      cost: h.cost,
+      profitContribution: h.profit, // total margin dollars over the window
+      marginPct: h.marginPct,
+      unknown: h.unknown,
+      est: h.est,
+      hasData: h.hasData,
+    };
+  });
+  rows.sort((a, b) => b.profitContribution - a.profitContribution);
+  return rows;
+}
+
 // ── Per-dish sales history ───────────────────────────────────────────────────
 // Aggregates one dish's real sales from the order history over a rolling
 // period. Mirrors MoneyTab's dish-economics math (revenue = item price +
@@ -532,7 +583,7 @@ export function reportableVeg() {
 // basis) so the two never disagree. `period` is 'week' | 'month' | 'year' |
 // 'all'. costOf is injected (App passes utils.itemCost) to avoid a circular
 // import between dishReport and utils.
-const PERIOD_DAYS = { week: 7, month: 30, year: 365 };
+const PERIOD_DAYS = { week: 7, month: 30, quarter: 90, year: 365 };
 // Normalize a dish name for matching so trailing spaces, casing, or extra
 // internal whitespace in historical orders don't hide a dish's real sales.
 const normName = (s) => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');

@@ -581,6 +581,63 @@ export function costDishVariant(dishName, variant, menuCost, liveCostMap, baseCo
   };
 }
 
+// ── Pipeline-candidate coster (no RECIPES entry required) ───────────────────
+// A pipeline candidate lives in pipelineDishes.js, NOT in RECIPES, so it can't
+// go through costDishVariant (which resolves via RECIPES[dishName]). This costs
+// a candidate straight from its own ingredients[] list by reusing LINE_MAP —
+// the same name→id→conversion canon the real recipes use — so a candidate's
+// ingredient names have to match LINE_MAP keys (the same discipline Promote
+// enforces). It's a ballpark by design: no packaging, rice surcharge, or buffer
+// unless those ingredients are named explicitly.
+//
+// ingredients: [{ name, qty, unit }] (the shape pipelineDishes.ingredients
+// takes once developed; `nature` is ignored here, it drives scaffolding not
+// costing). liveCostMap/baseCostMap: id→cost maps.
+//
+// Returns { raw, buffered, resolvedCount, total, missing:[names], costable }.
+//   raw       = un-buffered ingredient spend at live costs
+//   buffered  = raw × MARGIN_BUFFER (comparable to menu.js cost anchors)
+//   missing   = ingredient names with no LINE_MAP entry (uncostable lines)
+//   costable  = true only if every line resolved and raw > 0
+export function costPipelineIngredients(ingredients, liveCostMap, baseCostMap) {
+  const list = Array.isArray(ingredients) ? ingredients : [];
+  if (list.length === 0) {
+    return { raw: 0, buffered: 0, resolvedCount: 0, total: 0, missing: [], costable: false };
+  }
+  const live = liveCostMap || {};
+  const base = baseCostMap || {};
+  let raw = 0, resolvedCount = 0;
+  const missing = [];
+  for (const ing of list) {
+    if (!ing || !ing.name) continue;
+    const m = LINE_MAP[ing.name];
+    if (!m || m.skip) { missing.push(ing.name); continue; }
+    const qty = m.conv(Number(ing.qty) || 0, ing.unit);
+    if (qty == null) { missing.push(ing.name); continue; } // FAIL CLOSED like resolveLine
+    const unitCost = live[m.id] != null ? live[m.id] : (base[m.id] ?? 0);
+    raw += qty * unitCost;
+    resolvedCount++;
+  }
+  raw = round2(raw);
+  const buffered = round2(raw * MARGIN_BUFFER);
+  const costable = missing.length === 0 && raw > 0;
+  return { raw, buffered, resolvedCount, total: list.length, missing, costable };
+}
+
+// Would-be margin for a candidate at a target price, using the buffered cost
+// (same basis as the invariant suite / the rest of the Recipes tab). Returns
+// null when the candidate isn't costable or the price is non-positive.
+export function pipelineMarginAt(costInfo, targetPrice) {
+  if (!costInfo || !costInfo.costable || !(targetPrice > 0)) return null;
+  const marginPct = (1 - costInfo.buffered / targetPrice) * 100;
+  return {
+    price: targetPrice,
+    cost: costInfo.buffered,
+    marginDollars: round2(targetPrice - costInfo.buffered),
+    marginPct: Math.round(marginPct * 10) / 10,
+  };
+}
+
 // ── Divergence color (mirrors IngredientsTab): green cheaper, red pricier ───
 // pctDrift > 0 = pricier (red), < 0 = cheaper (green). Neutral within 2%.
 // Full saturation at 40% drift. Returns a CSS color string or null (neutral).

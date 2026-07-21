@@ -2396,6 +2396,28 @@ export const styles = {
     color: CREAM,
     flexShrink: 0,
   },
+  // Pre-weigh estimate on a non-final invoice — deliberately muted (amber, not
+  // cream) and prefixed with "~" so it never reads as the final charge.
+  invoiceItemEst: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#EF9F27',
+    flexShrink: 0,
+    fontStyle: 'italic',
+  },
+  invoiceEstTag: {
+    fontSize: '9px',
+    fontWeight: 700,
+    color: '#EF9F27',
+    fontStyle: 'normal',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    marginLeft: '4px',
+    padding: '1px 4px',
+    borderRadius: '4px',
+    background: 'rgba(239,159,39,0.14)',
+    verticalAlign: 'middle',
+  },
   invoiceItemVariant: {
     fontSize: '12px',
     color: '#9aa5a0',
@@ -2676,6 +2698,20 @@ export const styles = {
     color: '#EF9F27',
     fontStyle: 'italic',
     fontWeight: 600,
+  },
+  // Small "est" pill on the OrderCard pre-weigh estimate — same amber family as
+  // pendingPrice, marks the number as provisional.
+  pendingEstTag: {
+    fontSize: '9px',
+    fontWeight: 700,
+    color: '#EF9F27',
+    fontStyle: 'normal',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    padding: '1px 4px',
+    borderRadius: '4px',
+    background: 'rgba(239,159,39,0.14)',
+    verticalAlign: 'middle',
   },
   setWeightBtn: {
     display: 'inline-flex',
@@ -3083,6 +3119,110 @@ export const styles = {
   chartToggleBtnActive: {
     background: '#0f2e2a',
     borderColor: TEAL_LIGHT,
+  },
+
+  // ── Money tab declutter (item 5) ──────────────────────────────────────────
+  // Unpaid quick-action chip: outstanding money is the one number that demands
+  // action, so it gets an amber affordance right under the vitals.
+  unpaidChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    background: 'rgba(239,159,39,0.10)',
+    border: '1px solid #EF9F27',
+    borderRadius: '8px',
+    padding: '7px 12px',
+    fontSize: '12.5px',
+    fontWeight: 700,
+    color: '#EF9F27',
+    cursor: 'pointer',
+    marginBottom: '10px',
+  },
+  unpaidChipActive: {
+    background: 'rgba(239,159,39,0.20)',
+  },
+  // Slim week-note: one-line affordance that expands on tap, replacing the
+  // full block that used to lead the tab.
+  weekNoteSlim: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '7px',
+    width: '100%',
+    textAlign: 'left',
+    background: '#1f2624',
+    border: '1px solid #2d3a36',
+    borderRadius: '8px',
+    padding: '8px 11px',
+    fontSize: '12.5px',
+    color: '#9aa5a0',
+    cursor: 'pointer',
+    marginBottom: '12px',
+  },
+  weekNoteSlimText: {
+    color: '#cfd6d2',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  weekNoteSlimEmpty: {
+    color: '#6b7570',
+    fontStyle: 'italic',
+  },
+  // Reports expander: folds Graph, Recap, Books P&L, and the change log behind
+  // one control so the tab's default view stays lean.
+  reportsPanel: {
+    background: '#1c2422',
+    border: '1px solid #2d3a36',
+    borderRadius: '10px',
+    padding: '10px 12px',
+    marginBottom: '12px',
+  },
+  reportsHead: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    background: 'transparent',
+    border: 'none',
+    color: '#9aa5a0',
+    fontSize: '11px',
+    fontWeight: 700,
+    letterSpacing: '0.5px',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    padding: 0,
+  },
+  reportsBtnRow: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    marginBottom: '8px',
+  },
+  // Past-orders dropdown: all archived orders, collapsed by default.
+  pastPanel: {
+    marginTop: '4px',
+    marginBottom: '14px',
+  },
+  pastHead: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    background: '#1c2422',
+    border: '1px solid #2d3a36',
+    borderRadius: '10px',
+    padding: '11px 13px',
+    color: '#9aa5a0',
+    fontSize: '12px',
+    fontWeight: 700,
+    letterSpacing: '0.3px',
+    cursor: 'pointer',
+  },
+  moneyAllArchivedNote: {
+    fontSize: '12.5px',
+    color: '#6b7570',
+    fontStyle: 'italic',
+    padding: '4px 0 10px',
   },
 
   // Rich per-group summary header

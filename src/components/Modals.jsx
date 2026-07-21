@@ -34,6 +34,21 @@ import {
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 
+// Pre-weigh estimate for a per-lb sous-vide item: avgWeightLb × pricePerLb plus
+// the flat $1.50 bag fee, matching exactly how WeightPhotoModal prices the
+// real charge (pricePerLb × weight + 1.5). Shown IN PLACE OF a bare "pending"
+// so a non-final invoice reads as a real number. Returns null when the item
+// isn't a per-lb item or has no avgWeightLb to estimate from. `qty` scales it
+// like every other line. This is a display estimate only — the true number
+// from repricePerLbItem replaces it the moment a weight is entered.
+const LB_BAG_FEE = 1.5;
+export function perLbEstimate(name, qty = 1) {
+  const info = PER_LB_ITEMS[name];
+  if (!info || !(info.avgWeightLb > 0) || !(info.pricePerLb > 0)) return null;
+  const per = info.avgWeightLb * info.pricePerLb + LB_BAG_FEE;
+  return Math.round(per * (qty || 1) * 100) / 100;
+}
+
 export function InvoiceModal({ order, onClose }) {
   const disc = discountAmount(itemsBaseTotal(order.items), order.discountType, order.discountValue);
   const dateStr = order.createdAt
@@ -123,6 +138,7 @@ export function InvoiceModal({ order, onClose }) {
               const itemUnweighed = isPerLbItem(it.name) && !(it.weight > 0);
               const isLb = isPerLbItem(it.name) && it.weight > 0;
               const lbBasePrice = isLb ? round2((it.price - 1.5) * it.qty) : null;
+              const est = itemUnweighed ? perLbEstimate(it.name, it.qty) : null;
               return (
                 <div key={idx} style={styles.invoiceItemBlock}>
                   <div style={styles.invoiceItemLine}>
@@ -130,7 +146,11 @@ export function InvoiceModal({ order, onClose }) {
                       {it.qty}&times; {it.name}
                     </span>
                     <span style={styles.invoiceItemPrice}>
-                      {itemUnweighed ? 'TBD' : currency(lineTotal)}
+                      {itemUnweighed
+                        ? (est != null
+                            ? <span style={styles.invoiceItemEst}>~{currency(est)}<span style={styles.invoiceEstTag}>est</span></span>
+                            : 'TBD')
+                        : currency(lineTotal)}
                     </span>
                   </div>
                   <div style={styles.invoiceItemVariant}>{isLb ? `${it.weight} lb` : it.variant}</div>
@@ -140,7 +160,9 @@ export function InvoiceModal({ order, onClose }) {
                     </div>
                   )}
                   {itemUnweighed && (
-                    <div style={styles.invoiceItemPending}>weight not set — price pending</div>
+                    <div style={styles.invoiceItemPending}>
+                      {est != null ? 'estimate — final on weigh-in' : 'weight not set — price pending'}
+                    </div>
                   )}
                   {it.upcharge && typeof it.upcharge === 'object' && it.upcharge.amount > 0 ? (
                     <div style={styles.invoiceItemExtra}>+ {it.upcharge.label} ({currency(it.upcharge.amount)} ea)</div>

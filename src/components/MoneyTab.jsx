@@ -164,7 +164,7 @@ export function compactMoney(v) {
 }
 
 // ─── Money Tab ──────────────────────────────────────────────────────────────
-export function MoneyTab({ orders, onUpdate, auditLog }) {
+export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName }) {
   const [sortField, setSortField] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [groupMode, setGroupMode] = useState('none');
@@ -177,6 +177,8 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
   const [weekNotes, setWeekNotes] = useState({});
   const [weekNotesDraft, setWeekNotesDraft] = useState('');
   const [editingWeekNote, setEditingWeekNote] = useState(false);
+  const [showReports, setShowReports] = useState(false); // Graph/Recap/Books/Change-log expander
+  const [showPast, setShowPast] = useState(false);        // Past (archived) orders dropdown
 
   const currentWeekKey = useMemo(() => {
     if (!orders.length) return null;
@@ -237,6 +239,19 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
     };
   }, [filtered]);
 
+  // Unpaid summary for the quick-action chip. Reads the base (house-excluded,
+  // search-respecting) set BEFORE the unpaidOnly filter, so the chip always
+  // shows the real outstanding count even while the filter is on. Guard against
+  // double-filtering: `filtered` already dropped unpaid when unpaidOnly is set,
+  // so recompute from orders here.
+  const unpaidSummary = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let arr = (orders || []).filter(o => !isHouseOrder(o) && !o.paid);
+    if (q) arr = arr.filter(o => (o.customer || '').toLowerCase().includes(q));
+    const amt = arr.reduce((s, o) => s + o.total, 0);
+    return { count: arr.length, amount: round2(amt) };
+  }, [orders, search]);
+
   const sorted = useMemo(() => {
     const arr = [...filtered];
     arr.sort((a, b) => {
@@ -249,16 +264,26 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
     return arr;
   }, [filtered, sortField, sortDir]);
 
-  const groups = useMemo(() => {
-    if (groupMode === 'none') return [{ label: null, stamp: 0, orders: sorted }];
+  // Build grouped sections from a set of orders (used twice: active + past).
+  const groupOrders = useCallback((arr) => {
+    if (groupMode === 'none') return [{ label: null, stamp: 0, orders: arr }];
     const map = new Map();
-    sorted.forEach(o => {
+    arr.forEach(o => {
       const { label, stamp } = groupKeyFor(o, groupMode);
       if (!map.has(label)) map.set(label, { label, stamp, orders: [] });
       map.get(label).orders.push(o);
     });
     return Array.from(map.values()).sort((a, b) => b.stamp - a.stamp);
-  }, [sorted, groupMode]);
+  }, [groupMode]);
+
+  // Split active (live) from archived (past). Archived orders were dimmed and
+  // mixed into one list before; now they live behind a collapsed Past dropdown
+  // so the tab opens on the ~handful of live orders, not a 30-row wall.
+  const activeSorted = useMemo(() => sorted.filter(o => !o.archived), [sorted]);
+  const pastSorted = useMemo(() => sorted.filter(o => o.archived), [sorted]);
+  const groups = useMemo(() => groupOrders(activeSorted), [groupOrders, activeSorted]);
+  const pastGroups = useMemo(() => groupOrders(pastSorted), [groupOrders, pastSorted]);
+  const pastCount = pastSorted.length;
 
   const profitSeries = useMemo(() => {
     const mode = groupMode === 'none' ? 'week' : groupMode;
@@ -293,39 +318,100 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
     );
   }
 
+  const hasWeekNote = currentWeekKey && weekNotes[currentWeekKey];
+
+  // One group section (header stats + order rows). Shared by the active list
+  // and the Past-orders dropdown, so both render identically and the per-group
+  // stat header (revenue/profit/outstanding) is available inside Past too.
+  const renderGroups = (groupList) => groupList.map(group => {
+    let gRev = 0, gCost = 0, gCollected = 0;
+    group.orders.forEach(o => {
+      gRev += o.total;
+      gCost += orderCostInfo(o).cost;
+      if (o.paid) gCollected += o.total;
+    });
+    const gProfit = round2(gRev - gCost);
+    const gOutstanding = round2(gRev - gCollected);
+    return (
+      <div key={group.label || 'all'} style={styles.moneyGroup}>
+        {group.label && (
+          <div style={styles.groupHeaderRich}>
+            <div style={styles.groupHeaderTop}>
+              <span style={styles.groupTitle}>{group.label}</span>
+              <span style={styles.groupOrderCount}>{group.orders.length} order{group.orders.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div style={styles.groupStatsRow}>
+              <div style={styles.groupStat}>
+                <span style={styles.groupStatValue}>{currency(round2(gRev))}</span>
+                <span style={styles.groupStatLabel}>revenue</span>
+              </div>
+              <div style={styles.groupStat}>
+                <span style={{ ...styles.groupStatValue, color: '#1D9E75' }}>{currency(gProfit)}</span>
+                <span style={styles.groupStatLabel}>profit</span>
+              </div>
+              <div style={styles.groupStat}>
+                <span style={{ ...styles.groupStatValue, color: gOutstanding > 0 ? '#EF9F27' : '#9aa5a0' }}>{currency(gOutstanding)}</span>
+                <span style={styles.groupStatLabel}>outstanding</span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div style={styles.moneyList}>
+          {group.orders.map(o => {
+            const info = orderCostInfo(o);
+            const profit = round2(o.total - info.cost);
+            const photoItems = (o.items || [])
+              .map((it, i) => ({ it, i }))
+              .filter(({ it }) => it.hasPhoto);
+            return (
+              <div key={o.id} style={{ ...styles.moneyRowWrap, ...(o.archived ? { opacity: 0.65 } : {}) }}>
+                <div
+                  style={{ ...styles.moneyRow, ...(photoItems.length ? { cursor: 'pointer' } : {}) }}
+                  onClick={photoItems.length ? () => setOpenPhotos(openPhotos === o.id ? null : o.id) : undefined}
+                >
+                  <div style={styles.moneyRowLeft}>
+                    <div style={styles.moneyName}>
+                      {o.customer}
+                      {photoItems.length > 0 && <Camera size={12} style={{ marginLeft: 6, verticalAlign: 'middle', opacity: 0.7 }} />}
+                    </div>
+                    <div style={styles.moneyMeta}>
+                      {formatDate(o.createdAt)}{o.archived ? ' · archived' : ` · ${o.status}`}
+                      {photoItems.length > 0 ? ` · ${photoItems.length} photo${photoItems.length !== 1 ? 's' : ''}` : ''}
+                    </div>
+                  </div>
+                  <div style={styles.moneyRowRight}>
+                    <div style={styles.moneyAmounts}>
+                      <span style={styles.moneyAmount}>{currency(o.total)}</span>
+                      <span style={styles.moneyProfit}>
+                        {info.complete || info.cost > 0 ? `+${currency(profit)}${info.complete ? '' : '*'}` : '—'}
+                      </span>
+                    </div>
+                    <button
+                      style={{
+                        ...styles.paidPill,
+                        ...(o.paid
+                          ? { background: '#1D9E7522', color: '#1D9E75' }
+                          : { background: '#EF9F2722', color: '#EF9F27' }),
+                      }}
+                      onClick={(e) => { e.stopPropagation(); onUpdate(o.id, { paid: !o.paid }); }}
+                    >
+                      {o.paid ? 'Paid' : 'Unpaid'}
+                    </button>
+                  </div>
+                </div>
+                {openPhotos === o.id && photoItems.length > 0 && (
+                  <OrderPhotos orderId={o.id} photoItems={photoItems} />
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  });
+
   return (
     <div>
-      {currentWeekKey && (
-        <div style={styles.weekNotesBlock}>
-          <div style={styles.weekNotesTitle}>Week notes</div>
-          {editingWeekNote ? (
-            <>
-              <textarea
-                style={{ ...styles.refCardNotes, minHeight: '80px' }}
-                value={weekNotesDraft}
-                onChange={e => setWeekNotesDraft(e.target.value)}
-                placeholder="Jot anything worth remembering about this week — what ran out, what to double, timing notes…"
-                autoFocus
-              />
-              <div style={styles.notesEditActions}>
-                <button style={styles.confirmYesGreen} onClick={saveWeekNote}>Save</button>
-                <button style={styles.confirmNo} onClick={() => setEditingWeekNote(false)}>Cancel</button>
-              </div>
-            </>
-          ) : weekNotes[currentWeekKey] ? (
-            <div style={styles.weekNotesBody} onClick={startWeekNote} role="button" tabIndex={0}>
-              {weekNotes[currentWeekKey]}
-              <span style={styles.notesEditHint}> — tap to edit</span>
-            </div>
-          ) : (
-            <button style={styles.addNoteBtn} onClick={startWeekNote}>
-              <Pencil size={13} />
-              Add week notes
-            </button>
-          )}
-        </div>
-      )}
-
       <div style={styles.moneyStatsBar}>
         <div style={styles.moneyStatTile}>
           <div style={styles.statValue}>{currency(totals.booked)}</div>
@@ -351,6 +437,47 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
 
       {!totals.costComplete && (
         <div style={styles.moneyFootnote}>* some items predate cost tracking, so profit is partial</div>
+      )}
+
+      {/* Quick action: outstanding money is the actionable number. One tap
+          toggles the same unpaidOnly filter. */}
+      {unpaidSummary.count > 0 && (
+        <button
+          style={{ ...styles.unpaidChip, ...(unpaidOnly ? styles.unpaidChipActive : {}) }}
+          onClick={() => setUnpaidOnly(v => !v)}
+        >
+          <Bell size={13} />
+          Unpaid · {unpaidSummary.count} · {currency(unpaidSummary.amount)}
+          {unpaidOnly ? ' · showing' : ''}
+        </button>
+      )}
+
+      {/* Slim week notes — low-frequency, so collapsed to one line under the
+          vitals instead of leading the tab. Expands on tap. */}
+      {currentWeekKey && (
+        editingWeekNote ? (
+          <div style={styles.weekNotesBlock}>
+            <div style={styles.weekNotesTitle}>Week notes</div>
+            <textarea
+              style={{ ...styles.refCardNotes, minHeight: '80px' }}
+              value={weekNotesDraft}
+              onChange={e => setWeekNotesDraft(e.target.value)}
+              placeholder="Jot anything worth remembering about this week — what ran out, what to double, timing notes…"
+              autoFocus
+            />
+            <div style={styles.notesEditActions}>
+              <button style={styles.confirmYesGreen} onClick={saveWeekNote}>Save</button>
+              <button style={styles.confirmNo} onClick={() => setEditingWeekNote(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button style={styles.weekNoteSlim} onClick={startWeekNote}>
+            <Pencil size={12} />
+            {hasWeekNote
+              ? <span style={styles.weekNoteSlimText}>{weekNotes[currentWeekKey]}</span>
+              : <span style={styles.weekNoteSlimEmpty}>Week note</span>}
+          </button>
+        )
       )}
 
       <div style={styles.sortRow}>
@@ -407,113 +534,67 @@ export function MoneyTab({ orders, onUpdate, auditLog }) {
             <X size={15} />
           </button>
         )}
-        {profitSeries.length >= 2 && (
-          <button
-            style={{ ...styles.chartToggleBtn, ...(showChart ? styles.chartToggleBtnActive : {}) }}
-            onClick={() => setShowChart(v => !v)}
-          >
-            {showChart ? 'Hide graph' : 'Graph'}
-          </button>
-        )}
-        <button
-          style={{ ...styles.chartToggleBtn, ...(showRecap ? styles.chartToggleBtnActive : {}) }}
-          onClick={() => setShowRecap(true)}
-        >
-          Recap
-        </button>
       </div>
 
-      {showChart && profitSeries.length >= 2 && <ProfitChart series={profitSeries} />}
-      <BooksPanel orders={orders} />
-      <AuditPanel log={auditLog} />
+      {/* Reports: Graph, Recap, Books P&L (with margin trend), and the change
+          log are all secondary — one expander instead of four always-on tools. */}
+      <div style={styles.reportsPanel}>
+        <button style={styles.reportsHead} onClick={() => setShowReports(v => !v)}>
+          <span>Reports</span>
+          <span>{showReports ? '▲' : '▼'}</span>
+        </button>
+        {showReports && (
+          <div style={{ marginTop: 8 }}>
+            <div style={styles.reportsBtnRow}>
+              {profitSeries.length >= 2 && (
+                <button
+                  style={{ ...styles.chartToggleBtn, ...(showChart ? styles.chartToggleBtnActive : {}) }}
+                  onClick={() => setShowChart(v => !v)}
+                >
+                  {showChart ? 'Hide graph' : 'Graph'}
+                </button>
+              )}
+              <button
+                style={styles.chartToggleBtn}
+                onClick={() => setShowRecap(true)}
+              >
+                Recap
+              </button>
+            </div>
+            {showChart && profitSeries.length >= 2 && <ProfitChart series={profitSeries} />}
+            <BooksPanel
+              orders={orders}
+              costHistory={costHistory}
+              baseCostMap={baseCostMap}
+              ingredientName={ingredientName}
+            />
+            <AuditPanel log={auditLog} />
+          </div>
+        )}
+      </div>
       {showRecap && <WeeklySummaryModal orders={orders} onClose={() => setShowRecap(false)} />}
 
-      {groups.map(group => {
-        let gRev = 0, gCost = 0, gCollected = 0;
-        group.orders.forEach(o => {
-          gRev += o.total;
-          gCost += orderCostInfo(o).cost;
-          if (o.paid) gCollected += o.total;
-        });
-        const gProfit = round2(gRev - gCost);
-        const gOutstanding = round2(gRev - gCollected);
-        return (
-          <div key={group.label || 'all'} style={styles.moneyGroup}>
-            {group.label && (
-              <div style={styles.groupHeaderRich}>
-                <div style={styles.groupHeaderTop}>
-                  <span style={styles.groupTitle}>{group.label}</span>
-                  <span style={styles.groupOrderCount}>{group.orders.length} order{group.orders.length !== 1 ? 's' : ''}</span>
-                </div>
-                <div style={styles.groupStatsRow}>
-                  <div style={styles.groupStat}>
-                    <span style={styles.groupStatValue}>{currency(round2(gRev))}</span>
-                    <span style={styles.groupStatLabel}>revenue</span>
-                  </div>
-                  <div style={styles.groupStat}>
-                    <span style={{ ...styles.groupStatValue, color: '#1D9E75' }}>{currency(gProfit)}</span>
-                    <span style={styles.groupStatLabel}>profit</span>
-                  </div>
-                  <div style={styles.groupStat}>
-                    <span style={{ ...styles.groupStatValue, color: gOutstanding > 0 ? '#EF9F27' : '#9aa5a0' }}>{currency(gOutstanding)}</span>
-                    <span style={styles.groupStatLabel}>outstanding</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div style={styles.moneyList}>
-              {group.orders.map(o => {
-                const info = orderCostInfo(o);
-                const profit = round2(o.total - info.cost);
-                const photoItems = (o.items || [])
-                  .map((it, i) => ({ it, i }))
-                  .filter(({ it }) => it.hasPhoto);
-                return (
-                  <div key={o.id} style={{ ...styles.moneyRowWrap, ...(o.archived ? { opacity: 0.65 } : {}) }}>
-                    <div
-                      style={{ ...styles.moneyRow, ...(photoItems.length ? { cursor: 'pointer' } : {}) }}
-                      onClick={photoItems.length ? () => setOpenPhotos(openPhotos === o.id ? null : o.id) : undefined}
-                    >
-                      <div style={styles.moneyRowLeft}>
-                        <div style={styles.moneyName}>
-                          {o.customer}
-                          {photoItems.length > 0 && <Camera size={12} style={{ marginLeft: 6, verticalAlign: 'middle', opacity: 0.7 }} />}
-                        </div>
-                        <div style={styles.moneyMeta}>
-                          {formatDate(o.createdAt)}{o.archived ? ' · archived' : ` · ${o.status}`}
-                          {photoItems.length > 0 ? ` · ${photoItems.length} photo${photoItems.length !== 1 ? 's' : ''}` : ''}
-                        </div>
-                      </div>
-                      <div style={styles.moneyRowRight}>
-                        <div style={styles.moneyAmounts}>
-                          <span style={styles.moneyAmount}>{currency(o.total)}</span>
-                          <span style={styles.moneyProfit}>
-                            {info.complete || info.cost > 0 ? `+${currency(profit)}${info.complete ? '' : '*'}` : '—'}
-                          </span>
-                        </div>
-                        <button
-                          style={{
-                            ...styles.paidPill,
-                            ...(o.paid
-                              ? { background: '#1D9E7522', color: '#1D9E75' }
-                              : { background: '#EF9F2722', color: '#EF9F27' }),
-                          }}
-                          onClick={(e) => { e.stopPropagation(); onUpdate(o.id, { paid: !o.paid }); }}
-                        >
-                          {o.paid ? 'Paid' : 'Unpaid'}
-                        </button>
-                      </div>
-                    </div>
-                    {openPhotos === o.id && photoItems.length > 0 && (
-                      <OrderPhotos orderId={o.id} photoItems={photoItems} />
-                    )}
-                  </div>
-                );
-              })}
+      {/* Active (live) orders — the handful in play right now. */}
+      {activeSorted.length === 0 && pastCount > 0 && (
+        <div style={styles.moneyAllArchivedNote}>No live orders this week. Past orders are below.</div>
+      )}
+      {renderGroups(groups)}
+
+      {/* Past orders — every archived/delivered order, collapsed by default and
+          grouped inside. Turns a 30-row wall into ~6 live rows + one section. */}
+      {pastCount > 0 && (
+        <div style={styles.pastPanel}>
+          <button style={styles.pastHead} onClick={() => setShowPast(v => !v)}>
+            <span>Past orders ({pastCount})</span>
+            <span>{showPast ? '▲' : '▼'}</span>
+          </button>
+          {showPast && (
+            <div style={{ marginTop: 8 }}>
+              {renderGroups(pastGroups)}
             </div>
-          </div>
-        );
-      })}
+          )}
+        </div>
+      )}
 
       {storage && storage.count > 0 && (
         <div style={styles.storageGauge}>

@@ -34,7 +34,7 @@ import {
   optionsSummary, noteWithoutOptions,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
-import { InvoiceModal, ReheatModal, WeightPhotoModal } from './Modals.jsx';
+import { InvoiceModal, ReheatModal, WeightPhotoModal, perLbEstimate } from './Modals.jsx';
 
 // Dish passport for the companion page — REGULARS ONLY. An order linked to a
 // regular (regularId, or exact name match) gets { tried, total, missing } over
@@ -246,12 +246,22 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
               const pending = perLb && (it.weightPending || !(it.weight > 0));
               const up = it.upcharge && it.upcharge.amount ? it.upcharge.amount : 0;
               const lineTotal = (it.price + up) * it.qty;
+              const est = pending ? perLbEstimate(it.name, it.qty) : null;
               return (
                 <div key={idx} style={styles.orderItemBlock}>
                   <div style={styles.orderItemLine}>
                     <span>{it.qty}&times; {it.name} <span style={styles.orderItemVariant}>({perLb && it.weight > 0 ? `${it.weight} lb` : it.variant})</span></span>
-                    <span>{pending ? <span style={styles.pendingPrice}>weigh after shopping</span> : currency(lineTotal)}</span>
+                    <span>
+                      {pending
+                        ? (est != null
+                            ? <span style={styles.pendingPrice}>~{currency(est)} <span style={styles.pendingEstTag}>est</span></span>
+                            : <span style={styles.pendingPrice}>weigh after shopping</span>)
+                        : currency(lineTotal)}
+                    </span>
                   </div>
+                  {pending && est != null && (
+                    <div style={styles.orderItemSub}>estimate at ~{PER_LB_ITEMS[it.name].avgWeightLb} lb — final on weigh-in</div>
+                  )}
                   {it.upcharge && typeof it.upcharge === 'object' && it.upcharge.amount > 0 ? (
                     <div style={styles.orderItemSub}>+ {it.upcharge.label} ({currency(it.upcharge.amount)} ea)</div>
                   ) : null}

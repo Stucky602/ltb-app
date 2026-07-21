@@ -3,7 +3,7 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD } from '../sty
 import { currency, itemCost, copyText } from '../utils.js';
 import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { itemHandling } from '../recipes.js';
-import { MARGIN_BUFFER } from '../dishCosting.js';
+import { MARGIN_BUFFER, costPipelineIngredients, pipelineMarginAt, baselineCostMap } from '../dishCosting.js';
 import {
   buildDishReport, buildPortfolioSummary, reportableDishes, buildServingAudit, dishSalesHistory,
 } from '../dishReport.js';
@@ -194,6 +194,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(true);
   const [portSort, setPortSort] = useState('margin');
+  const [portWindow, setPortWindow] = useState('month'); // profit-$ window: month|quarter|all
   const [salesPeriod, setSalesPeriod] = useState('all'); // week|month|year|all
 
   const ctx = useMemo(() => ({ liveCostMap, baseCostMap, costHistory }), [liveCostMap, baseCostMap, costHistory]);
@@ -206,7 +207,13 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   useEffect(() => { setDraft(null); setDraftErr(null); }, [dish]);
 
 
-  const portfolio = useMemo(() => buildPortfolioSummary(ctx), [ctx]);
+  // Portfolio rows carry profitContribution over the selected window by feeding
+  // real sales (orders + itemCost) into the summary. The window only affects
+  // the profit-$ column/sort; margin and drift are window-independent.
+  const portfolio = useMemo(
+    () => buildPortfolioSummary({ ...ctx, orders: orders || [], costOf: itemCost, period: portWindow }),
+    [ctx, orders, portWindow]
+  );
 
   const dishes = useMemo(() => reportableDishes(), []);
   const [showProteins, setShowProteins] = useState(false); // collapsed by default
@@ -284,6 +291,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     const arr = [...portfolio];
     if (portSort === 'margin') arr.sort((a, b) => a.worstMarginPct - b.worstMarginPct);
     else if (portSort === 'drift') arr.sort((a, b) => Math.abs(b.maxDriftPct) - Math.abs(a.maxDriftPct));
+    else if (portSort === 'profit') arr.sort((a, b) => (b.profitContribution ?? 0) - (a.profitContribution ?? 0));
     return arr;
   }, [portfolio, portSort]);
 
@@ -321,6 +329,25 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
 
   const pipeDish = useMemo(() => PIPELINE_DISHES.find(d => d.key === pipeKey) || null, [pipeKey]);
   const pipeStatus = pipeDish ? (pipeDish.status || statusOf(pipeDish.key)) : null;
+
+  // ── Pipeline economics (item 4) ──────────────────────────────────────────
+  // Cost a candidate straight from its own ingredients[] (no RECIPES entry
+  // needed). Candidates ship with ingredients:[] until Kevin develops one, so
+  // most render "needs recipe to cost"; a developed one shows ballpark cost and
+  // a would-be margin at a target price he sets.
+  const [pipeTargetPrice, setPipeTargetPrice] = useState('');
+  const pipeBaseMap = useMemo(() => baseCostMap || baselineCostMap(), [baseCostMap]);
+  const pipeLiveMap = useMemo(() => liveCostMap || pipeBaseMap, [liveCostMap, pipeBaseMap]);
+  const pipeCost = useMemo(() => {
+    if (!pipeDish) return null;
+    return costPipelineIngredients(pipeDish.ingredients, pipeLiveMap, pipeBaseMap);
+  }, [pipeDish, pipeLiveMap, pipeBaseMap]);
+  const pipeMargin = useMemo(() => {
+    const p = parseFloat(pipeTargetPrice);
+    return pipelineMarginAt(pipeCost, p);
+  }, [pipeCost, pipeTargetPrice]);
+  // Reset the target-price field when switching candidates.
+  useEffect(() => { setPipeTargetPrice(''); }, [pipeKey]);
 
   // Fetch full vote standing once when the section opens.
   useEffect(() => {
@@ -430,11 +457,15 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 <div style={S.sectionTitle}>The board · {voteFull.ballots} ballot{voteFull.ballots === 1 ? '' : 's'}</div>
                 {voteFull.ranking.map((r, i) => {
                   const cd = PIPELINE_DISHES.find(x => x.key === r.dish);
+                  const developed = cd && Array.isArray(cd.ingredients) && cd.ingredients.length > 0;
                   return (
                     <div key={r.dish} onClick={() => { setPipeKey(r.dish); setPromoteText(''); }}
                       style={{ display: 'flex', gap: 8, fontSize: 12.5, lineHeight: 1.7, cursor: 'pointer', color: r.dish === pipeKey ? C.good : (r.votes === 0 ? C.faint : C.text) }}>
                       <span style={{ width: 22, textAlign: 'right', color: C.faint, flexShrink: 0 }}>{i + 1}.</span>
-                      <span style={{ flex: 1 }}>{cd ? cd.title : r.dish}</span>
+                      <span style={{ flex: 1 }}>
+                        {cd ? cd.title : r.dish}
+                        {developed && <span title="recipe costable" style={{ color: C.good, marginLeft: 5, fontSize: 11 }}>$</span>}
+                      </span>
                       <span style={{ color: r.votes > 0 ? C.good : C.faint, fontWeight: 700 }}>{r.votes}</span>
                     </div>
                   );
@@ -485,6 +516,53 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                     </div>
                   )}
                   {voteFull && !pipeVote && <div style={{ fontSize: 12, color: C.dim }}>Not on the current vote board.</div>}
+                </div>
+
+                {/* Economics — votes tell you demand; this tells you dollars.
+                    Costs the candidate from its own ingredient list; gates
+                    gracefully when the recipe isn't developed yet. */}
+                <div style={S.section}>
+                  <div style={S.sectionTitle}>Economics</div>
+                  {!pipeCost || pipeCost.total === 0 ? (
+                    <div style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.5 }}>
+                      Needs recipe to cost. Add this candidate's ingredients in <code style={{ color: C.faint }}>pipelineDishes.js</code> (name, qty, unit) and a ballpark cost and margin show up here.
+                    </div>
+                  ) : !pipeCost.costable ? (
+                    <div style={{ fontSize: 12.5, color: C.warn, lineHeight: 1.5 }}>
+                      Partially costable: {pipeCost.resolvedCount} of {pipeCost.total} lines resolved.
+                      {pipeCost.missing.length > 0 && (
+                        <div style={{ fontSize: 11.5, color: C.dim, marginTop: 4 }}>
+                          No cost mapping for: {pipeCost.missing.join(', ')}. These names need a LINE_MAP entry (added at Promote).
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 13, color: C.text, marginBottom: 8 }}>
+                        Ballpark cost <b style={{ color: CREAM || '#e8e2d4' }}>{currency(pipeCost.buffered)}</b>
+                        <span style={{ fontSize: 11, color: C.faint }}> (raw {currency(pipeCost.raw)} × buffer)</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 12, color: C.dim }}>If you ran it at</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ fontSize: 13, color: C.dim }}>$</span>
+                          <input
+                            type="number" inputMode="decimal" step="1" min="0"
+                            placeholder="price"
+                            value={pipeTargetPrice}
+                            onChange={e => setPipeTargetPrice(e.target.value)}
+                            style={{ width: 80, padding: '6px 8px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelAlt, color: C.text, fontSize: 13 }}
+                          />
+                        </span>
+                      </div>
+                      {pipeMargin && (
+                        <div style={{ ...S.banner(pipeMargin.marginPct >= 45 ? 'good' : pipeMargin.marginPct >= 40 ? 'warn' : 'bad'), marginTop: 8 }}>
+                          Would hold <b>{pipeMargin.marginPct}%</b> margin ({currency(pipeMargin.marginDollars)} per sale) at {currency(pipeMargin.price)}.
+                          {pipeMargin.marginPct < 45 && ' Below the 45% floor.'}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 {/* Open questions */}
@@ -610,10 +688,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         </button>
         {showPortfolio && (
           <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            {/* Profit-$ window selector — only affects the Profit $ column/sort. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 10.5, color: C.faint, textTransform: 'uppercase', letterSpacing: 0.4 }}>Profit window</span>
+              {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
+                <button key={k} style={{ ...S.chip(portWindow === k), padding: '4px 9px', fontSize: 11.5 }} onClick={() => setPortWindow(k)}>{label}</button>
+              ))}
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={S.portTh} onClick={() => setPortSort('name')}>Dish</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }} onClick={() => setPortSort('profit')}>Profit ${portSort === 'profit' ? ' ▾' : ''}</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }} onClick={() => setPortSort('margin')}>Worst margin{portSort === 'margin' ? ' ▾' : ''}</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }} onClick={() => setPortSort('drift')}>Drift{portSort === 'drift' ? ' ▾' : ''}</th>
                 </tr>
@@ -623,6 +709,12 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>
                       {thisWeek.has(r.name) ? '● ' : ''}{r.name}
+                    </td>
+                    <td style={{ ...S.portTd, textAlign: 'right', fontWeight: 700, color: (r.profitContribution ?? 0) > 0 ? C.good : C.faint }}>
+                      {r.profitContribution == null ? '—' : (r.profitContribution === 0 ? '$0' : currency(r.profitContribution))}
+                      {r.orderCount > 0 && (
+                        <div style={{ fontSize: 9, fontWeight: 400, color: C.faint }}>{r.units}u · {r.orderCount}ord{r.est ? ' · est' : ''}</div>
+                      )}
                     </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
                       {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}

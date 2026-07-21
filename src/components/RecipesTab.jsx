@@ -219,6 +219,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const [showProteins, setShowProteins] = useState(false); // collapsed by default
   const [showVeg, setShowVeg] = useState(false);           // collapsed by default
   const [showDesserts, setShowDesserts] = useState(false); // collapsed by default
+  const [showAddons, setShowAddons] = useState(false);     // collapsed by default
   const [showServings, setShowServings] = useState(false); // collapsed by default
   const servingAudit = useMemo(() => buildServingAudit({ all: true }), []);
   const servingFlags = useMemo(() => servingAudit.filter(d => d.anyFlag), [servingAudit]);
@@ -863,6 +864,53 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
               </thead>
               <tbody>
                 {sortedPortfolio.filter(r => r.group === 'dessert').map(r => (
+                  <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
+                    <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', fontWeight: 700, color: (r.profitContribution ?? 0) > 0 ? C.good : C.faint }}>
+                      {r.profitContribution == null ? '—' : (r.profitContribution === 0 ? '$0' : currency(r.profitContribution))}
+                    </td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
+                      {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
+                      {r.hasPassthrough && (
+                        <div style={{ fontSize: 9, fontWeight: 400, color: C.faint }}>{r.worstMarginPct}% blended</div>
+                      )}
+                    </td>
+                    <td style={{ ...S.portTd, textAlign: 'right', color: Math.abs(r.maxDriftPct) >= 2 ? (r.maxDriftPct > 0 ? C.badText : C.good) : C.faint }}>
+                      {r.maxDriftPct === 0 ? '—' : `${r.maxDriftPct > 0 ? '↑' : '↓'}${Math.abs(r.maxDriftPct)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Add-ons (queso, sauces) ─ own collapsed margin radar ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowAddons(o => !o)}>
+          <span>Add-ons</span>
+          <span>{showAddons ? '▲' : '▼'}</span>
+        </button>
+        {showAddons && (
+          <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '0 0 8px' }}>
+              <span style={{ fontSize: 10, color: C.faint, letterSpacing: 0.5 }}>PROFIT WINDOW</span>
+              {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
+                <button key={k} style={{ ...S.chip(portWindow === k), padding: '3px 8px', fontSize: 11 }} onClick={() => setPortWindow(k)}>{label}</button>
+              ))}
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Profit $</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedPortfolio.filter(r => r.group === 'addon').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
                     <td style={{ ...S.portTd, textAlign: 'right', fontWeight: 700, color: (r.profitContribution ?? 0) > 0 ? C.good : C.faint }}>

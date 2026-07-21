@@ -223,7 +223,8 @@ export const INGREDIENT_SEED = [
   { id: 'orange_juice', name: 'Orange juice', unit: 'batch-use', baseline: 2.0, category: 'pantry' },
   { id: 'lime_juice', name: 'Lime juice', unit: 'g', baseline: 0.0125, category: 'produce' },
   { id: 'pecans', name: 'Pecans (shelled)', unit: 'oz', baseline: 0.56, category: 'pantry' },
-  { id: 'dried_orange_peel', name: 'Dried orange peel', unit: 'tbs', baseline: 0.15, category: 'spice' }, // replaces fresh orange in the tea smoke; stores better + cheaper (Kevin, Jul 20)
+  { id: 'dried_orange_peel', name: 'Dried orange peel', unit: 'tbs', baseline: 0.15, category: 'spice' },
+  { id: 'mason_jar', name: 'Pint mason jar (container)', unit: 'each', baseline: 1.50, category: 'pantry', passthrough: true }, // store-bought container, sold at cost, no buffer (Kevin, Jul 20) // replaces fresh orange in the tea smoke; stores better + cheaper (Kevin, Jul 20)
   { id: 'pomegranate_molasses', name: 'Pomegranate molasses', unit: 'cup', baseline: 3.333, category: 'pantry' }, // ~$2.50 per 3/4 cup
   { id: 'pepitas', name: 'Pepitas (toasted)', unit: 'oz', baseline: 0.57, category: 'pantry' },
   { id: 'mitad_tortillas', name: 'Mitad-y-mitad tortillas (flour+corn)', unit: '10ct', baseline: 2.98, category: 'pantry' },

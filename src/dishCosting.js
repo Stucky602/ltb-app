@@ -445,6 +445,7 @@ export const LINE_MAP = {
   // kosher_salt — but that changes the Bo Ssam anchors, so retune those too.
   'Salt':                   { skip: true },
   'Pint mason jar':         { skip: true },
+  'Pint mason jar (passthrough)': { id: 'mason_jar', conv: () => 1 }, // real $1.50 passthrough container (queso); distinct from the skipped line above
   'Gallon ziplock bag':     { skip: true },
   'Sous vide bag + seasonings': { skip: true },  // composed-ok: skip line; packaging placeholder with no cost by design
   'Sous vide bag + butter + herbs (costed)': { id: 'sv_bag', conv: () => 1 }, // 1 unit of the $2.00 sv_bag ingredient; separate from $1 packaging wrap  // composed-ok: the $2.00 sv_bag id IS the composed bag+butter+herbs price

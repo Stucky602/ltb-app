@@ -406,6 +406,7 @@ export function buildPortfolioSummary(ctx = {}) {
   const proteinNames = new Set(REPORTABLE_BAG_PROTEINS.map(d => d.name));
   const vegNames = new Set(REPORTABLE_BAG_VEG.map(d => d.name));
   const dessertNames = new Set(['Chocolate Chip Cookies', 'Peanut Butter Fudge', 'Brownies']);
+  const addonNames = new Set(['Queso']); // add-on items: own Recipes-tab section (Jul 20)
   return REPORTABLE_DISHES.map(dish => {
     const econ = dish.variants.map(v => variantEconomics(dish.name, v, liveCostMap, baseCostMap, floorPct));
     // Worst-margin and floor flags anchor to SMALL variants only (Kevin, Jul 9):
@@ -421,7 +422,7 @@ export function buildPortfolioSummary(ctx = {}) {
     return {
       name: dish.name,
       cuisine: dish.cuisine,
-      group: proteinNames.has(dish.name) ? 'protein' : (vegNames.has(dish.name) ? 'veg' : (dessertNames.has(dish.name) ? 'dessert' : 'main')),
+      group: proteinNames.has(dish.name) ? 'protein' : (vegNames.has(dish.name) ? 'veg' : (dessertNames.has(dish.name) ? 'dessert' : (addonNames.has(dish.name) ? 'addon' : 'main'))),
       variantCount: dish.variants.length,
       worstMarginPct: Math.round(worst.marginLivePct * 10) / 10,
       worstMarginVariant: worst.label,

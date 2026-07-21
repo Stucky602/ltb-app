@@ -1856,17 +1856,17 @@ export const ALWAYS_ITEMS = {
   addons: [
     {
       name: 'Queso',
-      packaging: 'jar',
+      packaging: 'none', // the $1.50 passthrough jar (recipe line) carries the container cost now, not the wrap
       equipment: { fixed: ['largePot'] },
       variants: [
-        { label: 'Per Pint Jar', price: 12, cost: 4.87 },
-        { label: 'With jar swap', price: 10, cost: 3.62 },
+        { label: 'Per Pint Jar', price: 10, cost: 5.62 },  // Jul 20: 2.5-jar yield, $1.50 passthrough jar, new cheese ratios -> ~51% value-add at $10
+        { label: 'With jar swap', price: 8, cost: 4.12 },   // no jar (returned)
       ],
       recipe: {
-        factors: { 'Per Pint Jar': 0.5, 'With jar swap': 0.5 },
+        factors: { 'Per Pint Jar': 0.4, 'With jar swap': 0.4 }, // base amounts are a full batch; batch makes 2.5 jars
         base: [
-          I('Oaxaca cheese', 250, 'g'),
-          I('Colby Jack', 250, 'g'),
+          I('Oaxaca cheese', 283, 'g'),   // packaging size (Kevin)
+          I('Colby Jack', 226, 'g'),      // packaging size (Kevin)
           I('Poblano pepper', 90, 'g'),
           I('Sweet onion', 135, 'g'),
           I('Habaneros', 2, ''),
@@ -1874,8 +1874,11 @@ export const ALWAYS_ITEMS = {
           I('Limes', 1, ''),
           I('Cilantro', 15, 'g'),
           I('Sodium citrate', 20, 'g', true),
-          I('Pint mason jar', 2, '', false),
         ],
+        extras: {
+          'Per Pint Jar': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], // 1 jar, passthrough $1.50, not batch-scaled
+          'With jar swap': [], // jar returned by customer, no container cost
+        },
       },
     },
     {

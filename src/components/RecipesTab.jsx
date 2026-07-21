@@ -734,17 +734,6 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         )}
       </div>
 
-      {/* ── Dish picker ── */}
-      <select style={S.select} value={dish} onChange={e => setDish(e.target.value)}>
-        <option value="">Select a dish…</option>
-        <optgroup label="This week">
-          {dishes.filter(d => thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
-        </optgroup>
-        <optgroup label="All dishes">
-          {dishes.filter(d => !thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
-        </optgroup>
-      </select>
-
       {/* ── Ready to Finish (sous vide proteins) — own collapsed margin radar ── */}
       <div style={S.section}>
         <button style={S.collapseBtn} onClick={() => setShowProteins(o => !o)}>
@@ -932,6 +921,17 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
           </div>
         )}
       </div>
+
+      {/* ── Dish picker ── */}
+      <select style={S.select} value={dish} onChange={e => setDish(e.target.value)}>
+        <option value="">Select a dish…</option>
+        <optgroup label="This week">
+          {dishes.filter(d => thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
+        </optgroup>
+        <optgroup label="All dishes">
+          {dishes.filter(d => !thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
+        </optgroup>
+      </select>
 
       {/* ── Serving-size check — flags label/yield drift from the 4/8 baseline ── */}
       <div style={S.section}>

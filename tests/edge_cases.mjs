@@ -9,7 +9,7 @@
 // Pure module, no DOM. Run: node tests/edge_cases.mjs
 
 import assert from 'node:assert';
-import { orderTotal, HOUSE_DISCOUNT_PERCENT } from '../src/utils.js';
+import { orderTotal, HOUSE_DISCOUNT_PERCENT, jarsOutForRegular, orderOutboundJars } from '../src/utils.js';
 import { reconcileIngredients } from '../src/seedReconcile.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { liveCostMapFrom } from '../src/dishCosting.js';
@@ -67,5 +67,19 @@ ok(skipPush({ orders: [], costHistory: [{ x: 1 }] }) === true,
   'a 0-order state is skipped even when costHistory is non-empty (the EC-4 hole)');
 ok(skipPush({ orders: [{ id: 'a' }], costHistory: [] }) === false,
   'a state with orders is always pushed');
+
+
+// ── Jar ledger (containers out per regular, forward-only) ───────────────────
+const JL_AFTER = '2026-07-22', JL_BEFORE = '2026-07-01';
+ok(orderOutboundJars({ items: [{ name: 'Queso', variant: 'Per Pint Jar', qty: 2 }] }) === 2,
+  'jar ledger: outbound counts jar-shipping items by qty');
+ok(orderOutboundJars({ items: [{ name: 'Queso', variant: 'With jar swap', qty: 1 }] }) === 0,
+  'jar ledger: a jar-swap variant is net zero outbound');
+ok(jarsOutForRegular('r1', [{ regularId: 'r1', createdAt: JL_AFTER, items: [{ name: 'Queso', variant: 'Per Pint Jar', qty: 3 }], jarSwaps: 1, containerReturns: 1 }]) === 1,
+  'jar ledger: both jarSwaps and containerReturns decrement (3 - 1 - 1 = 1)');
+ok(jarsOutForRegular('r1', [{ regularId: 'r1', createdAt: JL_BEFORE, items: [{ name: 'Queso', variant: 'Per Pint Jar', qty: 5 }] }]) === 0,
+  'jar ledger: orders before the epoch are excluded');
+ok(jarsOutForRegular('r1', [{ regularId: 'r1', createdAt: JL_AFTER, items: [{ name: 'Queso', variant: 'Per Pint Jar', qty: 1 }], containerReturns: 4 }]) === 0,
+  'jar ledger: never goes negative (floored at 0)');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

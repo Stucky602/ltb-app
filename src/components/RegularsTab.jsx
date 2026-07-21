@@ -25,7 +25,7 @@ import {
   urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
-  orderTotal, repricePerLbItem, itemCost, orderCostInfo,
+  orderTotal, repricePerLbItem, itemCost, orderCostInfo, jarsOutForRegular,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
@@ -63,6 +63,36 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
   const [activeId, setActiveId] = useState(null);
 
   const activeRegular = regulars.find(r => r.id === activeId) || null;
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [analyticsWindow, setAnalyticsWindow] = useState('all'); // month | quarter | all
+
+  const REG_PERIOD_DAYS = { month: 30, quarter: 90, all: null };
+  const analytics = useMemo(() => {
+    const days = REG_PERIOD_DAYS[analyticsWindow];
+    const cutoff = days ? Date.now() - days * 86400000 : null;
+    const rows = (regulars || []).map(r => {
+      let ordersCount = 0, revenue = 0, cost = 0, complete = true, lastTs = 0, isHouse = false;
+      for (const o of (orders || [])) {
+        if (o.regularId !== r.id) continue;
+        const t = new Date(o.createdAt || 0).getTime();
+        if (cutoff && !(t >= cutoff)) continue;
+        if (o.house) { isHouse = true; continue; } // house account: never in the money
+        ordersCount++;
+        revenue += (o.total || 0);
+        const ci = orderCostInfo(o);
+        cost += ci.cost;
+        if (!ci.complete) complete = false;
+        if (t > lastTs) lastTs = t;
+      }
+      return {
+        id: r.id, name: regularDisplayName(r), isHouse,
+        orders: ordersCount, revenue: round2(revenue), profit: round2(revenue - cost),
+        complete, lastTs, jarsOut: jarsOutForRegular(r.id, orders),
+      };
+    });
+    rows.sort((a, b) => (a.isHouse - b.isHouse) || (b.profit - a.profit));
+    return rows;
+  }, [regulars, orders, analyticsWindow]);
 
   if (mode === 'add') {
     return (
@@ -103,6 +133,56 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
       <button style={styles.addRegularBtn} onClick={() => setMode('add')}>
         <Plus size={18} /> Add a regular
       </button>
+
+      {regulars.length > 0 && (
+        <div style={{ background: CARD, border: '1px solid #2f3a36', borderRadius: 12, padding: 12, marginBottom: 12 }}>
+          <button
+            onClick={() => setShowAnalytics(o => !o)}
+            style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', color: GOLD, fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 0 }}
+          >
+            <span>Regular analytics</span>
+            <span>{showAnalytics ? '▲' : '▼'}</span>
+          </button>
+          {showAnalytics && (
+            <div style={{ marginTop: 10, overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 10, color: '#7a8480', letterSpacing: 0.5 }}>WINDOW</span>
+                {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
+                  <button key={k} onClick={() => setAnalyticsWindow(k)}
+                    style={{ padding: '3px 8px', fontSize: 11, borderRadius: 7, cursor: 'pointer', border: '1px solid ' + (analyticsWindow === k ? GOLD : '#3a453f'), background: analyticsWindow === k ? 'rgba(212,160,80,0.15)' : 'transparent', color: analyticsWindow === k ? GOLD : CREAM }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                  <tr style={{ color: '#7a8480', textAlign: 'left' }}>
+                    <th style={{ padding: '4px 6px' }}>Name</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right' }}>Orders</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right' }}>Revenue</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right' }}>Profit</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right' }}>Last</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right' }}>Jars</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics.map(row => (
+                    <tr key={row.id} style={{ borderTop: '1px solid #2a332f', color: CREAM }}>
+                      <td style={{ padding: '5px 6px' }}>{row.name}{row.isHouse ? <span style={{ color: '#7a8480' }}> (house)</span> : ''}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right' }}>{row.isHouse ? '—' : row.orders}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right' }}>{row.isHouse ? '—' : currency(row.revenue)}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: row.isHouse ? '#7a8480' : (row.profit >= 0 ? '#5DCAA5' : '#EF9F27'), fontWeight: 700 }}>{row.isHouse ? '—' : currency(row.profit) + (row.complete ? '' : '*')}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: '#9aa5a0' }}>{row.lastTs ? formatDate(new Date(row.lastTs).toISOString()) : '—'}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 700, color: row.jarsOut > 0 ? GOLD : '#7a8480' }}>{row.jarsOut}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {analytics.some(r => !r.complete) && <div style={{ fontSize: 10, color: '#7a8480', marginTop: 6 }}>* some orders predate cost tracking, so profit is partial</div>}
+            </div>
+          )}
+        </div>
+      )}
 
       {regulars.length === 0 ? (
         <div style={styles.emptyState}>
@@ -354,6 +434,10 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
           <div style={styles.profileStat}>
             <div style={styles.profileStatNum}>{lastOrder ? formatDate(lastOrder.createdAt) : '—'}</div>
             <div style={styles.profileStatLabel}>last order</div>
+          </div>
+          <div style={styles.profileStat}>
+            <div style={styles.profileStatNum}>{jarsOutForRegular(regular.id, orders)}</div>
+            <div style={styles.profileStatLabel}>containers out</div>
           </div>
         </div>
         {regular.house ? (

@@ -58,6 +58,85 @@ function buildPassport(order, regulars, allOrders) {
   };
 }
 
+// Omakase fulfillment: catalog of menu picks (dish+variant -> registry cost).
+const OMAKASE_CATALOG = (() => {
+  const out = [];
+  Object.keys(FULL_MENU).forEach(cat => {
+    (FULL_MENU[cat] || []).forEach(dish => {
+      (dish.variants || []).forEach(v => {
+        out.push({ key: dish.name + '|' + v.label, name: dish.name, variant: v.label, cost: v.cost || 0, price: v.price || 0 });
+      });
+    });
+  });
+  return out;
+})();
+
+// "Log what you made" for an omakase item: dynamic rows (menu pick OR off-menu
+// manual), sums to it.cost (costSource manual), final charge clamped at budgetMax.
+function OmakaseLogger({ item, order, onUpdate }) {
+  const budgetMax = item.budgetMax != null ? item.budgetMax : (item.price || 0);
+  const [rows, setRows] = useState((item.components && item.components.length) ? item.components : []);
+  const [charge, setCharge] = useState(item.price != null ? String(item.price) : String(budgetMax));
+
+  const estCost = round2(rows.reduce((s, c) => s + (Number(c.cost) || 0), 0));
+  const menuValue = round2(rows.reduce((s, c) => s + (Number(c.refPrice) || 0), 0));
+  const chargeNum = Math.min(budgetMax, Math.max(0, parseFloat(charge) || 0));
+  const marginPct = chargeNum > 0 ? Math.round((1 - estCost / chargeNum) * 100) : 0;
+
+  const setRow = (i, patch) => setRows(r => r.map((row, j) => j === i ? { ...row, ...patch } : row));
+  const pickMenu = (i, key) => {
+    const c = OMAKASE_CATALOG.find(x => x.key === key);
+    if (c) setRow(i, { menuKey: key, label: c.name + ' (' + c.variant + ')', cost: c.cost, refPrice: c.price });
+    else setRow(i, { menuKey: '', label: '', cost: 0, refPrice: 0 });
+  };
+
+  const save = () => {
+    setCharge(String(chargeNum));
+    const items = order.items.map(it => it.omakase
+      ? { ...it, components: rows, cost: estCost, costSource: 'manual', price: chargeNum }
+      : it);
+    onUpdate({
+      items,
+      total: orderTotal(items, order.jarSwaps, order.containerReturns, order.discountType, order.discountValue, order.customCharges, order.waiveSurcharge),
+    });
+  };
+
+  const inp = { padding: '5px 7px', borderRadius: 6, border: '1px solid #3a4441', background: '#202623', color: '#e8ede9', fontSize: 13 };
+
+  return (
+    <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(212,160,80,0.06)', border: '1px solid #3a453f' }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#D4A050', marginBottom: 8 }}>Log what you made (customer max {currency(budgetMax)})</div>
+      {rows.map((row, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+          {row.fromMenu ? (
+            <select value={row.menuKey || ''} onChange={e => pickMenu(i, e.target.value)} style={{ ...inp, flex: 1 }}>
+              <option value="">Pick a dish…</option>
+              {OMAKASE_CATALOG.map(c => <option key={c.key} value={c.key}>{c.name} ({c.variant})</option>)}
+            </select>
+          ) : (
+            <input value={row.label} placeholder="What you made" onChange={e => setRow(i, { label: e.target.value })} style={{ ...inp, flex: 1 }} />
+          )}
+          <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 70 }} title="cost" />
+          <button onClick={() => setRows(r => r.filter((_, j) => j !== i))} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14 }}>✕</button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        <button onClick={() => setRows(r => [...r, { fromMenu: true, menuKey: '', label: '', cost: 0, refPrice: 0 }])} style={{ ...inp, cursor: 'pointer' }}>+ menu item</button>
+        <button onClick={() => setRows(r => [...r, { fromMenu: false, label: '', cost: 0 }])} style={{ ...inp, cursor: 'pointer' }}>+ off-menu</button>
+      </div>
+      <div style={{ fontSize: 11.5, color: '#9aa5a0', marginBottom: 6 }}>
+        Est. cost {currency(estCost)}{menuValue > 0 ? ' · menu value ' + currency(menuValue) : ''} · margin {marginPct}%
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ fontSize: 12, color: '#c9d1cd' }}>Final charge $</span>
+        <input type="number" step="0.5" min="0" max={budgetMax} value={charge} onChange={e => setCharge(e.target.value)} style={{ ...inp, width: 80 }} />
+        <span style={{ fontSize: 10.5, color: '#7a8480' }}>max {currency(budgetMax)}</span>
+        <button onClick={save} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700, marginLeft: 'auto' }}>Save</button>
+      </div>
+    </div>
+  );
+}
+
 export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -294,6 +373,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                     </div>
                   ))}
                   {noteWithoutOptions(it.note) && <div style={styles.orderItemNote}>“{noteWithoutOptions(it.note)}”</div>}
+                  {it.omakase && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} />}
                   {perLb && (
                     <button
                       style={styles.setWeightBtn}

@@ -2,7 +2,7 @@
 // pricing math, localStorage wrapper, photo storage, and the AI order-parsing API client.
 import { FULL_MENU, ALL_DINNERS, PER_LB_ITEMS, isPerLbItem } from './menu.js';
 import { SURCHARGE, WORKER_BASE } from './config.js';
-import { DISHES } from './dishes.js';
+import { DISHES, ALL_ALWAYS_ITEMS } from './dishes.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const currency = (n) => `$${(Number(n) || 0).toFixed(2)}`;
@@ -1850,3 +1850,41 @@ export function rowToOrderText(headerMap) {
   return { customer, text: parts.join('\n') };
 }
 
+
+// ─── Jar ledger: containers out per regular (forward-only) ───────────────────
+// Kevin wants a running count of how many of his containers each regular is
+// holding. Forward-only from the epoch, since older data never tracked this.
+export const JAR_LEDGER_EPOCH = Date.parse('2026-07-21');
+// Ships in a jar: any always-item flagged packaging:'jar', PLUS Queso (its
+// packaging is 'none' now because the jar is a passthrough recipe line, but it
+// still physically ships in a jar).
+const JAR_SHIPPING_NAMES = new Set([
+  ...ALL_ALWAYS_ITEMS.filter(it => it && it.packaging === 'jar').map(it => it.name),
+  'Queso',
+]);
+// Jars going OUT on one order: jar-shipping items, EXCEPT a 'jar swap' variant,
+// which is net zero (customer brought their own jar back, one out one in).
+export function orderOutboundJars(o) {
+  let n = 0;
+  for (const it of ((o && o.items) || [])) {
+    if (!JAR_SHIPPING_NAMES.has(it.name)) continue;
+    if (/jar swap/i.test(it.variant || '')) continue;
+    n += (it.qty || 1);
+  }
+  return n;
+}
+// Containers a regular is currently holding: outbound minus credits (BOTH the
+// jar-swap discount and the container-return discount decrement, per Kevin),
+// over their linked orders since the epoch, floored at 0. House orders ARE
+// counted here (her jars are still jars).
+export function jarsOutForRegular(regularId, orders) {
+  if (!regularId) return 0;
+  let out = 0, credits = 0;
+  for (const o of (orders || [])) {
+    if (o.regularId !== regularId) continue;
+    if (!(new Date(o.createdAt || 0).getTime() >= JAR_LEDGER_EPOCH)) continue;
+    out += orderOutboundJars(o);
+    credits += (o.jarSwaps || 0) + (o.containerReturns || 0);
+  }
+  return Math.max(0, out - credits);
+}

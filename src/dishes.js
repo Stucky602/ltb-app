@@ -1184,8 +1184,8 @@ export const DISHES = [
     equipment: { fixed: ['wok'] },
     servings: { small: 2.5, large: 5.5, bound: true },
     variants: [
-      { label: 'Small (~2-3)', price: 35, cost: 14.98 },
-      { label: 'Large (~5-6)', price: 65, cost: 29.96 },
+      { label: 'Small (~2-3)', price: 25, cost: 14.98 }, // repriced Jul 20: passthrough revealed ~66% VA, dropped to ~48% VA to pass on the savings (Kevin)
+      { label: 'Large (~5-6)', price: 50, cost: 29.96 }, // repriced Jul 20: ~48% value-add, cheap+easy dish, price passed on (Kevin)
     ],
     recipe: {
       factors: { 'Small (~2-3)': 0.5, 'Large (~5-6)': 1 },

@@ -752,10 +752,17 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         </button>
         {showProteins && (
           <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '0 0 8px' }}>
+              <span style={{ fontSize: 10, color: C.faint, letterSpacing: 0.5 }}>PROFIT WINDOW</span>
+              {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
+                <button key={k} style={{ ...S.chip(portWindow === k), padding: '3px 8px', fontSize: 11 }} onClick={() => setPortWindow(k)}>{label}</button>
+              ))}
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Profit $</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
                 </tr>
@@ -764,6 +771,9 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 {sortedPortfolio.filter(r => r.group === 'protein').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', fontWeight: 700, color: (r.profitContribution ?? 0) > 0 ? C.good : C.faint }}>
+                      {r.profitContribution == null ? '—' : (r.profitContribution === 0 ? '$0' : currency(r.profitContribution))}
+                    </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
                       {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
                       {r.hasPassthrough && (
@@ -789,10 +799,17 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         </button>
         {showVeg && (
           <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '0 0 8px' }}>
+              <span style={{ fontSize: 10, color: C.faint, letterSpacing: 0.5 }}>PROFIT WINDOW</span>
+              {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
+                <button key={k} style={{ ...S.chip(portWindow === k), padding: '3px 8px', fontSize: 11 }} onClick={() => setPortWindow(k)}>{label}</button>
+              ))}
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Profit $</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
                 </tr>
@@ -801,6 +818,9 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 {sortedPortfolio.filter(r => r.group === 'veg').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', fontWeight: 700, color: (r.profitContribution ?? 0) > 0 ? C.good : C.faint }}>
+                      {r.profitContribution == null ? '—' : (r.profitContribution === 0 ? '$0' : currency(r.profitContribution))}
+                    </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
                       {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
                       {r.hasPassthrough && (
@@ -826,10 +846,17 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         </button>
         {showDesserts && (
           <div style={{ marginTop: 8, overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '0 0 8px' }}>
+              <span style={{ fontSize: 10, color: C.faint, letterSpacing: 0.5 }}>PROFIT WINDOW</span>
+              {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
+                <button key={k} style={{ ...S.chip(portWindow === k), padding: '3px 8px', fontSize: 11 }} onClick={() => setPortWindow(k)}>{label}</button>
+              ))}
+            </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
                   <th style={S.portTh}>Item</th>
+                  <th style={{ ...S.portTh, textAlign: 'right' }}>Profit $</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }}>Worst margin</th>
                   <th style={{ ...S.portTh, textAlign: 'right' }}>Drift</th>
                 </tr>
@@ -838,6 +865,9 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 {sortedPortfolio.filter(r => r.group === 'dessert').map(r => (
                   <tr key={r.name} style={{ cursor: 'pointer' }} onClick={() => setDish(r.name)}>
                     <td style={{ ...S.portTd, color: r.name === dish ? C.good : C.text }}>{r.name}</td>
+                    <td style={{ ...S.portTd, textAlign: 'right', fontWeight: 700, color: (r.profitContribution ?? 0) > 0 ? C.good : C.faint }}>
+                      {r.profitContribution == null ? '—' : (r.profitContribution === 0 ? '$0' : currency(r.profitContribution))}
+                    </td>
                     <td style={{ ...S.portTd, textAlign: 'right', color: marginColor(r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct), fontWeight: 700 }}>
                       {r.hasPassthrough ? r.worstValueAddPct : r.worstMarginPct}%{r.underFloor ? ' ⚠' : ''}
                       {r.hasPassthrough && (

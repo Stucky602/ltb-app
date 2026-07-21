@@ -187,6 +187,22 @@
         html += '<a class="menu-link" href="' + config.menuPdfUrl + '" target="_blank" rel="noopener">View the full menu PDF →</a>';
       }
 
+      // Omakase - always present, not from the weekly config
+      html += '<div class="section">' +
+        '<div class="section-title">Omakase</div>' +
+        '<div style="font-size:12.5px;color:var(--dim);margin-bottom:10px;line-height:1.5;">Name a budget, pick a size, and I cook. You might even get something off the menu entirely if I spot something great at the store. The amount you enter is the <b>maximum</b>; the final charge may come in under it. Minor requests are welcome (a meal count, a hard no on an ingredient), but the point is you\'re trusting me to feed you.</div>' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">' +
+          '<span style="color:var(--cream);font-size:13px;">Budget $</span>' +
+          '<input id="omakaseBudget" type="number" min="50" step="5" placeholder="50 min" oninput="clearOmakaseErr()" style="width:100px;padding:8px;border-radius:8px;border:1px solid #3a453f;background:#1a201d;color:var(--cream);font-size:14px;" />' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+          '<button type="button" id="omSizeSmall" class="om-size om-size-on" onclick="setOmakaseSize(\'Small\')">Small</button>' +
+          '<button type="button" id="omSizeLarge" class="om-size" onclick="setOmakaseSize(\'Large\')">Large</button>' +
+        '</div>' +
+        '<textarea id="omakaseNote" placeholder="Optional: 2 total meals please / absolutely no clams"></textarea>' +
+        '<div id="omakaseErr"></div>' +
+        '</div>';
+
       // Menu groups
       groups.forEach(function (group, gi) {
         html += '<div class="section"><div class="section-title">' + group.title + '</div>';
@@ -263,22 +279,6 @@
         });
         html += '</div>';
       });
-
-      // Omakase - always present, not from the weekly config
-      html += '<div class="section">' +
-        '<div class="section-title">Omakase</div>' +
-        '<div style="font-size:12.5px;color:var(--dim);margin-bottom:10px;line-height:1.5;">Name a budget, pick a size, and I cook. You might even get something off the menu entirely if I spot something great at the store. The amount you enter is the <b>maximum</b>; the final charge may come in under it. Minor requests are welcome (a meal count, a hard no on an ingredient), but the point is you\'re trusting me to feed you.</div>' +
-        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">' +
-          '<span style="color:var(--cream);font-size:13px;">Budget $</span>' +
-          '<input id="omakaseBudget" type="number" min="50" step="5" placeholder="50 min" oninput="clearOmakaseErr()" style="width:100px;padding:8px;border-radius:8px;border:1px solid #3a453f;background:#1a201d;color:var(--cream);font-size:14px;" />' +
-        '</div>' +
-        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
-          '<button type="button" id="omSizeSmall" class="om-size om-size-on" onclick="setOmakaseSize(\'Small\')">Small</button>' +
-          '<button type="button" id="omSizeLarge" class="om-size" onclick="setOmakaseSize(\'Large\')">Large</button>' +
-        '</div>' +
-        '<textarea id="omakaseNote" placeholder="Optional: 2 total meals please / absolutely no clams"></textarea>' +
-        '<div id="omakaseErr"></div>' +
-        '</div>';
 
       // Customer details
       html += '<div class="section"><div class="section-title">Your Details</div>' +

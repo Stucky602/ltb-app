@@ -13,6 +13,11 @@ const S = {
 
 // #6 The Monday briefing — everything the app knows, in one read.
 export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut }) {
+  const [fbMsg, setFbMsg] = useState(null);
+  const [open, setOpen] = useState(false);
+  const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
+    [open, orders, regulars, liveCostMap, baseCostMap]);
+
   // What needs a decision from Kevin, computed from the props already here.
   // Deliberately NOT including paused state: the digest has no config access,
   // so it cannot tell a paused week from a quiet one and should not guess.
@@ -29,11 +34,6 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
     const unpaidTotal = unpaidOrders.reduce((s2, o) => s2 + (Number(o.total) || 0), 0);
     return { undecided, unsettled, jarTotal, topJar, unpaidCount: unpaidOrders.length, unpaidTotal };
   }, [open, orders, regulars]);
-
-  const [fbMsg, setFbMsg] = useState(null);
-  const [open, setOpen] = useState(false);
-  const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
-    [open, orders, regulars, liveCostMap, baseCostMap]);
   return (
     <div style={S.section}>
       <button style={S.head} onClick={() => setOpen(o => !o)}>

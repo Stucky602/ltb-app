@@ -36,7 +36,7 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { costDishVariant, driftBorder } from '../dishCosting.js';
 import { ConflictModal } from './ConflictModal.jsx';
 
-export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders }) {
+export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, onFetchHistory, onRestoreConfig }) {
   // Composer intelligence: what a dish actually earned lately, and when it last
   // ran. Requests already show as the green "req" chip. Quarter window.
   const dishIntel = useMemo(() => {
@@ -111,6 +111,27 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     const wed = new Date(sun); wed.setDate(sun.getDate() + 3);
     const fmt = (d) => d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
     return `Orders due Sunday ${fmt(sun)} · Delivery Wednesday ${fmt(wed)}`;
+  };
+
+  // Publish history: what the form looked like before the current publish.
+  const [history, setHistory] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyMsg, setHistoryMsg] = useState(null);
+  const [confirmRestore, setConfirmRestore] = useState(null);
+  const loadHistory = async () => {
+    setHistoryMsg(null);
+    try { setHistory(await onFetchHistory()); }
+    catch (e) { setHistoryMsg({ ok: false, text: (e && e.message) || 'Could not load history.' }); }
+  };
+  const doRestore = async (index) => {
+    setConfirmRestore(null); setHistoryMsg(null);
+    try {
+      const res = await onRestoreConfig(index);
+      setHistoryMsg({ ok: true, text: `Restored "${(res.config && res.config.weekLabel) || 'that publish'}". The order form is showing it now.` });
+      await loadHistory();
+    } catch (e) {
+      setHistoryMsg({ ok: false, text: (e && e.message) || 'Restore failed.' });
+    }
   };
 
   // Take the week off: publishes a paused config so both customer pages say so
@@ -362,6 +383,42 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
             >
               {pausing ? 'Pausing…' : 'Take the week off'}
             </button>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <button
+              onClick={() => { setShowHistory(o => !o); if (!history) loadHistory(); }}
+              style={{ background: 'none', border: 'none', color: '#9aa5a0', fontSize: 12, cursor: 'pointer', padding: 0 }}
+            >
+              Publish history {showHistory ? '▲' : '▼'}
+            </button>
+            {historyMsg && (
+              <div style={{ fontSize: 11.5, marginTop: 5, color: historyMsg.ok ? '#5DCAA5' : '#EF9F27' }}>{historyMsg.text}</div>
+            )}
+            {showHistory && (
+              <div style={{ marginTop: 6 }}>
+                {history === null && <div style={{ fontSize: 11.5, color: '#7a8480' }}>Loading…</div>}
+                {history && history.length === 0 && <div style={{ fontSize: 11.5, color: '#7a8480' }}>Nothing published before this one yet.</div>}
+                {(history || []).map(h => (
+                  <div key={h.index} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '5px 0', borderTop: '1px solid #2a332f' }}>
+                    <div style={{ flex: 1, fontSize: 12, color: '#e8ede9' }}>
+                      {h.weekLabel || '(no label)'}{h.paused ? ' · paused' : ` · ${h.dishCount} dish${h.dishCount === 1 ? '' : 'es'}`}
+                      <div style={{ fontSize: 10.5, color: '#7a8480' }}>{h.updatedAt ? new Date(h.updatedAt).toLocaleString() : ''}</div>
+                    </div>
+                    {confirmRestore === h.index ? (
+                      <>
+                        <button onClick={() => doRestore(h.index)} style={{ ...styles.conflictBtn, whiteSpace: 'nowrap', borderColor: '#EF9F27', color: '#EF9F27' }}>Yes, restore</button>
+                        <button onClick={() => setConfirmRestore(null)} style={{ background: 'none', border: 'none', color: '#7a8480', cursor: 'pointer', fontSize: 12 }}>no</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setConfirmRestore(h.index)} style={{ ...styles.conflictBtn, whiteSpace: 'nowrap' }}>Restore</button>
+                    )}
+                  </div>
+                ))}
+                {confirmRestore !== null && (
+                  <div style={{ fontSize: 10.5, color: '#7a8480', marginTop: 4 }}>The current publish moves into history, it is not lost.</div>
+                )}
+              </div>
+            )}
           </div>
           {publishMsg && (
             <div style={publishMsg.ok ? styles.publishOk : styles.publishErr}>{publishMsg.text}</div>

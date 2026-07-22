@@ -158,5 +158,49 @@ r = await call('GET', '/backup/list', null, { 'X-LTB-Token': 'test-token' });
 j = await r.json();
 check('oversize push did not evict anything', j.backups.length >= 3);
 
+
+// ── Scenario 10: week config — paused passthrough, history, and rollback ─────
+// The paused flag used to die here: POST /config builds the stored object from
+// an explicit whitelist, and paused was not on it, so taking a week off worked
+// everywhere in the app and silently did nothing to the actual form.
+const cfgA = { token: 'test-token', dishes: [{ name: 'A' }], weekLabel: 'Week A' };
+const cfgB = { token: 'test-token', dishes: [{ name: 'B' }, { name: 'B2' }], weekLabel: 'Week B' };
+r = await call('POST', '/config', cfgA);
+check('publish A ok', (await r.json()).ok);
+r = await call('GET', '/config');
+j = await r.json();
+check('config A is live', j.weekLabel === 'Week A');
+check('an unpaused publish stores paused:false', j.paused === false);
+
+r = await call('POST', '/config', { ...cfgB, paused: true, pausedMsg: 'Back on the 30th.' });
+j = await r.json();
+check('PAUSED SURVIVES THE PUBLISH WHITELIST', j.config.paused === true, JSON.stringify(j.config.paused));
+check('paused message stored', j.config.pausedMsg === 'Back on the 30th.');
+r = await call('GET', '/config');
+j = await r.json();
+check('GET /config returns the paused flag', j.paused === true && j.weekLabel === 'Week B');
+
+r = await call('GET', '/config-history?token=test-token');
+j = await r.json();
+check('history holds the previous publish', Array.isArray(j) && j.length >= 1 && j[0].weekLabel === 'Week A');
+check('history is metadata only, no dish payload', j[0].dishes === undefined && j[0].dishCount === 1);
+r = await call('GET', '/config-history?token=wrong');
+check('history rejects a bad token', r.status === 401, 'got ' + r.status);
+
+r = await call('POST', '/config-restore', { token: 'test-token', index: 0 });
+j = await r.json();
+check('restore returns the old config', j.ok && j.config.weekLabel === 'Week A');
+r = await call('GET', '/config');
+j = await r.json();
+check('restored config is live again', j.weekLabel === 'Week A');
+check('restoring an unpaused week clears paused', j.paused === false);
+r = await call('GET', '/config-history?token=test-token');
+j = await r.json();
+check('the config it replaced moved into history', j.some(h => h.weekLabel === 'Week B'));
+r = await call('POST', '/config-restore', { token: 'test-token', index: 99 });
+check('restore with a bad index → 400', r.status === 400, 'got ' + r.status);
+r = await call('POST', '/config-restore', { token: 'wrong', index: 0 });
+check('restore rejects a bad token', r.status === 401, 'got ' + r.status);
+
 console.log(failed === 0 ? '\nWORKER SIM: ALL PASS' : `\nWORKER SIM: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

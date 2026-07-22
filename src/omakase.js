@@ -166,3 +166,15 @@ export function omakaseCustomReheat(order) {
   }
   return out;
 }
+
+// An omakase whose money is not settled yet: nothing logged, or the charge is
+// still sitting at the customer's max and has never been confirmed. Shared by
+// the deliver alert and the digest so the two can never disagree.
+export function omakasePriceUnsettled(order) {
+  return omakaseItemsOf(order).some(it => {
+    if (it.priceConfirmed) return false;
+    const noComps = !(it.components && it.components.length);
+    const atMax = it.budgetMax != null && it.price === it.budgetMax;
+    return noComps || atMax;
+  });
+}

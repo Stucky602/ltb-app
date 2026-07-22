@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "npm test && esbuild entry.jsx --bundle --loader:.jsx=jsx --outfile=app.js --define:process.env.NODE_ENV=\\\"production\\\" --format=iife --platform=browser",
-    "test": "node tests/invariants.mjs && node tests/property.mjs && node tests/worker_sim.mjs && node tests/receipt_scan.mjs && node tests/shopping_merge.mjs && node tests/audit_log.mjs && node tests/seed_reconcile.mjs && node tests/migrations.mjs && node tests/edge_cases.mjs && node tests/conv_unit_contract.mjs && node tests/diet_flags.mjs && node tests/allergens.mjs && node tests/library_sync.mjs && node tests/count_entry.mjs && node tests/learned_data.mjs && node tools/syncMainMenu.mjs && node tools/syncPipeline.mjs && node tools/checkRepoStructure.mjs"
+    "test": "node tests/invariants.mjs && node tests/property.mjs && node tests/worker_sim.mjs && node tests/receipt_scan.mjs && node tests/shopping_merge.mjs && node tests/audit_log.mjs && node tests/seed_reconcile.mjs && node tests/migrations.mjs && node tests/edge_cases.mjs && node tests/conv_unit_contract.mjs && node tests/diet_flags.mjs && node tests/allergens.mjs && node tests/library_sync.mjs && node tests/customer_pages.mjs && node tests/count_entry.mjs && node tests/learned_data.mjs && node tools/syncMainMenu.mjs && node tools/syncPipeline.mjs && node tools/checkRepoStructure.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

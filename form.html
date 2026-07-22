@@ -90,6 +90,87 @@
     var fixSelections = {};    // variantKey -> true/false (fixings yes/no)
     var fixTexts = {};         // variantKey -> free text of requested fixings
 
+    // ── Cart draft (v9.25) ─────────────────────────────────────────────────
+    // Identity already survives a refresh; the cart did not. Someone builds a
+    // five-dish order, switches apps for ten seconds, and comes back to
+    // nothing. Everything the form knows lives in JS objects, so the whole
+    // in-progress order can be saved and restored.
+    //
+    // The cart is keyed by POSITION (gi_di_vi), so a draft is only valid for
+    // the exact menu it was built against: restoring last week's indexes under
+    // this week's menu would put the WRONG DISHES in someone's cart, which is
+    // far worse than losing the draft. Hence the weekLabel and age checks.
+    var DRAFT_KEY = "ltb-cart-draft";
+    var DRAFT_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+    var draftReady = false; // no saving until the first render has happened
+    var draftTimer = null;
+    function saveDraftSoon() {
+      if (draftTimer) clearTimeout(draftTimer);
+      draftTimer = setTimeout(saveDraft, 250);
+    }
+    function saveDraft() {
+      if (!draftReady || !config || config.paused) return;
+      try {
+        var budEl = document.getElementById('omakaseBudget');
+        var noteEl = document.getElementById('omakaseNote');
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          weekLabel: config.weekLabel || '',
+          cart: cart,
+          spice: spiceSelections,
+          pasta: pastaSelections,
+          parm: parmSelections,
+          fix: fixSelections,
+          fixTexts: fixTexts,
+          omakase: {
+            budget: budEl ? budEl.value : '',
+            size: omakaseSize,
+            note: noteEl ? noteEl.value : ''
+          }
+        }));
+      } catch (e) { /* private mode: a lost draft is not worth an error */ }
+    }
+    function clearDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    }
+    function readDraft() {
+      try {
+        var raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        var d = JSON.parse(raw);
+        if (!d || !d.savedAt) return null;
+        // Stale, or built against a different menu: discard rather than risk
+        // restoring positions that now point at other dishes.
+        if ((Date.now() - d.savedAt) > DRAFT_MAX_AGE_MS) { clearDraft(); return null; }
+        if ((d.weekLabel || '') !== ((config && config.weekLabel) || '')) { clearDraft(); return null; }
+        return d;
+      } catch (e) { return null; }
+    }
+    // Restore state BEFORE the first render so quantities and option pickers
+    // draw already-filled, then push the omakase values into the DOM after.
+    function restoreDraft() {
+      if (!config || config.paused) return;
+      var d = readDraft();
+      if (!d) return;
+      cart = d.cart || {};
+      spiceSelections = d.spice || {};
+      pastaSelections = d.pasta || {};
+      parmSelections = d.parm || {};
+      fixSelections = d.fix || {};
+      fixTexts = d.fixTexts || {};
+      if (d.omakase && d.omakase.size) omakaseSize = d.omakase.size;
+      return d;
+    }
+    function applyDraftToDom(d) {
+      if (!d || !d.omakase) return;
+      var budEl = document.getElementById('omakaseBudget');
+      var noteEl = document.getElementById('omakaseNote');
+      if (budEl && d.omakase.budget) budEl.value = d.omakase.budget;
+      if (noteEl && d.omakase.note) noteEl.value = d.omakase.note;
+      if (d.omakase.size) setOmakaseSize(d.omakase.size);
+      if (typeof omakaseBudgetInput === 'function') omakaseBudgetInput();
+    }
+
     // Option pickers come from the PUBLISHED dish data (dish.options, declared
     // in the app's registry) — no hardcoded dish-name lists here anymore.
     // pastaAppliesTo: a pasta option hides for variants whose label contains
@@ -157,7 +238,13 @@
     function loadConfig() {
       fetch(WORKER + "/config")
         .then(function (r) { return r.json(); })
-        .then(function (cfg) { config = cfg; render(); })
+        .then(function (cfg) {
+          config = cfg;
+          var draft = restoreDraft();
+          render();
+          applyDraftToDom(draft);
+          draftReady = true;
+        })
         .catch(function () {
           document.getElementById("content").innerHTML =
             '<div class="msg error">Could not load the menu. Please try again in a moment, or reach out directly.</div>';
@@ -215,7 +302,7 @@
           '<button type="button" id="omSizeLarge" class="om-size" onclick="setOmakaseSize(\'Large\')">Large (serves ~8)</button>' +
         '</div>' +
         '<div style="font-size:11.5px;color:var(--dim);margin-bottom:10px;">Small is one dish that serves about 4. Large is the same idea serving about 8. Ordering Large just for the leftovers is a classic move.</div>' +
-        '<textarea id="omakaseNote" placeholder="Optional: 2 total meals please / absolutely no clams"></textarea>' +
+        '<textarea id="omakaseNote" oninput="saveDraftSoon()" placeholder="Optional: 2 total meals please / absolutely no clams"></textarea>' +
         '<div id="omakaseBigNote"></div>' +
         '<div id="omakaseErr"></div>' +
         '</div>';
@@ -335,6 +422,7 @@
 
     function changeQty(key, delta) {
       if (ACTIVE_DIET) setTimeout(applyDietFilter, 0);
+      saveDraftSoon();
       var cur = cart[key] || 0;
       var next = Math.max(0, cur + delta);
       if (next === 0) delete cart[key]; else cart[key] = next;
@@ -372,6 +460,7 @@
 
     function setSpice(vk, level) {
       spiceSelections[vk] = level;
+      saveDraftSoon();
       var wrap = document.getElementById('spice_' + vk);
       if (!wrap) return;
       var btns = wrap.querySelectorAll('button');
@@ -383,16 +472,19 @@
     }
 
     function setPasta(vk, val) {
+      saveDraftSoon();
       pastaSelections[vk] = val;
     }
 
     function setParm(vk, yes) {
       parmSelections[vk] = yes;
       restyleToggle('parm_' + vk, yes);
+      saveDraftSoon();
     }
 
     function setFix(vk, yes) {
       fixSelections[vk] = yes;
+      saveDraftSoon();
       restyleToggle('fix_' + vk, yes);
       var input = document.getElementById('fixtext_' + vk);
       if (input) input.style.display = yes ? '' : 'none';
@@ -401,6 +493,7 @@
 
     function setFixText(vk, val) {
       fixTexts[vk] = val;
+      saveDraftSoon();
     }
 
     function esc(s) {
@@ -462,6 +555,7 @@
     var omakaseSize = 'Small';
     function setOmakaseSize(sz) {
       omakaseSize = sz;
+      saveDraftSoon();
       var sEl = document.getElementById('omSizeSmall'), lEl = document.getElementById('omSizeLarge');
       if (sEl) sEl.className = 'om-size' + (sz === 'Small' ? ' om-size-on' : '');
       if (lEl) lEl.className = 'om-size' + (sz === 'Large' ? ' om-size-on' : '');
@@ -471,6 +565,7 @@
     // ask for a hint about which way Kevin should spend it.
     function omakaseBudgetInput() {
       clearOmakaseErr();
+      saveDraftSoon();
       var b = document.getElementById('omakaseBudget'), n = document.getElementById('omakaseBigNote');
       if (!b || !n) return;
       if (parseFloat(b.value) > 300) {
@@ -549,12 +644,12 @@
         msgArea.innerHTML = '<div class="msg error">Please enter your name before reviewing.</div>';
         return;
       }
-      if (items.length === 0) {
-        msgArea.innerHTML = '<div class="msg error">Please add at least one item to your order.</div>';
-        return;
-      }
       if (omakaseBudgetInvalid()) {
         msgArea.innerHTML = '<div class="msg error">Omakase minimum is $50 (or leave the budget blank).</div>';
+        return;
+      }
+      if (items.length === 0) {
+        msgArea.innerHTML = '<div class="msg error">Please add at least one item to your order.</div>';
         return;
       }
       msgArea.innerHTML = "";
@@ -652,12 +747,12 @@
       var items = gatherItems();
       var msgArea = document.getElementById("msgArea");
 
-      if (omakaseBudgetInvalid()) {
-        msgArea.innerHTML = '<div class="msg error">Omakase minimum is $50 (or leave the budget blank).</div>';
-        return;
-      }
       if (!name) {
         msgArea.innerHTML = '<div class="msg error">Please enter your name.</div>';
+        return;
+      }
+      if (omakaseBudgetInvalid()) {
+        msgArea.innerHTML = '<div class="msg error">Omakase minimum is $50 (or leave the budget blank).</div>';
         return;
       }
       if (items.length === 0) {
@@ -681,6 +776,7 @@
             pendingClientId = null;
             // Persist identity (name/address/phone) for next week's prefill.
             saveIdentity(name, address, phone);
+            clearDraft();
             document.getElementById("content").innerHTML =
               '<div class="msg success">Thanks, ' + esc(name) + '! Your order is in.<br>' +
               'You will get a confirmation directly once it is reviewed.</div>' +

@@ -60,7 +60,8 @@ import { OrderCard } from './components/OrderCard.jsx';
 import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/CookTabs.jsx';
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
-import { undecidedOmakases, omakaseStats } from './omakase.js';
+import { undecidedOmakases, omakaseStats, omakasePriceUnsettled } from './omakase.js';
+import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
 import { FeedbackCard } from './components/FeedbackCard.jsx';
 import { PlannerPanel } from './components/PlannerPanel.jsx';
@@ -645,6 +646,23 @@ export default function LTBOrderTracker() {
     await pollWorkerPending(false);
     setCheckingForm(false);
   }, [pollWorkerPending]);
+
+  // Publish history: the config drives the entire customer surface and had no
+  // undo. The worker keeps the last few; these two just read and restore.
+  const fetchConfigHistory = React.useCallback(async () => {
+    const res = await fetch(`${WORKER_BASE}/config-history?token=${encodeURIComponent(PUBLISH_TOKEN)}`);
+    if (!res.ok) throw new Error('Could not load publish history.');
+    return res.json();
+  }, []);
+  const restoreConfig = React.useCallback(async (index) => {
+    const res = await fetch(`${WORKER_BASE}/config-restore`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: PUBLISH_TOKEN, index }),
+    });
+    if (!res.ok) throw new Error('Restore failed.');
+    return res.json();
+  }, []);
 
   const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts) => {
     const activeMenu = buildMenu(currentWeekDishes || []);
@@ -1743,11 +1761,9 @@ export default function LTBOrderTracker() {
     const out = [];
     for (const o of (orders || [])) {
       if (o.archived) continue;
+      if (!omakasePriceUnsettled(o)) continue;
       for (const it of (o.items || [])) {
-        if (!it.omakase || it.priceConfirmed) continue;
-        const noComps = !(it.components && it.components.length);
-        const atMax = it.budgetMax != null && it.price === it.budgetMax;
-        if (noComps || atMax) out.push({ orderId: o.id, customer: o.customer, price: it.price || 0 });
+        if (it.omakase && !it.priceConfirmed) out.push({ orderId: o.id, customer: o.customer, price: it.price || 0 });
       }
     }
     return out;
@@ -2083,6 +2099,27 @@ export default function LTBOrderTracker() {
                             ))}
                           </div>
                         ))}
+                        {(() => {
+                          // Accept is the last moment a money mistake is cheap,
+                          // and it was blind. Omakase carries cost 0 until it is
+                          // logged, so it is held out of the margin rather than
+                          // flattering it.
+                          const items = p.items || [];
+                          const priced = items.filter(it => !it.omakase);
+                          const hasOma = items.some(it => it.omakase);
+                          const rev = items.reduce((n, it) => n + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
+                          const pRev = priced.reduce((n, it) => n + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
+                          const pCost = priced.reduce((n, it) => n + (Number(it.cost) || 0) * (Number(it.qty) || 1), 0);
+                          const pct = pRev > 0 ? Math.round((1 - pCost / pRev) * 100) : null;
+                          if (!items.length) return null;
+                          return (
+                            <div style={{ fontSize: 11.5, color: '#9aa5a0', marginTop: 6, paddingTop: 6, borderTop: '1px solid #2a332f' }}>
+                              Revenue {currency(rev)} · est. cost {currency(pCost)}
+                              {pct != null ? ` · ~${pct}% margin` : ''}
+                              {hasOma ? ' · omakase cost TBD, not counted' : ''}
+                            </div>
+                          );
+                        })()}
                         {p.notes && (
                           <div style={styles.pendingNotesSection}>
                             <div style={styles.pendingNotes}>Notes: {p.notes}</div>
@@ -2151,6 +2188,7 @@ export default function LTBOrderTracker() {
 
             <div style={styles.orderList}>
               {activeOrders.map(order => (
+                <ErrorBoundary key={order.id} compact label={order.customer || order.id} raw={order}>
                 <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
                   key={order.id}
                   order={order}
@@ -2163,6 +2201,7 @@ export default function LTBOrderTracker() {
                   onMakeRegular={makeRegularFromOrder}
                   onLinkRegular={linkOrderWithAlias}
                 />
+                </ErrorBoundary>
               ))}
             </div>
 
@@ -2173,6 +2212,7 @@ export default function LTBOrderTracker() {
                 </summary>
                 <div style={styles.orderList}>
                   {deliveredOrders.map(order => (
+                    <ErrorBoundary key={order.id} compact label={order.customer || order.id} raw={order}>
                     <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
                       key={order.id}
                       order={order}
@@ -2185,6 +2225,7 @@ export default function LTBOrderTracker() {
                       onMakeRegular={makeRegularFromOrder}
                       onLinkRegular={linkOrderWithAlias}
                     />
+                    </ErrorBoundary>
                   ))}
                 </div>
                 <ArchiveDeliveredButton count={deliveredOrders.length} onArchive={archiveDelivered} />
@@ -2256,7 +2297,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'recipes' && (
-          <RecipesTab
+          <RecipesTab auditLog={auditLog}
             dishFeedback={dishFeedback}
             onResetDishFeedback={resetDishFeedbackTally}
             liveCostMap={liveCostMap}
@@ -2288,7 +2329,7 @@ export default function LTBOrderTracker() {
 
         {view === 'week' && (
           <>
-            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} />
+            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} onFetchHistory={fetchConfigHistory} onRestoreConfig={restoreConfig} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <SchedulePanel orders={orders || []} />
             <div style={{ margin: '10px 0 24px' }}>

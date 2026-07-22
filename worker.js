@@ -97,6 +97,11 @@ const CLAUDE_MODEL  = 'claude-sonnet-4-6';
 
 // ── KV keys ──────────────────────────────────────────────────────────────────
 const KV_CONFIG       = 'week-config';
+// Last few published configs, newest first. One small key, not one per
+// publish: this is read and rewritten together, and it is capped, so the
+// per-record discipline the pending/vote paths need does not apply here.
+const KV_CONFIG_HIST  = 'config-history';
+const CONFIG_HIST_MAX = 5;
 
 // ── Pipeline vote (v10) ────────────────────────────────────────────────────
 // Whitelist of votable dishes. These strings MUST match the data-dish
@@ -206,6 +211,18 @@ export default {
         if (!body.token || body.token !== env.PUBLISH_TOKEN) {
           return json({ error: 'Unauthorized' }, origin, 401);
         }
+        // Keep the outgoing config so a bad publish can be undone. Read first,
+        // then write both keys; a failed history write must never block the
+        // publish itself, so it is wrapped.
+        try {
+          const prevRaw = await env.LTB_KV.get(KV_CONFIG);
+          if (prevRaw) {
+            const histRaw = await env.LTB_KV.get(KV_CONFIG_HIST);
+            const hist = histRaw ? JSON.parse(histRaw) : [];
+            hist.unshift(JSON.parse(prevRaw));
+            await env.LTB_KV.put(KV_CONFIG_HIST, JSON.stringify(hist.slice(0, CONFIG_HIST_MAX)));
+          }
+        } catch (e) { /* history is a convenience, never a gate on publishing */ }
         const config = {
           dishes: body.dishes || [],
           spotlight: body.spotlight || [],
@@ -216,10 +233,54 @@ export default {
           sauces: body.sauces || [],
           menuPdfUrl: body.menuPdfUrl || '',
           weekLabel: body.weekLabel || '',
+          // Week off. This whitelist is exhaustive, so a field that is not
+          // named here is silently dropped: paused used to be, which meant the
+          // app and both customer pages supported taking a week off while the
+          // worker quietly threw the flag away.
+          paused: !!body.paused,
+          pausedMsg: String(body.pausedMsg || '').slice(0, 200),
           updatedAt: new Date().toISOString(),
         };
         await env.LTB_KV.put(KV_CONFIG, JSON.stringify(config));
         return json({ ok: true, config }, origin);
+      }
+
+      // ── GET /config-history — metadata only, for the app's rollback list ────
+      // Token rides the query string: a GET has no body to carry it.
+      if (request.method === 'GET' && url.pathname === '/config-history') {
+        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const raw = await env.LTB_KV.get(KV_CONFIG_HIST);
+        const hist = raw ? JSON.parse(raw) : [];
+        return json(hist.map((c, index) => ({
+          index,
+          weekLabel: c.weekLabel || '',
+          updatedAt: c.updatedAt || '',
+          dishCount: (c.dishes || []).length,
+          paused: !!c.paused,
+        })), origin);
+      }
+
+      // ── POST /config-restore — put an earlier publish back on the form ─────
+      if (request.method === 'POST' && url.pathname === '/config-restore') {
+        const body = await request.json();
+        if (!body.token || body.token !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const raw = await env.LTB_KV.get(KV_CONFIG_HIST);
+        const hist = raw ? JSON.parse(raw) : [];
+        const index = Number(body.index);
+        if (!Number.isInteger(index) || index < 0 || index >= hist.length) {
+          return json({ error: 'No such publish in history' }, origin, 400);
+        }
+        const restored = { ...hist[index], updatedAt: new Date().toISOString() };
+        const currentRaw = await env.LTB_KV.get(KV_CONFIG);
+        const nextHist = hist.filter((_, i) => i !== index);
+        if (currentRaw) nextHist.unshift(JSON.parse(currentRaw));
+        await env.LTB_KV.put(KV_CONFIG, JSON.stringify(restored));
+        await env.LTB_KV.put(KV_CONFIG_HIST, JSON.stringify(nextHist.slice(0, CONFIG_HIST_MAX)));
+        return json({ ok: true, config: restored }, origin);
       }
 
       // ── POST /submit — queue order AND fire push notification ────────────────
@@ -749,23 +810,35 @@ export default {
         do {
           const listing = await env.LTB_KV.list({ prefix: REQ_PREFIX, limit: 1000, cursor });
           for (const k of listing.keys) {
+            // Read the body (not just metadata) — this token-gated view is low
+            // frequency and the note lives only in the value. counts still comes
+            // off the dish either way. Note is Kevin-facing only, never rendered
+            // to customers (it isn't returned by any public route).
             let dish = (k.metadata && k.metadata.d) || null;
-            let at = null;
-            if (!dish) {
-              const raw = await env.LTB_KV.get(k.name);
-              if (!raw) continue;
-              try { const pp = JSON.parse(raw); dish = pp.d; at = pp.at || null; } catch (e) { continue; }
+            let at = null, note = '';
+            const raw = await env.LTB_KV.get(k.name);
+            if (raw) {
+              try { const pp = JSON.parse(raw); dish = pp.d || dish; at = pp.at || null; note = pp.n || ''; }
+              catch (e) { if (!dish) continue; }
             }
             if (!dish) continue;
             total++;
             counts[dish] = (counts[dish] || 0) + 1;
-            recent.push({ at, dish });
+            recent.push({ at, dish, note });
           }
           cursor = listing.list_complete ? null : listing.cursor;
         } while (cursor);
 
+        // Notes grouped by dish, so the Week tab can expand a dish's requests
+        // and read the reasons. Empty notes dropped.
+        const notesByDish = {};
+        for (const r of recent) {
+          if (!r.note) continue;
+          (notesByDish[r.dish] = notesByDish[r.dish] || []).push({ at: r.at, note: r.note });
+        }
+
         const out = Object.keys(counts)
-          .map(d => ({ dish: d, requests: counts[d] }))
+          .map(d => ({ dish: d, requests: counts[d], notes: notesByDish[d] || [] }))
           .sort((a, b) => b.requests - a.requests || a.dish.localeCompare(b.dish));
         recent.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
 

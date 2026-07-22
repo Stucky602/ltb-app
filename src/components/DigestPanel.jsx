@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { buildWeeklyDigest } from '../digest.js';
-import { currency } from '../utils.js';
+import { currency, jarsOutForRegular, regularDisplayName } from '../utils.js';
+import { undecidedOmakases, omakasePriceUnsettled } from '../omakase.js';
 const C = { panel: '#1c2422', border: '#2d3a36', text: '#e8ede9', dim: '#9aa5a0', faint: '#6b7570', good: '#5DCAA5', warn: '#EF9F27', bad: '#e0828a' };
 const S = {
   section: { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, margin: '10px 0' },
@@ -12,6 +13,23 @@ const S = {
 
 // #6 The Monday briefing — everything the app knows, in one read.
 export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut }) {
+  // What needs a decision from Kevin, computed from the props already here.
+  // Deliberately NOT including paused state: the digest has no config access,
+  // so it cannot tell a paused week from a quiet one and should not guess.
+  const needs = useMemo(() => {
+    if (!open) return null;
+    const list = orders || [];
+    const active = list.filter(o => !o.archived);
+    const undecided = undecidedOmakases(list);
+    const unsettled = active.filter(omakasePriceUnsettled).length;
+    const jars = (regulars || []).map(r => ({ name: regularDisplayName(r), n: jarsOutForRegular(r.id, list) })).filter(x => x.n > 0);
+    const jarTotal = jars.reduce((s2, x) => s2 + x.n, 0);
+    const topJar = jars.sort((a, b) => b.n - a.n)[0] || null;
+    const unpaidOrders = active.filter(o => !o.house && !o.paid);
+    const unpaidTotal = unpaidOrders.reduce((s2, o) => s2 + (Number(o.total) || 0), 0);
+    return { undecided, unsettled, jarTotal, topJar, unpaidCount: unpaidOrders.length, unpaidTotal };
+  }, [open, orders, regulars]);
+
   const [fbMsg, setFbMsg] = useState(null);
   const [open, setOpen] = useState(false);
   const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
@@ -23,6 +41,32 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
       </button>
       {d && (
         <div>
+          {needs && (needs.undecided.length > 0 || needs.unsettled > 0 || needs.jarTotal > 0 || needs.unpaidCount > 0) && (
+            <>
+              <div style={S.h}>Needs a decision</div>
+              {needs.undecided.length > 0 && (
+                <div style={S.p}>
+                  Omakase still undecided: {needs.undecided.map(u => `${u.customer} (${new Date(u.createdAt).toLocaleDateString()})`).join(', ')}.
+                </div>
+              )}
+              {needs.unsettled > 0 && (
+                <div style={S.p}>
+                  {needs.unsettled} omakase price{needs.unsettled === 1 ? '' : 's'} still sitting at the customer's max.
+                </div>
+              )}
+              {needs.jarTotal > 0 && (
+                <div style={S.p}>
+                  {needs.jarTotal} container{needs.jarTotal === 1 ? '' : 's'} out in the wild
+                  {needs.topJar ? `, most with ${needs.topJar.name} (${needs.topJar.n})` : ''}.
+                </div>
+              )}
+              {needs.unpaidCount > 0 && (
+                <div style={S.p}>
+                  {needs.unpaidCount} unpaid order{needs.unpaidCount === 1 ? '' : 's'}, {currency(needs.unpaidTotal)} outstanding.
+                </div>
+              )}
+            </>
+          )}
           <div style={S.h}>Money</div>
           <div style={S.p}>
             {d.week.count} order{d.week.count !== 1 ? 's' : ''} this week, {currency(d.week.revenue)} revenue, {currency(d.week.profit)} profit

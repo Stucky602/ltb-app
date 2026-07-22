@@ -9,6 +9,7 @@ import {
 } from '../dishReport.js';
 import { PIPELINE_DISHES } from '../pipelineDishes.js';
 import { omakaseStats } from '../omakase.js';
+import { repricingScoreboard } from '../repricing.js';
 import { buildPromoteScaffold, newPromoteChecklist } from '../promoteScaffold.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
@@ -187,7 +188,9 @@ function FeedbackStrip({ fb, dish, onReset }) {
   );
 }
 
-export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders, pipelineJournal, onSavePipelineJournal }) {
+export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog }) {
+  const [showRepricing, setShowRepricing] = useState(false);
+  const repricing = useMemo(() => repricingScoreboard(auditLog || [], orders || []), [auditLog, orders]);
   const [dish, setDish] = useState('');
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [size, setSize] = useState('small'); // 'small' | 'large' | 'only'
@@ -947,6 +950,39 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 </div>
               );
             })()}
+          </div>
+        )}
+      </div>
+
+      {/* ── Repricing scoreboard ── */}
+      <div style={S.section}>
+        <button style={S.collapseBtn} onClick={() => setShowRepricing(o => !o)}>
+          <span>Repricing scoreboard{repricing.length ? ` · ${repricing.length}` : ''}</span>
+          <span>{showRepricing ? '▲' : '▼'}</span>
+        </button>
+        {showRepricing && (
+          <div style={{ marginTop: 8 }}>
+            {repricing.length === 0 && (
+              <div style={{ fontSize: 11.5, color: C.faint }}>No price changes recorded yet. Move a price and this fills in.</div>
+            )}
+            {repricing.map(r => (
+              <div key={r.key} style={{ padding: '8px 0', borderTop: '1px solid #2a332f' }}>
+                <div style={{ fontSize: 12.5, color: C.text, fontWeight: 700 }}>
+                  {r.dish} <span style={{ fontWeight: 400, color: C.faint }}>{r.variant}</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: C.gold, margin: '2px 0 4px' }}>
+                  {currency(r.from)} → {currency(r.to)} · {new Date(r.at).toLocaleDateString()}
+                  {r.tooEarly && <span style={{ color: C.faint }}> · too early to judge</span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: C.faint }}>
+                  before: {r.before.perWeek.units}/wk · {currency(r.before.perWeek.margin)} margin/wk
+                </div>
+                <div style={{ fontSize: 11.5, color: r.after.perWeek.margin >= r.before.perWeek.margin ? C.good : C.warn }}>
+                  after: {r.after.perWeek.units}/wk · {currency(r.after.perWeek.margin)} margin/wk
+                  <span style={{ color: C.faint }}> ({r.afterDays}d in)</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

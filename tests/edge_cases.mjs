@@ -10,6 +10,8 @@
 
 import assert from 'node:assert';
 import { orderTotal, HOUSE_DISCOUNT_PERCENT, jarsOutForRegular, orderOutboundJars } from '../src/utils.js';
+import { repricingScoreboard } from '../src/repricing.js';
+import { SOURCES } from '../src/auditLog.js';
 import { omakaseUndecided, undecidedOmakases, expandOmakaseForShopping, pastOmakasesFor, omakaseStats, expandOrderForReheat } from '../src/omakase.js';
 import { reconcileIngredients } from '../src/seedReconcile.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
@@ -115,5 +117,27 @@ ok(omStats.count === 1 && omStats.revenue === 60, 'omakase stats: house orders n
 ok(omStats.avgPctOfBudget === 80, 'omakase stats: average charge vs budget (60 of 75 = 80%)');
 ok(pastOmakasesFor('r1', [{ id: 'x', regularId: 'r1', createdAt: OM_NOW, items: [omLogged] }], 'x').length === 0,
   'omakase memory: the order being edited is excluded from its own history');
+
+
+// ── Repricing scoreboard ────────────────────────────────────────────────────
+const RP_DAY = 86400000, RP_NOW = Date.now(), RP_AT = RP_NOW - 20 * RP_DAY;
+const rpLog = [
+  { at: new Date(RP_AT).toISOString(), target: 'Pappardelle::Small (~2-3)', field: 'price', from: 35, to: 25, source: SOURCES.DEPLOY },
+  { at: new Date(RP_AT).toISOString(), target: 'Pappardelle::Small (~2-3)', field: 'cost', from: 14, to: 15, source: SOURCES.DEPLOY },
+];
+const rpOrder = (daysAgo, price, qty, house) => ({
+  createdAt: new Date(RP_NOW - daysAgo * RP_DAY).toISOString(), house,
+  items: [{ name: 'Pappardelle', variant: 'Small (~2-3)', price, cost: 15, qty }],
+});
+const rpRows = repricingScoreboard(rpLog, [rpOrder(30, 35, 1), rpOrder(10, 25, 3), rpOrder(3, 25, 4, true)], { now: RP_NOW });
+ok(rpRows.length === 1, 'repricing: only price changes make a row, not cost changes');
+ok(rpRows[0].dish === 'Pappardelle' && rpRows[0].variant === 'Small (~2-3)',
+  'repricing: the fingerprint target splits into dish and variant');
+ok(rpRows[0].before.units === 1 && rpRows[0].after.units === 3,
+  'repricing: orders land in the window they belong to, and house orders never count');
+ok(repricingScoreboard(
+  [{ at: new Date(RP_NOW - 2 * RP_DAY).toISOString(), target: 'X::S', field: 'price', from: 10, to: 12, source: SOURCES.DEPLOY }],
+  [], { now: RP_NOW })[0].tooEarly === true,
+  'repricing: a change under a week old is flagged too early to judge');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

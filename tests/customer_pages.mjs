@@ -49,7 +49,10 @@ console.log('form.html');
   const d = dom.window.document, w = dom.window;
 
   check('omakase card renders every week', !!d.getElementById('omakaseBudget'));
-  check('sizes state what they feed', /serves ~4/.test(d.getElementById('omSizeSmall').textContent) && /serves about 4/.test(d.body.innerHTML));
+  check('size buttons state what they feed', /serves ~4/.test(d.getElementById('omSizeSmall').textContent)
+    && /serves ~8/.test(d.getElementById('omSizeLarge').textContent));
+  check('size is explained as per-meal, not total', /more than one meal/.test(d.body.innerHTML)
+    && /about 4 servings/.test(d.body.innerHTML));
 
   const b = d.getElementById('omakaseBudget');
   b.value = '400'; w.omakaseBudgetInput();
@@ -111,7 +114,7 @@ console.log('menu.html');
   const dom = boot(menu, CFG); await sleep(150);
   const h = dom.window.document.body.innerHTML;
   check('omakase is pitched above the dinners', h.indexOf('Omakase') < h.indexOf("This Week's Dinners"));
-  check('sizes are explained on the menu too', /serves about 4/.test(h));
+  check('menu explains size as per-meal too', /more than one meal/.test(h) && /about 4 servings/.test(h));
 }
 {
   const dom = boot(menu, { weekLabel: 'W', dishes: [], paused: true }); await sleep(150);

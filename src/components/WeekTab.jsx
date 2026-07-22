@@ -137,6 +137,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   // Take the week off: publishes a paused config so both customer pages say so
   // plainly instead of looking broken. Publishing a normal week clears it.
   const [pauseMsg, setPauseMsg] = useState('');
+  const [showPause, setShowPause] = useState(false);
   const [pausing, setPausing] = useState(false);
   const doPause = async () => {
     setPausing(true); setPublishMsg(null);
@@ -369,20 +370,34 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               <AlertTriangle size={15} /> Check conflicts
             </button>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
-            <input
-              value={pauseMsg}
-              onChange={e => setPauseMsg(e.target.value)}
-              placeholder="Taking this week off, back next week."
-              style={{ ...styles.input, flex: 1, marginTop: 0 }}
-            />
+          <div style={{ marginTop: 10 }}>
             <button
-              style={{ ...styles.conflictBtn, whiteSpace: 'nowrap' }}
-              onClick={doPause}
-              disabled={pausing}
+              onClick={() => setShowPause(o => !o)}
+              style={{ background: 'none', border: 'none', color: '#9aa5a0', fontSize: 12, cursor: 'pointer', padding: 0 }}
             >
-              {pausing ? 'Pausing…' : 'Take the week off'}
+              Not cooking this week? {showPause ? '▲' : '▼'}
             </button>
+            {showPause && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontSize: 11.5, color: '#7a8480', lineHeight: 1.5, marginBottom: 6 }}>
+                  The order form and the menu page will say you are off this week instead of
+                  showing an empty menu. Publishing a normal week turns it back on.
+                </div>
+                <input
+                  value={pauseMsg}
+                  onChange={e => setPauseMsg(e.target.value)}
+                  placeholder="Taking this week off, back next week."
+                  style={{ ...styles.input, width: '100%', marginTop: 0, boxSizing: 'border-box' }}
+                />
+                <button
+                  style={{ ...styles.conflictBtn, width: '100%', marginTop: 8, justifyContent: 'center' }}
+                  onClick={doPause}
+                  disabled={pausing}
+                >
+                  {pausing ? 'Pausing…' : 'Take the week off'}
+                </button>
+              </div>
+            )}
           </div>
           <div style={{ marginTop: 10 }}>
             <button

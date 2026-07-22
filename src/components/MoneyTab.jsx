@@ -416,6 +416,10 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
         <div style={styles.moneyStatTile}>
           <div style={styles.statValue}>{currency(totals.booked)}</div>
           <div style={styles.statLabel}>{unpaidOnly ? 'Unpaid total' : 'Revenue'}</div>
+          {(() => {
+            const oma = filtered.reduce((n, o) => n + (o.items || []).reduce((m, it) => m + (it.omakase ? (Number(it.price) || 0) * (it.qty || 1) : 0), 0), 0);
+            return oma > 0 ? <div style={styles.moneyFootnote}>{currency(oma)} omakase</div> : null;
+          })()}
         </div>
         <div style={styles.moneyStatTile}>
           <div style={{ ...styles.statValue, color: '#1D9E75' }}>

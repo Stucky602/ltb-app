@@ -36,7 +36,27 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { costDishVariant, driftBorder } from '../dishCosting.js';
 import { ConflictModal } from './ConflictModal.jsx';
 
-export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap }) {
+export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders }) {
+  // Composer intelligence: what a dish actually earned lately, and when it last
+  // ran. Requests already show as the green "req" chip. Quarter window.
+  const dishIntel = useMemo(() => {
+    const cutoff = Date.now() - 90 * 86400000;
+    const out = {};
+    for (const o of (orders || [])) {
+      if (o.house) continue;
+      const t = new Date(o.createdAt || 0).getTime();
+      for (const it of (o.items || [])) {
+        if (!it.name || it.omakase) continue;
+        const e = out[it.name] || (out[it.name] = { last: 0, profit: 0 });
+        if (t > e.last) e.last = t;
+        if (t >= cutoff) {
+          const qty = Number(it.qty) || 1;
+          e.profit += ((Number(it.price) || 0) - (Number(it.cost) || 0)) * qty;
+        }
+      }
+    }
+    return out;
+  }, [orders]);
   // Pre-publish audit (pure): warnings render above the button, never block.
   const preflight = useMemo(
     () => preflightWeek(selected, { liveCostMap, baseCostMap }),
@@ -91,6 +111,23 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     const wed = new Date(sun); wed.setDate(sun.getDate() + 3);
     const fmt = (d) => d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
     return `Orders due Sunday ${fmt(sun)} · Delivery Wednesday ${fmt(wed)}`;
+  };
+
+  // Take the week off: publishes a paused config so both customer pages say so
+  // plainly instead of looking broken. Publishing a normal week clears it.
+  const [pauseMsg, setPauseMsg] = useState('');
+  const [pausing, setPausing] = useState(false);
+  const doPause = async () => {
+    setPausing(true); setPublishMsg(null);
+    try {
+      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), {
+        paused: true, pausedMsg: pauseMsg.trim() || 'Taking this week off, back next week.',
+      });
+      setPublishMsg({ ok: true, text: 'Week paused. The form and menu now say you are off this week.' });
+    } catch (e) {
+      setPublishMsg({ ok: false, text: (e && e.message) || 'Could not pause the week.' });
+    }
+    setPausing(false);
   };
 
   // Push the active menu config to the Worker so the custom form updates.
@@ -248,6 +285,17 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               )}
               <div style={styles.cookItemVariant}>
                 {dish.variants.length} option{dish.variants.length !== 1 ? 's' : ''} · {priceLabel}
+                {(() => {
+                  const d = dishIntel[dish.name];
+                  if (!d) return <span style={{ marginLeft: 6, fontSize: '10px', color: '#6b7570' }}>never run</span>;
+                  const wks = d.last ? Math.floor((Date.now() - d.last) / (7 * 86400000)) : null;
+                  return (
+                    <span style={{ marginLeft: 6, fontSize: '10px', color: '#6b7570' }}>
+                      {wks === 0 ? 'this week' : wks === 1 ? '1 wk ago' : `${wks} wks ago`}
+                      {d.profit > 0 ? ` · ${currency(Math.round(d.profit))}/qtr` : ''}
+                    </span>
+                  );
+                })()}
                 {worst !== null && Math.abs(worst) >= 2 && (
                   <span style={{ color: worst > 0 ? '#e0828a' : '#5DCAA5', fontWeight: 700, opacity: isOn ? 1 : 0.75 }}>
                     {' · '}{worst > 0 ? '↑' : '↓'}{Math.abs(worst).toFixed(0)}% vs base
@@ -298,6 +346,21 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               aria-label="Check kitchen conflicts"
             >
               <AlertTriangle size={15} /> Check conflicts
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10 }}>
+            <input
+              value={pauseMsg}
+              onChange={e => setPauseMsg(e.target.value)}
+              placeholder="Taking this week off, back next week."
+              style={{ ...styles.input, flex: 1, marginTop: 0 }}
+            />
+            <button
+              style={{ ...styles.conflictBtn, whiteSpace: 'nowrap' }}
+              onClick={doPause}
+              disabled={pausing}
+            >
+              {pausing ? 'Pausing…' : 'Take the week off'}
             </button>
           </div>
           {publishMsg && (

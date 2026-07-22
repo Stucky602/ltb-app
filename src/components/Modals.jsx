@@ -169,6 +169,12 @@ export function InvoiceModal({ order, onClose }) {
                   ) : null}
                   {optionsSummary(it) && <div style={styles.invoiceItemExtra}>{optionsSummary(it)}</div>}
                   {noteWithoutOptions(it.note) && <div style={styles.invoiceItemNote}>"{noteWithoutOptions(it.note)}"</div>}
+                  {it.omakase && it.underNote ? (
+                    <div style={styles.invoiceItemExtra}>Came in under: {it.underNote}</div>
+                  ) : null}
+                  {it.omakase && it.budgetMax != null && it.price < it.budgetMax ? (
+                    <div style={styles.invoiceItemExtra}>(your max was {currency(it.budgetMax)})</div>
+                  ) : null}
                 </div>
               );
             })}

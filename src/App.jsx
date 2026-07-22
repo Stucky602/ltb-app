@@ -60,6 +60,7 @@ import { OrderCard } from './components/OrderCard.jsx';
 import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/CookTabs.jsx';
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
+import { undecidedOmakases, omakaseStats } from './omakase.js';
 import { RecipesTab } from './components/RecipesTab.jsx';
 import { FeedbackCard } from './components/FeedbackCard.jsx';
 import { PlannerPanel } from './components/PlannerPanel.jsx';
@@ -645,7 +646,7 @@ export default function LTBOrderTracker() {
     setCheckingForm(false);
   }, [pollWorkerPending]);
 
-  const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel) => {
+  const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts) => {
     const activeMenu = buildMenu(currentWeekDishes || []);
     const toVariants = (item) => {
       const info = PER_LB_ITEMS[item.name];
@@ -679,6 +680,11 @@ export default function LTBOrderTracker() {
       dishes, spotlight, fruit, desserts, addons, bag, sauces,
       menuPdfUrl: menuPdfUrl || '',
       weekLabel: weekLabel || '',
+      // Week off: the form and menu page show a friendly notice instead of an
+      // empty menu. Publishing a normal week clears it.
+      ...(pausedOpts && pausedOpts.paused
+        ? { paused: true, pausedMsg: String(pausedOpts.pausedMsg || '').slice(0, 200) }
+        : { paused: false, pausedMsg: '' }),
     };
     const res = await fetch(CONFIG_PUBLISH_URL, {
       method: 'POST',
@@ -1730,6 +1736,32 @@ export default function LTBOrderTracker() {
 
   // Cost maps for live dish costing (Option B). baseline is static from the seed;
   // live reflects the current edited ingredient costs.
+  // Omakase whose final price is still sitting at the customer's max: the
+  // deliver pass is the last honest moment to settle it.
+  const undecidedOma = useMemo(() => undecidedOmakases(orders || []), [orders]);
+  const omakaseUnconfirmed = useMemo(() => {
+    const out = [];
+    for (const o of (orders || [])) {
+      if (o.archived) continue;
+      for (const it of (o.items || [])) {
+        if (!it.omakase || it.priceConfirmed) continue;
+        const noComps = !(it.components && it.components.length);
+        const atMax = it.budgetMax != null && it.price === it.budgetMax;
+        if (noComps || atMax) out.push({ orderId: o.id, customer: o.customer, price: it.price || 0 });
+      }
+    }
+    return out;
+  }, [orders]);
+  const confirmOmakasePrice = useCallback((orderId) => {
+    setOrders(prev => {
+      const next = (prev || []).map(o => (o.id === orderId
+        ? { ...o, items: (o.items || []).map(it => (it.omakase ? { ...it, priceConfirmed: true } : it)) }
+        : o));
+      saveJSON(ORDERS_KEY, next);
+      return next;
+    });
+  }, []);
+
   const baseCostMap = useMemo(() => baselineCostMap(), []);
   const liveCostMap = useMemo(() => liveCostMapFrom(ingredientsDb), [ingredientsDb]);
   // (id) => name lookup for the Money-tab margin-trend "driven by [ingredients]" line.
@@ -2108,9 +2140,18 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
+            {undecidedOma.length > 0 && (
+              <div style={{ background: 'rgba(212,160,80,0.10)', border: '1px solid #D4A050', borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#D4A050' }}>Omakase undecided: </span>
+                <span style={{ fontSize: 12, color: '#e8ede9' }}>
+                  {undecidedOma.map(u => `${u.customer} (${new Date(u.createdAt).toLocaleDateString()})`).join(', ')}
+                </span>
+              </div>
+            )}
+
             <div style={styles.orderList}>
               {activeOrders.map(order => (
-                <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap}
+                <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
                   key={order.id}
                   order={order}
                   regulars={regulars}
@@ -2132,7 +2173,7 @@ export default function LTBOrderTracker() {
                 </summary>
                 <div style={styles.orderList}>
                   {deliveredOrders.map(order => (
-                    <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap}
+                    <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
                       key={order.id}
                       order={order}
                       regulars={regulars}
@@ -2179,6 +2220,8 @@ export default function LTBOrderTracker() {
               />
             ) : (
               <DeliverList
+                omakaseUnconfirmed={omakaseUnconfirmed}
+                onConfirmOmakase={confirmOmakasePrice}
                 groups={deliverList}
                 orderCount={activeOrders.length}
                 checks={deliverChecks}
@@ -2245,7 +2288,7 @@ export default function LTBOrderTracker() {
 
         {view === 'week' && (
           <>
-            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
+            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <SchedulePanel orders={orders || []} />
             <div style={{ margin: '10px 0 24px' }}>

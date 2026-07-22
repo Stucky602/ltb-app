@@ -8,6 +8,7 @@ import {
   buildDishReport, buildPortfolioSummary, reportableDishes, buildServingAudit, dishSalesHistory,
 } from '../dishReport.js';
 import { PIPELINE_DISHES } from '../pipelineDishes.js';
+import { omakaseStats } from '../omakase.js';
 import { buildPromoteScaffold, newPromoteChecklist } from '../promoteScaffold.js';
 
 // ── Local palette (matches the app's dark-teal look) ────────────────────────
@@ -918,6 +919,34 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                 ))}
               </tbody>
             </table>
+            {(() => {
+              // Omakase deliberately feeds no per-dish stats, so this card is
+              // the only place its economics show up.
+              const st = omakaseStats(orders || [], portWindow);
+              if (!st.count) return <div style={{ fontSize: 11.5, color: C.faint, marginTop: 8 }}>Omakase: none in this window yet.</div>;
+              return (
+                <div style={{ marginTop: 10, padding: 10, borderRadius: 8, border: '1px solid #3a453f', background: 'rgba(212,160,80,0.05)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.gold, marginBottom: 6 }}>Omakase</div>
+                  <div style={{ fontSize: 12, color: C.text }}>
+                    {st.count} order{st.count === 1 ? '' : 's'} · {currency(st.revenue)} revenue
+                    {st.realizedMarginPct != null ? ` · ${st.realizedMarginPct}% realized margin` : ''}
+                  </div>
+                  {st.realizedMarginPct != null && st.costedCount < st.count && (
+                    <div style={{ fontSize: 10.5, color: C.faint, marginTop: 2 }}>margin over the {st.costedCount} with a logged cost</div>
+                  )}
+                  {st.avgBudget > 0 && (
+                    <div style={{ fontSize: 11.5, color: C.faint, marginTop: 4 }}>
+                      avg {currency(st.avgCharge)} against {currency(st.avgBudget)} budgets{st.avgPctOfBudget != null ? ` (${st.avgPctOfBudget}%)` : ''}
+                    </div>
+                  )}
+                  {(st.bigPathSplit.multi + st.bigPathSplit.premium) > 0 && (
+                    <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2 }}>
+                      big budgets: {st.bigPathSplit.multi} multi-dish, {st.bigPathSplit.premium} premium
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

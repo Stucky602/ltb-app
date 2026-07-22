@@ -317,6 +317,16 @@
     var addons = config.addons || [];
     var bag = config.bag || [];
 
+    // Week off takes precedence over the empty-menu notice: a paused week
+    // usually has no dishes, and "no menu published" would read as a mistake.
+    if (config.paused) {
+      document.getElementById("content").innerHTML =
+        '<div class="intro">'+esc(LIBRARY.static.intro)+'</div>' +
+        '<div class="info-card" style="border-color:var(--gold);"><h4>Taking this week off</h4><p>No menu this week. Back next week, same as always.' +
+        (config.pausedMsg ? ' ' + esc(config.pausedMsg) : '') + '</p></div>';
+      return;
+    }
+
     if (dishes.length === 0 && spotlight.length === 0 && addons.length === 0 && bag.length === 0){
       document.getElementById("content").innerHTML =
         '<div class="empty">No menu is published right now.<br>Check back Wednesday, or reach out directly.</div>';
@@ -343,7 +353,7 @@
       html += drinkPickerHtml();
       html += '<div class="section-head">Omakase</div>' +
         '<div class="info-card" style="border-color:var(--gold);">' +
-        '<p>Not sure what to get? Let me choose. Name a budget (minimum $50), pick a small or large portion, and I\'ll cook you something based on what looks best that week. You might even get something off the menu entirely if I spot something great at the store. The dollar amount you set is a <b>maximum</b>; the final charge may come in under it. Minor requests are welcome (a meal count, a hard no on an ingredient), but the whole idea is that you\'re trusting me to feed you. Set it up on the order form.</p>' +
+        '<p>Not sure what to get? Let me choose. Name a budget (minimum $50), pick a small or large portion, and I\'ll cook you something based on what looks best that week. You might even get something off the menu entirely if I spot something great at the store. The dollar amount you set is a <b>maximum</b>; the final charge may come in under it. Minor requests are welcome (a meal count, a hard no on an ingredient), but the whole idea is that you\'re trusting me to feed you. Small is one dish that serves about 4, Large is the same idea serving about 8, and ordering Large just for the leftovers is a classic move. Set it up on the order form.</p>' +
         '</div>';
       html += '<div class="section-head">This Week\'s Dinners</div>';
       dinnersShown.forEach(function(d){

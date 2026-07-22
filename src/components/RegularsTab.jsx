@@ -32,6 +32,7 @@ import {
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+import { omakaseItemsOf } from '../omakase.js';
 
 export function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
   return (
@@ -88,6 +89,7 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
         id: r.id, name: regularDisplayName(r), isHouse,
         orders: ordersCount, revenue: round2(revenue), profit: round2(revenue - cost),
         complete, lastTs, jarsOut: jarsOutForRegular(r.id, orders),
+        omaCount: (orders || []).filter(o => o.regularId === r.id).reduce((n, o) => n + omakaseItemsOf(o).length, 0),
       };
     });
     rows.sort((a, b) => (a.isHouse - b.isHouse) || (b.profit - a.profit));
@@ -163,6 +165,7 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
                     <th style={{ padding: '4px 6px', textAlign: 'right' }}>Profit</th>
                     <th style={{ padding: '4px 6px', textAlign: 'right' }}>Last</th>
                     <th style={{ padding: '4px 6px', textAlign: 'right' }}>Jars</th>
+                    <th style={{ padding: '4px 6px', textAlign: 'right' }}>&#127843;</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -174,6 +177,7 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
                       <td style={{ padding: '5px 6px', textAlign: 'right', color: row.isHouse ? '#7a8480' : (row.profit >= 0 ? '#5DCAA5' : '#EF9F27'), fontWeight: 700 }}>{row.isHouse ? '—' : currency(row.profit) + (row.complete ? '' : '*')}</td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', color: '#9aa5a0' }}>{row.lastTs ? formatDate(new Date(row.lastTs).toISOString()) : '—'}</td>
                       <td style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 700, color: row.jarsOut > 0 ? GOLD : '#7a8480' }}>{row.jarsOut}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: row.omaCount > 0 ? GOLD : '#7a8480' }}>{row.omaCount > 0 ? 'x' + row.omaCount : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -439,6 +443,34 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
             <div style={styles.profileStatNum}>{jarsOutForRegular(regular.id, orders)}</div>
             <div style={styles.profileStatLabel}>containers out</div>
           </div>
+          {(() => {
+            // Most-ordered dish, and how many omakases they have trusted him with.
+            const tally = {}; let omaCount = 0;
+            for (const o of linkedOrders) {
+              omaCount += omakaseItemsOf(o).length;
+              for (const it of (o.items || [])) {
+                if (!it.name) continue;
+                tally[it.name] = (tally[it.name] || 0) + (Number(it.qty) || 1);
+              }
+            }
+            const top = Object.entries(tally).sort((a, b) => b[1] - a[1])[0];
+            return (
+              <>
+                {top ? (
+                  <div style={styles.profileStat}>
+                    <div style={{ ...styles.profileStatNum, fontSize: 13 }}>{top[0]}</div>
+                    <div style={styles.profileStatLabel}>most ordered ({top[1]}x)</div>
+                  </div>
+                ) : null}
+                {omaCount > 0 ? (
+                  <div style={styles.profileStat}>
+                    <div style={styles.profileStatNum}>&#127843; x{omaCount}</div>
+                    <div style={styles.profileStatLabel}>omakase</div>
+                  </div>
+                ) : null}
+              </>
+            );
+          })()}
         </div>
         {regular.house ? (
           <div style={styles.profileHouseBadge}>House account &middot; free, and not counted in any metric</div>

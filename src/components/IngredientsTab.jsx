@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Plus, Trash2, Pencil, X, RotateCcw, ArrowUpDown, Camera } from '../icons.jsx';
 import {
   INGREDIENT_SEED, CATEGORY_ORDER, CATEGORY_LABELS_ING,
 } from '../ingredients.js';
 import { containerPriceCheck } from '../receiptMatch.js';
+import { loadJSON, saveJSON } from '../utils.js';
+import { OMAKASE_REG_QUEUE_KEY } from '../config.js';
 import { LearnedDataPanel } from './LearnedDataPanel.jsx';
 
 // Divergence color: green as current drops below baseline, red as it rises above.
@@ -178,8 +180,40 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
 
   const cats = CATEGORY_ORDER.filter(c => byCategory[c] && byCategory[c].length);
 
+  // Things Kevin used in an omakase that the registry does not track yet.
+  // Collected here so nothing is lost in old orders; adding them for real is
+  // still a deliberate edit to ingredients.js, not an automatic write.
+  const [omaQueue, setOmaQueue] = useState([]);
+  const [showOmaQueue, setShowOmaQueue] = useState(false);
+  useEffect(() => { loadJSON(OMAKASE_REG_QUEUE_KEY, []).then(q => setOmaQueue(q || [])); }, []);
+  const dropOmaQueue = useCallback(async (label) => {
+    const next = omaQueue.filter(x => x.label !== label);
+    setOmaQueue(next); await saveJSON(OMAKASE_REG_QUEUE_KEY, next);
+  }, [omaQueue]);
+
   return (
     <div style={S.wrap}>
+      {omaQueue.length > 0 && (
+        <div style={{ background: '#1e2522', border: '1px solid #3a453f', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+          <button onClick={() => setShowOmaQueue(o => !o)} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', color: '#D4A050', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>
+            <span>Flagged from omakase ({omaQueue.length})</span>
+            <span>{showOmaQueue ? '▲' : '▼'}</span>
+          </button>
+          {showOmaQueue && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: '#7a8480', marginBottom: 6 }}>Used in an omakase, not in the registry yet. Dismiss once added for real.</div>
+              {omaQueue.map(q => (
+                <div key={q.label} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderTop: '1px solid #2a332f' }}>
+                  <span style={{ flex: 1, fontSize: 12.5, color: '#e8ede9' }}>{q.label}</span>
+                  <span style={{ fontSize: 11.5, color: '#9aa5a0' }}>${(q.cost || 0).toFixed(2)}</span>
+                  <span style={{ fontSize: 10.5, color: '#7a8480' }}>{q.date ? new Date(q.date).toLocaleDateString() : ''}</span>
+                  <button onClick={() => dropOmaQueue(q.label)} style={{ background: 'none', border: 'none', color: '#EF9F27', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {containerAsk && (
         <div style={S.askOverlay} onClick={() => setContainerAsk(null)}>
           <div style={S.askCard} onClick={e => e.stopPropagation()}>

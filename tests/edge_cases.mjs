@@ -10,6 +10,7 @@
 
 import assert from 'node:assert';
 import { orderTotal, HOUSE_DISCOUNT_PERCENT, jarsOutForRegular, orderOutboundJars } from '../src/utils.js';
+import { omakaseUndecided, undecidedOmakases, expandOmakaseForShopping, pastOmakasesFor, omakaseStats, expandOrderForReheat } from '../src/omakase.js';
 import { reconcileIngredients } from '../src/seedReconcile.js';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { liveCostMapFrom } from '../src/dishCosting.js';
@@ -81,5 +82,38 @@ ok(jarsOutForRegular('r1', [{ regularId: 'r1', createdAt: JL_BEFORE, items: [{ n
   'jar ledger: orders before the epoch are excluded');
 ok(jarsOutForRegular('r1', [{ regularId: 'r1', createdAt: JL_AFTER, items: [{ name: 'Queso', variant: 'Per Pint Jar', qty: 1 }], containerReturns: 4 }]) === 0,
   'jar ledger: never goes negative (floored at 0)');
+
+
+// ── Omakase (chef's choice) ─────────────────────────────────────────────────
+const OM = (extra = {}) => ({ name: 'Omakase', variant: 'Small', qty: 1, omakase: true, budgetMax: 75, price: 75, ...extra });
+const OM_NOW = new Date().toISOString();
+const omLogged = OM({ price: 60, cost: 24, components: [
+  { fromMenu: true, menuKey: 'Bo Ssam|Small (~4 servings)', label: 'Bo Ssam', cost: 24 },
+  { ing: true, ingredientId: 'ribeye', qty: 2, unit: 'lb', label: 'Ribeye - 2 lb', cost: 33 },
+] });
+ok(omakaseUndecided({ items: [OM()] }) === true, 'omakase: unlogged reads as undecided');
+ok(omakaseUndecided({ items: [omLogged] }) === false, 'omakase: logged components clear undecided');
+ok(undecidedOmakases([{ id: 'a', customer: 'D', createdAt: OM_NOW, archived: true, items: [OM()] }]).length === 0,
+  'omakase: archived orders never sit in the undecided queue');
+const shop = expandOmakaseForShopping([
+  { id: 'a', customer: 'Dave', createdAt: OM_NOW, items: [OM()] },
+  { id: 'b', customer: 'Sara', createdAt: OM_NOW, items: [omLogged] },
+]);
+ok(shop.pseudoItems.some(p => p.name === 'Bo Ssam' && p.variant === 'Small (~4 servings)'),
+  'omakase: a menu component becomes a real dish for the shopping engine');
+ok(shop.extraLines.some(l => /Omakase ingredients \(Dave\)/.test(l.label) && /\$75/.test(l.note)),
+  'omakase: nothing logged yet shows one line at the customer budget');
+ok(shop.extraLines.some(l => /Ribeye steak for omakase/.test(l.label)),
+  'omakase: a typed ingredient becomes its own buy line');
+ok(expandOrderForReheat({ items: [omLogged] }).items.some(i => i.name === 'Bo Ssam'),
+  'omakase: reheat expansion adds menu components so canon text applies');
+const omStats = omakaseStats([
+  { id: 'a', customer: 'S', createdAt: OM_NOW, items: [omLogged] },
+  { id: 'h', customer: 'Wife', house: true, createdAt: OM_NOW, items: [OM({ price: 0, cost: 30 })] },
+], 'all');
+ok(omStats.count === 1 && omStats.revenue === 60, 'omakase stats: house orders never count');
+ok(omStats.avgPctOfBudget === 80, 'omakase stats: average charge vs budget (60 of 75 = 80%)');
+ok(pastOmakasesFor('r1', [{ id: 'x', regularId: 'r1', createdAt: OM_NOW, items: [omLogged] }], 'x').length === 0,
+  'omakase memory: the order being edited is excluded from its own history');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

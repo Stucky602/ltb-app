@@ -121,7 +121,7 @@ export function CookingList({ items, orderCount, revenue, checks, onToggle, onRe
 // ─── Deliver List ───────────────────────────────────────────────────────────
 // Same active-order items as the cooking list, regrouped by customer so each
 // bag can be packed and checked off independently while staging deliveries.
-export function DeliverList({ groups, orderCount, checks, onToggle, onReset }) {
+export function DeliverList({ groups, orderCount, checks, onToggle, onReset, omakaseUnconfirmed, onConfirmOmakase }) {
   if (groups.length === 0) {
     return (
       <div style={styles.emptyState}>
@@ -133,9 +133,33 @@ export function DeliverList({ groups, orderCount, checks, onToggle, onReset }) {
 
   const allItems = groups.flatMap(g => g.items);
   const doneCount = allItems.filter(it => checks[it.key]).length;
+  const pendingOma = omakaseUnconfirmed || [];
 
   return (
     <div>
+      {pendingOma.length > 0 && (
+        <div style={{ background: 'rgba(212,160,80,0.10)', border: '1px solid #D4A050', borderRadius: 10, padding: 10, marginBottom: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#D4A050', marginBottom: 6 }}>
+            Omakase price not settled
+          </div>
+          {pendingOma.map(p => (
+            <div key={p.orderId} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0' }}>
+              <span style={{ flex: 1, fontSize: 12.5, color: '#e8ede9' }}>
+                {p.customer} is still at the {currency(p.price)} max
+              </span>
+              <button
+                onClick={() => onConfirmOmakase && onConfirmOmakase(p.orderId)}
+                style={{ padding: '5px 12px', borderRadius: 6, cursor: 'pointer', background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12 }}
+              >
+                Confirm {currency(p.price)}
+              </button>
+            </div>
+          ))}
+          <div style={{ fontSize: 10.5, color: '#7a8480', marginTop: 4 }}>
+            Adjust it on the order itself if it should be less.
+          </div>
+        </div>
+      )}
       <div style={styles.cookHeader}>
         <div style={styles.cookSummary}>
           {doneCount}/{allItems.length} packed · {orderCount} active order{orderCount !== 1 ? 's' : ''}

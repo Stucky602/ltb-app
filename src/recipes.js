@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { ALL_DINNERS, ALWAYS_MENU, PER_LB_ITEMS, isPerLbItem } from './menu.js';
 import { DISHES, ALL_ALWAYS_ITEMS, I } from './dishes.js';
+import { expandOmakaseForShopping } from './omakase.js';
 
 // Recipe-line helper — now defined in dishes.js; re-exported for compatibility.
 export { I };
@@ -813,7 +814,24 @@ export function mergeShoppingRows(rows) {
 // (The old exact-text keying silently lost checkmarks whenever a quantity
 // moved, which is exactly mid-shop when it hurts most.)
 export function buildAutoShoppingRows(activeOrders, includeStaples, prevRows, mkId) {
-  const lines = generateShoppingItems(activeOrders, includeStaples);
+  // Omakase: menu-pick components are expanded into real dishes so their
+  // recipes contribute actual ingredient quantities. Everything else (typed
+  // ingredients, off-menu improvisation, and any omakase Kevin has not decided
+  // on yet) becomes a plain reminder line so the list is never silently short
+  // by a whole order.
+  const { pseudoItems, extraLines } = expandOmakaseForShopping(activeOrders);
+  // Strip the omakase line itself from the base pass: it has no recipe, so the
+  // generator would emit a "no recipe data" row on top of the explicit lines
+  // built above.
+  const stripped = (activeOrders || []).map(o => (
+    (o.items || []).some(it => it.omakase)
+      ? { ...o, items: (o.items || []).filter(it => !it.omakase) }
+      : o
+  ));
+  const ordersForShopping = pseudoItems.length
+    ? [...stripped, { id: '__omakase__', createdAt: new Date().toISOString(), items: pseudoItems }]
+    : stripped;
+  const lines = generateShoppingItems(ordersForShopping, includeStaples);
   const checkedByName = new Map();
   for (const it of (prevRows || [])) {
     if (!it.checked) continue;
@@ -826,5 +844,8 @@ export function buildAutoShoppingRows(activeOrders, includeStaples, prevRows, mk
     const key = p.passthrough === undefined ? normalizeIngredientName(p.name) : null;
     return { id: mkId(), text, checked: key ? !!checkedByName.get(key) : false, auto: true };
   });
-  return [...autos, ...manual];
+  const omaRows = extraLines.map(l => ({
+    id: mkId(), text: l.note ? `${l.label} — ${l.note}` : l.label, checked: false, auto: true,
+  }));
+  return [...autos, ...omaRows, ...manual];
 }

@@ -4,6 +4,7 @@
 // pulled from the canonical engine (buildReheatBlocks + itemHandling), so this
 // page can never disagree with the order card or the labels.
 import { buildReheatBlocks, itemHandling } from './recipes.js';
+import { expandOrderForReheat, omakaseCustomReheat, omakaseItemsOf } from './omakase.js';
 import { isPerLbItem } from './menu.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
 import { DRINKS } from './drinks.js';
@@ -22,7 +23,7 @@ const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 export function companionContext(order, opts = {}) {
   const items = (order.items || []).map(it =>
     `${Number(it.qty) || 1}x ${it.name}${it.variant ? ` (${it.variant})` : ''}`).join('; ');
-  const blocks = buildReheatBlocks(order).map(b =>
+  const blocks = buildReheatBlocks(expandOrderForReheat(order)).map(b =>
     `${b.title} [${b.dishes.join(', ')}]: ${(Array.isArray(b.body) ? b.body : [b.body]).join(' ')}`).join('\n');
   const handleNotes = (order.items || []).map(it => {
     const h = itemHandling(it.name, { category: CATEGORY_OF[it.name] || null, isPerLb: isPerLbItem(it.name) });
@@ -80,11 +81,30 @@ export function companionContext(order, opts = {}) {
 export function companionHtml(order, pageId = '', opts = {}) {
   const customer = esc(order.customer || 'Friend');
   const firstName = customer.split(' ')[0];
-  const blocks = buildReheatBlocks(order);
+  const blocks = buildReheatBlocks(expandOrderForReheat(order));
   const items = order.items || [];
   const handleOf = (name) => itemHandling(name, { category: CATEGORY_OF[name] || null, isPerLb: isPerLbItem(name) });
   const frozen = items.filter(it => /FROZEN/.test(handleOf(it.name).cue));
   const noFuss = items.filter(it => { const h = handleOf(it.name); return !h.reheatable && !/FROZEN/.test(h.cue); });
+
+  // Omakase reveal: they are holding an unlabeled box, so the page has to say
+  // what it is. Menu components already have canon reheat text (the expanded
+  // order above); anything Kevin typed a reheat note for is listed here.
+  const omaItems = omakaseItemsOf(order);
+  const omaCustom = omakaseCustomReheat(order);
+  const omakaseCard = omaItems.length ? omaItems.map(it => {
+    const comps = it.components || [];
+    const body = comps.length
+      ? `<ul>${comps.map(c => `<li><b>${esc(c.label || 'A dish')}</b></li>`).join('')}</ul>`
+      : `<p>Still deciding what to make you. It will be worth the wait.</p>`;
+    const price = (it.price != null && it.budgetMax != null && it.price < it.budgetMax)
+      ? `<p class="omaprice">Charged ${esc('$' + it.price)} against your ${esc('$' + it.budgetMax)} max.${it.underNote ? ' ' + esc(it.underNote) : ''}</p>`
+      : '';
+    const extra = omaCustom.length
+      ? `<div class="omaheat">${omaCustom.map(x => `<div><b>${esc(x.label)}</b>: ${esc(x.reheat)}</div>`).join('')}</div>`
+      : '';
+    return `<div class="card"><h3>Your omakase</h3>${body}${price}${extra}</div>`;
+  }).join('') : '';
 
   const itemRows = items.map(it => {
     const servings = it.variant ? parseServings(it.variant) : null;
@@ -261,6 +281,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   <h1>${firstName}, here's your kitchen page</h1>
   <div class="sub">Everything in your order, and exactly how to bring each dish home for its best.</div>
   <div class="card"><h3>Your order</h3><ul>${itemRows}</ul></div>
+  ${omakaseCard}
   ${stepsIntro}
   ${stepCards}
   ${frozenCard}

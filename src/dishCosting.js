@@ -717,3 +717,42 @@ export function applyPriceLinks(m) {
   });
   return m;
 }
+
+// ─── Unit options for one ingredient (omakase ingredient builder) ────────────
+// Rather than duplicating the conversion tables, probe the ingredient's OWN
+// conv function: a candidate unit is offerable exactly when conv(1, unit)
+// returns a real number. The engine stays the single source of truth, so an
+// ingredient's options can never drift from how it is actually costed.
+const UNIT_PROBE = ['lb', 'oz', 'g', 'kg', 'cup', 'tbs', 'tsp', 'floz', 'ml', 'l',
+  'each', 'bunch', 'knob', 'stick', 'clove', 'head', 'jar', 'pack', 'can', 'batch'];
+let _idToLine = null;
+function lineSpecFor(ingredientId) {
+  if (!_idToLine) {
+    _idToLine = {};
+    for (const [lineName, spec] of Object.entries(LINE_MAP)) {
+      if (spec && spec.id && !_idToLine[spec.id]) _idToLine[spec.id] = spec;
+    }
+  }
+  return _idToLine[ingredientId] || null;
+}
+// Returns [{ label, toNative(qty) }], native unit first. Single-entry result
+// means the UI shows a plain unit label instead of a selector.
+export function unitOptionsFor(ingredientId) {
+  const seed = INGREDIENT_SEED.find(i => i.id === ingredientId);
+  const native = seed ? (seed.unit || '') : '';
+  const spec = lineSpecFor(ingredientId);
+  const out = [{ label: native || 'each', toNative: (q) => q }];
+  if (!spec || typeof spec.conv !== 'function') return out;
+  const seen = new Set([canonUnit(native)]);
+  for (const u of UNIT_PROBE) {
+    const cu = canonUnit(u);
+    if (seen.has(cu)) continue;
+    let v = null;
+    try { v = spec.conv(1, u); } catch { v = null; }
+    if (typeof v === 'number' && isFinite(v) && v > 0) {
+      seen.add(cu);
+      out.push({ label: u, toNative: (q) => spec.conv(q, u) });
+    }
+  }
+  return out;
+}

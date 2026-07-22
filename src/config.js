@@ -32,6 +32,11 @@ export const MENU_FINGERPRINT_KEY = 'ltb-menu-fingerprint';
 export const WORKER_BASE = 'https://ltb-proxy.strickland-kevinj.workers.dev';
 export const PENDING_POLL_URL = WORKER_BASE + '/pending';
 export const CONFIG_PUBLISH_URL = WORKER_BASE + '/config';
+// Omakase: saved component groups, and the review-later queue of things Kevin
+// used that the ingredient registry does not know about yet.
+export const OMAKASE_TEMPLATES_KEY = 'ltb-omakase-templates';
+export const OMAKASE_REG_QUEUE_KEY = 'ltb-omakase-reg-queue';
+
 export const PUBLISH_TOKEN = 'ltb-publish-2026';
 export const VAPID_PUBLIC_KEY = 'BD96MjYlJ5dAdlTEzTMLi1hAlDmy-s2d6eO5B2aavlXFdueX9jSH4BOKJpDLE2MdOKvttlwOdSrs0tjFEio3EU8';
 

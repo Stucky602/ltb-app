@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { companionHtml, companionContext } from '../companion.js';
+import { INGREDIENT_SEED } from '../ingredients.js';
+import { DISHES } from '../dishes.js';
+import { unitOptionsFor, resolveDishVariant } from '../dishCosting.js';
+import { pastOmakasesFor } from '../omakase.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -18,6 +22,7 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
+  OMAKASE_TEMPLATES_KEY, OMAKASE_REG_QUEUE_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
 import {
@@ -71,30 +76,149 @@ const OMAKASE_CATALOG = (() => {
   return out;
 })();
 
-// "Log what you made" for an omakase item: dynamic rows (menu pick OR off-menu
-// manual), sums to it.cost (costSource manual), final charge clamped at budgetMax.
-function OmakaseLogger({ item, order, onUpdate }) {
+const OMA_ING = INGREDIENT_SEED.map(i => ({ id: i.id, name: i.name, unit: i.unit || '', baseline: i.baseline || 0 }));
+const OMA_ING_BY_ID = {};
+OMA_ING.forEach(i => { OMA_ING_BY_ID[i.id] = i; });
+
+// Cost one ingredient row: convert the typed amount into the ingredient's
+// native unit (the engine's own conv, so it can never drift from how dishes are
+// costed), then price it off the LIVE cost map, falling back to the seed.
+function omaIngCost(id, qty, unit, liveCost) {
+  const opts = unitOptionsFor(id);
+  const opt = opts.find(o => o.label === unit) || opts[0];
+  const native = opt ? opt.toNative(Number(qty) || 0) : 0;
+  const per = (liveCost && typeof liveCost[id] === 'number') ? liveCost[id] : ((OMA_ING_BY_ID[id] || {}).baseline || 0);
+  return round2((Number(native) || 0) * per);
+}
+
+// "Log what you made" for an omakase item. Rows are menu picks, registry
+// ingredients, or free text; the sum becomes it.cost (costSource manual) so the
+// order's margin is real, and the final charge can only move DOWN from the
+// budget the customer set.
+function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDishes, restrictions }) {
   const budgetMax = item.budgetMax != null ? item.budgetMax : (item.price || 0);
   const [rows, setRows] = useState((item.components && item.components.length) ? item.components : []);
   const [charge, setCharge] = useState(item.price != null ? String(item.price) : String(budgetMax));
+  const [underNote, setUnderNote] = useState(item.underNote || '');
+  const [bigPath, setBigPath] = useState(item.bigPath || '');
+  const [search, setSearch] = useState('');
+  const [showPast, setShowPast] = useState(false);
+  const [selMode, setSelMode] = useState(false);
+  const [sel, setSel] = useState({});
+  const [tplName, setTplName] = useState('');
+  const [templates, setTemplates] = useState([]);
+  const [showTpl, setShowTpl] = useState(false);
+
+  useEffect(() => { loadJSON(OMAKASE_TEMPLATES_KEY, []).then(t => setTemplates(t || [])); }, []);
 
   const estCost = round2(rows.reduce((s, c) => s + (Number(c.cost) || 0), 0));
   const menuValue = round2(rows.reduce((s, c) => s + (Number(c.refPrice) || 0), 0));
   const chargeNum = Math.min(budgetMax, Math.max(0, parseFloat(charge) || 0));
   const marginPct = chargeNum > 0 ? Math.round((1 - estCost / chargeNum) * 100) : 0;
+  const pctOfBudget = budgetMax > 0 ? Math.round((estCost / budgetMax) * 100) : 0;
 
-  const setRow = (i, patch) => setRows(r => r.map((row, j) => j === i ? { ...row, ...patch } : row));
+  // Ingredients already being bought for this week's menu, so a component that
+  // rides the existing shop is visibly cheaper to make than a special trip.
+  const weekIngIds = useMemo(() => {
+    const set = new Set();
+    for (const name of (weekDishes || [])) {
+      const d = DISHES.find(x => x.name === name);
+      if (!d || !d.variants || !d.variants.length) continue;
+      try {
+        (resolveDishVariant(name, d.variants[d.variants.length - 1].label) || []).forEach(l => set.add(l.id));
+      } catch { /* a dish without a resolvable recipe just contributes nothing */ }
+    }
+    return set;
+  }, [weekDishes]);
+  const weekNames = useMemo(() => new Set(weekDishes || []), [weekDishes]);
+
+  const past = useMemo(
+    () => pastOmakasesFor(order.regularId, allOrders || [], order.id),
+    [order.regularId, order.id, allOrders]
+  );
+  const pastNotes = useMemo(() => {
+    const seen = [];
+    past.forEach(p => { if (p.note && seen.indexOf(p.note) === -1) seen.push(p.note); });
+    return seen;
+  }, [past]);
+
+  const matches = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return OMA_ING.filter(i => i.name.toLowerCase().indexOf(q) !== -1).slice(0, 5);
+  }, [search]);
+
+  const setRow = (i, patch) => setRows(r => r.map((row, j) => (j === i ? { ...row, ...patch } : row)));
+  const dropRow = (i) => setRows(r => r.filter((_, j) => j !== i));
+
   const pickMenu = (i, key) => {
     const c = OMAKASE_CATALOG.find(x => x.key === key);
-    if (c) setRow(i, { menuKey: key, label: c.name + ' (' + c.variant + ')', cost: c.cost, refPrice: c.price });
-    else setRow(i, { menuKey: '', label: '', cost: 0, refPrice: 0 });
+    if (c) setRow(i, { menuKey: key, label: c.name + ' (' + c.variant + ')', cost: c.cost, refPrice: c.price, dishName: c.name });
+    else setRow(i, { menuKey: '', label: '', cost: 0, refPrice: 0, dishName: '' });
+  };
+  const addIngredient = (ing) => {
+    setRows(r => [...r, { ing: true, ingredientId: ing.id, qty: 1, unit: ing.unit || 'each', label: ing.name + ' - 1 ' + (ing.unit || ''), cost: omaIngCost(ing.id, 1, ing.unit || 'each', perLbLiveCost) }]);
+    setSearch('');
+  };
+  const setIngAmount = (i, row, qty, unit) => {
+    const q = qty != null ? qty : row.qty;
+    const u = unit != null ? unit : row.unit;
+    setRow(i, { qty: q, unit: u, cost: omaIngCost(row.ingredientId, q, u, perLbLiveCost), label: (OMA_ING_BY_ID[row.ingredientId] || {}).name + ' - ' + q + ' ' + u });
+  };
+  const addOffMenu = (label) => {
+    setRows(r => [...r, { fromMenu: false, label: label || '', cost: 0, regFlag: !!label }]);
+    setSearch('');
   };
 
-  const save = () => {
+  const applyTemplate = (t) => {
+    const fresh = (t.rows || []).map(row => {
+      if (row.ing) return { ...row, cost: omaIngCost(row.ingredientId, row.qty, row.unit, perLbLiveCost) };
+      if (row.fromMenu && row.menuKey) {
+        const c = OMAKASE_CATALOG.find(x => x.key === row.menuKey);
+        return c ? { ...row, cost: c.cost, refPrice: c.price } : { ...row };
+      }
+      return { ...row };
+    });
+    setRows(r => [...r, ...fresh]);
+    setShowTpl(false);
+  };
+  const saveTemplate = async () => {
+    const picked = rows.filter((_, i) => sel[i]);
+    if (!picked.length || !tplName.trim()) return;
+    const next = [...templates, { name: tplName.trim(), rows: picked.map(r => ({ ...r })) }];
+    setTemplates(next); await saveJSON(OMAKASE_TEMPLATES_KEY, next);
+    setSelMode(false); setSel({}); setTplName('');
+  };
+  const dropTemplate = async (name) => {
+    const next = templates.filter(t => t.name !== name);
+    setTemplates(next); await saveJSON(OMAKASE_TEMPLATES_KEY, next);
+  };
+
+  const save = async () => {
     setCharge(String(chargeNum));
-    const items = order.items.map(it => it.omakase
-      ? { ...it, components: rows, cost: estCost, costSource: 'manual', price: chargeNum }
-      : it);
+    // Anything typed that the registry does not know about collects in a queue
+    // on the Ingredients tab. Nothing auto-writes to ingredients.js: Kevin
+    // reviews the real number before it becomes a tracked ingredient.
+    const flagged = rows.filter(r => r.regFlag && r.label);
+    if (flagged.length) {
+      const q = (await loadJSON(OMAKASE_REG_QUEUE_KEY, [])) || [];
+      const have = new Set(q.map(x => String(x.label || '').toLowerCase()));
+      const add = flagged
+        .filter(r => !have.has(String(r.label).toLowerCase()))
+        .map(r => ({ label: r.label, cost: r.cost || 0, date: new Date().toISOString(), orderId: order.id }));
+      if (add.length) await saveJSON(OMAKASE_REG_QUEUE_KEY, [...q, ...add]);
+    }
+    const items = order.items.map(it => (it.omakase
+      ? {
+        ...it,
+        components: rows,
+        cost: estCost,
+        costSource: 'manual',
+        price: chargeNum,
+        ...(underNote.trim() ? { underNote: underNote.trim() } : {}),
+        ...(bigPath ? { bigPath } : {}),
+      }
+      : it));
     onUpdate({
       items,
       total: orderTotal(items, order.jarSwaps, order.containerReturns, order.discountType, order.discountValue, order.customCharges, order.waiveSurcharge),
@@ -102,42 +226,166 @@ function OmakaseLogger({ item, order, onUpdate }) {
   };
 
   const inp = { padding: '5px 7px', borderRadius: 6, border: '1px solid #3a4441', background: '#202623', color: '#e8ede9', fontSize: 13 };
+  const btn = { ...inp, cursor: 'pointer' };
+  const tag = (text, color) => <span style={{ fontSize: 9.5, padding: '1px 5px', borderRadius: 4, background: color + '22', color, marginLeft: 6, whiteSpace: 'nowrap' }}>{text}</span>;
 
   return (
     <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(212,160,80,0.06)', border: '1px solid #3a453f' }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: '#D4A050', marginBottom: 8 }}>Log what you made (customer max {currency(budgetMax)})</div>
-      {rows.map((row, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-          {row.fromMenu ? (
-            <select value={row.menuKey || ''} onChange={e => pickMenu(i, e.target.value)} style={{ ...inp, flex: 1 }}>
-              <option value="">Pick a dish…</option>
-              {OMAKASE_CATALOG.map(c => <option key={c.key} value={c.key}>{c.name} ({c.variant})</option>)}
-            </select>
-          ) : (
-            <input value={row.label} placeholder="What you made" onChange={e => setRow(i, { label: e.target.value })} style={{ ...inp, flex: 1 }} />
+
+      {restrictions ? (
+        <div style={{ fontSize: 11.5, color: '#EF9F27', marginBottom: 8, fontWeight: 600 }}>Standing: {restrictions}</div>
+      ) : null}
+
+      {past.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <button onClick={() => setShowPast(o => !o)} style={{ background: 'none', border: 'none', color: '#9aa5a0', fontSize: 11.5, cursor: 'pointer', padding: 0 }}>
+            Past omakases ({past.length}) {showPast ? '\u25b2' : '\u25bc'}
+          </button>
+          {pastNotes.length > 0 && (
+            <div style={{ fontSize: 11, color: '#EF9F27', marginTop: 3 }}>Past notes: {pastNotes.join(' \u00b7 ')}</div>
           )}
-          <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 70 }} title="cost" />
-          <button onClick={() => setRows(r => r.filter((_, j) => j !== i))} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14 }}>✕</button>
+          {showPast && (
+            <div style={{ marginTop: 5 }}>
+              {past.map((p, i) => (
+                <div key={i} style={{ fontSize: 11, color: '#9aa5a0', padding: '2px 0' }}>
+                  {p.date ? new Date(p.date).toLocaleDateString() : '?'} · {p.labels.length ? p.labels.join(', ') : 'never logged'} · {currency(p.price || 0)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {rows.map((row, i) => (
+        <div key={i} style={{ marginBottom: 6 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {selMode && (
+              <input type="checkbox" checked={!!sel[i]} onChange={e => setSel(s => ({ ...s, [i]: e.target.checked }))} />
+            )}
+            {row.fromMenu ? (
+              <select value={row.menuKey || ''} onChange={e => pickMenu(i, e.target.value)} style={{ ...inp, flex: 1 }}>
+                <option value="">Pick a dish…</option>
+                {OMAKASE_CATALOG.map(c => <option key={c.key} value={c.key}>{c.name} ({c.variant})</option>)}
+              </select>
+            ) : row.ing ? (
+              <div style={{ flex: 1, display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 12.5, color: '#e8ede9', flex: 1 }}>{(OMA_ING_BY_ID[row.ingredientId] || {}).name || row.ingredientId}</span>
+                <input type="number" step="0.25" min="0" value={row.qty} onChange={e => setIngAmount(i, row, parseFloat(e.target.value) || 0, null)} style={{ ...inp, width: 58 }} />
+                {(() => {
+                  const opts = unitOptionsFor(row.ingredientId);
+                  return opts.length > 1 ? (
+                    <select value={row.unit} onChange={e => setIngAmount(i, row, null, e.target.value)} style={{ ...inp, width: 68 }}>
+                      {opts.map(o => <option key={o.label} value={o.label}>{o.label}</option>)}
+                    </select>
+                  ) : <span style={{ fontSize: 11, color: '#7a8480', width: 68 }}>{row.unit}</span>;
+                })()}
+              </div>
+            ) : (
+              <input value={row.label} placeholder="What you made" onChange={e => setRow(i, { label: e.target.value })} style={{ ...inp, flex: 1 }} />
+            )}
+            <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 66 }} title="cost" />
+            <button onClick={() => dropRow(i)} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14 }}>✕</button>
+          </div>
+          <div style={{ paddingLeft: selMode ? 22 : 0 }}>
+            {row.fromMenu && row.dishName && weekNames.has(row.dishName) && tag('on this week\u2019s menu', '#5DCAA5')}
+            {row.ing && weekIngIds.has(row.ingredientId) && tag('already buying this week', '#5DCAA5')}
+            {row.regFlag && tag('not in registry', '#EF9F27')}
+            {(row.ing || row.fromMenu === false) && (
+              <input
+                value={row.reheat || ''} placeholder="+ reheat note (optional)"
+                onChange={e => setRow(i, { reheat: e.target.value })}
+                style={{ ...inp, width: '100%', marginTop: 4, fontSize: 11.5, background: 'transparent', border: '1px dashed #3a4441' }}
+              />
+            )}
+          </div>
         </div>
       ))}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <button onClick={() => setRows(r => [...r, { fromMenu: true, menuKey: '', label: '', cost: 0, refPrice: 0 }])} style={{ ...inp, cursor: 'pointer' }}>+ menu item</button>
-        <button onClick={() => setRows(r => [...r, { fromMenu: false, label: '', cost: 0 }])} style={{ ...inp, cursor: 'pointer' }}>+ off-menu</button>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+        <button onClick={() => setRows(r => [...r, { fromMenu: true, menuKey: '', label: '', cost: 0, refPrice: 0 }])} style={btn}>+ menu item</button>
+        <button onClick={() => setRows(r => [...r, { fromMenu: false, label: '', cost: 0 }])} style={btn}>+ off-menu</button>
+        {templates.length > 0 && <button onClick={() => setShowTpl(o => !o)} style={btn}>+ template</button>}
+        {rows.length > 0 && <button onClick={() => { setSelMode(m => !m); setSel({}); }} style={btn}>{selMode ? 'cancel' : 'save as template'}</button>}
       </div>
-      <div style={{ fontSize: 11.5, color: '#9aa5a0', marginBottom: 6 }}>
-        Est. cost {currency(estCost)}{menuValue > 0 ? ' · menu value ' + currency(menuValue) : ''} · margin {marginPct}%
+
+      {showTpl && (
+        <div style={{ marginBottom: 8, padding: 6, borderRadius: 6, border: '1px solid #3a4441' }}>
+          {templates.map(t => (
+            <div key={t.name} style={{ display: 'flex', gap: 6, alignItems: 'center', padding: '2px 0' }}>
+              <button onClick={() => applyTemplate(t)} style={{ ...btn, flex: 1, textAlign: 'left' }}>{t.name} ({(t.rows || []).length})</button>
+              <button onClick={() => dropTemplate(t.name)} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none' }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selMode && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+          <input value={tplName} onChange={e => setTplName(e.target.value)} placeholder="Name this group (e.g. chocolate mousse)" style={{ ...inp, flex: 1 }} />
+          <button onClick={saveTemplate} style={{ ...btn, background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700 }}>Save</button>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 8 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="+ ingredient (type to search)" style={{ ...inp, width: '100%' }} />
+        {search.trim().length >= 2 && (
+          <div style={{ marginTop: 4, border: '1px solid #3a4441', borderRadius: 6, overflow: 'hidden' }}>
+            {matches.map(m => (
+              <div key={m.id} onClick={() => addIngredient(m)} style={{ padding: '6px 8px', cursor: 'pointer', fontSize: 12.5, color: '#e8ede9', borderBottom: '1px solid #2a332f' }}>
+                {m.name} <span style={{ color: '#7a8480', fontSize: 11 }}>({m.unit})</span>
+              </div>
+            ))}
+            {matches.length === 0 && (
+              <div onClick={() => addOffMenu(search.trim())} style={{ padding: '6px 8px', cursor: 'pointer', fontSize: 12.5, color: '#EF9F27' }}>
+                Not in the registry - add “{search.trim()}” as a one-off
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      <div style={{ fontSize: 11.5, color: '#9aa5a0', marginBottom: 4 }}>
+        Est. cost {currency(estCost)}{menuValue > 0 ? ' \u00b7 menu value ' + currency(menuValue) : ''} · margin {marginPct}%
+      </div>
+      {budgetMax > 0 && (
+        <div style={{ fontSize: 11.5, marginBottom: 6, fontWeight: pctOfBudget >= 60 ? 700 : 400, color: pctOfBudget >= 60 ? '#EF9F27' : '#7a8480' }}>
+          cost is {pctOfBudget}% of their budget{pctOfBudget >= 60 ? ' (40% margin line)' : ''}
+        </div>
+      )}
+      {estCost > 0 && chargeNum > 0 && estCost <= 0.4 * chargeNum && (
+        <div style={{ fontSize: 11, color: '#7a8480', marginBottom: 6 }}>
+          Running well under what they are paying. Worth adding something, or charging less.
+        </div>
+      )}
+      {budgetMax > 300 && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: '#7a8480' }}>which way did it go?</span>
+          {[['multi', 'went multi-dish'], ['premium', 'went premium']].map(([k, label]) => (
+            <button key={k} onClick={() => setBigPath(bigPath === k ? '' : k)}
+              style={{ ...btn, borderColor: bigPath === k ? '#D4A050' : '#3a4441', color: bigPath === k ? '#D4A050' : '#e8ede9', fontSize: 11 }}>{label}</button>
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#c9d1cd' }}>Final charge $</span>
         <input type="number" step="0.5" min="0" max={budgetMax} value={charge} onChange={e => setCharge(e.target.value)} style={{ ...inp, width: 80 }} />
         <span style={{ fontSize: 10.5, color: '#7a8480' }}>max {currency(budgetMax)}</span>
         <button onClick={save} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700, marginLeft: 'auto' }}>Save</button>
       </div>
+      {chargeNum < budgetMax && (
+        <input
+          value={underNote} onChange={e => setUnderNote(e.target.value)}
+          placeholder="Why it came in under (optional, shows on their invoice)"
+          style={{ ...inp, width: '100%', marginTop: 6 }}
+        />
+      )}
     </div>
   );
 }
 
-export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost }) {
+export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost, weekDishes }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -319,6 +567,29 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
 
       {expanded && (
         <div style={styles.orderCardBody}>
+          {(() => {
+            // Standing restrictions live on the regular. Surfaced here so they
+            // are in front of Kevin while he is fulfilling, not one tab away.
+            const reg = (regulars || []).find(x => x.id === order.regularId);
+            const standing = reg ? [reg.dietary, reg.spice].filter(Boolean).join(' \u00b7 ') : '';
+            return standing
+              ? <div style={{ fontSize: 12, color: '#EF9F27', fontWeight: 600, marginBottom: 8 }}>Standing: {standing}</div>
+              : null;
+          })()}
+          {(() => {
+            // First order: no linked regular, no name match, and nothing older
+            // under the same name. Worth knowing before you cook, not after.
+            if (order.regularId) return null;
+            const nm = String(order.customer || '').trim().toLowerCase();
+            if (!nm) return null;
+            const knownRegular = (regulars || []).some(r => (regularNames(r) || []).some(n => String(n).trim().toLowerCase() === nm));
+            if (knownRegular) return null;
+            const t = new Date(order.createdAt || 0).getTime();
+            const older = (allOrders || []).some(o => o.id !== order.id
+              && String(o.customer || '').trim().toLowerCase() === nm
+              && new Date(o.createdAt || 0).getTime() < t);
+            return older ? null : <div style={{ display: 'inline-block', fontSize: 10.5, fontWeight: 700, color: '#5DCAA5', border: '1px solid #5DCAA5', borderRadius: 5, padding: '2px 6px', marginBottom: 8 }}>first order</div>;
+          })()}
           <div style={styles.orderItemsList}>
             {(order.items || []).map((it, idx) => {
               const perLb = isPerLbItem(it.name);
@@ -373,7 +644,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                     </div>
                   ))}
                   {noteWithoutOptions(it.note) && <div style={styles.orderItemNote}>“{noteWithoutOptions(it.note)}”</div>}
-                  {it.omakase && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} />}
+                  {it.omakase && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} allOrders={allOrders} perLbLiveCost={perLbLiveCost} weekDishes={weekDishes} restrictions={(() => { const r = (regulars || []).find(x => x.id === order.regularId); return r ? [r.dietary, r.spice].filter(Boolean).join(' \u00b7 ') : ''; })()} />}
                   {perLb && (
                     <button
                       style={styles.setWeightBtn}

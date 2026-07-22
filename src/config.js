@@ -34,6 +34,10 @@ export const PENDING_POLL_URL = WORKER_BASE + '/pending';
 export const CONFIG_PUBLISH_URL = WORKER_BASE + '/config';
 // Omakase: saved component groups, and the review-later queue of things Kevin
 // used that the ingredient registry does not know about yet.
+// Last service-worker version this device saw, so an update banner only
+// appears on a real change and never on first install.
+export const SW_VERSION_KEY = 'ltb-sw-version';
+
 export const OMAKASE_TEMPLATES_KEY = 'ltb-omakase-templates';
 export const OMAKASE_REG_QUEUE_KEY = 'ltb-omakase-reg-queue';
 

@@ -319,6 +319,11 @@
 
     // Week off takes precedence over the empty-menu notice: a paused week
     // usually has no dishes, and "no menu published" would read as a mistake.
+    // One bottle that covers the week, stamped at publish from the registry's
+    // own pairing data.
+    if (config.oneBottle && config.oneBottle.label) {
+      html += '<div class="info-card"><h4>One bottle for the week</h4><p>' + esc(config.oneBottle.note) + '</p></div>';
+    }
     if (config.paused) {
       document.getElementById("content").innerHTML =
         '<div class="intro">'+esc(LIBRARY.static.intro)+'</div>' +

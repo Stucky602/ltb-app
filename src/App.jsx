@@ -17,6 +17,7 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
+  SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -30,7 +31,7 @@ const HANDLED_PENDING_KEY = 'ltb_handled_pending_v1';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
-  urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
+  urlBase64ToUint8Array, onStorageFull, storageFootprint, nameMatchType, regularNames, regularDisplayName,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
   orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
@@ -61,6 +62,7 @@ import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/C
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { undecidedOmakases, omakaseStats, omakasePriceUnsettled } from './omakase.js';
+import { weekOneBottle } from './weekPlanner.js';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
 import { FeedbackCard } from './components/FeedbackCard.jsx';
@@ -88,12 +90,38 @@ export default function LTBOrderTracker() {
     typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
   );
 
+  // The service worker does two jobs: it receives push, and it tells us when a
+  // new build landed. The second one matters even without push configured, so
+  // registration is no longer gated on VAPID.
+  const [swUpdate, setSwUpdate] = useState(null);
   React.useEffect(() => {
-    if (!VAPID_PUBLIC_KEY) return;
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(e => {
       console.warn('SW registration failed:', e.message);
     });
+    const onMsg = (e) => {
+      const d = e && e.data;
+      if (!d || d.type !== 'sw-updated' || !d.version) return;
+      // Silent on first install: there is nothing to reload INTO yet.
+      loadJSON(SW_VERSION_KEY, null).then(seen => {
+        saveJSON(SW_VERSION_KEY, d.version);
+        if (seen && seen !== d.version) setSwUpdate(d.version);
+      });
+    };
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, []);
+
+  // Storage: a hard stop when writes start failing, and a soft warning while
+  // there is still room to act. 4MB of a ~5MB budget is the warning line.
+  const [storageFull, setStorageFull] = useState(false);
+  const [storageBytes, setStorageBytes] = useState(0);
+  React.useEffect(() => {
+    onStorageFull(() => setStorageFull(true));
+    const check = () => setStorageBytes(storageFootprint());
+    check();
+    const t = setInterval(check, 60000);
+    return () => clearInterval(t);
   }, []);
 
   const enablePushNotifications = async () => {
@@ -664,7 +692,7 @@ export default function LTBOrderTracker() {
     return res.json();
   }, []);
 
-  const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts) => {
+  const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras) => {
     const activeMenu = buildMenu(currentWeekDishes || []);
     const toVariants = (item) => {
       const info = PER_LB_ITEMS[item.name];
@@ -686,8 +714,10 @@ export default function LTBOrderTracker() {
       };
     };
     const allDinners = (activeMenu.dinner || []).map(toVariants);
-    const dishes = allDinners.filter(d => !d.spotlight);
-    const spotlight = allDinners.filter(d => d.spotlight);
+    const req = (extras && extras.requestCounts) || {};
+    const allDinnersTagged = allDinners.map(d => (req[d.name] > 0 ? { ...d, requested: true } : d));
+    const dishes = allDinnersTagged.filter(d => !d.spotlight);
+    const spotlight = allDinnersTagged.filter(d => d.spotlight);
     const fruit = (activeMenu.fruit || []).map(toVariants);
     const desserts = (activeMenu.desserts || []).map(toVariants);
     const addons = (activeMenu.addons || []).map(toVariants);
@@ -698,6 +728,9 @@ export default function LTBOrderTracker() {
       dishes, spotlight, fruit, desserts, addons, bag, sauces,
       menuPdfUrl: menuPdfUrl || '',
       weekLabel: weekLabel || '',
+      // One bottle that covers the week, computed from the registry's pairing
+      // data at publish time so the customer pages need no drink logic.
+      ...(() => { const ob = weekOneBottle(currentWeekDishes || []); return ob ? { oneBottle: ob } : {}; })(),
       // Week off: the form and menu page show a friendly notice instead of an
       // empty menu. Publishing a normal week clears it.
       ...(pausedOpts && pausedOpts.paused
@@ -1820,6 +1853,24 @@ export default function LTBOrderTracker() {
 
   return (
     <div style={styles.page}>
+      {storageFull && (
+        <div style={{ background: '#3a1f22', borderBottom: '1px solid #E24B4A', padding: '9px 12px', fontSize: 12.5, color: '#ffd9d9', lineHeight: 1.5 }}>
+          <b>Storage is full and changes are not saving.</b> Delete some order photos to free space, then reload. Nothing already saved has been lost.
+        </div>
+      )}
+      {!storageFull && storageBytes > 4 * 1024 * 1024 && (
+        <div style={{ background: 'rgba(212,160,80,0.10)', borderBottom: '1px solid #D4A050', padding: '7px 12px', fontSize: 12, color: '#e8ede9' }}>
+          Storage is at {(storageBytes / (1024 * 1024)).toFixed(1)}MB of about 5MB. Order photos take the most room.
+        </div>
+      )}
+      {swUpdate && (
+        <div
+          onClick={() => window.location.reload()}
+          style={{ background: 'rgba(93,202,165,0.12)', borderBottom: '1px solid #5DCAA5', padding: '8px 12px', fontSize: 12.5, color: '#e8ede9', cursor: 'pointer' }}
+        >
+          A new version is ready. <b>Tap to reload.</b>
+        </div>
+      )}
       <header style={styles.header}>
         <div style={styles.headerTop}>
           <div style={styles.logoMark}>LTB</div>

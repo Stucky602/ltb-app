@@ -463,7 +463,10 @@ else {
 
 // ─── 12+13. main-menu.html: card per dinner, prices match, no orphan cards ──
 const mainHtml = fs.readFileSync(path.join(ROOT, 'main-menu.html'), 'utf8');
-const cards = mainHtml.split('<div class="dish">').slice(1).map(chunk => {
+// Split on the dish wrapper, tolerating the catalog attributes syncMainMenu
+// stamps onto it (data-name / data-cuisine / data-diet). Those are generated
+// data, same as the prices and allergen lines this check already reads through.
+const cards = mainHtml.split(/<div class="dish"[^>]*>/).slice(1).map(chunk => {
   const name = (chunk.match(/<div class="dish-name">([^<]*)<\/div>/) || [])[1];
   const amounts = [...chunk.matchAll(/<span class="price-amt">\$([\d.]+)<\/span>/g)].map(m => Number(m[1]));
   return { name, amounts };

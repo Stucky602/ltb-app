@@ -100,10 +100,16 @@ export function companionHtml(order, pageId = '', opts = {}) {
     const price = (it.price != null && it.budgetMax != null && it.price < it.budgetMax)
       ? `<p class="omaprice">Charged ${esc('$' + it.price)} against your ${esc('$' + it.budgetMax)} max.${it.underNote ? ' ' + esc(it.underNote) : ''}</p>`
       : '';
+    // Kevin's hand-written card for the improvised part of the order. Menu
+    // components speak for themselves through the canon reheat blocks above,
+    // so an omakase with both correctly shows both.
+    const card = it.reheatCard
+      ? `<div class="omaheat"><div class="omaheat-head">How to reheat this</div><div>${esc(it.reheatCard).replace(/\n/g, '<br>')}</div></div>`
+      : '';
     const extra = omaCustom.length
       ? `<div class="omaheat">${omaCustom.map(x => `<div><b>${esc(x.label)}</b>: ${esc(x.reheat)}</div>`).join('')}</div>`
       : '';
-    return `<div class="card"><h3>Your omakase</h3>${body}${price}${extra}</div>`;
+    return `<div class="card"><h3>Your omakase</h3>${body}${price}${card}${extra}</div>`;
   }).join('') : '';
 
   const itemRows = items.map(it => {

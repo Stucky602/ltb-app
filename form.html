@@ -57,6 +57,7 @@
   .diet-filter-label { font-size:11px; color:var(--dim); letter-spacing:0.5px; }
   .diet-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:var(--cream); font-size:12px; cursor:pointer; }
   .diet-chip.on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .submit-btn {
     width: 100%; background: var(--gold); color: var(--teal-dark); border: none;
     border-radius: 14px; padding: 17px; font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 6px;
@@ -100,6 +101,80 @@
     // the exact menu it was built against: restoring last week's indexes under
     // this week's menu would put the WRONG DISHES in someone's cart, which is
     // far worse than losing the draft. Hence the weekLabel and age checks.
+    // ── Offline submit queue ────────────────────────────────────────────
+    // The last unprotected inch of order durability. Everything from the
+    // worker inward is durable, but a customer on bad signal who taps Submit
+    // and gets a thrown fetch loses the order with no trace on either side.
+    // Queued orders keep their ORIGINAL clientId, and the worker keys pending
+    // orders by clientId, so a retry overwrites itself and can never duplicate.
+    var QUEUE_KEY = "ltb-submit-queue";
+    var QUEUE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    function readQueue() {
+      try {
+        var raw = localStorage.getItem(QUEUE_KEY);
+        var q = raw ? JSON.parse(raw) : [];
+        return Object.prototype.toString.call(q) === '[object Array]' ? q : [];
+      } catch (e) { return []; }
+    }
+    function writeQueue(q) {
+      try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
+    }
+    function enqueueSubmit(payload) {
+      var q = readQueue();
+      q.push({ clientId: payload.clientId, payload: payload, queuedAt: Date.now() });
+      writeQueue(q);
+    }
+    function queueBanner(html) {
+      var el = document.getElementById('queueBanner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'queueBanner';
+        el.style.cssText = 'margin:10px 0;padding:9px 11px;border-radius:8px;font-size:12.5px;line-height:1.5;';
+        var host = document.getElementById('content');
+        if (host && host.parentNode) host.parentNode.insertBefore(el, host);
+      }
+      el.innerHTML = html;
+    }
+    // Drain oldest-first. A 4xx from the worker is a real rejection, not a
+    // network failure, so that entry is dropped rather than retried forever.
+    function drainQueue() {
+      var q = readQueue();
+      if (!q.length) return;
+      var now = Date.now();
+      var fresh = [], expired = 0;
+      for (var i = 0; i < q.length; i++) {
+        if ((now - q[i].queuedAt) > QUEUE_MAX_AGE_MS) expired++;
+        else fresh.push(q[i]);
+      }
+      if (expired) {
+        writeQueue(fresh);
+        queueBanner('<div class="msg error">An order saved on this phone was more than a week old, so it was not sent. Sorry about that. Please reorder if you still want it.</div>');
+      }
+      if (!fresh.length) { if (!expired) writeQueue([]); return; }
+      var entry = fresh[0];
+      fetch(WORKER + "/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry.payload),
+      })
+        .then(function (r) { return r.json().then(function (res) { return { ok: r.ok, res: res }; }); })
+        .then(function (out) {
+          if (out.res && out.res.ok) {
+            var rest = readQueue().filter(function (e) { return e.clientId !== entry.clientId; });
+            writeQueue(rest);
+            var d = new Date(entry.queuedAt);
+            queueBanner('<div class="msg success">Your order from ' + esc(d.toLocaleDateString()) + ' just sent. You are all set.</div>');
+            if (rest.length) setTimeout(drainQueue, 400);
+          } else if (out.ok === false && out.res && out.res.error) {
+            // The worker understood it and said no. Retrying will not help.
+            var rest2 = readQueue().filter(function (e) { return e.clientId !== entry.clientId; });
+            writeQueue(rest2);
+            queueBanner('<div class="msg error">An order saved on this phone could not be sent: ' + esc(out.res.error) + '</div>');
+          }
+        })
+        .catch(function () { /* still offline; try again next load or online event */ });
+    }
+
     var DRAFT_KEY = "ltb-cart-draft";
     var DRAFT_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
     var draftReady = false; // no saving until the first render has happened
@@ -244,6 +319,7 @@
           render();
           applyDraftToDom(draft);
           draftReady = true;
+          drainQueue();
         })
         .catch(function () {
           document.getElementById("content").innerHTML =
@@ -317,7 +393,8 @@
           var opts = dishOptions(dish);
           var blkId = 'dishblk_' + gi + '_' + di;
           if (isDinnerGroup) DINNER_BLOCKS.push({ id: blkId, dish: dish, gi: gi, di: di });
-          html += '<div class="dish"' + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name) + '</div>';
+          html += '<div class="dish"' + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
+            + (dish.requested ? ' <span class="req-chip">by request</span>' : '') + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
             var key = gi + "_" + di + "_" + vi;
             var qty = cart[key] || 0;
@@ -563,6 +640,8 @@
     function clearOmakaseErr() { var e = document.getElementById('omakaseErr'); if (e) e.innerHTML = ''; }
     // Never advertised. Only appears once a budget clears $300, and only to
     // ask for a hint about which way Kevin should spend it.
+    window.addEventListener('online', function () { drainQueue(); });
+
     function omakaseBudgetInput() {
       clearOmakaseErr();
       saveDraftSoon();
@@ -763,10 +842,12 @@
       var btn = document.getElementById("submitBtn");
       btn.disabled = true; btn.textContent = "Submitting…";
 
+      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId() };
+
       fetch(WORKER + "/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId() }),
+        body: JSON.stringify(submitPayload),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
@@ -792,8 +873,21 @@
           }
         })
         .catch(function () {
-          msgArea.innerHTML = '<div class="msg error">Could not submit. Check your connection and try again.</div>';
-          btn.disabled = false; btn.textContent = "Submit Order";
+          // Network failure, not a rejection. Keep the order on the phone and
+          // tell the truth: it is saved and will send itself.
+          enqueueSubmit(submitPayload);
+          pendingClientId = null;
+          saveIdentity(name, address, phone);
+          clearDraft();
+          document.getElementById("content").innerHTML =
+            '<div class="msg success">Thanks, ' + esc(name) + '! Your order is saved on this phone.<br>' +
+            'Your signal dropped, so it has not reached me yet. It will send automatically the next time you have service, and you do not need to do anything.</div>' +
+            '<div class="section"><div class="section-title">Your order</div>' +
+            buildReceiptHtml(items) +
+            '<div style="font-size:12px;color:var(--dim);font-style:italic;text-align:center;margin-top:2px;">Screenshot this if you want a record.</div>' +
+            '</div>' +
+            '<a href="order.html" style="display:block;text-align:center;margin-top:16px;padding:12px 20px;background:var(--teal-mid);color:var(--cream);font-weight:700;font-size:14px;border-radius:10px;text-decoration:none;">← Back to start</a>';
+          window.scrollTo(0, 0);
         });
     }
 

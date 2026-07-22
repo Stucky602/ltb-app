@@ -123,3 +123,47 @@ export function composeWeek(orders, ctx = {}, opts = {}) {
 
   return { picks, notes };
 }
+
+// ─── One bottle for the week ─────────────────────────────────────────────────
+// The companion page already computes this per ORDER. The same logic run over
+// the whole published week gives customers something to buy before they order,
+// which is the point: pairing advice after the fact is a nice touch, pairing
+// advice while browsing is a reason to pick a dish.
+import { DRINKS } from './drinks.js';
+
+export function weekOneBottle(selectedNames) {
+  const names = selectedNames || [];
+  const withPairs = [];
+  const cover = {};
+  for (const name of names) {
+    const d = DISHES.find(x => x.name === name);
+    const pairs = d && d.copy && d.copy.pairings;
+    if (!pairs || !pairs.length) continue;
+    withPairs.push(name);
+    for (const pr of pairs) {
+      if (!pr.id) continue;
+      (cover[pr.id] = cover[pr.id] || new Set()).add(name);
+    }
+  }
+  if (withPairs.length < 2) return null;
+
+  let best = null;
+  for (const [id, set] of Object.entries(cover)) {
+    const kind = (DRINKS[id] || {}).kind;
+    // Ties break toward wine: it is the thing people actually buy a bottle of.
+    const score = set.size * 10 + (kind === 'wine' ? 1 : 0);
+    if (set.size >= 2 && (!best || score > best.score)) best = { id, set, score };
+  }
+  if (!best) return null;
+
+  const label = (DRINKS[best.id] || {}).label || best.id;
+  return {
+    id: best.id,
+    label,
+    covers: best.set.size,
+    total: withPairs.length,
+    note: best.set.size === withPairs.length
+      ? `${label} works with everything on the menu this week.`
+      : `${label} covers ${best.set.size} of this week's ${withPairs.length} dinners.`,
+  };
+}

@@ -121,5 +121,70 @@ console.log('menu.html');
   check('a paused week beats the empty-menu notice', /Taking this week off/.test(dom.window.document.body.innerHTML));
 }
 
+// Offline submit queue: the last unprotected inch between a customer's thumb
+// and the worker.
+{
+  const store = {};
+  const dom = boot(form, CFG, store); await sleep(150);
+  dom.window.fetch = (url) => (String(url).includes('/submit')
+    ? Promise.reject(new Error('offline'))
+    : Promise.resolve({ ok: true, json: () => Promise.resolve(CFG) }));
+  dom.window.changeQty('0_0_0', 1);
+  dom.window.document.getElementById('custName').value = 'Dave';
+  dom.window.document.getElementById('custAddress').value = '1 St';
+  dom.window.submitOrder(); await sleep(200);
+  check('a submit that fails offline is kept, not lost', !!store['ltb-submit-queue']
+    && JSON.parse(store['ltb-submit-queue']).length === 1);
+  check('the customer is told it is saved and will send itself', /saved on this phone/.test(dom.window.document.body.innerHTML));
+
+  const queuedId = JSON.parse(store['ltb-submit-queue'])[0].clientId;
+  const sent = [];
+  const dom2 = new JSDOM(form, {
+    runScripts: 'dangerously', url: 'https://x.test/',
+    beforeParse(w) {
+      w.fetch = (url, opts) => {
+        if (String(url).includes('/submit')) { sent.push(JSON.parse(opts.body)); return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) }); }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(CFG) });
+      };
+      Object.defineProperty(w, 'localStorage', { value: {
+        getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); },
+        removeItem: k => { delete store[k]; }, clear: () => {},
+      }, configurable: true });
+    },
+  });
+  await sleep(300);
+  check('a queued order sends itself on the next visit', sent.length === 1);
+  check('the retry reuses the original id, so it can never duplicate', sent.length === 1 && sent[0].clientId === queuedId);
+  void dom2;
+}
+
+// Catalog page
+{
+  const catalog = fs.readFileSync('main-menu.html', 'utf8');
+  const dom = boot(catalog, { weekLabel: 'W', dishes: [{ name: 'Bo Ssam' }] }); await sleep(200);
+  const d = dom.window.document;
+  check('catalog blocks carry the data the filters need', d.querySelectorAll('.dish[data-cuisine]').length > 20);
+  check('diet and cuisine chips render', !!d.getElementById('dietChips') && !!d.getElementById('cuisineChips'));
+  const before = Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length;
+  dom.window.__catFilter('diet', 'vegan');
+  const after = Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length;
+  check('a diet filter actually narrows the catalog', after > 0 && after < before);
+  dom.window.__catFilter('diet', 'vegan');
+  check('tapping the same chip clears it', Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length === before);
+  check('this week is badged onto the catalog', /on this week's menu/.test(d.body.innerHTML));
+}
+
+// One bottle for the week, and the by-request chip
+{
+  const dom = boot(menu, { ...CFG, oneBottle: { label: 'Crisp lager', note: 'Crisp lager works with everything on the menu this week.' } });
+  await sleep(150);
+  check('the week one-bottle card renders when published', /One bottle for the week/.test(dom.window.document.body.innerHTML));
+}
+{
+  const cfg = { ...CFG, dishes: [{ ...CFG.dishes[0], requested: true }] };
+  const dom = boot(form, cfg); await sleep(150);
+  check('a dish that made the week by request says so', /by request/.test(dom.window.document.body.innerHTML));
+}
+
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

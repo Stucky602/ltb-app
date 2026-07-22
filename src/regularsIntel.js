@@ -61,3 +61,64 @@ export function usualOrder(orders, customerName, limit = 4) {
     .slice(0, limit)
     .map(c => ({ ...c, usualQty: Math.round(c.qtySum / c.times) }));
 }
+
+// ─── Taste profile ───────────────────────────────────────────────────────────
+// Everything here already exists in the data; nothing is inferred. The point is
+// that it was scattered across order history, the regular record, and omakase
+// notes, so "what is this person like" meant reading three places. Most useful
+// when Kevin is deciding what to cook someone who did not choose a dish.
+import { DISHES } from './dishes.js';
+import { omakaseItemsOf, pastOmakasesFor } from './omakase.js';
+
+export function buildTasteProfile(regular, linkedOrders) {
+  if (!regular || regular.house) return null; // the house account is not a customer
+  const orders = (linkedOrders || []).filter(o => !o.house);
+  if (!orders.length) return null;
+
+  const cuisineOf = {};
+  // DISHES, not ALL_DINNERS: the menu builder strips everything except name
+  // and variants, so cuisine only survives on the registry objects.
+  DISHES.forEach(d => { if (d.cuisine) cuisineOf[d.name] = d.cuisine; });
+
+  const dishTally = {};
+  const cuisineTally = {};
+  const spiceTally = {};
+  let omakaseCount = 0;
+
+  for (const o of orders) {
+    omakaseCount += omakaseItemsOf(o).length;
+    for (const it of (o.items || [])) {
+      if (!it.name || it.omakase) continue;
+      const qty = Number(it.qty) || 1;
+      dishTally[it.name] = (dishTally[it.name] || 0) + qty;
+      const cz = cuisineOf[it.name];
+      if (cz) cuisineTally[cz] = (cuisineTally[cz] || 0) + qty;
+      const sp = it.options && it.options.spice;
+      if (sp != null && Number(sp) > 0) spiceTally[sp] = (spiceTally[sp] || 0) + 1;
+    }
+  }
+
+  const rank = (tally) => Object.entries(tally)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => ({ name: k, n }));
+
+  const spiceLevels = Object.keys(spiceTally).map(Number).sort((a, b) => a - b);
+  const spiceRange = spiceLevels.length
+    ? (spiceLevels[0] === spiceLevels[spiceLevels.length - 1]
+      ? String(spiceLevels[0])
+      : `${spiceLevels[0]}-${spiceLevels[spiceLevels.length - 1]}`)
+    : null;
+
+  return {
+    orders: orders.length,
+    topDishes: rank(dishTally).slice(0, 3),
+    cuisines: rank(cuisineTally).slice(0, 3).map(c => ({ cuisine: c.name, n: c.n })),
+    spiceRange,
+    dietary: regular.dietary || '',
+    spiceNote: regular.spice || '',
+    omakaseCount,
+    omakaseNotes: pastOmakasesFor(regular.id, orders, null)
+      .map(p => p.note).filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i),
+  };
+}

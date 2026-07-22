@@ -11,6 +11,10 @@
 import assert from 'node:assert';
 import { orderTotal, HOUSE_DISCOUNT_PERCENT, jarsOutForRegular, orderOutboundJars } from '../src/utils.js';
 import { repricingScoreboard } from '../src/repricing.js';
+import { storageFootprint, isQuotaError } from '../src/utils.js';
+import { resolveMenuKey } from '../src/omakase.js';
+import { buildTasteProfile } from '../src/regularsIntel.js';
+import { weekOneBottle } from '../src/weekPlanner.js';
 import { SOURCES } from '../src/auditLog.js';
 import { omakaseUndecided, undecidedOmakases, expandOmakaseForShopping, pastOmakasesFor, omakaseStats, expandOrderForReheat } from '../src/omakase.js';
 import { reconcileIngredients } from '../src/seedReconcile.js';
@@ -139,5 +143,43 @@ ok(repricingScoreboard(
   [{ at: new Date(RP_NOW - 2 * RP_DAY).toISOString(), target: 'X::S', field: 'price', from: 10, to: 12, source: SOURCES.DEPLOY }],
   [], { now: RP_NOW })[0].tooEarly === true,
   'repricing: a change under a week old is flagged too early to judge');
+
+
+// ── Storage quota guard ─────────────────────────────────────────────────────
+// Every write went through a .catch(() => {}) somewhere, so a full localStorage
+// meant silent data loss. These check the detection, not the UI.
+globalThis.window = { localStorage: { length: 2, key: i => ['ltb-a', 'other-b'][i], getItem: k => (k === 'ltb-a' ? '12345' : 'zzzzz') } };
+ok(storageFootprint() === 20, 'quota: footprint counts only ltb- keys, UTF-16 (5+5 chars = 20 bytes)');
+const qErr = new Error('full'); qErr.name = 'QuotaExceededError';
+ok(isQuotaError(qErr) === true, 'quota: a QuotaExceededError is recognised');
+ok(isQuotaError(new Error('nope')) === false, 'quota: an ordinary error is not mistaken for one');
+delete globalThis.window;
+
+// ── Omakase component orphans ───────────────────────────────────────────────
+// Templates outlive menus. A component pointing at a renamed or deleted dish
+// must degrade, not render a broken label with a phantom cost.
+ok(resolveMenuKey('Bo Ssam|Small (~4 servings)') !== null, 'orphan guard: a live dish variant resolves');
+const renamed = resolveMenuKey('Cumin Mushroom Noodles / Cumin Beef on Rice|Mushroom, Small (~3-4)');
+ok(renamed && renamed.renamed === true, 'orphan guard: a historical rename still resolves, and says so');
+ok(resolveMenuKey('A Dish That Never Existed|Large') === null, 'orphan guard: a deleted dish resolves to null');
+ok(resolveMenuKey('no separator here') === null, 'orphan guard: a malformed key is rejected rather than half-parsed');
+
+// ── Taste profile ───────────────────────────────────────────────────────────
+const tpOrders = [
+  { id: '1', regularId: 'r1', createdAt: '2026-07-01', items: [{ name: 'Bo Ssam', qty: 2 }, { name: 'Mapo Eggplant', qty: 1, options: { spice: 3 } }] },
+  { id: '2', regularId: 'r1', createdAt: '2026-07-08', items: [{ name: 'Bo Ssam', qty: 1 }, { name: 'Chili', qty: 1, options: { spice: 4 } }] },
+];
+const tp = buildTasteProfile({ id: 'r1', dietary: 'no cilantro' }, tpOrders);
+ok(tp.topDishes[0].name === 'Bo Ssam' && tp.topDishes[0].n === 3, 'taste profile: dishes rank by quantity, not order count');
+ok(tp.cuisines[0].cuisine === 'Korean', 'taste profile: cuisine comes off the registry, not the stripped menu list');
+ok(tp.spiceRange === '3-4', 'taste profile: spice range spans what they actually ordered');
+ok(buildTasteProfile({ id: 'h', house: true }, tpOrders) === null, 'taste profile: the house account is never profiled');
+ok(buildTasteProfile({ id: 'r9' }, []) === null, 'taste profile: no history means no profile, not an empty one');
+
+// ── Week one-bottle ─────────────────────────────────────────────────────────
+const ob = weekOneBottle(['Bo Ssam', 'Mapo Eggplant', 'Thai Basil Chicken (Pad Krapow Gai)']);
+ok(ob && ob.covers >= 2, 'one bottle: a multi-dish week gets a bottle covering at least two');
+ok(weekOneBottle(['Bo Ssam']) === null, 'one bottle: a single dish is an order pairing, not a week pairing');
+ok(weekOneBottle([]) === null, 'one bottle: an empty week has nothing to pair');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

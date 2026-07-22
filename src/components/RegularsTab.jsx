@@ -33,6 +33,7 @@ import {
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { omakaseItemsOf } from '../omakase.js';
+import { buildTasteProfile } from '../regularsIntel.js';
 
 export function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
   return (
@@ -484,6 +485,26 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
         <div style={styles.profileSectionTitle}>Details</div>
         {regular.address ? <div style={styles.profileField}><span style={styles.profileFieldKey}>Address:</span> {regular.address}</div> : null}
         {regular.phone ? <div style={styles.profileField}><span style={styles.profileFieldKey}>Phone:</span> {regular.phone}</div> : null}
+        {(() => {
+          // Taste profile: composed from data that already exists, so it stays
+          // silent rather than padding when there is little to say.
+          const tp = buildTasteProfile(regular, linkedOrders);
+          if (!tp || tp.orders < 2) return null;
+          const bits = [];
+          if (tp.cuisines.length) bits.push('Leans ' + tp.cuisines.slice(0, 2).map(c => c.cuisine).join(' and '));
+          if (tp.topDishes.length && tp.topDishes[0].n > 1) bits.push('orders ' + tp.topDishes[0].name + ' most');
+          if (tp.spiceRange) bits.push('spice ' + tp.spiceRange);
+          if (!bits.length && !tp.omakaseNotes.length) return null;
+          return (
+            <div style={{ marginTop: 8, padding: 8, borderRadius: 8, background: 'rgba(63,184,160,0.06)', border: '1px solid #2d3a36' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.5, color: TEAL_LIGHT, marginBottom: 3 }}>TASTE PROFILE</div>
+              {bits.length ? <div style={{ fontSize: 12.5, color: CREAM }}>{bits.join(' · ')}.</div> : null}
+              {tp.omakaseNotes.length ? (
+                <div style={{ fontSize: 11.5, color: GOLD, marginTop: 3 }}>Omakase notes: {tp.omakaseNotes.join(' · ')}</div>
+              ) : null}
+            </div>
+          );
+        })()}
         {regular.dietary ? <div style={styles.profileField}><span style={styles.profileFieldKey}>Dietary:</span> {regular.dietary}</div> : null}
         {regular.spice ? <div style={styles.profileField}><span style={styles.profileFieldKey}>Spice:</span> {regular.spice}</div> : null}
         {!regular.address && !regular.phone && !regular.dietary && !regular.spice && (

@@ -35,6 +35,15 @@ if (existsSync('app.js')) {
   ok('no committed app.js at repo root');
 }
 
+// ── sw.js present ────────────────────────────────────────────────────────────
+// App.jsx registers /sw.js unconditionally. If it goes missing from a zip, the
+// registration 404s silently and both push and the update banner die with it.
+if (!existsSync('sw.js')) {
+  fail('sw.js is missing. App.jsx registers it; without the file, push and the update prompt silently stop working.');
+} else {
+  ok('sw.js present');
+}
+
 // ── 2. order.html present and not shadowed ───────────────────────────────────
 if (!existsSync('order.html')) {
   fail('order.html is missing from the repo root. /order will stop resolving to ' +

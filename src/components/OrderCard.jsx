@@ -4,6 +4,7 @@ import { INGREDIENT_SEED } from '../ingredients.js';
 import { DISHES } from '../dishes.js';
 import { unitOptionsFor, resolveDishVariant } from '../dishCosting.js';
 import { pastOmakasesFor } from '../omakase.js';
+import { buildTasteProfile } from '../regularsIntel.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -95,11 +96,12 @@ function omaIngCost(id, qty, unit, liveCost) {
 // ingredients, or free text; the sum becomes it.cost (costSource manual) so the
 // order's margin is real, and the final charge can only move DOWN from the
 // budget the customer set.
-function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDishes, restrictions }) {
+function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDishes, restrictions, regular }) {
   const budgetMax = item.budgetMax != null ? item.budgetMax : (item.price || 0);
   const [rows, setRows] = useState((item.components && item.components.length) ? item.components : []);
   const [charge, setCharge] = useState(item.price != null ? String(item.price) : String(budgetMax));
   const [underNote, setUnderNote] = useState(item.underNote || '');
+  const [reheatCard, setReheatCard] = useState(item.reheatCard || '');
   const [bigPath, setBigPath] = useState(item.bigPath || '');
   const [search, setSearch] = useState('');
   const [showPast, setShowPast] = useState(false);
@@ -216,6 +218,7 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
         costSource: 'manual',
         price: chargeNum,
         ...(underNote.trim() ? { underNote: underNote.trim() } : {}),
+        ...(reheatCard.trim() ? { reheatCard: reheatCard.trim() } : {}),
         ...(bigPath ? { bigPath } : {}),
       }
       : it));
@@ -236,6 +239,20 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
       {restrictions ? (
         <div style={{ fontSize: 11.5, color: '#EF9F27', marginBottom: 8, fontWeight: 600 }}>Standing: {restrictions}</div>
       ) : null}
+      {(() => {
+        // Chef's choice is the one order type with no dish to go on, so what
+        // this person actually likes belongs right here.
+        if (!regular) return null;
+        const tp = buildTasteProfile(regular, (allOrders || []).filter(o => o.regularId === regular.id));
+        if (!tp || tp.orders < 2) return null;
+        const bits = [];
+        if (tp.cuisines.length) bits.push('leans ' + tp.cuisines.slice(0, 2).map(c => c.cuisine).join(' and '));
+        if (tp.topDishes.length && tp.topDishes[0].n > 1) bits.push('orders ' + tp.topDishes[0].name + ' most');
+        if (tp.spiceRange) bits.push('spice ' + tp.spiceRange);
+        return bits.length
+          ? <div style={{ fontSize: 11, color: '#5DCAA5', marginBottom: 8 }}>Taste: {bits.join(', ')}</div>
+          : null;
+      })()}
 
       {past.length > 0 && (
         <div style={{ marginBottom: 8 }}>
@@ -365,6 +382,26 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
             <button key={k} onClick={() => setBigPath(bigPath === k ? '' : k)}
               style={{ ...btn, borderColor: bigPath === k ? '#D4A050' : '#3a4441', color: bigPath === k ? '#D4A050' : '#e8ede9', fontSize: 11 }}>{label}</button>
           ))}
+        </div>
+      )}
+
+      {rows.some(r => !r.fromMenu) && (
+        <div style={{ marginBottom: 8 }}>
+          <textarea
+            value={reheatCard}
+            onChange={e => setReheatCard(e.target.value)}
+            placeholder="Reheat card for anything off-menu (shows on their kitchen page)"
+            rows={3}
+            style={{ ...inp, width: '100%', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}
+          />
+          <div style={{ fontSize: 10.5, color: '#7a8480', marginTop: 3 }}>
+            Menu items already carry their own reheat instructions. This is for the rest.
+          </div>
+        </div>
+      )}
+      {rows.length > 0 && !rows.some(r => r.fromMenu) && !rows.some(r => r.reheat && r.reheat.trim()) && !reheatCard.trim() && (
+        <div style={{ fontSize: 11.5, color: '#EF9F27', marginBottom: 6 }}>
+          Nothing here will produce reheat instructions on their page.
         </div>
       )}
 
@@ -644,7 +681,7 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                     </div>
                   ))}
                   {noteWithoutOptions(it.note) && <div style={styles.orderItemNote}>“{noteWithoutOptions(it.note)}”</div>}
-                  {it.omakase && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} allOrders={allOrders} perLbLiveCost={perLbLiveCost} weekDishes={weekDishes} restrictions={(() => { const r = (regulars || []).find(x => x.id === order.regularId); return r ? [r.dietary, r.spice].filter(Boolean).join(' \u00b7 ') : ''; })()} />}
+                  {it.omakase && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} allOrders={allOrders} perLbLiveCost={perLbLiveCost} weekDishes={weekDishes} restrictions={(() => { const r = (regulars || []).find(x => x.id === order.regularId); return r ? [r.dietary, r.spice].filter(Boolean).join(' \u00b7 ') : ''; })()} regular={(regulars || []).find(x => x.id === order.regularId)} />}
                   {perLb && (
                     <button
                       style={styles.setWeightBtn}

@@ -157,7 +157,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     setPublishing(true);
     setPublishMsg(null);
     try {
-      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel());
+      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), null, { requestCounts: requestCounts || {} });
       setPublishMsg({ ok: true, text: "Published! The order form now shows this week's menu." });
     } catch (e) {
       setPublishMsg({ ok: false, text: (e && e.message) || 'Publish failed. Check your connection and try again.' });

@@ -53,6 +53,50 @@ function syncCard(name, expected) {
 
 for (const d of DISHES) syncCard(d.name, d.variants.map(v => money(v.price)));
 
+// ── CATALOG ATTRIBUTE SYNC (Jul 22) ──────────────────────────────────────────
+// The catalog page can filter by cuisine and diet, but only if each dish block
+// carries that data. The registry already knows both, so stamp them onto the
+// wrapping <div class="dish"> rather than hand-maintaining a parallel list.
+// Same contract as prices and allergens: report drift, --write to fix,
+// idempotent. Diet tokens use the same veg/vegan/pesc logic menu.html filters
+// on, so the two surfaces can never disagree about what is vegetarian.
+function dietTokens(d) {
+  const tag = d.diet;
+  if (!tag) return '';
+  const labels = (d.variants || []).map(v => v.label);
+  const has = (key) => {
+    if (tag[key] === true) return labels.length > 0;
+    return Array.isArray(tag[key]) && tag[key].length > 0;
+  };
+  const out = [];
+  if (has('veg') || has('vegan') || has('veganOnRequest')) out.push('veg');
+  if (has('vegan') || has('veganOnRequest')) out.push('vegan');
+  if (has('veg') || has('vegan') || has('veganOnRequest') || has('pesc')) out.push('pesc');
+  return out.join(' ');
+}
+
+function syncAttrs(d) {
+  if (OFF_MENU.has(d.name)) return;
+  const b = cardBounds(d.name);
+  if (!b) return; // already reported by the price sync
+  // The wrapping div sits immediately before the dish-name div.
+  const openTagEnd = html.lastIndexOf('<div class="dish"', b.start);
+  if (openTagEnd < 0) return;
+  const closeIdx = html.indexOf('>', openTagEnd);
+  if (closeIdx < 0 || closeIdx > b.start) return;
+  const current = html.slice(openTagEnd, closeIdx + 1);
+  const diet = dietTokens(d);
+  const want = `<div class="dish" data-name="${d.name.replace(/"/g, '&quot;')}"`
+    + ` data-cuisine="${(d.cuisine || 'Other').replace(/"/g, '&quot;')}"`
+    + (diet ? ` data-diet="${diet}"` : '')
+    + '>';
+  if (current === want) return;
+  drift++;
+  console.log(`  ${d.name}: catalog attributes updated`);
+  if (write) { html = html.slice(0, openTagEnd) + want + html.slice(closeIdx + 1); patched++; }
+}
+for (const d of DISHES) syncAttrs(d);
+
 // ── ALLERGEN LINE SYNC (Jul 16) ──────────────────────────────────────────────
 // copy.contains in the registry is the canon for the customer allergen claim.
 // Unlike desc/reheat — which main-menu deliberately adapts (condensed reheats,

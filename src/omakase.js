@@ -4,6 +4,8 @@
 // is not customer demand for that dish), so every omakase number the app shows
 // comes from here instead. UI-free on purpose: all of this is unit-testable.
 import { INGREDIENT_SEED } from './ingredients.js';
+import { DISH_RENAMES, VARIANT_RENAMES } from './utils.js';
+import { FULL_MENU } from './menu.js';
 
 const PERIOD_DAYS = { month: 30, quarter: 90, all: null };
 
@@ -60,8 +62,11 @@ export function expandOmakaseForShopping(orders) {
       }
       for (const c of comps) {
         if (c.fromMenu && c.menuKey) {
-          const [name, variant] = String(c.menuKey).split('|');
-          if (name && variant) pseudoItems.push({ name, variant, qty: 1 });
+          const hit = resolveMenuKey(c.menuKey);
+          if (hit) pseudoItems.push({ name: hit.name, variant: hit.variant, qty: 1 });
+          // Orphaned: the dish is gone from the registry, so it can contribute
+          // no recipe. Fall back to its stored label as a reminder line.
+          else extraLines.push({ label: `${c.label || 'A dish'} for omakase (${o.customer || 'someone'})`, note: 'no longer on the menu' });
         } else if (c.ing && c.ingredientId) {
           extraLines.push({
             label: `${ingredientName(c.ingredientId)} for omakase (${o.customer || 'someone'})`,
@@ -147,8 +152,8 @@ export function expandOrderForReheat(order) {
   for (const it of omakaseItemsOf(order)) {
     for (const c of (it.components || [])) {
       if (c.fromMenu && c.menuKey) {
-        const [name, variant] = String(c.menuKey).split('|');
-        if (name && variant) extra.push({ name, variant, qty: 1 });
+        const hit = resolveMenuKey(c.menuKey);
+        if (hit) extra.push({ name: hit.name, variant: hit.variant, qty: 1 });
       }
     }
   }
@@ -177,4 +182,40 @@ export function omakasePriceUnsettled(order) {
     const atMax = it.budgetMax != null && it.price === it.budgetMax;
     return noComps || atMax;
   });
+}
+
+// ─── Component resolution (orphan guard) ─────────────────────────────────────
+// A logged component stores `menuKey: 'Dish|Variant'`. Dishes get renamed and
+// variants get relabelled, and a template saved months ago can outlive both.
+// The rest of the app already has rename-immunity maps for exactly this; this
+// points them at omakase components too, so an old component degrades to a
+// plain labelled line instead of a broken pseudo-item or a phantom cost.
+let _menuIndex = null;
+function menuIndex() {
+  if (!_menuIndex) {
+    _menuIndex = new Set();
+    Object.values(FULL_MENU || {}).forEach(items => {
+      (items || []).forEach(d => {
+        (d.variants || []).forEach(v => _menuIndex.add(d.name + '|' + v.label));
+      });
+    });
+  }
+  return _menuIndex;
+}
+
+// Returns { name, variant, renamed } when the component still points at a real
+// dish variant (after applying renames), or null when it does not.
+export function resolveMenuKey(menuKey) {
+  const raw = String(menuKey || '');
+  const bar = raw.indexOf('|');
+  if (bar === -1) return null;
+  let name = raw.slice(0, bar);
+  let variant = raw.slice(bar + 1);
+  let renamed = false;
+
+  if (DISH_RENAMES[name]) { name = DISH_RENAMES[name]; renamed = true; }
+  const vmap = VARIANT_RENAMES[name];
+  if (vmap && vmap[variant]) { variant = vmap[variant]; renamed = true; }
+
+  return menuIndex().has(name + '|' + variant) ? { name, variant, renamed } : null;
 }

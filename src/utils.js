@@ -784,6 +784,32 @@ export async function copyText(text) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Quota plumbing. Everything the business runs on lives in localStorage
+// (~5MB), and order photos are by far the biggest consumer, so "full" is a
+// real state this app can reach rather than a theoretical one.
+let _onStorageFull = null;
+export function onStorageFull(fn) { _onStorageFull = fn; }
+export function isQuotaError(e) {
+  if (!e) return false;
+  return e.name === 'QuotaExceededError'
+    || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    || e.code === 22 || e.code === 1014;
+}
+// Approximate bytes held under the ltb- namespace. UTF-16, so two bytes per
+// char, counting keys as well as values.
+export function storageFootprint() {
+  try {
+    let chars = 0;
+    const ls = window.localStorage;
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (!k || k.indexOf('ltb-') !== 0) continue;
+      chars += k.length + ((ls.getItem(k) || '').length);
+    }
+    return chars * 2;
+  } catch (e) { return 0; }
+}
+
 // STORAGE BACKEND — GitHub Pages / localStorage build
 // ═══════════════════════════════════════════════════════════════════════════
 // This build runs as a standalone site (GitHub Pages) instead of inside the
@@ -808,8 +834,18 @@ export const localStore = {
     return value === null ? null : { key, value };
   },
   async set(key, value) {
-    // Throws QuotaExceededError when full — callers already handle the throw.
-    window.localStorage.setItem(key, value);
+    // "Callers already handle the throw" was optimistic: most saveJSON call
+    // sites end in .catch(() => {}), so a full quota meant writes failed
+    // silently and the app looked fine while losing data. Still rejects (so
+    // callers that DO care can react), but now it also raises a hand.
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (e) {
+      if (isQuotaError(e) && typeof _onStorageFull === 'function') {
+        try { _onStorageFull(e); } catch (_) { /* the hook must never mask the write error */ }
+      }
+      throw e;
+    }
     return { key, value };
   },
   async delete(key) {

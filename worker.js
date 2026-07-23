@@ -331,7 +331,7 @@ export default {
         if (!body.token || body.token !== env.PUBLISH_TOKEN) {
           return json({ error: 'unauthorized' }, origin, 401);
         }
-        if (!body.id || typeof body.html !== 'string' || body.html.length > 200000) {
+        if (!body.id || typeof body.html !== 'string' || body.html.length === 0 || body.html.length > 200000) {
           return json({ error: 'bad companion payload' }, origin, 400);
         }
         await env.LTB_KV.put('companion:' + body.id, body.html, { expirationTtl: 60 * 60 * 24 * 30 }); // 30 days
@@ -499,8 +499,17 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/k') {
         const id = url.searchParams.get('id') || '';
-        const html = id ? await env.LTB_KV.get('companion:' + id) : null;
-        if (!html) return new Response('This kitchen page has expired or does not exist.', { status: 404, headers: { 'content-type': 'text/plain' } });
+        if (!id) {
+          return new Response('No page id was given.', { status: 404, headers: { 'content-type': 'text/plain' } });
+        }
+        const html = await env.LTB_KV.get('companion:' + id);
+        if (!html) {
+          // KV's get() cannot distinguish "never written" from "expired" from
+          // here (both return null), so the honest wording covers both rather
+          // than guessing. What matters to the reader is the same either way:
+          // ask for a fresh link.
+          return new Response('This kitchen page is not available anymore. Ask for a new link.', { status: 404, headers: { 'content-type': 'text/plain' } });
+        }
         return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
       }
 

@@ -870,14 +870,17 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
               <button style={styles.actionBtn} onClick={() => {
                 // Kitchen companion. iOS Safari refuses clipboard writes after
                 // an awaited fetch (transient-activation rule), so: copy the
-                // link FIRST inside the tap gesture, then push the page. If
-                // the push fails, the copied link just 404s with a friendly
-                // message and we tell Kevin here too.
-                const cid = order.id + '-' + Math.random().toString(36).slice(2, 8);
+                // link FIRST inside the tap gesture, then push the page.
+                //
+                // STABLE ID: reuse order.kitchenPageId if one already exists,
+                // instead of minting a new random one on every tap. A stable
+                // id means re-tapping refreshes the SAME link (the one already
+                // texted to a customer) rather than orphaning it. Minting a
+                // second id for one order was the exact bug that made an
+                // already-sent link stop working with no trace of why.
+                const cid = order.kitchenPageId || (order.id + '-' + Math.random().toString(36).slice(2, 8));
                 const link = WORKER_BASE + '/k?id=' + cid;
                 navigator.clipboard.writeText(link).catch(() => {});
-                // Remember the page id on the order so kitchen feedback can
-                // find its way home to this exact order record.
                 onUpdate && onUpdate({ kitchenPageId: cid });
                 setCopyMsg('Kitchen link copied. Uploading the page…');
                 fetch(WORKER_BASE + '/companion', {
@@ -885,10 +888,16 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                   body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, { passport: buildPassport(order, regulars, allOrders) }), context: companionContext(order, { passport: buildPassport(order, regulars, allOrders) }) }),
                 }).then(res => {
                   if (!res.ok) throw new Error('push failed');
-                  setCopyMsg('Kitchen link copied and live. Send it to ' + (order.customer || 'them') + '.');
+                  // VERIFY, don't assume: read the page back before calling it
+                  // live. A write that silently failed to commit used to only
+                  // surface hours later as a dead link with no explanation.
+                  return fetch(WORKER_BASE + '/k?id=' + cid, { cache: 'no-store' });
+                }).then(checkRes => {
+                  if (!checkRes.ok) throw new Error('verify failed');
+                  setCopyMsg('Kitchen link copied and confirmed live. Send it to ' + (order.customer || 'them') + '.');
                 }).catch(() => {
-                  setCopyMsg('Page upload failed (deploy the v6 worker?). The copied link will not work yet.');
-                }).finally(() => setTimeout(() => setCopyMsg(null), 5000));
+                  setCopyMsg('Could not confirm the page went live. The copied link may not work yet, try tapping again.');
+                }).finally(() => setTimeout(() => setCopyMsg(null), 6000));
               }}>
                 🍳 Kitchen link
               </button>

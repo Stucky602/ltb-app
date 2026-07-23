@@ -202,5 +202,30 @@ check('restore with a bad index → 400', r.status === 400, 'got ' + r.status);
 r = await call('POST', '/config-restore', { token: 'wrong', index: 0 });
 check('restore rejects a bad token', r.status === 401, 'got ' + r.status);
 
+// ── Scenario 11: kitchen companion pages — empty writes, 404 wording ────────
+// Reproduces the real Jul 22 incident: a link that worked, then vanished with
+// a message indistinguishable from "never existed." An empty HTML write used
+// to sail through (only the 200000-char ceiling was checked) and would have
+// looked identical to a genuinely expired key on read.
+r = await call('POST', '/companion', { token: 'test-token', id: 'kc1', html: '<p>hi</p>' });
+j = await r.json();
+check('a real companion page writes fine', j.ok === true);
+r = await call('GET', '/k?id=kc1');
+check('and reads back exactly what was written', r.status === 200, 'got ' + r.status);
+
+r = await call('POST', '/companion', { token: 'test-token', id: 'kc2', html: '' });
+check('an EMPTY html write is rejected, not silently stored', r.status === 400, 'got ' + r.status);
+r = await call('GET', '/k?id=kc2');
+check('so nothing bad ever lands at that id', r.status === 404, 'got ' + r.status);
+
+r = await call('GET', '/k?id=never-made-this-one');
+check('a page that was never written 404s', r.status === 404, 'got ' + r.status);
+const neverMsg = await r.text();
+r = await call('GET', '/k?id=');
+check('a missing id gets its own message, not the general one', (await r.text()) !== neverMsg);
+
+r = await call('POST', '/companion', { token: 'wrong', id: 'kc3', html: '<p>x</p>' });
+check('a companion write still requires the real token', r.status === 401, 'got ' + r.status);
+
 console.log(failed === 0 ? '\nWORKER SIM: ALL PASS' : `\nWORKER SIM: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

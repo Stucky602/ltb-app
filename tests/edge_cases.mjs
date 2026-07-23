@@ -264,10 +264,31 @@ ok(ppV.newCuisines.includes('Chinese'),
 const ppBo = ppV.pages.find(p => p.cuisine === 'Korean').dishes.find(d => d.name === 'Bo Ssam');
 ok(ppBo.times === 2, 'passport: a stamp knows how many times they have had it');
 ok(ppBo.firstEver === true, 'passport: being the first person ever to order a dish is recorded');
-ok(ppBo.rare === true, 'passport: a dish almost nobody has ordered is marked rare');
 const ppMapo = ppV.pages.find(p => p.cuisine === 'Chinese').dishes.find(d => /Mapo/.test(d.name));
 ok(ppMapo.requested === true, 'passport: a dish they asked for is marked as theirs');
 ok(buildPassport({ id: 'rz', name: 'Z' }, [], null).visas.length === 0,
   'passport: no omakase means no visa page at all');
+
+
+// ── Passport: retired dishes ────────────────────────────────────────────────
+// A dish that came off the menu still got eaten. It used to vanish from the
+// book, which quietly pretended a real meal never happened.
+const ppRet = buildPassport({ id: 'rr', name: 'R' }, [{
+  id: 'r1', regularId: 'rr', createdAt: '2026-02-01', items: [
+    { name: 'Bo Ssam' },
+    { name: 'Tea-Smoked Chicken', qty: 2 },
+    { name: 'Filet Mignon' },
+    { name: 'Queso' },
+    { name: 'Omakase', omakase: true, budgetMax: 75 },
+  ],
+}], null);
+ok(ppRet.retired.length === 1 && ppRet.retired[0].name === 'Tea-Smoked Chicken',
+  'passport: a dish no longer on the menu is remembered, not erased');
+ok(ppRet.retired[0].times === 2, 'passport: a retired stamp still knows how often they had it');
+ok(ppRet.total === 30 && ppRet.tried === 1,
+  'passport: retired dishes never inflate the denominator or the stamp count');
+ok(buildPassport({ id: 'rc', name: 'C' },
+  [{ id: 'c1', regularId: 'rc', createdAt: '2026-05-01', items: [{ name: 'Bo Ssam' }] }], null).retired.length === 0,
+  'passport: nothing retired means no memorial chapter at all');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

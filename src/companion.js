@@ -267,6 +267,36 @@ export function companionHtml(order, pageId = '', opts = {}) {
           </div>`).join('')}
       </div>` : '';
 
+    const retiredPage = (pp.retired && pp.retired.length) ? `
+      <div class="pp-page pp-retired" data-page="RETIRED_IDX">
+        <div class="pp-page-head">
+          <div class="pp-page-name"><span class="pp-emblem">\u2020</span>No longer served</div>
+          <div class="pp-page-count">${pp.retired.length}</div>
+        </div>
+        <div class="pp-visa-note">Dishes you ate that have since come off the menu. They still count for something.</div>
+        <div class="pp-stamps">
+          ${pp.retired.map((r, j) => {
+            const seed = r.name.length + r.name.charCodeAt(0) + j;
+            const rot = ((seed * 13) % 15) - 7;
+            const when = r.firstHad
+              ? new Date(r.firstHad).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()
+              : '';
+            const short = r.name.length > 34 ? r.name.slice(0, 32).trim() + '\u2026' : r.name;
+            return `<div class="pp-stamp pp-stamp-retired" style="--rot:${rot}deg"
+                        onclick="stampDetail(this)"
+                        data-detail="${esc(r.name)}${r.times > 1 ? ' \u00b7 ' + r.times + ' times' : ''}${when ? ' \u00b7 first had ' + esc(when) : ''} \u00b7 no longer on the menu">
+                     <div class="pp-ink">
+                       <div class="pp-ring">
+                         <div class="pp-arc">RETIRED</div>
+                         <div class="pp-stamp-name">${esc(short)}</div>
+                         <div class="pp-date">${esc(when)}</div>
+                       </div>
+                     </div>
+                   </div>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
     const offset = pp.visas.length ? 2 : 1;
     const spreads = coverPage + visaPage + pp.pages.map((page, iRaw) => {
       const i = iRaw + offset;
@@ -289,7 +319,6 @@ export function companionHtml(order, pageId = '', opts = {}) {
             const short = d.name.length > 34 ? d.name.slice(0, 32).trim() + '\u2026' : d.name;
             const marks = [];
             if (d.firstEver) marks.push('<span class="pp-mark pp-mark-first" title="First person to ever order this">1st</span>');
-            if (d.rare) marks.push('<span class="pp-mark pp-mark-rare" title="Hardly anyone has had this">rare</span>');
             if (d.requested) marks.push('<span class="pp-mark pp-mark-req" title="You asked for this one">asked</span>');
             const detail = [
               d.times > 1 ? d.times + ' times' : (d.times === 1 ? 'once' : ''),
@@ -313,7 +342,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
           }).join('')}
         </div>
       </div>`;
-    }).join('');
+    }).join('') + retiredPage.replace('RETIRED_IDX', String(pp.pages.length + offset));
 
     passportBook = `
     <div class="pp-overlay" id="ppOverlay" role="dialog" aria-label="Dish passport" hidden>
@@ -343,6 +372,11 @@ export function companionHtml(order, pageId = '', opts = {}) {
               <span class="pp-tab-count${page.complete ? ' pp-tab-done' : ''}${page.stamped === 0 ? ' pp-tab-empty' : ''}">${page.stamped}/${page.total}</span>
             </button>`;
           }).join('')}
+          ${(pp.retired && pp.retired.length) ? `
+          <button class="pp-tab" data-tab="${pp.pages.length + offset}" onclick="gotoPassport(${pp.pages.length + offset})">
+            <span class="pp-tab-name">Retired</span>
+            <span class="pp-tab-count">${pp.retired.length}</span>
+          </button>` : ''}
         </div>
         <div class="pp-pages" id="ppPages">${spreads}</div>
         <div class="pp-nav">
@@ -481,6 +515,9 @@ export function companionHtml(order, pageId = '', opts = {}) {
     letter-spacing: 0.1px; word-break: break-word; }
   .pp-date { font-size: 6.5px; letter-spacing: 0.9px; margin-top: 2px; opacity: 0.8; }
   /* A new stamp reads as fresher ink, not a different system. */
+  /* Retired: the same stamp, faded, the way old ink looks. */
+  .pp-stamp-retired .pp-ink { border-color: #6b6357; color: #6b6357; opacity: 0.6;
+    box-shadow: inset 0 0 0 1.5px #6b6357, inset 0 0 14px rgba(107,99,87,0.12); }
   .pp-stamp-new .pp-ink { border-color: #1f6b4f; color: #1f6b4f; opacity: 1;
     box-shadow: inset 0 0 0 1.5px #1f6b4f, inset 0 0 16px rgba(31,107,79,0.20); }
   .pp-stamp-flag { position: absolute; top: -2px; right: -2px; font-size: 8px; font-weight: 800;
@@ -522,13 +559,12 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .pp-seal-in { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
     text-align: center; line-height: 1.3; }
 
-  /* Marks on a stamp: first ever, rare, requested. */
+  /* Marks on a stamp: first ever, requested. */
   .pp-marks { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 3px; white-space: nowrap; }
   .pp-mark { font-size: 7px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
     border-radius: 999px; padding: 1px 5px; }
   .pp-mark-first { background: #8c6d34; color: #fff6e2; }
-  .pp-mark-rare { background: #5a3f7a; color: #f3ecfa; }
   .pp-mark-req { background: #2f6f57; color: #eafaf3; }
 
   /* Omakase visas: a different kind of page on purpose. */

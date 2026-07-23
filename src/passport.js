@@ -20,6 +20,17 @@ import { DISH_RENAMES } from './utils.js';
 // own chapter at the back of the book.
 export const SWEETS_LABEL = 'Sweets';
 
+// Everything that was never a "dish" and so can never be a retired one either:
+// bagged proteins, add-ons, sauces, breakfast, fruit. Built from the same menu
+// data the stampable set uses, so it cannot drift.
+const NON_DISH = new Set([
+  ...(ALWAYS_MENU.bag || []),
+  ...(ALWAYS_MENU.addons || []),
+  ...(ALWAYS_MENU.sauces || []),
+  ...(ALWAYS_MENU.breakfast || []),
+  ...(ALWAYS_MENU.fruit || []),
+].map(d => d.name));
+
 // "Spotlight" is a menu TIER, not a cuisine: those five dishes (Steak au
 // Poivre, Boeuf Bourguignon, the rib chop, and friends) are the big-ticket
 // centerpieces. Reassigning their cuisine in the registry is Kevin's call, not
@@ -111,12 +122,14 @@ export function buildPassport(reg, allOrders, currentOrder) {
     }
   }
 
-  // First-ever and rarity, both computed across ALL orders. Rarity is shown
-  // only as a property of THEIR stamp, never as a ranking of people: "few
-  // people have had this" is a fact about the dish, not a scoreboard.
+  // First-ever, computed across ALL orders.
+  //
+  // NOTE: a "rare dish" badge used to live here too and was REMOVED on purpose.
+  // Order history was backfilled when the app was built, so a dish's eater
+  // count measures what got typed in, not what people actually ate. A badge
+  // resting on that is decoration over a wrong number. Do not re-add it unless
+  // the history it depends on becomes trustworthy.
   const firstEverBy = {};   // dish -> earliest order timestamp anyone had it
-  const eaterCount = {};    // dish -> how many distinct customers have had it
-  const eatersSeen = {};
   for (const o of everyone) {
     if (o.house) continue;
     const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
@@ -125,12 +138,28 @@ export function buildPassport(reg, allOrders, currentOrder) {
       const name = canonicalName(it.name);
       if (!stampableNames.has(name)) continue;
       if (when && (!firstEverBy[name] || when < firstEverBy[name].when)) firstEverBy[name] = { when, who };
-      if (!eatersSeen[name]) eatersSeen[name] = new Set();
-      if (who) eatersSeen[name].add(who);
     }
   }
-  for (const k of Object.keys(eatersSeen)) eaterCount[k] = eatersSeen[k].size;
   const meId = reg.id || String(reg.name || '').toLowerCase();
+
+  // Retired dishes: things they genuinely ate that are no longer on the menu.
+  // Until now these vanished from the book entirely, which quietly pretended a
+  // real meal never happened. They get a memorial chapter instead: earned, but
+  // never counted against the 30, since the denominator has to stay stable.
+  // Bag items, add-ons, and sauces are excluded the same way they always are.
+  const retired = {};
+  for (const o of mine) {
+    const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
+    for (const it of (o.items || [])) {
+      const name = canonicalName(it.name);
+      if (!name || stampableNames.has(name)) continue;
+      if (it.omakase) continue;              // omakase earns a visa, not a stamp
+      if (NON_DISH.has(name)) continue;      // never a dish in the first place
+      if (!retired[name]) retired[name] = { name, times: 0, firstHad: null };
+      retired[name].times += (Number(it.qty) || 1);
+      if (when && (!retired[name].firstHad || when < retired[name].firstHad)) retired[name].firstHad = when;
+    }
+  }
 
   // Manual grants: Kevin's memory is a legitimate source. A granted dish is
   // never "new this delivery" (it was earned some time ago, not tonight), and
@@ -160,7 +189,6 @@ export function buildPassport(reg, allOrders, currentOrder) {
       granted: (reg.passportGrants || []).some(g => canonicalName(g) === s.name) && !firstHad[s.name],
       times: timesHad[s.name] || 0,
       firstEver: !!(firstEverBy[s.name] && firstEverBy[s.name].who === meId && ever.has(s.name)),
-      rare: ever.has(s.name) && (eaterCount[s.name] || 0) > 0 && (eaterCount[s.name] || 0) <= 2,
       requested: ever.has(s.name) && (reg.passportRequests || []).some(r => canonicalName(r) === s.name),
     });
   }
@@ -224,6 +252,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
     newStamps,
     newCuisines,
     visas,
+    retired: Object.values(retired).sort((a, b) => (b.firstHad || 0) - (a.firstHad || 0)),
     issued,
     chaptersComplete: pages.filter(p => p.complete).length,
     complete: ever.size === stampable.length,

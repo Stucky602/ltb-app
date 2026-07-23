@@ -218,4 +218,28 @@ const ppFresh = buildPassport({ id: 'r9', name: 'New Person' }, [], null);
 ok(ppFresh.tried === 0 && ppFresh.total === 30 && ppFresh.newStamps.length === 0,
   'passport: a brand-new regular gets an empty book, not a broken one');
 
+
+// ── Passport: renames and manual stamps ─────────────────────────────────────
+// Two ways a real meal fails to stamp itself: the dish got renamed, or Kevin
+// knows something the order history does not (food handed over in person, a
+// name change that predates DISH_RENAMES).
+const ppRenamed = buildPassport({ id: 'r2', name: 'R' },
+  [{ id: 'x', regularId: 'r2', createdAt: '2026-01-01', items: [{ name: 'Cumin Mushroom Noodles / Cumin Beef on Rice' }] }], null);
+ok(ppRenamed.tried === 1, 'passport: an order under a dish\'s OLD name still stamps the current dish');
+
+const ppGrantReg = { id: 'r3', name: 'G', passportGrants: ['Pasta with Homegrown Tomato Sauce'] };
+const ppGrantOrders = [{ id: 'g1', regularId: 'r3', createdAt: '2026-05-01', items: [{ name: 'Bo Ssam' }] }];
+const ppGranted = buildPassport(ppGrantReg, ppGrantOrders, ppGrantOrders[0]);
+ok(ppGranted.tried === 2, 'passport: a hand-granted dish stamps alongside real history');
+const ppTom = ppGranted.pages.find(p => p.cuisine === 'Italian').dishes.find(d => /Homegrown/.test(d.name));
+ok(ppTom.stamped && ppTom.granted, 'passport: a granted stamp is marked as granted, not as order history');
+ok(ppGranted.newStamps.indexOf('Pasta with Homegrown Tomato Sauce') === -1,
+  'passport: a granted dish is never announced as new this delivery, it was earned earlier');
+
+const ppRevoked = buildPassport({ ...ppGrantReg, passportRevokes: ['Bo Ssam'] }, ppGrantOrders, null);
+ok(!ppRevoked.pages.find(p => p.cuisine === 'Korean').dishes.find(d => d.name === 'Bo Ssam').stamped,
+  'passport: a revoke removes a stamp that real order history would otherwise light');
+ok(buildPassport({ id: 'r4', name: 'X', passportGrants: ['Filet Mignon'] }, [], null).tried === 0,
+  'passport: granting a bag item does nothing, the stampable set still rules');
+
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

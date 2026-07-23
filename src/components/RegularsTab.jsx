@@ -34,6 +34,7 @@ import {
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { omakaseItemsOf } from '../omakase.js';
 import { buildTasteProfile } from '../regularsIntel.js';
+import { buildPassport, stampableDishes } from '../passport.js';
 
 export function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
   return (
@@ -331,6 +332,7 @@ export function RegularForm({ regular, onSave, onCancel }) {
 
 // ─── Regular profile: summary, insights, history, order linking ────────────
 export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelete, onLink, onUnlink, onBack }) {
+  const [showPassport, setShowPassport] = useState(false);
   const [editing, setEditing] = useState(false);          // editing the detail form
   const [editingNotes, setEditingNotes] = useState(false); // editing the notes field
   const [notesDraft, setNotesDraft] = useState(regular.notes || '');
@@ -485,6 +487,79 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
         <div style={styles.profileSectionTitle}>Details</div>
         {regular.address ? <div style={styles.profileField}><span style={styles.profileFieldKey}>Address:</span> {regular.address}</div> : null}
         {regular.phone ? <div style={styles.profileField}><span style={styles.profileFieldKey}>Phone:</span> {regular.phone}</div> : null}
+        {(() => {
+          // Passport editor. Order history cannot know everything: food handed
+          // over in person, orders that predate the app, or a dish renamed
+          // before DISH_RENAMES existed. This lets Kevin stamp what he knows
+          // actually happened, and take it back if he misclicks.
+          const pp = buildPassport(regular, orders || [], null);
+          if (!pp) return null;
+          const all = stampableDishes();
+          const byName = {};
+          pp.pages.forEach(pg => pg.dishes.forEach(d => { byName[d.name] = d; }));
+          const grants = regular.passportGrants || [];
+          const revokes = regular.passportRevokes || [];
+          const toggle = (name) => {
+            const d = byName[name];
+            if (!d) return;
+            if (d.stamped) {
+              // Un-stamping: drop a grant if that is why it is lit, otherwise
+              // it came from real history and needs an explicit revoke.
+              const wasGranted = grants.includes(name);
+              onUpdate(regular.id, {
+                passportGrants: grants.filter(g => g !== name),
+                passportRevokes: wasGranted ? revokes.filter(r => r !== name) : [...revokes, name],
+              });
+            } else {
+              onUpdate(regular.id, {
+                passportGrants: grants.includes(name) ? grants : [...grants, name],
+                passportRevokes: revokes.filter(r => r !== name),
+              });
+            }
+          };
+          return (
+            <div style={{ marginTop: 10 }}>
+              <button
+                onClick={() => setShowPassport(o => !o)}
+                style={{ background: 'none', border: 'none', color: GOLD, fontSize: 12, cursor: 'pointer', padding: 0, fontWeight: 700 }}
+              >
+                Passport: {pp.tried} of {pp.total} stamps {showPassport ? '▲' : '▼'}
+              </button>
+              {showPassport && (
+                <div style={{ marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #2d3a36', background: 'rgba(63,184,160,0.04)' }}>
+                  <div style={{ fontSize: 11, color: '#7a8480', marginBottom: 7, lineHeight: 1.45 }}>
+                    Tap a dish to stamp or un-stamp it. Use this when you know they have had
+                    something the order history does not show, like a dish from before a name change.
+                  </div>
+                  {pp.pages.map(page => (
+                    <div key={page.cuisine} style={{ marginBottom: 7 }}>
+                      <div style={{ fontSize: 10, letterSpacing: 0.6, textTransform: 'uppercase', color: '#7a8480', marginBottom: 3 }}>{page.label}</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        {page.dishes.map(d => (
+                          <button
+                            key={d.name}
+                            onClick={() => toggle(d.name)}
+                            style={{
+                              fontSize: 11, padding: '3px 8px', borderRadius: 999, cursor: 'pointer',
+                              border: '1px solid ' + (d.stamped ? GOLD : '#3a453f'),
+                              background: d.stamped ? 'rgba(212,160,80,0.15)' : 'transparent',
+                              color: d.stamped ? GOLD : '#9aa5a0',
+                              fontWeight: d.stamped ? 700 : 400,
+                            }}
+                            title={d.granted ? 'Stamped by hand' : (d.firstHad ? 'From order history' : 'Not yet earned')}
+                          >
+                            {d.stamped ? '✓ ' : ''}{d.name}{d.granted ? ' *' : ''}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 10.5, color: '#7a8480', marginTop: 4 }}>* stamped by hand, not from an order.</div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {(() => {
           // Taste profile: composed from data that already exists, so it stays
           // silent rather than padding when there is little to say.

@@ -14,6 +14,7 @@
 //   - Regulars only. A one-off customer has no history worth a passport.
 import { DISHES } from './dishes.js';
 import { ALWAYS_MENU } from './menu.js';
+import { DISH_RENAMES } from './utils.js';
 
 // Desserts have no cuisine of their own and do not want one; they get their
 // own chapter at the back of the book.
@@ -56,6 +57,21 @@ export function ordersForRegular(reg, allOrders) {
     || (name && String(o.customer || '').toLowerCase() === name));
 }
 
+// Two ways a real meal can fail to stamp itself, both handled here:
+//   1. The dish was renamed. DISH_RENAMES already maps old names to current
+//      ones for the rest of the app; the passport now applies it too, so an
+//      order placed under the old name still lands on the right stamp.
+//   2. Kevin knows something the order history does not. Food handed over in
+//      person, an order placed before the app existed, a name change that
+//      predates DISH_RENAMES. `reg.passportGrants` is a plain list of dish
+//      names he has granted by hand, and `reg.passportRevokes` takes one back.
+function canonicalName(name) {
+  let n = String(name || '');
+  // Renames can chain, but the map is tiny and acyclic; cap it anyway.
+  for (let i = 0; i < 5 && DISH_RENAMES[n]; i++) n = DISH_RENAMES[n];
+  return n;
+}
+
 // `currentOrder` is the delivery this page belongs to. Anything stamped by it
 // that they had never had before is the "new this delivery" moment, which is
 // the whole reason to open the book again.
@@ -76,11 +92,29 @@ export function buildPassport(reg, allOrders, currentOrder) {
   for (const o of mine) {
     const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
     for (const it of (o.items || [])) {
-      if (!it.name || !stampableNames.has(it.name)) continue; // retired/bag/addon: no stamp
-      ever.add(it.name);
-      if (when && (!firstHad[it.name] || when < firstHad[it.name])) firstHad[it.name] = when;
-      if (!curId || o.id !== curId) before.add(it.name);
+      const name = canonicalName(it.name);
+      if (!name || !stampableNames.has(name)) continue; // retired/bag/addon: no stamp
+      ever.add(name);
+      if (when && (!firstHad[name] || when < firstHad[name])) firstHad[name] = when;
+      if (!curId || o.id !== curId) before.add(name);
     }
+  }
+
+  // Manual grants: Kevin's memory is a legitimate source. A granted dish is
+  // never "new this delivery" (it was earned some time ago, not tonight), and
+  // it carries no date unless the history happens to supply one.
+  for (const raw of (reg.passportGrants || [])) {
+    const name = canonicalName(raw);
+    if (!stampableNames.has(name)) continue;
+    ever.add(name);
+    before.add(name);
+  }
+  // Revokes win over everything, so a mistaken grant is fully undoable.
+  for (const raw of (reg.passportRevokes || [])) {
+    const name = canonicalName(raw);
+    ever.delete(name);
+    before.delete(name);
+    delete firstHad[name];
   }
 
   const pagesMap = new Map();
@@ -91,6 +125,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
       stamped: ever.has(s.name),
       isNew: ever.has(s.name) && !before.has(s.name),
       firstHad: firstHad[s.name] || null,
+      granted: (reg.passportGrants || []).some(g => canonicalName(g) === s.name) && !firstHad[s.name],
     });
   }
 

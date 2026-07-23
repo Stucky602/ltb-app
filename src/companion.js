@@ -256,6 +256,13 @@ export function companionHtml(order, pageId = '', opts = {}) {
           </div>
           <button class="pp-close" onclick="closePassport()" aria-label="Close">&times;</button>
         </div>
+        <div class="pp-tabs" id="ppTabs">
+          ${pp.pages.map((page, i) => `
+            <button class="pp-tab" data-tab="${i}" onclick="gotoPassport(${i})">
+              <span class="pp-tab-name">${esc(page.label)}</span>
+              <span class="pp-tab-count${page.complete ? ' pp-tab-done' : ''}${page.stamped === 0 ? ' pp-tab-empty' : ''}">${page.stamped}/${page.total}</span>
+            </button>`).join('')}
+        </div>
         <div class="pp-pages" id="ppPages">${spreads}</div>
         <div class="pp-nav">
           <button class="pp-nav-btn" onclick="flipPassport(-1)" aria-label="Previous chapter">&lsaquo;</button>
@@ -342,6 +349,21 @@ export function companionHtml(order, pageId = '', opts = {}) {
     font-family: Georgia, 'Times New Roman', serif; }
   .pp-close { background: none; border: none; color: #e8d5a4; font-size: 27px; line-height: 1;
     cursor: pointer; padding: 0 4px; opacity: 0.85; }
+  .pp-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 8px 10px 8px 24px;
+    background: linear-gradient(180deg, #4a3e24, #40361f);
+    border-bottom: 2px solid rgba(0,0,0,0.3); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .pp-tabs::-webkit-scrollbar { display: none; }
+  .pp-tab { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1px;
+    background: rgba(255,246,226,0.06); border: 1px solid rgba(240,223,174,0.22);
+    border-bottom: none; border-radius: 7px 7px 0 0; padding: 5px 10px 6px; cursor: pointer;
+    font: inherit; color: #cbb98c; transition: background 140ms ease, color 140ms ease; }
+  .pp-tab-name { font-size: 11px; letter-spacing: 0.4px; white-space: nowrap; }
+  .pp-tab-count { font-size: 8.5px; letter-spacing: 0.6px; opacity: 0.75; }
+  .pp-tab-empty { opacity: 0.45; }
+  .pp-tab-done { color: #7fd8b4; opacity: 1; font-weight: 700; }
+  .pp-tab.on { background: #efe4cd; color: #3d3016; border-color: #efe4cd; }
+  .pp-tab.on .pp-tab-count { opacity: 0.7; }
+  .pp-tab.on .pp-tab-done { color: #1f6b4f; }
   .pp-pages { flex: 1; overflow: hidden; position: relative; padding-left: 14px;
     /* aged paper, with faint ruled lines like a real document page */
     background:
@@ -473,8 +495,24 @@ function ppRender() {
   var pages = document.querySelectorAll('.pp-page');
   ppTotal = pages.length;
   for (var i = 0; i < pages.length; i++) pages[i].className = 'pp-page' + (i === ppPage ? ' on' : '');
+  var tabs = document.querySelectorAll('.pp-tab');
+  for (var j = 0; j < tabs.length; j++) {
+    var on = j === ppPage;
+    tabs[j].className = 'pp-tab' + (on ? ' on' : '');
+    // Keep the current chapter reachable: with 13 tabs on a phone the active
+    // one is often off-screen after an arrow flip or a swipe.
+    if (on && tabs[j].scrollIntoView) {
+      try { tabs[j].scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); }
+      catch (e) { tabs[j].scrollIntoView(false); }
+    }
+  }
   var label = document.getElementById('ppNavLabel');
   if (label) label.textContent = (ppPage + 1) + ' of ' + ppTotal;
+}
+function gotoPassport(i) {
+  if (i < 0 || i >= ppTotal) return;
+  ppPage = i;
+  ppRender();
 }
 function openPassport() {
   var ov = document.getElementById('ppOverlay');

@@ -65,6 +65,7 @@
   .cat-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:#e8ede9; font-size:12px; cursor:pointer; font-family:inherit; }
   .cat-chip.on { border-color:#D4A050; background:rgba(212,160,80,0.15); color:#D4A050; font-weight:700; }
   .cat-count { font-size:11.5px; color:#7a8480; margin-top:6px; }
+  .fav-chip { display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 6px; margin-left:8px; vertical-align:middle; }
   .thisweek { display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#D4A050; border:1px solid #D4A050; border-radius:4px; padding:1px 6px; margin-left:8px; vertical-align:middle; }
   .weekbanner { max-width:760px; margin:0 auto 14px; padding:9px 12px; background:rgba(212,160,80,0.10); border:1px solid #D4A050; border-radius:10px; font-size:13px; color:#e8ede9; }
   .weekbanner a { color:#D4A050; font-weight:700; }
@@ -218,8 +219,21 @@
       .then(function (r) { return r.json(); })
       .then(function (cfg) {
         if (!cfg || cfg.paused || !cfg.dishes || !cfg.dishes.length) return;
-        var live = {}, n = 0;
-        for (var i = 0; i < cfg.dishes.length; i++) live[cfg.dishes[i].name] = 1;
+        var live = {}, fav = {}, n = 0;
+        for (var i = 0; i < cfg.dishes.length; i++) {
+          live[cfg.dishes[i].name] = 1;
+          if (cfg.dishes[i].favorite) fav[cfg.dishes[i].name] = 1;
+        }
+        // Favorites are earned from repeat orders and feedback, stamped at
+        // publish. The catalog is timeless, so it can only badge dishes that
+        // appear in the current config; that is honest rather than complete.
+        for (var f = 0; f < dishes.length; f++) {
+          if (!fav[dishes[f].name]) continue;
+          var fn = dishes[f].el.querySelector('.dish-name');
+          if (fn && fn.innerHTML.indexOf('fav-chip') === -1) {
+            fn.innerHTML += '<span class="fav-chip">customer favorite</span>';
+          }
+        }
         for (var j = 0; j < dishes.length; j++) {
           if (!live[dishes[j].name]) continue;
           n++;

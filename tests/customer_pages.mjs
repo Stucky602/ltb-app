@@ -186,5 +186,16 @@ console.log('menu.html');
   check('a dish that made the week by request says so', /by request/.test(dom.window.document.body.innerHTML));
 }
 
+// Customer favorite: earned at publish, shown on every customer surface.
+{
+  const favCfg = { ...CFG, dishes: [{ ...CFG.dishes[0], favorite: true }, CFG.dishes[1]] };
+  const dom = boot(form, favCfg); await sleep(150);
+  check('the order form marks a customer favorite', !!dom.window.document.querySelector('.fav-chip'));
+  const dom2 = boot(menu, favCfg); await sleep(150);
+  check('the weekly menu marks it too', !!dom2.window.document.querySelector('.fav-chip'));
+  const plain = boot(form, CFG); await sleep(150);
+  check('a dish that has not earned it stays unmarked', !plain.window.document.querySelector('.fav-chip'));
+}
+
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

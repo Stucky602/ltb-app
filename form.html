@@ -57,6 +57,7 @@
   .diet-filter-label { font-size:11px; color:var(--dim); letter-spacing:0.5px; }
   .diet-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:var(--cream); font-size:12px; cursor:pointer; }
   .diet-chip.on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .submit-btn {
     width: 100%; background: var(--gold); color: var(--teal-dark); border: none;
@@ -394,7 +395,8 @@
           var blkId = 'dishblk_' + gi + '_' + di;
           if (isDinnerGroup) DINNER_BLOCKS.push({ id: blkId, dish: dish, gi: gi, di: di });
           html += '<div class="dish"' + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
-            + (dish.requested ? ' <span class="req-chip">by request</span>' : '') + '</div>';
+            + (dish.requested ? ' <span class="req-chip">by request</span>' : '')
+            + (dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '') + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
             var key = gi + "_" + di + "_" + vi;
             var qty = cart[key] || 0;

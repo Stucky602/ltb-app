@@ -15,6 +15,7 @@ import { storageFootprint, isQuotaError } from '../src/utils.js';
 import { resolveMenuKey } from '../src/omakase.js';
 import { buildTasteProfile } from '../src/regularsIntel.js';
 import { buildPassport, stampableDishes, SWEETS_LABEL } from '../src/passport.js';
+import { customerFavorites, favoriteStatus, dishOrderSignal, dishFeedbackSignal } from '../src/favorites.js';
 import { weekOneBottle } from '../src/weekPlanner.js';
 import { SOURCES } from '../src/auditLog.js';
 import { omakaseUndecided, undecidedOmakases, expandOmakaseForShopping, pastOmakasesFor, omakaseStats, expandOrderForReheat } from '../src/omakase.js';
@@ -290,5 +291,38 @@ ok(ppRet.total === 30 && ppRet.tried === 1,
 ok(buildPassport({ id: 'rc', name: 'C' },
   [{ id: 'c1', regularId: 'rc', createdAt: '2026-05-01', items: [{ name: 'Bo Ssam' }] }], null).retired.length === 0,
   'passport: nothing retired means no memorial chapter at all');
+
+
+// ── Customer favorites ──────────────────────────────────────────────────────
+// Earned from two independent signals: people coming BACK for a dish, and the
+// good/meh/bad verdicts already collected. Never hand-set, so it cannot drift
+// into marketing.
+const favOrder = (id, who, dishes, house) => ({
+  id, customer: who, regularId: who, house, createdAt: '2026-05-01',
+  items: dishes.map(n => ({ name: n, qty: 1 })),
+});
+const favOrders = [
+  favOrder('1', 'dave', ['Bo Ssam', 'Gumbo']), favOrder('2', 'dave', ['Bo Ssam']),
+  favOrder('3', 'sara', ['Bo Ssam']), favOrder('4', 'sara', ['Bo Ssam']),
+  favOrder('5', 'mike', ['Chili']),
+  favOrder('h', 'wife', ['Bo Ssam', 'Bo Ssam'], true),
+  favOrder('7', 'dave', ['Bolognese']), favOrder('8', 'sara', ['Bolognese']), favOrder('9', 'mike', ['Bolognese']),
+];
+const favFb = { Bolognese: { tally: { good: 5, meh: 0, bad: 0 } }, Chili: { tally: { good: 1, meh: 2, bad: 2 } } };
+const favOS = dishOrderSignal(favOrders);
+const favFS = dishFeedbackSignal(favFb);
+ok(favOS['Bo Ssam'].orders === 4, 'favorites: house orders never count toward a dish reputation');
+ok(favoriteStatus('Bo Ssam', favOS, favFS).favorite === true,
+  'favorites: people coming back for a dish is enough on its own');
+ok(favoriteStatus('Bolognese', favOS, favFS).favorite === true,
+  'favorites: strong feedback is enough on its own');
+ok(favoriteStatus('Chili', favOS, favFS).favorite === false,
+  'favorites: a dish with mixed feedback is never a favorite, whatever it sold');
+ok(favoriteStatus('Gumbo', favOS, favFS).favorite === false,
+  'favorites: one order is not evidence, and thin evidence would cheapen the badge');
+ok(customerFavorites(favOrders, favFb).length === 2,
+  'favorites: only dishes that actually earned it are returned');
+ok(/came back for it/.test(favoriteStatus('Bo Ssam', favOS, favFS).why),
+  'favorites: every badge carries the human reason it was earned');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

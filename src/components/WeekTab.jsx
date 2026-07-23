@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { customerFavorites } from '../favorites.js';
 import { preflightWeek } from '../publishPreflight.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
@@ -36,7 +37,11 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { costDishVariant, driftBorder } from '../dishCosting.js';
 import { ConflictModal } from './ConflictModal.jsx';
 
-export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, onFetchHistory, onRestoreConfig }) {
+export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, dishFeedback, onFetchHistory, onRestoreConfig }) {
+  // Earned, not declared: recomputed on every publish so a dish can gain or
+  // lose the badge as real evidence accumulates.
+  const favorites = useMemo(() => customerFavorites(orders || [], dishFeedback || {}), [orders, dishFeedback]);
+  const favNames = useMemo(() => new Set(favorites.map(f => f.name)), [favorites]);
   // Composer intelligence: what a dish actually earned lately, and when it last
   // ran. Requests already show as the green "req" chip. Quarter window.
   const dishIntel = useMemo(() => {
@@ -157,7 +162,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     setPublishing(true);
     setPublishMsg(null);
     try {
-      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), null, { requestCounts: requestCounts || {} });
+      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), null, { requestCounts: requestCounts || {}, favorites: favorites || [] });
       setPublishMsg({ ok: true, text: "Published! The order form now shows this week's menu." });
     } catch (e) {
       setPublishMsg({ ok: false, text: (e && e.message) || 'Publish failed. Check your connection and try again.' });
@@ -307,6 +312,13 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               )}
               <div style={styles.cookItemVariant}>
                 {dish.variants.length} option{dish.variants.length !== 1 ? 's' : ''} · {priceLabel}
+                {favNames.has(dish.name) && (
+                  <span style={{ marginLeft: 6, fontSize: '9.5px', fontWeight: 700, letterSpacing: '0.4px',
+                    color: '#D4A050', border: '1px solid #D4A050', borderRadius: 4, padding: '0 4px' }}
+                    title={(favorites.find(f => f.name === dish.name) || {}).why}>
+                    FAVORITE
+                  </span>
+                )}
                 {(() => {
                   const d = dishIntel[dish.name];
                   if (!d) return <span style={{ marginLeft: 6, fontSize: '10px', color: '#6b7570' }}>never run</span>;

@@ -27,6 +27,7 @@
   .veg-note { font-size:13px; color:var(--dim); font-style:italic; }
   .dish { padding:16px 0; border-bottom:1px solid #2d3a36; }
   .dish:last-child { border-bottom:none; }
+  .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; margin-left:6px; }
   .dish-name { font-size:17px; font-weight:700; color:var(--cream); margin-bottom:5px; }
   .diet-filter { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:14px 0 4px; }
   .diet-filter-label { font-size:13px; color:var(--dim); font-weight:600; }
@@ -172,7 +173,10 @@
 
   function renderDish(dish, kind, primeDish){
     var copy = kind === 'bag' ? (lookupBagCopy(dish.name) || {}) : (lookupCopy(dish.name, kind) || {});
-    var html = '<div class="dish"><div class="dish-name">'+esc(dish.name)+'</div>';
+    // "Customer favorite" is EARNED, stamped at publish from repeat orders and
+    // real feedback. It is never hand-set, so it cannot become marketing.
+    var favTag = dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '';
+    var html = '<div class="dish"><div class="dish-name">'+esc(dish.name)+favTag+'</div>';
     if (kind === 'dinner') html += dietTagHtml(dish);
     if (copy.desc) html += '<div class="dish-desc">'+esc(copy.desc)+'</div>';
     if (copy.reheat) html += '<div class="dish-meta">'+esc(copy.reheat)+'</div>';

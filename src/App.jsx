@@ -63,6 +63,7 @@ import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { undecidedOmakases, omakaseStats, omakasePriceUnsettled } from './omakase.js';
 import { weekOneBottle } from './weekPlanner.js';
+import { customerFavorites } from './favorites.js';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
 import { FeedbackCard } from './components/FeedbackCard.jsx';
@@ -715,7 +716,15 @@ export default function LTBOrderTracker() {
     };
     const allDinners = (activeMenu.dinner || []).map(toVariants);
     const req = (extras && extras.requestCounts) || {};
-    const allDinnersTagged = allDinners.map(d => (req[d.name] > 0 ? { ...d, requested: true } : d));
+    // Customer favorites, earned from repeat orders and feedback rather than
+    // declared. Computed at publish so the customer pages need no history.
+    const favSet = new Set(((extras && extras.favorites) || []).map(f => f.name));
+    const allDinnersTagged = allDinners.map(d => {
+      let out = d;
+      if (req[d.name] > 0) out = { ...out, requested: true };
+      if (favSet.has(d.name)) out = { ...out, favorite: true };
+      return out;
+    });
     const dishes = allDinnersTagged.filter(d => !d.spotlight);
     const spotlight = allDinnersTagged.filter(d => d.spotlight);
     const fruit = (activeMenu.fruit || []).map(toVariants);
@@ -2380,7 +2389,7 @@ export default function LTBOrderTracker() {
 
         {view === 'week' && (
           <>
-            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} onFetchHistory={fetchConfigHistory} onRestoreConfig={restoreConfig} />
+            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} dishFeedback={dishFeedback} onFetchHistory={fetchConfigHistory} onRestoreConfig={restoreConfig} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <SchedulePanel orders={orders || []} />
             <div style={{ margin: '10px 0 24px' }}>

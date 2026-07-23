@@ -14,6 +14,7 @@ import { repricingScoreboard } from '../src/repricing.js';
 import { storageFootprint, isQuotaError } from '../src/utils.js';
 import { resolveMenuKey } from '../src/omakase.js';
 import { buildTasteProfile } from '../src/regularsIntel.js';
+import { buildPassport, stampableDishes, SWEETS_LABEL } from '../src/passport.js';
 import { weekOneBottle } from '../src/weekPlanner.js';
 import { SOURCES } from '../src/auditLog.js';
 import { omakaseUndecided, undecidedOmakases, expandOmakaseForShopping, pastOmakasesFor, omakaseStats, expandOrderForReheat } from '../src/omakase.js';
@@ -181,5 +182,40 @@ const ob = weekOneBottle(['Bo Ssam', 'Mapo Eggplant', 'Thai Basil Chicken (Pad K
 ok(ob && ob.covers >= 2, 'one bottle: a multi-dish week gets a bottle covering at least two');
 ok(weekOneBottle(['Bo Ssam']) === null, 'one bottle: a single dish is an order pairing, not a week pairing');
 ok(weekOneBottle([]) === null, 'one bottle: an empty week has nothing to pair');
+
+
+// ── Dish passport ───────────────────────────────────────────────────────────
+// Kevin's rules, each one load-bearing: dinners + desserts stamp, bag/addons/
+// sauces never do, variants collapse to one stamp, retired dishes are ignored.
+const ppAll = stampableDishes();
+ok(ppAll.length === 30, 'passport: 27 dinners plus 3 desserts is the whole book');
+const ppReg = { id: 'r1', name: 'Dave' };
+const ppOrders = [
+  { id: 'old', regularId: 'r1', items: [{ name: 'Bo Ssam', variant: 'Small (~4 servings)' }, { name: 'Brownies' }] },
+  { id: 'now', regularId: 'r1', items: [
+    { name: 'Bo Ssam', variant: 'Large (~8 servings)' }, // same dish, bigger size
+    { name: 'Gumbo' },
+    { name: 'Filet Mignon' },   // bag item
+    { name: 'Queso' },          // add-on
+    { name: 'Chimichurri' },    // sauce
+    { name: 'A Dish I Retired' },
+  ] },
+];
+const ppNow = buildPassport(ppReg, ppOrders, ppOrders[1]);
+ok(ppNow.tried === 3, 'passport: bag items, add-ons, sauces, and retired dishes never stamp');
+ok(ppNow.newStamps.length === 1 && ppNow.newStamps[0] === 'Gumbo',
+  'passport: only a dish they had never had before counts as new this delivery');
+ok(!ppNow.newStamps.includes('Bo Ssam'),
+  'passport: a bigger variant of something already stamped is not a new stamp');
+ok(ppNow.pages[ppNow.pages.length - 1].cuisine === SWEETS_LABEL,
+  'passport: sweets are the last chapter, not a cuisine');
+ok(ppNow.pages.every(p => p.label !== 'Spotlight'),
+  'passport: Spotlight is a menu tier, so the book never calls it a cuisine');
+const ppKorean = ppNow.pages.find(p => p.cuisine === 'Korean');
+ok(ppKorean && ppKorean.complete === true, 'passport: a fully-stamped chapter reports complete');
+ok(buildPassport(null, ppOrders, null) === null, 'passport: no regular means no passport');
+const ppFresh = buildPassport({ id: 'r9', name: 'New Person' }, [], null);
+ok(ppFresh.tried === 0 && ppFresh.total === 30 && ppFresh.newStamps.length === 0,
+  'passport: a brand-new regular gets an empty book, not a broken one');
 
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

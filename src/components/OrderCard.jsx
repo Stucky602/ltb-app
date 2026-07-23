@@ -4,6 +4,7 @@ import { INGREDIENT_SEED } from '../ingredients.js';
 import { DISHES } from '../dishes.js';
 import { unitOptionsFor, resolveDishVariant } from '../dishCosting.js';
 import { pastOmakasesFor } from '../omakase.js';
+import { buildPassport as buildPassportData } from '../passport.js';
 import { buildTasteProfile } from '../regularsIntel.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
@@ -46,22 +47,14 @@ import { InvoiceModal, ReheatModal, WeightPhotoModal, perLbEstimate } from './Mo
 // regular (regularId, or exact name match) gets { tried, total, missing } over
 // the full dinner catalog; anyone else gets null and no card. History is that
 // customer's orders by the same linkage.
+// Passport lookup: find the regular, then hand off to the pure module. The
+// book itself (cuisine pages, stamps, new-this-delivery) lives in passport.js
+// so it can be tested without rendering anything.
 function buildPassport(order, regulars, allOrders) {
   const reg = (order.regularId && (regulars || []).find(r => r.id === order.regularId))
     || (regulars || []).find(r => (r.name || '').toLowerCase() === (order.customer || '').toLowerCase());
   if (!reg) return null;
-  const mine = (allOrders || []).filter(o =>
-    (o.regularId && o.regularId === reg.id) ||
-    ((o.customer || '').toLowerCase() === (reg.name || '').toLowerCase()));
-  const tried = new Set();
-  for (const o of mine) for (const it of (o.items || [])) tried.add(it.name);
-  const dinnerNames = ALL_DINNERS.map(d => d.name);
-  const triedDinners = dinnerNames.filter(n => tried.has(n));
-  return {
-    tried: triedDinners.length,
-    total: dinnerNames.length,
-    missing: dinnerNames.filter(n => !tried.has(n)),
-  };
+  return buildPassportData(reg, allOrders, order);
 }
 
 // Omakase fulfillment: catalog of menu picks (dish+variant -> registry cost).

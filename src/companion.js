@@ -190,18 +190,63 @@ export function companionHtml(order, pageId = '', opts = {}) {
     </div>` : '';
 
   // ── Dish passport — REGULARS ONLY (opts.passport supplied by the app when
-  // the order is linked to a regular; absent = card absent). A quiet nudge
-  // toward breadth, not gamification: what they've had, what they haven't.
-  let passportCard = '';
+  // the order is linked to a regular; absent = card absent). Two pieces: a
+  // compact strip near the top, and a full passport book that opens over the
+  // page when tapped. The book is IN THIS PAGE, not a second URL: no extra KV
+  // key, no second link to expire, and it works offline once loaded.
+  let passportStrip = '';
+  let passportBook = '';
   if (opts.passport && opts.passport.total > 0) {
     const pp = opts.passport;
-    const missing = (pp.missing || []).slice(0, 5);
-    const more = (pp.missing || []).length - missing.length;
-    passportCard = `
-    <div class="card passport">
-      <h3>Your dish passport</h3>
-      <div class="pp-line">You've had <b>${pp.tried}</b> of the <b>${pp.total}</b> dinners on the full menu.</div>
-      ${missing.length ? `<div class="pp-missing">Still out there: ${missing.map(esc).join(', ')}${more > 0 ? `, and ${more} more` : ''}.</div>` : `<div class="pp-missing">You've tried everything. Respect.</div>`}
+    const visited = pp.pages.filter(p => p.stamped > 0);
+    const newLine = pp.newStamps.length
+      ? `<div class="pp-new">New this delivery: ${pp.newStamps.map(esc).join(', ')}</div>`
+      : '';
+
+    passportStrip = `
+    <button class="pp-strip" onclick="openPassport()" aria-label="Open your dish passport">
+      <div class="pp-strip-top">
+        <span class="pp-strip-title">Your dish passport</span>
+        <span class="pp-strip-open">Open &rsaquo;</span>
+      </div>
+      <div class="pp-strip-count"><b>${pp.tried}</b> of ${pp.total} stamps &middot; <b>${pp.cuisinesVisited}</b> of ${pp.cuisinesTotal} chapters</div>
+      ${newLine}
+      <div class="pp-strip-chips">${visited.map(p => `<span class="pp-chip">${esc(p.label)}</span>`).join('')}</div>
+    </button>`;
+
+    const spreads = pp.pages.map((page, i) => `
+      <div class="pp-page" data-page="${i}">
+        <div class="pp-page-head">
+          <div class="pp-page-name">${esc(page.label)}</div>
+          <div class="pp-page-count">${page.stamped} / ${page.total}${page.complete ? ' &middot; complete' : ''}</div>
+        </div>
+        <div class="pp-stamps">
+          ${page.dishes.map((d, j) => d.stamped
+            ? `<div class="pp-stamp${d.isNew ? ' pp-stamp-new' : ''}" style="--rot:${((j * 37) % 9) - 4}deg">
+                 <div class="pp-stamp-name">${esc(d.name)}</div>
+                 ${d.isNew ? '<div class="pp-stamp-flag">new</div>' : ''}
+               </div>`
+            : `<div class="pp-blank"><div class="pp-blank-name">${esc(d.name)}</div></div>`).join('')}
+        </div>
+      </div>`).join('');
+
+    passportBook = `
+    <div class="pp-overlay" id="ppOverlay" role="dialog" aria-label="Dish passport" hidden>
+      <div class="pp-book">
+        <div class="pp-book-head">
+          <div>
+            <div class="pp-book-title">Dish passport</div>
+            <div class="pp-book-owner">${customer}</div>
+          </div>
+          <button class="pp-close" onclick="closePassport()" aria-label="Close">&times;</button>
+        </div>
+        <div class="pp-pages" id="ppPages">${spreads}</div>
+        <div class="pp-nav">
+          <button class="pp-nav-btn" onclick="flipPassport(-1)" aria-label="Previous chapter">&lsaquo;</button>
+          <div class="pp-nav-label" id="ppNavLabel"></div>
+          <button class="pp-nav-btn" onclick="flipPassport(1)" aria-label="Next chapter">&rsaquo;</button>
+        </div>
+      </div>
     </div>`;
   }
 
@@ -235,11 +280,59 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .prow b { color: #e8ede9; font-weight: 600; }
   .one-bottle { font-size: 13.5px; color: #cfe0d8; background: rgba(93,202,165,0.10); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.5; }
   .one-bottle b { color: #5DCAA5; }
-  .card.passport { border-left: 2px solid #b8985a; }
-  .card.passport h3 { color: #d4b06a; }
-  .pp-line { font-size: 13.5px; color: #cfe0d8; margin-bottom: 4px; }
-  .pp-line b { color: #d4b06a; }
-  .pp-missing { font-size: 12.5px; color: #9aa5a0; line-height: 1.5; }
+  /* ── Dish passport ──────────────────────────────────────────────────────
+     The strip sits under the title; the book opens over the page. Stamps are
+     pure CSS (rotated, ink-toned, slightly irregular) so the page stays light
+     and works with no network once loaded. */
+  .pp-strip { display: block; width: 100%; text-align: left; margin: 0 0 18px; padding: 12px 14px;
+    background: linear-gradient(180deg, rgba(184,152,90,0.10), rgba(184,152,90,0.04));
+    border: 1px solid #6b5a34; border-radius: 12px; cursor: pointer; font: inherit; color: inherit; }
+  .pp-strip:active { transform: scale(0.995); }
+  .pp-strip-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .pp-strip-title { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: #d4b06a; font-weight: 700; }
+  .pp-strip-open { font-size: 12px; color: #9aa5a0; }
+  .pp-strip-count { font-size: 14px; color: #e8ede9; margin-top: 4px; }
+  .pp-strip-count b { color: #d4b06a; }
+  .pp-new { font-size: 12.5px; color: #5DCAA5; margin-top: 4px; font-weight: 600; }
+  .pp-strip-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  .pp-chip { font-size: 10.5px; color: #cfe0d8; border: 1px solid #3a453f; border-radius: 999px; padding: 1px 8px; }
+
+  .pp-overlay { position: fixed; inset: 0; background: rgba(8,14,12,0.92); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .pp-overlay[hidden] { display: none; }
+  .pp-book { width: 100%; max-width: 560px; max-height: 88vh; display: flex; flex-direction: column;
+    background: #1b2320; border: 1px solid #6b5a34; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+  .pp-book-head { display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 14px 16px; border-bottom: 1px solid #2d3a36; background: rgba(184,152,90,0.07); }
+  .pp-book-title { font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: #d4b06a; font-weight: 700; }
+  .pp-book-owner { font-size: 17px; color: #e8ede9; margin-top: 2px; }
+  .pp-close { background: none; border: none; color: #9aa5a0; font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .pp-pages { flex: 1; overflow: hidden; position: relative; }
+  .pp-page { display: none; padding: 16px; height: 100%; overflow-y: auto; animation: ppIn 220ms ease; }
+  .pp-page.on { display: block; }
+  @keyframes ppIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+  .pp-page-head { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px dashed #3a453f; padding-bottom: 8px; margin-bottom: 12px; }
+  .pp-page-name { font-size: 19px; color: #e8ede9; font-family: Georgia, 'Times New Roman', serif; }
+  .pp-page-count { font-size: 11.5px; color: #9aa5a0; }
+  .pp-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .pp-stamp { position: relative; border: 2px solid #b8985a; border-radius: 8px; padding: 12px 8px;
+    text-align: center; transform: rotate(var(--rot, 0deg)); background: rgba(184,152,90,0.08); }
+  .pp-stamp-name { font-size: 11.5px; color: #d4b06a; font-weight: 700; line-height: 1.25;
+    text-transform: uppercase; letter-spacing: 0.3px; }
+  .pp-stamp-new { border-color: #5DCAA5; background: rgba(93,202,165,0.10); }
+  .pp-stamp-new .pp-stamp-name { color: #5DCAA5; }
+  .pp-stamp-flag { position: absolute; top: -8px; right: -6px; font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px; color: #0f1613; background: #5DCAA5;
+    border-radius: 999px; padding: 1px 7px; }
+  .pp-blank { border: 1px dashed #33403a; border-radius: 8px; padding: 12px 8px; text-align: center; }
+  .pp-blank-name { font-size: 11px; color: #55605b; line-height: 1.25; }
+  .pp-nav { display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-top: 1px solid #2d3a36; }
+  .pp-nav-btn { background: none; border: 1px solid #3a453f; border-radius: 8px; color: #cfe0d8;
+    font-size: 18px; line-height: 1; padding: 4px 14px; cursor: pointer; }
+  .pp-nav-label { font-size: 12px; color: #9aa5a0; }
   .v { color: #9aa5a0; font-size: 12.5px; }
   .feeds { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #24413a; color: #5DCAA5; font-size: 11px; font-weight: 700; vertical-align: middle; }
   .card { background: #1c2422; border: 1px solid #2d3a36; border-radius: 14px; padding: 15px 17px; margin: 12px 0; }
@@ -286,6 +379,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   </div>
   <h1>${firstName}, here's your kitchen page</h1>
   <div class="sub">Everything in your order, and exactly how to bring each dish home for its best.</div>
+  ${passportStrip}
   <div class="card"><h3>Your order</h3><ul>${itemRows}</ul></div>
   ${omakaseCard}
   ${stepsIntro}
@@ -293,7 +387,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   ${frozenCard}
   ${noFussCard}
   ${pairingsCard}
-  ${passportCard}
+  ${passportBook}
   <div class="card fb">
     <h3>How did everything come out?</h3>
     <p class="asknote">One tap per dish tells Kevin what worked, and a line about why helps even more. It makes the food better for everyone. You can submit feedback once per dish for this order.</p>
@@ -311,6 +405,63 @@ export function companionHtml(order, pageId = '', opts = {}) {
   </div>
   <div class="foot">Made with care <span class="heart">♥</span><br>Questions about anything? Just text Kevin.<br>This page is yours for 30 days.</div>
 </div><script>
+// ── Passport book ─────────────────────────────────────────────────────────
+// The book lives in this page, so opening it costs no network. Escape closes,
+// arrows and swipe flip chapters. It opens on the first chapter with a new
+// stamp, because that is the thing worth seeing.
+var ppPage = 0, ppTotal = 0;
+function ppRender() {
+  var pages = document.querySelectorAll('.pp-page');
+  ppTotal = pages.length;
+  for (var i = 0; i < pages.length; i++) pages[i].className = 'pp-page' + (i === ppPage ? ' on' : '');
+  var label = document.getElementById('ppNavLabel');
+  if (label) label.textContent = (ppPage + 1) + ' of ' + ppTotal;
+}
+function openPassport() {
+  var ov = document.getElementById('ppOverlay');
+  if (!ov) return;
+  var withNew = document.querySelector('.pp-stamp-new');
+  var host = withNew ? withNew.closest('.pp-page') : null;
+  ppPage = host ? Number(host.getAttribute('data-page')) : 0;
+  ov.hidden = false;
+  document.body.style.overflow = 'hidden';
+  ppRender();
+}
+function closePassport() {
+  var ov = document.getElementById('ppOverlay');
+  if (!ov) return;
+  ov.hidden = true;
+  document.body.style.overflow = '';
+}
+function flipPassport(dir) {
+  if (!ppTotal) return;
+  ppPage = (ppPage + dir + ppTotal) % ppTotal;
+  ppRender();
+}
+document.addEventListener('keydown', function (e) {
+  var ov = document.getElementById('ppOverlay');
+  if (!ov || ov.hidden) return;
+  if (e.key === 'Escape') closePassport();
+  else if (e.key === 'ArrowRight') flipPassport(1);
+  else if (e.key === 'ArrowLeft') flipPassport(-1);
+});
+(function () {
+  var ov = document.getElementById('ppOverlay');
+  if (!ov) return;
+  // Tap the backdrop to close, but never a tap inside the book itself.
+  ov.addEventListener('click', function (e) { if (e.target === ov) closePassport(); });
+  var x0 = null;
+  var pages = document.getElementById('ppPages');
+  if (!pages) return;
+  pages.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+  pages.addEventListener('touchend', function (e) {
+    if (x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0;
+    if (Math.abs(dx) > 45) flipPassport(dx < 0 ? 1 : -1);
+    x0 = null;
+  }, { passive: true });
+})();
+
 var FB_DISHES = ${JSON.stringify(items.map(it => it.name))};
 var FB_PAGE = "${esc(pageId)}";
 var fbSent = {};

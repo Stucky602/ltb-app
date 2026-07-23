@@ -30,7 +30,7 @@ import {
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
-  optionsSummary, noteWithoutOptions,
+  optionsSummary, noteWithoutOptions, itemAddons,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 
@@ -167,6 +167,16 @@ export function InvoiceModal({ order, onClose }) {
                   {it.upcharge && typeof it.upcharge === 'object' && it.upcharge.amount > 0 ? (
                     <div style={styles.invoiceItemExtra}>+ {it.upcharge.label} ({currency(it.upcharge.amount)} ea)</div>
                   ) : null}
+                  {/* At-cost extras (a block of parm, chili fixings). These already
+                      counted toward the total via itemAddonsTotal, but the invoice
+                      never showed them, so the math looked right and unexplained.
+                      Pending ones are shown too: a customer should see that they
+                      asked for something, even before it has a price. */}
+                  {itemAddons(it).map(a => (
+                    <div key={a.id} style={styles.invoiceItemExtra}>
+                      + {a.request} {a.pending ? '(price pending)' : '(' + currency(a.cost) + ', at cost)'}
+                    </div>
+                  ))}
                   {optionsSummary(it) && <div style={styles.invoiceItemExtra}>{optionsSummary(it)}</div>}
                   {noteWithoutOptions(it.note) && <div style={styles.invoiceItemNote}>"{noteWithoutOptions(it.note)}"</div>}
                   {it.omakase && it.underNote ? (

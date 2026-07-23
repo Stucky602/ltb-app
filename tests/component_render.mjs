@@ -28,6 +28,15 @@ const CASES = [
     `{ orders: ${ORDERS}, regulars: ${REGULARS}, liveCostMap: {}, baseCostMap: {} }`],
   ['ErrorBoundary', './src/components/ErrorBoundary.jsx',
     `{ label: 'test', children: React.createElement('div', null, 'child') }`],
+  // The invoice has to EXPLAIN its own total. At-cost add-ons counted toward
+  // the money but rendered nowhere, so a customer saw a number that did not
+  // match the lines above it.
+  ['InvoiceModal', './src/components/Modals.jsx',
+    `{ order: { id:'o1', customer:'Dave', createdAt:'2026-07-20', total: 110.5,
+        items: [{ name:'Bolognese', variant:'Large (~8)', qty:1, price:100, cost:45,
+          addons:[{ id:'a1', request:'Block of good parm', cost:8.5, pending:false },
+                  { id:'a2', request:'Extra chili oil', cost:null, pending:true }] }] },
+      onClose: () => {} }`],
 ];
 
 // Scratch dir INSIDE the project. Bundling from /tmp resolves a second copy of
@@ -44,12 +53,17 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ${name} } from '${path.relative(dir, path.resolve(imp)).split(path.sep).join('/')}';
 const html = renderToStaticMarkup(React.createElement(${name}, ${props}));
 if (!html || !html.length) { console.error('EMPTY'); process.exit(1); }
+console.log(html);
 `);
   try {
     execFileSync('node_modules/.bin/esbuild', [src, '--bundle', '--loader:.jsx=jsx',
       '--format=cjs', '--platform=node', '--outfile=' + out], { stdio: 'pipe' });
-    execFileSync('node', [out], { stdio: 'pipe' });
+    const stdout = String(execFileSync('node', [out], { stdio: 'pipe' }) || '');
     check(`${name} renders with real data`, true);
+    if (name === 'InvoiceModal') {
+      check('invoice shows at-cost add-ons as line items', /Block of good parm/.test(stdout));
+      check('invoice shows a pending add-on too', /Extra chili oil/.test(stdout));
+    }
   } catch (e) {
     const msg = String((e.stderr || e.stdout || e.message)).split('\n')
       .find(l => /Error|error/.test(l)) || 'render failed';

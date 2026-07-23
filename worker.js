@@ -649,6 +649,7 @@ export default {
         const counts = {};
         for (const d of PIPELINE_DISHES) counts[d] = 0;
         let ballots = 0;
+        let weightedBallots = 0;
         let cursor;
         do {
           // 1000 is KV's hard ceiling per list() call; the cursor loop below
@@ -660,16 +661,23 @@ export default {
             // metadata is ever missing, fall back to it rather than dropping
             // a real ballot on the floor.
             let picks = (k.metadata && Array.isArray(k.metadata.p)) ? k.metadata.p : null;
+            let w = (k.metadata && Number(k.metadata.w)) || 0;
             if (!picks) {
               const raw = await env.LTB_KV.get(k.name);
               if (!raw) continue;
-              try { picks = JSON.parse(raw).p || []; } catch (e) { continue; }
+              try {
+                const parsed = JSON.parse(raw);
+                picks = parsed.p || [];
+                if (!w) w = Number(parsed.w) || 1;
+              } catch (e) { continue; }
             }
+            if (!w) w = 1; // ballots cast before weighting existed still count once
             if (!picks.length) continue;
             ballots++;
+            if (w > 1) weightedBallots++;
             for (const d of picks) {
               // A dish retired from PIPELINE_DISHES silently stops counting.
-              if (Object.prototype.hasOwnProperty.call(counts, d)) counts[d]++;
+              if (Object.prototype.hasOwnProperty.call(counts, d)) counts[d] += w;
             }
           }
           cursor = listing.list_complete ? null : listing.cursor;
@@ -681,7 +689,7 @@ export default {
           .slice(0, VOTE_TOP_N)
           .filter(r => r.votes > 0); // nothing shows until something is voted for
 
-        return json({ top, ballots }, origin);
+        return json({ top, ballots, weightedBallots }, origin);
       }
 
       // ── GET /votes/full — token-gated, FULL ranking + recent ballots ─────
@@ -758,11 +766,19 @@ export default {
         // GET /votes can tally straight off list() without reading each body.
         // Do NOT "optimize" this back to an empty value with metadata-only:
         // KV rejects an empty value and every POST 500s. That was the bug.
-        const ballot = JSON.stringify({ p: picks, at: new Date().toISOString() });
+        // Weight: people who actually order here get more say than a stranger
+        // who found the page. Claimed by the client from its own order history
+        // and CLAMPED to 1..3 — this is a friends-only shop, not an election,
+        // and the worst case is a dish running a week earlier than it deserved.
+        let weight = 1;
+        const claimed = Number(body.orders);
+        if (Number.isFinite(claimed) && claimed >= 1) weight = Math.min(3, 1 + Math.floor(claimed / 3));
+
+        const ballot = JSON.stringify({ p: picks, w: weight, at: new Date().toISOString() });
         await env.LTB_KV.put(VOTE_PREFIX + crypto.randomUUID(), ballot, {
-          metadata: { p: picks },
+          metadata: { p: picks, w: weight },
         });
-        return json({ ok: true, counted: picks.length }, origin);
+        return json({ ok: true, counted: picks.length, weight }, origin);
       }
 
       // ── POST /requestable — TOKEN: app publishes the requestable dish list ─

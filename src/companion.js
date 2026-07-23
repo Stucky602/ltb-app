@@ -194,6 +194,24 @@ export function companionHtml(order, pageId = '', opts = {}) {
   // compact strip near the top, and a full passport book that opens over the
   // page when tapped. The book is IN THIS PAGE, not a second URL: no extra KV
   // key, no second link to expire, and it works offline once loaded.
+  // First order gets a different page. You only get one first impression, and
+  // right now a new customer's page is identical to their fiftieth. This is
+  // the welcome, the explanation of what the passport is, and the one thing
+  // worth knowing about reheating, all in one card that never appears again.
+  const pp0 = opts.passport;
+  const isFirstOrder = !!pp0 && pp0.tried <= (pp0.newStamps || []).length && (pp0.visas || []).length <= 1;
+  const welcomeCard = isFirstOrder ? `
+    <div class="card welcome">
+      <h3>First one. Welcome.</h3>
+      <p>Everything here is cooked to be reheated, not just survived. The instructions below
+      are the actual difference between a good version and a sad one, so they are worth the
+      thirty seconds.</p>
+      <p>You also just started a <b>dish passport</b>. Every dinner and dessert you try stamps a
+      page, grouped by cuisine. It is not a loyalty card and there is nothing to collect toward.
+      It is just a record of what you have eaten here, and it is quietly satisfying to fill.</p>
+      <p>Anything at all, text me.</p>
+    </div>` : '';
+
   let passportStrip = '';
   let passportBook = '';
   if (opts.passport && opts.passport.total > 0) {
@@ -371,6 +389,11 @@ export function companionHtml(order, pageId = '', opts = {}) {
      the way a real passport looks after a few trips. The book is aged paper
      with a spine. All pure CSS: no images, so the page stays light and the
      whole thing works offline. */
+  .welcome { border-left: 3px solid #5DCAA5; }
+  .welcome h3 { color: #5DCAA5; }
+  .welcome p { margin: 0 0 9px; }
+  .welcome p:last-child { margin-bottom: 0; }
+  .welcome b { color: #d4b06a; }
   .pp-strip { display: block; width: 100%; text-align: left; margin: 0 0 18px; padding: 13px 15px;
     background: linear-gradient(145deg, rgba(184,152,90,0.14), rgba(184,152,90,0.03));
     border: 1px solid #6b5a34; border-radius: 12px; cursor: pointer; font: inherit; color: inherit;
@@ -577,6 +600,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   <h1>${firstName}, here's your kitchen page</h1>
   <div class="sub">Everything in your order, and exactly how to bring each dish home for its best.</div>
   ${passportStrip}
+  ${welcomeCard}
   <div class="card"><h3>Your order</h3><ul>${itemRows}</ul></div>
   ${omakaseCard}
   ${stepsIntro}

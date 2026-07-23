@@ -116,6 +116,35 @@ if (wStart < 0 || wEnd < 0) {
   }
 }
 
+// ── Graduation wall ──────────────────────────────────────────────────────────
+// A dish carrying status:'shipped' made it from this page to the real menu.
+// pipeline.html shows those in a "Made the menu" section, driven by a
+// GRADUATED array. This tool stays report-only (edits to the customer pages
+// remain deliberate), so it VERIFIES the array matches canon rather than
+// rewriting it, and prints the exact line to paste when it does not.
+{
+  const gradKeys = PIPELINE_DISHES.filter(d => d.status === 'shipped').map(d => d.title || d.key);
+  const m = pipelineHtml.match(/var GRADUATED = (\[[^;]*\]);\s*\/\* SYNC:GRADUATED \*\//);
+  if (!m) {
+    F('pipeline.html is missing the GRADUATED array (marker: /* SYNC:GRADUATED */)');
+  } else {
+    let listed = [];
+    try { listed = JSON.parse(m[1].replace(/'/g, '"')).map(g => g.title); } catch (e) { listed = null; }
+    if (listed === null) {
+      F('GRADUATED array in pipeline.html could not be parsed');
+    } else {
+      const missing = gradKeys.filter(k => !listed.includes(k));
+      const extra = listed.filter(k => !gradKeys.includes(k));
+      for (const k of missing) F(`"${k}" shipped in canon but is not on the pipeline.html graduation wall`);
+      for (const k of extra) F(`"${k}" is on the graduation wall but is not status:'shipped' in canon`);
+      if (missing.length) {
+        console.log('  paste into pipeline.html:');
+        console.log('  var GRADUATED = ' + JSON.stringify(gradKeys.map(t => ({ title: t, note: '', votes: 0 }))) + '; /* SYNC:GRADUATED */');
+      }
+    }
+  }
+}
+
 if (drift) {
   console.log(`\n${drift} pipeline drift(s) found — canon (pipelineDishes.js) disagrees with worker.js and/or pipeline.html`);
   process.exit(1);

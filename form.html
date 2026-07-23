@@ -857,6 +857,7 @@
             pendingClientId = null;
             // Persist identity (name/address/phone) for next week's prefill.
             saveIdentity(name, address, phone);
+            recordOrderPlaced();
             clearDraft();
             document.getElementById("content").innerHTML =
               '<div class="msg success">Thanks, ' + esc(name) + '! Your order is in.<br>' +
@@ -878,6 +879,7 @@
           enqueueSubmit(submitPayload);
           pendingClientId = null;
           saveIdentity(name, address, phone);
+          recordOrderPlaced();
           clearDraft();
           document.getElementById("content").innerHTML =
             '<div class="msg success">Thanks, ' + esc(name) + '! Your order is saved on this phone.<br>' +
@@ -899,6 +901,21 @@
     // and wrapped in try/catch because localStorage throws in private mode on
     // some phones.
     var IDENTITY_KEY = "ltb-order-identity";
+    // Proof-of-order, written on every successful submit. pipeline.html reads
+    // it (same origin) to weight a regular's vote. Deliberately not a login:
+    // this is a friends-only shop and the stakes of a miscounted vote are a
+    // dish running a week later than it might have.
+    var ORDER_HISTORY_KEY = "ltb-order-history";
+    function recordOrderPlaced() {
+      try {
+        var raw = localStorage.getItem(ORDER_HISTORY_KEY);
+        var h = raw ? JSON.parse(raw) : { count: 0, first: null, last: null };
+        h.count = (h.count || 0) + 1;
+        h.first = h.first || new Date().toISOString();
+        h.last = new Date().toISOString();
+        localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(h));
+      } catch (e) {}
+    }
     function loadIdentity() {
       try {
         var raw = localStorage.getItem(IDENTITY_KEY);

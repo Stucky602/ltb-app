@@ -227,5 +227,28 @@ check('a missing id gets its own message, not the general one', (await r.text())
 r = await call('POST', '/companion', { token: 'wrong', id: 'kc3', html: '<p>x</p>' });
 check('a companion write still requires the real token', r.status === 401, 'got ' + r.status);
 
+// ── Scenario 12: weighted pipeline votes ────────────────────────────────────
+// People who actually order here get more say than a stranger who found the
+// page. The claim is client-side (there is no login in a friends-only shop),
+// so the worker CLAMPS it: the most a regular can ever be worth is 3.
+const someDish = 'Suya Flank Steak'; // must match the worker's PIPELINE_DISHES whitelist exactly
+r = await call('POST', '/votes', { picks: [someDish] });
+j = await r.json();
+check('a stranger ballot counts once', j.ok && j.weight === 1, 'weight ' + j.weight);
+r = await call('POST', '/votes', { picks: [someDish], orders: 9 });
+j = await r.json();
+check('a frequent customer ballot counts more', j.weight === 3, 'weight ' + j.weight);
+r = await call('POST', '/votes', { picks: [someDish], orders: 99999 });
+j = await r.json();
+check('an absurd claim is clamped, not trusted', j.weight === 3, 'weight ' + j.weight);
+r = await call('POST', '/votes', { picks: [someDish], orders: -5 });
+j = await r.json();
+check('a negative claim falls back to 1', j.weight === 1, 'weight ' + j.weight);
+r = await call('GET', '/votes');
+j = await r.json();
+const suya = (j.top || []).find(t => t.dish === someDish);
+check('the tally adds weights, not ballots', suya && suya.votes === 8, 'votes ' + (suya && suya.votes));
+check('weighted ballots are reported separately', j.weightedBallots === 2, 'got ' + j.weightedBallots);
+
 console.log(failed === 0 ? '\nWORKER SIM: ALL PASS' : `\nWORKER SIM: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

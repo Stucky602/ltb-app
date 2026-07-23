@@ -67,13 +67,18 @@ export function buildPassport(reg, allOrders, currentOrder) {
   const stampableNames = new Set(stampable.map(s => s.name));
 
   // What they had BEFORE this delivery, so the new stamps can be identified.
+  // Also the date each dish was FIRST had: a stamp without a date is just a
+  // label, and the date is what makes the book feel like a record.
   const before = new Set();
   const ever = new Set();
+  const firstHad = {};
   const curId = currentOrder && currentOrder.id;
   for (const o of mine) {
+    const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
     for (const it of (o.items || [])) {
       if (!it.name || !stampableNames.has(it.name)) continue; // retired/bag/addon: no stamp
       ever.add(it.name);
+      if (when && (!firstHad[it.name] || when < firstHad[it.name])) firstHad[it.name] = when;
       if (!curId || o.id !== curId) before.add(it.name);
     }
   }
@@ -85,6 +90,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
       name: s.name,
       stamped: ever.has(s.name),
       isNew: ever.has(s.name) && !before.has(s.name),
+      firstHad: firstHad[s.name] || null,
     });
   }
 

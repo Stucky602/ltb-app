@@ -200,7 +200,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
     const pp = opts.passport;
     const visited = pp.pages.filter(p => p.stamped > 0);
     const newLine = pp.newStamps.length
-      ? `<div class="pp-new">New this delivery: ${pp.newStamps.map(esc).join(', ')}</div>`
+      ? `<div class="pp-new">New stamps earned from this delivery: ${pp.newStamps.map(esc).join(', ')}</div>`
       : '';
 
     passportStrip = `
@@ -221,12 +221,28 @@ export function companionHtml(order, pageId = '', opts = {}) {
           <div class="pp-page-count">${page.stamped} / ${page.total}${page.complete ? ' &middot; complete' : ''}</div>
         </div>
         <div class="pp-stamps">
-          ${page.dishes.map((d, j) => d.stamped
-            ? `<div class="pp-stamp${d.isNew ? ' pp-stamp-new' : ''}" style="--rot:${((j * 37) % 9) - 4}deg">
-                 <div class="pp-stamp-name">${esc(d.name)}</div>
-                 ${d.isNew ? '<div class="pp-stamp-flag">new</div>' : ''}
-               </div>`
-            : `<div class="pp-blank"><div class="pp-blank-name">${esc(d.name)}</div></div>`).join('')}
+          ${page.dishes.map((d, j) => {
+            // Deterministic per-dish jitter so a stamp sits the same way every
+            // time you open the book, but no two look identical.
+            const seed = d.name.length + d.name.charCodeAt(0) + j;
+            const rot = ((seed * 13) % 15) - 7;
+            const when = d.firstHad
+              ? new Date(d.firstHad).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()
+              : '';
+            const short = d.name.length > 34 ? d.name.slice(0, 32).trim() + '\u2026' : d.name;
+            return d.stamped
+              ? `<div class="pp-stamp${d.isNew ? ' pp-stamp-new' : ''}" style="--rot:${rot}deg">
+                   <div class="pp-ink">
+                     <div class="pp-ring">
+                       <div class="pp-arc">${esc(page.label.toUpperCase())}</div>
+                       <div class="pp-stamp-name">${esc(short)}</div>
+                       <div class="pp-date">${esc(when)}</div>
+                     </div>
+                   </div>
+                   ${d.isNew ? '<div class="pp-stamp-flag">new</div>' : ''}
+                 </div>`
+              : `<div class="pp-blank" style="--rot:${rot / 3}deg"><div class="pp-blank-name">${esc(short)}</div></div>`;
+          }).join('')}
         </div>
       </div>`).join('');
 
@@ -281,58 +297,101 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .one-bottle { font-size: 13.5px; color: #cfe0d8; background: rgba(93,202,165,0.10); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.5; }
   .one-bottle b { color: #5DCAA5; }
   /* ── Dish passport ──────────────────────────────────────────────────────
-     The strip sits under the title; the book opens over the page. Stamps are
-     pure CSS (rotated, ink-toned, slightly irregular) so the page stays light
-     and works with no network once loaded. */
-  .pp-strip { display: block; width: 100%; text-align: left; margin: 0 0 18px; padding: 12px 14px;
-    background: linear-gradient(180deg, rgba(184,152,90,0.10), rgba(184,152,90,0.04));
-    border: 1px solid #6b5a34; border-radius: 12px; cursor: pointer; font: inherit; color: inherit; }
+     Stamps are circular double-ruled ink marks, rotated and slightly blotchy,
+     the way a real passport looks after a few trips. The book is aged paper
+     with a spine. All pure CSS: no images, so the page stays light and the
+     whole thing works offline. */
+  .pp-strip { display: block; width: 100%; text-align: left; margin: 0 0 18px; padding: 13px 15px;
+    background: linear-gradient(145deg, rgba(184,152,90,0.14), rgba(184,152,90,0.03));
+    border: 1px solid #6b5a34; border-radius: 12px; cursor: pointer; font: inherit; color: inherit;
+    position: relative; overflow: hidden; }
+  .pp-strip::after { content: ''; position: absolute; top: -30px; right: -30px; width: 110px; height: 110px;
+    border: 2px solid rgba(212,176,106,0.16); border-radius: 50%; }
   .pp-strip:active { transform: scale(0.995); }
   .pp-strip-top { display: flex; justify-content: space-between; align-items: baseline; }
-  .pp-strip-title { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: #d4b06a; font-weight: 700; }
+  .pp-strip-title { font-size: 10.5px; letter-spacing: 2px; text-transform: uppercase; color: #d4b06a; font-weight: 700; }
   .pp-strip-open { font-size: 12px; color: #9aa5a0; }
-  .pp-strip-count { font-size: 14px; color: #e8ede9; margin-top: 4px; }
+  .pp-strip-count { font-size: 15px; color: #e8ede9; margin-top: 5px; font-family: Georgia, 'Times New Roman', serif; }
   .pp-strip-count b { color: #d4b06a; }
-  .pp-new { font-size: 12.5px; color: #5DCAA5; margin-top: 4px; font-weight: 600; }
-  .pp-strip-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-  .pp-chip { font-size: 10.5px; color: #cfe0d8; border: 1px solid #3a453f; border-radius: 999px; padding: 1px 8px; }
+  .pp-new { font-size: 12.5px; color: #5DCAA5; margin-top: 5px; font-weight: 600; line-height: 1.45; }
+  .pp-strip-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 9px; }
+  .pp-chip { font-size: 10px; color: #cfe0d8; border: 1px solid #3a453f; border-radius: 999px;
+    padding: 2px 9px; letter-spacing: 0.4px; }
 
-  .pp-overlay { position: fixed; inset: 0; background: rgba(8,14,12,0.92); z-index: 50;
-    display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .pp-overlay { position: fixed; inset: 0; background: rgba(6,11,10,0.94); z-index: 50;
+    display: flex; align-items: center; justify-content: center; padding: 14px; }
   .pp-overlay[hidden] { display: none; }
-  .pp-book { width: 100%; max-width: 560px; max-height: 88vh; display: flex; flex-direction: column;
-    background: #1b2320; border: 1px solid #6b5a34; border-radius: 14px; overflow: hidden;
-    box-shadow: 0 24px 60px rgba(0,0,0,0.55); }
+  .pp-book { width: 100%; max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;
+    border-radius: 6px 14px 14px 6px; overflow: hidden; position: relative;
+    background: #6b5a34;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.65), 0 0 0 1px rgba(212,176,106,0.35);
+    animation: ppOpen 260ms cubic-bezier(.2,.8,.3,1); }
+  @keyframes ppOpen { from { opacity: 0; transform: perspective(1200px) rotateY(-12deg) scale(0.94); }
+                      to   { opacity: 1; transform: none; } }
+  /* The spine: a darker strip down the left edge of the whole book. */
+  .pp-book::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px; z-index: 3;
+    background: linear-gradient(90deg, rgba(0,0,0,0.5), rgba(0,0,0,0.12) 60%, transparent);
+    pointer-events: none; }
   .pp-book-head { display: flex; justify-content: space-between; align-items: flex-start;
-    padding: 14px 16px; border-bottom: 1px solid #2d3a36; background: rgba(184,152,90,0.07); }
-  .pp-book-title { font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: #d4b06a; font-weight: 700; }
-  .pp-book-owner { font-size: 17px; color: #e8ede9; margin-top: 2px; }
-  .pp-close { background: none; border: none; color: #9aa5a0; font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
-  .pp-pages { flex: 1; overflow: hidden; position: relative; }
-  .pp-page { display: none; padding: 16px; height: 100%; overflow-y: auto; animation: ppIn 220ms ease; }
+    padding: 15px 17px 15px 26px;
+    background: linear-gradient(160deg, #7a663c, #5c4d2c);
+    border-bottom: 2px solid rgba(0,0,0,0.28); }
+  .pp-book-title { font-size: 10px; letter-spacing: 2.6px; text-transform: uppercase;
+    color: #f0dfae; font-weight: 700; }
+  .pp-book-owner { font-size: 19px; color: #fff6e2; margin-top: 3px;
+    font-family: Georgia, 'Times New Roman', serif; }
+  .pp-close { background: none; border: none; color: #e8d5a4; font-size: 27px; line-height: 1;
+    cursor: pointer; padding: 0 4px; opacity: 0.85; }
+  .pp-pages { flex: 1; overflow: hidden; position: relative; padding-left: 14px;
+    /* aged paper, with faint ruled lines like a real document page */
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(90,70,40,0.055) 27px, rgba(90,70,40,0.055) 28px),
+      radial-gradient(circle at 18% 12%, rgba(120,95,55,0.10), transparent 55%),
+      radial-gradient(circle at 82% 88%, rgba(120,95,55,0.09), transparent 55%),
+      linear-gradient(170deg, #efe4cd, #e2d4b8); }
+  .pp-page { display: none; padding: 16px 16px 20px; height: 100%; overflow-y: auto;
+    animation: ppFlip 300ms ease; }
   .pp-page.on { display: block; }
-  @keyframes ppIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+  @keyframes ppFlip { from { opacity: 0; transform: perspective(900px) rotateY(9deg); }
+                      to   { opacity: 1; transform: none; } }
   .pp-page-head { display: flex; justify-content: space-between; align-items: baseline;
-    border-bottom: 1px dashed #3a453f; padding-bottom: 8px; margin-bottom: 12px; }
-  .pp-page-name { font-size: 19px; color: #e8ede9; font-family: Georgia, 'Times New Roman', serif; }
-  .pp-page-count { font-size: 11.5px; color: #9aa5a0; }
-  .pp-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-  .pp-stamp { position: relative; border: 2px solid #b8985a; border-radius: 8px; padding: 12px 8px;
-    text-align: center; transform: rotate(var(--rot, 0deg)); background: rgba(184,152,90,0.08); }
-  .pp-stamp-name { font-size: 11.5px; color: #d4b06a; font-weight: 700; line-height: 1.25;
-    text-transform: uppercase; letter-spacing: 0.3px; }
-  .pp-stamp-new { border-color: #5DCAA5; background: rgba(93,202,165,0.10); }
-  .pp-stamp-new .pp-stamp-name { color: #5DCAA5; }
-  .pp-stamp-flag { position: absolute; top: -8px; right: -6px; font-size: 9px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.5px; color: #0f1613; background: #5DCAA5;
-    border-radius: 999px; padding: 1px 7px; }
-  .pp-blank { border: 1px dashed #33403a; border-radius: 8px; padding: 12px 8px; text-align: center; }
-  .pp-blank-name { font-size: 11px; color: #55605b; line-height: 1.25; }
+    border-bottom: 2px double #a08a5a; padding-bottom: 8px; margin-bottom: 15px; }
+  .pp-page-name { font-size: 21px; color: #3d3016; font-family: Georgia, 'Times New Roman', serif;
+    letter-spacing: 0.4px; }
+  .pp-page-count { font-size: 11px; color: #7a6740; letter-spacing: 1px; text-transform: uppercase; }
+  .pp-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px 10px; }
+
+  /* A stamp: circle, double rule, cuisine arc on top, dish name, date below. */
+  .pp-stamp { position: relative; aspect-ratio: 1; transform: rotate(var(--rot, 0deg)); }
+  .pp-ink { width: 100%; height: 100%; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; padding: 5px;
+    border: 2.5px solid #8c3b2f; color: #8c3b2f; opacity: 0.88;
+    box-shadow: inset 0 0 0 1.5px #8c3b2f, inset 0 0 14px rgba(140,59,47,0.16); }
+  .pp-ring { text-align: center; width: 100%; }
+  .pp-arc { font-size: 7.5px; letter-spacing: 1.4px; font-weight: 700; opacity: 0.85; margin-bottom: 2px; }
+  .pp-stamp-name { font-size: 9.5px; font-weight: 800; line-height: 1.15; text-transform: uppercase;
+    letter-spacing: 0.2px; word-break: break-word; }
+  .pp-date { font-size: 7.5px; letter-spacing: 1.1px; margin-top: 3px; opacity: 0.8; }
+  /* A new stamp reads as fresher ink, not a different system. */
+  .pp-stamp-new .pp-ink { border-color: #1f6b4f; color: #1f6b4f; opacity: 1;
+    box-shadow: inset 0 0 0 1.5px #1f6b4f, inset 0 0 16px rgba(31,107,79,0.20); }
+  .pp-stamp-flag { position: absolute; top: -2px; right: -2px; font-size: 8px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.7px; color: #f4fbf7; background: #1f6b4f;
+    border-radius: 999px; padding: 2px 7px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  /* Not yet earned: a dashed placeholder, quiet, never a scolding. */
+  .pp-blank { aspect-ratio: 1; border: 1.5px dashed #b3a179; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; padding: 8px;
+    transform: rotate(var(--rot, 0deg)); }
+  .pp-blank-name { font-size: 9px; color: #a08a5a; line-height: 1.2; text-align: center;
+    text-transform: uppercase; letter-spacing: 0.2px; word-break: break-word; }
+
   .pp-nav { display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; border-top: 1px solid #2d3a36; }
-  .pp-nav-btn { background: none; border: 1px solid #3a453f; border-radius: 8px; color: #cfe0d8;
-    font-size: 18px; line-height: 1; padding: 4px 14px; cursor: pointer; }
-  .pp-nav-label { font-size: 12px; color: #9aa5a0; }
+    padding: 11px 15px 11px 26px; background: linear-gradient(160deg, #5c4d2c, #4a3e24);
+    border-top: 2px solid rgba(0,0,0,0.25); }
+  .pp-nav-btn { background: rgba(255,246,226,0.08); border: 1px solid rgba(240,223,174,0.35);
+    border-radius: 8px; color: #f0dfae; font-size: 17px; line-height: 1; padding: 5px 16px; cursor: pointer; }
+  .pp-nav-btn:active { background: rgba(255,246,226,0.16); }
+  .pp-nav-label { font-size: 11px; color: #d8c9a0; letter-spacing: 1.2px; text-transform: uppercase; }
   .v { color: #9aa5a0; font-size: 12.5px; }
   .feeds { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #24413a; color: #5DCAA5; font-size: 11px; font-weight: 700; vertical-align: middle; }
   .card { background: #1c2422; border: 1px solid #2d3a36; border-radius: 14px; padding: 15px 17px; margin: 12px 0; }

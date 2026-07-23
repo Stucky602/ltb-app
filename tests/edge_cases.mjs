@@ -242,4 +242,32 @@ ok(!ppRevoked.pages.find(p => p.cuisine === 'Korean').dishes.find(d => d.name ==
 ok(buildPassport({ id: 'r4', name: 'X', passportGrants: ['Filet Mignon'] }, [], null).tried === 0,
   'passport: granting a bag item does nothing, the stampable set still rules');
 
+
+// ── Passport: cover, visas, seals, and stamp marks ──────────────────────────
+const ppV = buildPassport(
+  { id: 'rv', name: 'V', passportRequests: ['Mapo Eggplant'] },
+  [
+    { id: 'v1', regularId: 'rv', createdAt: '2026-03-01', items: [{ name: 'Bo Ssam', qty: 2 }] },
+    { id: 'v2', regularId: 'rv', createdAt: '2026-07-20', items: [
+      { name: 'Mapo Eggplant' },
+      { name: 'Omakase', omakase: true, variant: 'Large', budgetMax: 150 },
+    ] },
+    { id: 'other', regularId: 'someone-else', createdAt: '2026-04-01', items: [{ name: 'Chili' }] },
+  ],
+  { id: 'v2' });
+ok(new Date(ppV.issued).getMonth() === 2, 'passport: issued date is their FIRST order, not their latest');
+ok(ppV.visas.length === 1 && ppV.visas[0].budget === 150,
+  'passport: omakase earns a visa carrying its budget, never a dish stamp');
+ok(ppV.chaptersComplete >= 1, 'passport: a fully-stamped chapter counts toward chapters filled');
+ok(ppV.newCuisines.includes('Chinese'),
+  'passport: a cuisine touched for the first time this delivery is called out');
+const ppBo = ppV.pages.find(p => p.cuisine === 'Korean').dishes.find(d => d.name === 'Bo Ssam');
+ok(ppBo.times === 2, 'passport: a stamp knows how many times they have had it');
+ok(ppBo.firstEver === true, 'passport: being the first person ever to order a dish is recorded');
+ok(ppBo.rare === true, 'passport: a dish almost nobody has ordered is marked rare');
+const ppMapo = ppV.pages.find(p => p.cuisine === 'Chinese').dishes.find(d => /Mapo/.test(d.name));
+ok(ppMapo.requested === true, 'passport: a dish they asked for is marked as theirs');
+ok(buildPassport({ id: 'rz', name: 'Z' }, [], null).visas.length === 0,
+  'passport: no omakase means no visa page at all');
+
 console.log(`EDGE CASES: ALL PASS (${pass} checks)`);

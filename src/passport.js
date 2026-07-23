@@ -79,6 +79,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
   if (!reg) return null;
 
   const mine = ordersForRegular(reg, allOrders);
+  const everyone = allOrders || [];
   const stampable = stampableDishes();
   const stampableNames = new Set(stampable.map(s => s.name));
 
@@ -99,6 +100,37 @@ export function buildPassport(reg, allOrders, currentOrder) {
       if (!curId || o.id !== curId) before.add(name);
     }
   }
+
+  // How many times they have had each dish, for the stamp detail view.
+  const timesHad = {};
+  for (const o of mine) {
+    for (const it of (o.items || [])) {
+      const name = canonicalName(it.name);
+      if (!stampableNames.has(name)) continue;
+      timesHad[name] = (timesHad[name] || 0) + (Number(it.qty) || 1);
+    }
+  }
+
+  // First-ever and rarity, both computed across ALL orders. Rarity is shown
+  // only as a property of THEIR stamp, never as a ranking of people: "few
+  // people have had this" is a fact about the dish, not a scoreboard.
+  const firstEverBy = {};   // dish -> earliest order timestamp anyone had it
+  const eaterCount = {};    // dish -> how many distinct customers have had it
+  const eatersSeen = {};
+  for (const o of everyone) {
+    if (o.house) continue;
+    const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
+    const who = o.regularId || String(o.customer || '').toLowerCase();
+    for (const it of (o.items || [])) {
+      const name = canonicalName(it.name);
+      if (!stampableNames.has(name)) continue;
+      if (when && (!firstEverBy[name] || when < firstEverBy[name].when)) firstEverBy[name] = { when, who };
+      if (!eatersSeen[name]) eatersSeen[name] = new Set();
+      if (who) eatersSeen[name].add(who);
+    }
+  }
+  for (const k of Object.keys(eatersSeen)) eaterCount[k] = eatersSeen[k].size;
+  const meId = reg.id || String(reg.name || '').toLowerCase();
 
   // Manual grants: Kevin's memory is a legitimate source. A granted dish is
   // never "new this delivery" (it was earned some time ago, not tonight), and
@@ -126,6 +158,10 @@ export function buildPassport(reg, allOrders, currentOrder) {
       isNew: ever.has(s.name) && !before.has(s.name),
       firstHad: firstHad[s.name] || null,
       granted: (reg.passportGrants || []).some(g => canonicalName(g) === s.name) && !firstHad[s.name],
+      times: timesHad[s.name] || 0,
+      firstEver: !!(firstEverBy[s.name] && firstEverBy[s.name].who === meId && ever.has(s.name)),
+      rare: ever.has(s.name) && (eaterCount[s.name] || 0) > 0 && (eaterCount[s.name] || 0) <= 2,
+      requested: ever.has(s.name) && (reg.passportRequests || []).some(r => canonicalName(r) === s.name),
     });
   }
 
@@ -146,6 +182,39 @@ export function buildPassport(reg, allOrders, currentOrder) {
   const newStamps = [];
   for (const p of pages) for (const d of p.dishes) if (d.isNew) newStamps.push(d.name);
 
+  // Omakase earns a VISA, not a stamp: it is not a dish, it is a act of trust,
+  // and it deserves its own page rather than being folded into a cuisine.
+  const visas = [];
+  for (const o of mine) {
+    for (const it of (o.items || [])) {
+      if (!it.omakase) continue;
+      visas.push({
+        date: o.createdAt || null,
+        size: it.variant || '',
+        budget: it.budgetMax != null ? it.budgetMax : (it.price || 0),
+        isNew: !!(curId && o.id === curId),
+      });
+    }
+  }
+  visas.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+  // Issued: the date of their first order with LTB, which is the quiet way of
+  // saying "you have been here a while."
+  let issued = null;
+  for (const o of mine) {
+    const w = o.createdAt ? new Date(o.createdAt).getTime() : 0;
+    if (w && (!issued || w < issued)) issued = w;
+  }
+
+  // A cuisine they had never touched before this delivery.
+  const newCuisines = [];
+  for (const p of pages) {
+    const newHere = p.dishes.filter(d => d.isNew);
+    if (!newHere.length) continue;
+    const hadBefore = p.dishes.some(d => d.stamped && !d.isNew);
+    if (!hadBefore) newCuisines.push(p.label);
+  }
+
   return {
     tried: ever.size,
     total: stampable.length,
@@ -153,6 +222,10 @@ export function buildPassport(reg, allOrders, currentOrder) {
     cuisinesTotal: pages.length,
     pages,
     newStamps,
+    newCuisines,
+    visas,
+    issued,
+    chaptersComplete: pages.filter(p => p.complete).length,
     complete: ever.size === stampable.length,
   };
 }

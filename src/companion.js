@@ -214,12 +214,51 @@ export function companionHtml(order, pageId = '', opts = {}) {
       <div class="pp-strip-chips">${visited.map(p => `<span class="pp-chip">${esc(p.label)}</span>`).join('')}</div>
     </button>`;
 
-    const spreads = pp.pages.map((page, i) => `
+    const issuedTxt = pp.issued
+      ? new Date(pp.issued).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      : '';
+    const coverPage = `
+      <div class="pp-page pp-cover" data-page="0">
+        <div class="pp-cover-crest">LTB</div>
+        <div class="pp-cover-title">Dish Passport</div>
+        <div class="pp-cover-owner">${customer}</div>
+        ${issuedTxt ? `<div class="pp-cover-issued">Issued ${esc(issuedTxt)}</div>` : ''}
+        <div class="pp-cover-stats">
+          <div class="pp-cs"><b>${pp.tried}</b><span>of ${pp.total} stamps</span></div>
+          <div class="pp-cs"><b>${pp.cuisinesVisited}</b><span>of ${pp.cuisinesTotal} chapters</span></div>
+          ${pp.chaptersComplete > 0 ? `<div class="pp-cs"><b>${pp.chaptersComplete}</b><span>chapter${pp.chaptersComplete === 1 ? '' : 's'} filled</span></div>` : ''}
+          ${pp.visas.length ? `<div class="pp-cs"><b>${pp.visas.length}</b><span>omakase visa${pp.visas.length === 1 ? '' : 's'}</span></div>` : ''}
+        </div>
+        ${pp.newCuisines.length ? `<div class="pp-cover-note">First time in ${pp.newCuisines.map(esc).join(' and ')}. That is a new chapter opened.</div>` : ''}
+      </div>`;
+
+    const visaPage = pp.visas.length ? `
+      <div class="pp-page pp-visas" data-page="1">
+        <div class="pp-page-head">
+          <div class="pp-page-name"><span class="pp-emblem">\u2708</span>Omakase visas</div>
+          <div class="pp-page-count">${pp.visas.length}</div>
+        </div>
+        <div class="pp-visa-note">Every time you handed over the menu and said cook me something.</div>
+        ${pp.visas.map(v => `
+          <div class="pp-visa${v.isNew ? ' pp-visa-new' : ''}">
+            <div class="pp-visa-l">
+              <div class="pp-visa-date">${v.date ? esc(new Date(v.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })) : ''}</div>
+              <div class="pp-visa-size">${esc(v.size || 'Omakase')}</div>
+            </div>
+            <div class="pp-visa-budget">${v.budget ? '$' + v.budget : ''}</div>
+          </div>`).join('')}
+      </div>` : '';
+
+    const offset = pp.visas.length ? 2 : 1;
+    const spreads = coverPage + visaPage + pp.pages.map((page, iRaw) => {
+      const i = iRaw + offset;
+      return `
       <div class="pp-page" data-page="${i}">
         <div class="pp-page-head">
-          <div class="pp-page-name">${esc(page.label)}</div>
-          <div class="pp-page-count">${page.stamped} / ${page.total}${page.complete ? ' &middot; complete' : ''}</div>
+          <div class="pp-page-name"><span class="pp-emblem">${esc((page.label || '?').slice(0, 1))}</span>${esc(page.label)}</div>
+          <div class="pp-page-count">${page.stamped} / ${page.total}</div>
         </div>
+        ${page.complete ? '<div class="pp-seal"><div class="pp-seal-in">chapter<br>complete</div></div>' : ''}
         <div class="pp-stamps">
           ${page.dishes.map((d, j) => {
             // Deterministic per-dish jitter so a stamp sits the same way every
@@ -230,8 +269,18 @@ export function companionHtml(order, pageId = '', opts = {}) {
               ? new Date(d.firstHad).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()
               : '';
             const short = d.name.length > 34 ? d.name.slice(0, 32).trim() + '\u2026' : d.name;
+            const marks = [];
+            if (d.firstEver) marks.push('<span class="pp-mark pp-mark-first" title="First person to ever order this">1st</span>');
+            if (d.rare) marks.push('<span class="pp-mark pp-mark-rare" title="Hardly anyone has had this">rare</span>');
+            if (d.requested) marks.push('<span class="pp-mark pp-mark-req" title="You asked for this one">asked</span>');
+            const detail = [
+              d.times > 1 ? d.times + ' times' : (d.times === 1 ? 'once' : ''),
+              when ? 'first had ' + when : '',
+              d.granted ? 'added by Kevin' : '',
+            ].filter(Boolean).join(' \u00b7 ');
             return d.stamped
-              ? `<div class="pp-stamp${d.isNew ? ' pp-stamp-new' : ''}" style="--rot:${rot}deg">
+              ? `<div class="pp-stamp${d.isNew ? ' pp-stamp-new' : ''}" style="--rot:${rot}deg"
+                     onclick="stampDetail(this)" data-detail="${esc(d.name)}${detail ? ' \u2014 ' + esc(detail) : ''}">
                    <div class="pp-ink">
                      <div class="pp-ring">
                        <div class="pp-arc">${esc(page.label.toUpperCase())}</div>
@@ -240,11 +289,13 @@ export function companionHtml(order, pageId = '', opts = {}) {
                      </div>
                    </div>
                    ${d.isNew ? '<div class="pp-stamp-flag">new</div>' : ''}
+                   ${marks.length ? `<div class="pp-marks">${marks.join('')}</div>` : ''}
                  </div>`
               : `<div class="pp-blank" style="--rot:${rot / 3}deg"><div class="pp-blank-name">${esc(short)}</div></div>`;
           }).join('')}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     passportBook = `
     <div class="pp-overlay" id="ppOverlay" role="dialog" aria-label="Dish passport" hidden>
@@ -257,11 +308,23 @@ export function companionHtml(order, pageId = '', opts = {}) {
           <button class="pp-close" onclick="closePassport()" aria-label="Close">&times;</button>
         </div>
         <div class="pp-tabs" id="ppTabs">
-          ${pp.pages.map((page, i) => `
+          <button class="pp-tab" data-tab="0" onclick="gotoPassport(0)">
+            <span class="pp-tab-name">Cover</span>
+            <span class="pp-tab-count">${pp.tried}/${pp.total}</span>
+          </button>
+          ${pp.visas.length ? `
+          <button class="pp-tab" data-tab="1" onclick="gotoPassport(1)">
+            <span class="pp-tab-name">Visas</span>
+            <span class="pp-tab-count">${pp.visas.length}</span>
+          </button>` : ''}
+          ${pp.pages.map((page, iRaw) => {
+            const i = iRaw + (pp.visas.length ? 2 : 1);
+            return `
             <button class="pp-tab" data-tab="${i}" onclick="gotoPassport(${i})">
               <span class="pp-tab-name">${esc(page.label)}</span>
               <span class="pp-tab-count${page.complete ? ' pp-tab-done' : ''}${page.stamped === 0 ? ' pp-tab-empty' : ''}">${page.stamped}/${page.total}</span>
-            </button>`).join('')}
+            </button>`;
+          }).join('')}
         </div>
         <div class="pp-pages" id="ppPages">${spreads}</div>
         <div class="pp-nav">
@@ -364,15 +427,15 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .pp-tab.on { background: #efe4cd; color: #3d3016; border-color: #efe4cd; }
   .pp-tab.on .pp-tab-count { opacity: 0.7; }
   .pp-tab.on .pp-tab-done { color: #1f6b4f; }
-  .pp-pages { flex: 1; overflow: hidden; position: relative; padding-left: 14px;
+  .pp-pages { flex: 1 1 auto; min-height: 0; overflow: hidden; position: relative; padding-left: 14px;
     /* aged paper, with faint ruled lines like a real document page */
     background:
       repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(90,70,40,0.055) 27px, rgba(90,70,40,0.055) 28px),
       radial-gradient(circle at 18% 12%, rgba(120,95,55,0.10), transparent 55%),
       radial-gradient(circle at 82% 88%, rgba(120,95,55,0.09), transparent 55%),
       linear-gradient(170deg, #efe4cd, #e2d4b8); }
-  .pp-page { display: none; padding: 16px 16px 20px; height: 100%; overflow-y: auto;
-    animation: ppFlip 300ms ease; }
+  .pp-page { display: none; position: relative; padding: 16px 16px 22px; height: 100%; overflow-y: auto;
+    -webkit-overflow-scrolling: touch; animation: ppFlip 300ms ease; }
   .pp-page.on { display: block; }
   @keyframes ppFlip { from { opacity: 0; transform: perspective(900px) rotateY(9deg); }
                       to   { opacity: 1; transform: none; } }
@@ -381,7 +444,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .pp-page-name { font-size: 21px; color: #3d3016; font-family: Georgia, 'Times New Roman', serif;
     letter-spacing: 0.4px; }
   .pp-page-count { font-size: 11px; color: #7a6740; letter-spacing: 1px; text-transform: uppercase; }
-  .pp-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 14px 10px; }
+  .pp-stamps { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px 9px; }
 
   /* A stamp: circle, double rule, cuisine arc on top, dish name, date below. */
   .pp-stamp { position: relative; aspect-ratio: 1; transform: rotate(var(--rot, 0deg)); }
@@ -390,10 +453,10 @@ export function companionHtml(order, pageId = '', opts = {}) {
     border: 2.5px solid #8c3b2f; color: #8c3b2f; opacity: 0.88;
     box-shadow: inset 0 0 0 1.5px #8c3b2f, inset 0 0 14px rgba(140,59,47,0.16); }
   .pp-ring { text-align: center; width: 100%; }
-  .pp-arc { font-size: 7.5px; letter-spacing: 1.4px; font-weight: 700; opacity: 0.85; margin-bottom: 2px; }
-  .pp-stamp-name { font-size: 9.5px; font-weight: 800; line-height: 1.15; text-transform: uppercase;
-    letter-spacing: 0.2px; word-break: break-word; }
-  .pp-date { font-size: 7.5px; letter-spacing: 1.1px; margin-top: 3px; opacity: 0.8; }
+  .pp-arc { font-size: 6.5px; letter-spacing: 1.1px; font-weight: 700; opacity: 0.85; margin-bottom: 1px; }
+  .pp-stamp-name { font-size: 8.5px; font-weight: 800; line-height: 1.12; text-transform: uppercase;
+    letter-spacing: 0.1px; word-break: break-word; }
+  .pp-date { font-size: 6.5px; letter-spacing: 0.9px; margin-top: 2px; opacity: 0.8; }
   /* A new stamp reads as fresher ink, not a different system. */
   .pp-stamp-new .pp-ink { border-color: #1f6b4f; color: #1f6b4f; opacity: 1;
     box-shadow: inset 0 0 0 1.5px #1f6b4f, inset 0 0 16px rgba(31,107,79,0.20); }
@@ -404,8 +467,61 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .pp-blank { aspect-ratio: 1; border: 1.5px dashed #b3a179; border-radius: 50%;
     display: flex; align-items: center; justify-content: center; padding: 8px;
     transform: rotate(var(--rot, 0deg)); }
-  .pp-blank-name { font-size: 9px; color: #a08a5a; line-height: 1.2; text-align: center;
+  .pp-blank-name { font-size: 8px; color: #a08a5a; line-height: 1.15; text-align: center;
     text-transform: uppercase; letter-spacing: 0.2px; word-break: break-word; }
+
+  /* Cover page: the inside flap of the document. */
+  .pp-cover { text-align: center; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 3px; }
+  .pp-cover-crest { width: 54px; height: 54px; border-radius: 50%; border: 2.5px solid #8c6d34;
+    color: #8c6d34; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800; letter-spacing: 1px; margin-bottom: 10px;
+    box-shadow: inset 0 0 0 1.5px #8c6d34; }
+  .pp-cover-title { font-size: 11px; letter-spacing: 3.4px; text-transform: uppercase; color: #7a6740; }
+  .pp-cover-owner { font-size: 27px; color: #3d3016; font-family: Georgia, 'Times New Roman', serif; margin-top: 2px; }
+  .pp-cover-issued { font-size: 11px; color: #8a7a52; }
+  .pp-cover-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 16px;
+    padding-top: 14px; border-top: 2px double #a08a5a; width: 100%; }
+  .pp-cs { display: flex; flex-direction: column; align-items: center; }
+  .pp-cs b { font-size: 21px; color: #8c3b2f; font-family: Georgia, serif; }
+  .pp-cs span { font-size: 9.5px; color: #7a6740; letter-spacing: 0.5px; text-transform: uppercase; }
+  .pp-cover-note { font-size: 12px; color: #1f6b4f; margin-top: 14px; font-weight: 600; line-height: 1.5; }
+
+  /* Chapter emblem + completion seal. */
+  .pp-emblem { display: inline-flex; align-items: center; justify-content: center;
+    width: 25px; height: 25px; border-radius: 50%; border: 1.5px solid #8c6d34; color: #8c6d34;
+    font-size: 12px; font-weight: 700; margin-right: 8px; vertical-align: middle;
+    font-family: Georgia, serif; }
+  .pp-seal { position: absolute; right: 18px; top: 74px; width: 84px; height: 84px; border-radius: 50%;
+    border: 3px double #1f6b4f; color: #1f6b4f; display: flex; align-items: center; justify-content: center;
+    transform: rotate(-13deg); opacity: 0.72; pointer-events: none; z-index: 2;
+    box-shadow: inset 0 0 12px rgba(31,107,79,0.16); }
+  .pp-seal-in { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px;
+    text-align: center; line-height: 1.3; }
+
+  /* Marks on a stamp: first ever, rare, requested. */
+  .pp-marks { position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 3px; white-space: nowrap; }
+  .pp-mark { font-size: 7px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px;
+    border-radius: 999px; padding: 1px 5px; }
+  .pp-mark-first { background: #8c6d34; color: #fff6e2; }
+  .pp-mark-rare { background: #5a3f7a; color: #f3ecfa; }
+  .pp-mark-req { background: #2f6f57; color: #eafaf3; }
+
+  /* Omakase visas: a different kind of page on purpose. */
+  .pp-visa-note { font-size: 11.5px; color: #7a6740; font-style: italic; margin-bottom: 12px; }
+  .pp-visa { display: flex; justify-content: space-between; align-items: center; padding: 9px 11px;
+    border: 1.5px dashed #8c6d34; border-radius: 8px; margin-bottom: 8px; background: rgba(140,109,52,0.05); }
+  .pp-visa-new { border-style: solid; border-color: #1f6b4f; background: rgba(31,107,79,0.07); }
+  .pp-visa-date { font-size: 12.5px; color: #3d3016; font-weight: 700; }
+  .pp-visa-size { font-size: 10.5px; color: #7a6740; letter-spacing: 0.4px; text-transform: uppercase; }
+  .pp-visa-budget { font-size: 15px; color: #8c3b2f; font-family: Georgia, serif; }
+
+  /* Tap a stamp for its story. */
+  .pp-detail { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 4;
+    background: #2b2418; color: #f0e5cc; border-radius: 9px; padding: 9px 12px; font-size: 12px;
+    line-height: 1.45; box-shadow: 0 8px 24px rgba(0,0,0,0.4); animation: ppIn 180ms ease; }
+  @keyframes ppIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
   .pp-nav { display: flex; align-items: center; justify-content: space-between;
     padding: 11px 15px 11px 26px; background: linear-gradient(160deg, #5c4d2c, #4a3e24);
@@ -492,9 +608,16 @@ export function companionHtml(order, pageId = '', opts = {}) {
 // stamp, because that is the thing worth seeing.
 var ppPage = 0, ppTotal = 0;
 function ppRender() {
+  var openDetail = document.querySelector('.pp-detail');
+  if (openDetail) openDetail.parentNode.removeChild(openDetail);
   var pages = document.querySelectorAll('.pp-page');
   ppTotal = pages.length;
-  for (var i = 0; i < pages.length; i++) pages[i].className = 'pp-page' + (i === ppPage ? ' on' : '');
+  // classList, not className: the cover and visa pages carry extra classes
+  // (pp-cover, pp-visas) that a wholesale className rewrite would erase.
+  for (var i = 0; i < pages.length; i++) {
+    if (i === ppPage) pages[i].classList.add('on');
+    else pages[i].classList.remove('on');
+  }
   var tabs = document.querySelectorAll('.pp-tab');
   for (var j = 0; j < tabs.length; j++) {
     var on = j === ppPage;
@@ -508,6 +631,22 @@ function ppRender() {
   }
   var label = document.getElementById('ppNavLabel');
   if (label) label.textContent = (ppPage + 1) + ' of ' + ppTotal;
+}
+function stampDetail(el) {
+  var txt = el && el.getAttribute('data-detail');
+  if (!txt) return;
+  var host = document.querySelector('.pp-page.on');
+  if (!host) return;
+  var old = document.querySelector('.pp-detail');
+  if (old) old.parentNode.removeChild(old);
+  var box = document.createElement('div');
+  box.className = 'pp-detail';
+  box.textContent = txt;
+  host.appendChild(box);
+  clearTimeout(window.__ppDetailT);
+  window.__ppDetailT = setTimeout(function () {
+    if (box.parentNode) box.parentNode.removeChild(box);
+  }, 3200);
 }
 function gotoPassport(i) {
   if (i < 0 || i >= ppTotal) return;

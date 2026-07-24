@@ -35,6 +35,23 @@ import {
 // Every text field is Kevin's or a customer's — escape everything.
 // Interchange schema version. Bump ONLY on a breaking shape change; additive
 // fields do not need it. See the note at the embedded block below.
+// ── The front door ─────────────────────────────────────────────────────────
+// Written in Kevin's voice, Jul 2026. EDIT THIS FREELY — it is the one part of
+// the archive that is addressed to a person rather than generated from data,
+// and it is what turns the file from a database into a document written to
+// someone. Plain text, one paragraph per line.
+export const ARCHIVE_INTRO = [
+  "If you are reading this, you found the file. Good.",
+  "This is how I cook. All of it, as far as I could get it written down. It started as a way to feed some friends in Austin every Wednesday and turned into the only complete record of what I actually know, which is a thing I did not have and could not have reconstructed later.",
+  "Some of what follows is a recipe. Most of it is not. A recipe tells you what to buy and how long to leave it on the heat, and it will not tell you the part that matters, which is what the thing is supposed to look like and smell like when it is right, and what to do when it is not right. That part is in here too, under each dish, in my own words, written the week I figured it out.",
+  "Read it however you want. If you want the story of a dish, read its section top to bottom, oldest first. You will see me change my mind. That is not sloppiness, that is the whole point. The difference between the first version and the last version IS the knowledge, and if I had only written down the last one you would have the answer and none of the thinking.",
+  "A few things are marked private. Those are for you, not for customers. Where a dish came from, who taught it to me, what I was trying to do. I kept them in here on purpose.",
+  "Some entries are marked as holding beyond the dish they are under. Those are the ones worth learning first. A technique is for one plate. A principle is for every plate you will ever make.",
+  "Where something is undated, I did not know the real date and I refused to make one up. An invented date is worse than no date.",
+  "This file does not need me, or the app, or the internet. Open it anywhere, print it if you want. That was deliberate.",
+  "Cook something.",
+];
+
 export const ARCHIVE_SCHEMA = 1;
 export const ARCHIVE_FIELD_NOTES = {
   journal: 'All dossier entries. {id, ts (ISO, when WRITTEN), type, subject:{kind,dish}, text, private, transferable, undated?, migrated?, principle?}',
@@ -69,6 +86,8 @@ function htmlShell(title, generatedAt, body, embeddedJson) {
   .type { font-variant: small-caps; letter-spacing: 0.5px; font-weight: 700; font-size: 12px; }
   .lock { color: #b8860b; font-size: 11px; }
   .carries { color: #2e6b4f; font-size: 11px; font-weight: 700; }
+  .intro { font-size: 15px; line-height: 1.7; max-width: 62ch; }
+  .intro:first-of-type { font-size: 17px; }
   .principle { border-left: 3px solid #2e6b4f; padding-left: 12px; margin: 10px 0 14px; }
   .principle .src { color: #666; font-size: 12px; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0; }
@@ -165,6 +184,9 @@ export function buildArchiveHtml({ journal, orders, generatedAt } = {}) {
   const parts = [];
   parts.push(`<h1>Lettuce, Turnip, The Beet — The Record, ${esc(year)}</h1>
 <div class="sub">Generated ${esc(fmtDate(when))} · ${DISHES.length} dinners on the register · ${j.entries.length} journal entr${j.entries.length === 1 ? 'y' : 'ies'} · This file is complete in itself: no app, no internet, no software beyond a browser is needed to read it, and it prints clean. The same data rides inside it in machine-readable form.</div>`);
+
+  parts.push('<h2>Start here</h2>');
+  for (const para of ARCHIVE_INTRO) parts.push(`<p class="intro">${esc(para)}</p>`);
 
   parts.push('<h2>The business journal</h2>');
   parts.push(journalSection(general, DISH_RENAMES));

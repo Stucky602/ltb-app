@@ -1,80 +1,65 @@
-# Round: two bug fixes + four features
+# Delta: renames, dossier cleanup, and four features
 
-Delta only. Nothing else in the repo moves.
+Only changed files. `worker.js` must be pasted into the Cloudflare dashboard by
+hand as always; nothing deploys it.
 
-## BUG 1 — "body is disturbed or locked" (mine, from last round)
-A `Response` body is a one-shot stream. `publishWeek` already ended with
-`return res.json()`, and the dropped-fields check I added last round read the
-body a SECOND time. The publish itself succeeded (which is why your notice went
-live), then the function threw at the very end and WeekTab reported a failure
-for work that had landed. That is the worst shape a bug can take, because it
-teaches you to distrust a success message. Now parsed exactly once and reused.
+## The renames (the real fix behind that screenshot)
+Added to `DISH_RENAMES` with matching `RENAME_HISTORY` rows, per your notes:
+- `Curry of the Week` -> `Indian Style Curry`
+- `Cumin Mushroom Noodles` -> `Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice`
+  (recorded as NOT a retirement: the dish never left, variants were added and
+  the name grew)
+- `Chicken Breast` -> `Air-Chilled Chicken Breast`
 
-## BUG 2 — the order window was walkable, in TWO places
-You flagged `main-menu.html`. There was a second one: **`menu.html`'s "Place
-Your Order" CTA was also ungated**, and that is your most-used path. Neither
-checked the day. `form.html` had no self-gate at all, so any link reached it on
-any day.
+Until now those three sat in order history under names the registry did not
+know, so they never canonicalized. That was quietly splitting their passport
+stamps, per-dish sales counts, and dossier lookups. The nudge box was the only
+reason it surfaced at all.
 
-Fixed at the source: **form.html now gates itself** (Sun + Wed-Sat open,
-Mon/Tue closed, same rule as order.html) and renders a plain "orders are
-closed" panel with NO form. Link-level gating is whack-a-mole; the form is the
-one place a gate cannot be walked around. Both links now render as plain text
-outside the window instead of dead links.
+## The box is gone
+Removed from the dossier entirely, along with the `orders` and `knownNames`
+props it needed. The underlying signal did NOT disappear: it moved to the
+Monday briefing as "Names the app does not recognize", where it belongs, since
+it is a data-integrity issue and not something to show on every dish.
 
-`?preview=1` on form.html bypasses the gate so you can still check the form on
-a Monday. Say the word if you would rather not have that.
+## What shipped
+1. **On this day** — what you wrote on this calendar day in a previous year,
+   in the briefing. Excludes today's own writing (not a memory) and `undated`
+   entries (their date is a migration artifact, not a real day).
+2. **Orphaned-name detector** — finds the next case of the rename bug above.
+   NOT a gate test on purpose: order history lives in localStorage, so no
+   build-time check can see it. It runs where the data is.
+3. **Customer questions are logged.** `/ask` was answering questions and
+   storing nothing. The worker now keeps a rolling `ask-log` (200 cap) and
+   serves it at `GET /ask-log?token=`. There is a "Pull customer questions"
+   button in the briefing. Logged BEFORE the 5-question cap check, because
+   somebody hitting the limit is itself a signal that the page left them with
+   more questions than it answered.
+4. **The archive front door** — `ARCHIVE_INTRO` in `archiveExport.js`, in your
+   voice, addressed to your son. **Edit it freely.** It is the one part of the
+   archive not generated from data, and it is what turns the file from a
+   database into something written to a person. A test enforces no em-dashes.
 
-The heads-up banner still renders on a closed day, since a heads-up matters
-just as much when nobody can order.
+## Not built, and why
+- **Reheat rescue + acknowledged feedback** (the learning loop) needs
+  `src/companion.js`. That is the customer surface where the taps happen and I
+  do not have it.
+- **The per-dish pairing toy** needs `src/weekPlanner.js` (that is where
+  `weekOneBottle` lives) plus wherever per-dish pairing data is stored.
 
-7 checks folded into `customer_pages.mjs` with a FROZEN clock, so they can
-never flake depending on which weekday the gate runs.
-
-## FEATURE 1 + 2 — one question a week (NEW `src/dossierPrompts.js`)
-Appears in the Monday briefing. One question, about one dish, chosen because
-its record is the thinnest thing on this week's menu. Priority order:
-1. a dish with NOTHING written
-2. a dish nobody has written about in 6+ months
-3. the thinnest record on the week
-
-**It never reads order history.** History was backfilled, so "first time ever
-cooked" measures data entry, not reality — the same trap that killed the
-passport rare badge. Every trigger reads this week's menu plus timestamps you
-wrote yourself. A source-level test enforces that the engine cannot touch
-orders.
-
-**Self-clearing**: computed from current state, so answering moves the target
-to the next dish by itself. No dismissal flag, nothing to persist, nothing to
-get out of sync. Wording rotates weekly so it does not become wallpaper.
-
-## FEATURE 3 — the arc view
-"Read as an arc" toggle on any dossier with more than one entry. Flips to
-oldest-first, so the dossier reads as how the dish changed rather than as a
-feed. Newest-first stays the default.
-
-## FEATURE 5 — Queso: already done, nothing built
-`Queso` is already in `REPORTABLE_ALWAYS_ITEMS`, so it is already selectable in
-the Recipes picker and already has a dossier. Cookies, Fudge, and Brownies come
-along with it. That predates this session.
-
-## FEATURE 9 — the interchange contract
-The archive's embedded JSON now carries `schema` (a version) and `fields` (a
-self-describing map of its own shape). It is the seam the separate teaching app
-will read years from now, from a file written today, so it documents itself
-rather than depending on this codebase's comments. Rules for changing it are in
-the file.
+Send those two files and both go in the next pass.
 
 ## Files
-- src/App.jsx                     MOD — single body read; DigestPanel props
-- src/dossierPrompts.js           NEW — the weekly question engine
-- src/components/DigestPanel.jsx  MOD — renders the question
-- src/components/JournalPanel.jsx MOD — the arc toggle
-- src/archiveExport.js            MOD — versioned interchange contract
-- form.html                       MOD — the authoritative order-window gate
-- menu.html                       MOD — gated CTA
-- main-menu.html                  MOD — gated "Go order"
-- package.json                    MOD — gate 29 -> 30
-- tests/dossierPrompts.mjs        NEW — 16 checks
-- tests/archive.mjs               MOD — 36 (schema pins)
-- tests/customer_pages.mjs        MOD — 7 order-window checks, frozen clock
+- src/utils.js                    MOD — 3 renames + 3 history rows
+- src/journal.js                  MOD — entriesOnThisDay, orphanedDishNames
+- src/archiveExport.js            MOD — ARCHIVE_INTRO front door
+- src/App.jsx                     MOD — askLog state, pullQuestions, props
+- src/components/JournalPanel.jsx MOD — retirement box removed, props trimmed
+- src/components/DigestPanel.jsx  MOD — on-this-day, orphans, questions
+- src/components/RecipesTab.jsx   MOD — dropped the two unused props
+- worker.js                       MOD — ask-log KV + GET /ask-log  (DASHBOARD PASTE)
+- tests/journal.mjs               MOD — 58 checks
+- tests/archive.mjs               MOD — 40 checks
+- HANDOFF_20_LTB_DEEP_JUL24.md    NEW — extended in place from 19
+
+No package.json change; both suites are already in the gate.

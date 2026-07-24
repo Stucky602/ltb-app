@@ -1341,8 +1341,6 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         dish={dish}
         journal={journal}
         onSaveJournal={onSaveJournal}
-        orders={orders}
-        knownNames={knownNames}
       />
     </div>
   );

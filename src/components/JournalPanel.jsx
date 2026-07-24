@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   JOURNAL_TYPES, JOURNAL_TYPE_ORDER, addEntry, removeEntry,
-  entriesForDish, missingRetirementRecords, canBeTransferable,
+  entriesForDish, canBeTransferable,
 } from '../journal.js';
 import { DISH_RENAMES } from '../utils.js';
 
@@ -51,8 +51,7 @@ function Entry({ e, onDelete }) {
 }
 
 // dish: the currently selected dish ('' = none → general view only)
-// knownNames: Set of every name still served (for the retirement nudge)
-export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames }) {
+export function JournalPanel({ dish, journal, onSaveJournal }) {
   const [type, setType] = useState('technique');
   const [text, setText] = useState('');
   const [priv, setPriv] = useState(JOURNAL_TYPES.technique.privateDefault);
@@ -79,12 +78,6 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
       : list.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
   }, [journal, dish, arc]);
 
-  // K8 nudge: dishes people actually ordered that left the registry with no
-  // retirement entry. Nudge, never block (Kevin's call, decision 7a).
-  const missing = useMemo(
-    () => missingRetirementRecords(journal, orders || [], knownNames || new Set(), DISH_RENAMES),
-    [journal, orders, knownNames]
-  );
 
   const pickType = (t) => {
     setType(t);
@@ -126,11 +119,6 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
         </div>
       )}
 
-      {missing.length > 0 && (
-        <div style={{ border: `1px solid ${C.warn}`, background: 'rgba(239,159,39,0.08)', borderRadius: 8, padding: 8, margin: '6px 0 10px', fontSize: 12, color: C.warn }}>
-          No retirement record yet: {missing.join(', ')}. Worth a line while you still remember why.
-        </div>
-      )}
 
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', margin: '6px 0 8px' }}>
         {JOURNAL_TYPE_ORDER.map(t => (

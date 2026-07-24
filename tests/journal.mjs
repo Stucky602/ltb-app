@@ -19,6 +19,7 @@ import {
   canonDishName, entriesForDish, generalEntries, publicEntries,
   latestPriceRationale, migrateDishNotes, missingRetirementRecords,
   canBeTransferable, transferableEntries, principleIndex, UNNAMED_PRINCIPLE,
+  entriesOnThisDay, orphanedDishNames,
 } from '../src/journal.js';
 
 let pass = 0;
@@ -146,6 +147,40 @@ let jr = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', 
   text: 'Carries.', transferable: true }, NOW);
 ok(transferableEntries(jr, RENAMES)[0].dish === 'New Name',
   'a flagged statement follows its dish through a rename');
+
+// ── On this day ─────────────────────────────────────────────────────────────
+const TODAY = new Date('2026-07-24T12:00:00Z');
+let jd = emptyJournal();
+jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' }, text: 'one year ago', ts: '2025-07-24T09:00:00Z' }, TODAY);
+jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'two years ago', ts: '2024-07-24T09:00:00Z' }, TODAY);
+jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Chili' }, text: 'written today', ts: '2026-07-24T09:00:00Z' }, TODAY);
+jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Chili' }, text: 'a different day', ts: '2025-03-03T09:00:00Z' }, TODAY);
+jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Chili' }, text: 'migrated', ts: '2025-07-24T09:00:00Z', undated: true, migrated: true }, TODAY);
+const otd = entriesOnThisDay(jd, TODAY);
+ok(otd.length === 2, 'only entries from THIS calendar day in PREVIOUS years come back');
+ok(otd[0].yearsAgo === 1 && otd[1].yearsAgo === 2, 'most recent year first');
+ok(!otd.some(e => e.text === 'written today'), "today's own writing is not a memory and is excluded");
+ok(!otd.some(e => e.text === 'migrated'), 'undated entries are excluded — their date is a migration artifact, not a real day');
+ok(otd[0].dish === 'Bolognese', 'each memory carries the dish it was written under');
+ok(entriesOnThisDay(emptyJournal(), TODAY).length === 0, 'an empty journal has no memories');
+
+// ── Orphaned dish names ─────────────────────────────────────────────────────
+const orphanKnown = new Set(['Indian Style Curry', 'Bo Ssam']);
+const renameMap = { 'Curry of the Week': 'Indian Style Curry' };
+const hist = [
+  { items: [{ name: 'Curry of the Week', qty: 1 }] },
+  { items: [{ name: 'Bo Ssam', qty: 1 }] },
+  { items: [{ name: 'Ghost Dish', qty: 1 }] },
+  { items: [{ name: 'Ghost Dish', qty: 1 }] },
+  { items: [{ name: 'Omakase', omakase: true, qty: 1 }] },
+];
+const orph = orphanedDishNames(hist, orphanKnown, renameMap);
+ok(orph.length === 1 && orph[0].name === 'Ghost Dish',
+  'a name that maps through DISH_RENAMES is NOT an orphan; only genuinely unknown names are');
+ok(orph[0].orderCount === 2, 'orphans report how many orders carry them, so the worst one is obvious');
+ok(!orph.some(o => o.name === 'Omakase'), 'omakase is an act of trust, not a catalog dish');
+ok(orphanedDishNames(hist, new Set([...orphanKnown, 'Ghost Dish']), renameMap).length === 0,
+  'nothing is an orphan once the registry knows it');
 
 // ── Normalization tolerance ─────────────────────────────────────────────────
 ok(normalizeJournal(undefined).entries.length === 0, 'undefined store normalizes clean');

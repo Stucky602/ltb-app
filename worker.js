@@ -101,6 +101,13 @@ const KV_CONFIG       = 'week-config';
 // publish: this is read and rewritten together, and it is capped, so the
 // per-record discipline the pending/vote paths need does not apply here.
 const KV_CONFIG_HIST  = 'config-history';
+// Customer questions asked on kitchen pages. ONE rolling key, newest first,
+// capped — the same shape as config-history and for the same reason: it is
+// read and rewritten together and must stay bounded. These are the real
+// confusions of real people at the moment of cooking, which is the one kind of
+// teaching data a chef cannot generate from memory.
+const KV_ASK_LOG      = 'ask-log';
+const ASK_LOG_MAX     = 200;
 const CONFIG_HIST_MAX = 5;
 
 // ── Pipeline vote (v10) ────────────────────────────────────────────────────
@@ -233,6 +240,16 @@ export default {
         return json({ ok: true, config, dropped }, origin);
       }
 
+      // ── GET /ask-log — the questions customers actually asked ──────────────
+      // Token in the query string, same as /config-history (a GET has no body).
+      if (request.method === 'GET' && url.pathname === '/ask-log') {
+        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'Unauthorized' }, origin, 401);
+        }
+        const raw = await env.LTB_KV.get(KV_ASK_LOG);
+        return json({ questions: raw ? JSON.parse(raw) : [] }, origin);
+      }
+
       // ── GET /config-history — metadata only, for the app's rollback list ────
       // Token rides the query string: a GET has no body to carry it.
       if (request.method === 'GET' && url.pathname === '/config-history') {
@@ -344,6 +361,15 @@ export default {
         const page = await env.LTB_KV.get('companion:' + id);
         if (!page) return json({ error: 'unknown page' }, origin, 404);
         // THE CAP: 5 per page, counted server-side.
+        // Log it BEFORE the cap check so a question that gets refused is still
+        // recorded: hitting the limit is itself a signal that a page left
+        // someone with more questions than it answered.
+        try {
+          const rawLog = await env.LTB_KV.get(KV_ASK_LOG);
+          const log = rawLog ? JSON.parse(rawLog) : [];
+          log.unshift({ at: new Date().toISOString(), pageId: id, question: question });
+          await env.LTB_KV.put(KV_ASK_LOG, JSON.stringify(log.slice(0, ASK_LOG_MAX)));
+        } catch (e) { /* logging must never block an answer */ }
         const usedRaw = await env.LTB_KV.get('companionask:' + id);
         const used = usedRaw ? parseInt(usedRaw, 10) || 0 : 0;
         if (used >= 5) return json({ error: 'limit', remaining: 0 }, origin, 429);

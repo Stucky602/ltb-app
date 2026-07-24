@@ -168,6 +168,9 @@ export default function LTBOrderTracker() {
   // { dish: text } map had one undated slot per dish, and the whole point of
   // the record is dated, typed, accumulating entries.
   const [journal, setJournal] = useState(emptyJournal());
+  // Customer questions pulled from the worker. Not persisted: the worker holds
+  // the rolling log, so this is a view of it, not a second copy to drift.
+  const [askLog, setAskLog] = useState([]);
   // M1: owned container counts + meal-pool adjustment (containers.js).
   const [containerConfig, setContainerConfig] = useState(() => normalizeContainerConfig(null));
   // Pipeline test-kitchen journal: { version, entries: { key: { journal:[], status, promoteChecklist } } }
@@ -1994,6 +1997,14 @@ export default function LTBOrderTracker() {
   // savePipelineJournal. Writes surface quota failures through saveError —
   // this is the knowledge base, and a silent lost entry is the exact failure
   // the record exists to prevent.
+  const pullQuestions = useCallback(async () => {
+    const r = await fetch(WORKER_BASE + '/ask-log?token=' + encodeURIComponent(PUBLISH_TOKEN));
+    if (!r.ok) throw new Error('ask-log ' + r.status);
+    const { questions } = await r.json();
+    setAskLog(Array.isArray(questions) ? questions : []);
+    return (questions || []).length;
+  }, []);
+
   const saveContainerConfig = useCallback((next) => {
     setContainerConfig(prev => {
       const cfg = normalizeContainerConfig(typeof next === 'function' ? next(prev) : next);
@@ -2749,7 +2760,7 @@ export default function LTBOrderTracker() {
         {view === 'money' && (
           <>
             <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} journal={journal} containerStatus={containerStatus} onSaveContainerConfig={saveContainerConfig} />
-            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} journal={journal} weekDishes={weekDishes} />
+            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} journal={journal} weekDishes={weekDishes} knownNames={knownDishNames} askLog={askLog} onPullQuestions={pullQuestions} />
           </>
         )}
 

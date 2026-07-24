@@ -15,7 +15,7 @@
 // Run: node tests/archive.mjs
 
 import assert from 'node:assert';
-import { buildArchiveHtml, buildRecordsHtml, esc, ARCHIVE_SCHEMA } from '../src/archiveExport.js';
+import { buildArchiveHtml, buildRecordsHtml, esc, ARCHIVE_SCHEMA, ARCHIVE_INTRO } from '../src/archiveExport.js';
 import { addEntry, emptyJournal } from '../src/journal.js';
 import { DISHES } from '../src/dishes.js';
 
@@ -68,6 +68,12 @@ ok(/3 sold to 2 households/.test(html), 'house order excluded from the sales cou
 // ── Escaping ────────────────────────────────────────────────────────────────
 ok(!html.includes('<script>alert(1)</script>'), 'journal text is escaped — an entry cannot script the archive');
 ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), 'the hostile text still APPEARS, readably, as text');
+
+// ── The front door ──────────────────────────────────────────────────────────
+ok(/Start here/.test(html), 'the archive opens with a front door, not a data dump');
+ok(html.includes(esc(ARCHIVE_INTRO[0])), "and it is addressed to a person, in Kevin's voice");
+ok(html.indexOf('Start here') < html.indexOf('The dishes'), 'it comes before the registry');
+ok(ARCHIVE_INTRO.every(p => !/—/.test(p)), 'no em-dashes: it has to read like Kevin wrote it');
 
 // ── Principles: the curriculum skeleton, derived not authored ───────────────
 ok(/Principles — what holds beyond one dish/.test(html),

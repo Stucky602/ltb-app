@@ -3,6 +3,8 @@ import { buildWeeklyDigest } from '../digest.js';
 import { currency, jarsOutForRegular, regularDisplayName } from '../utils.js';
 import { undecidedOmakases, omakasePriceUnsettled } from '../omakase.js';
 import { weeklyDossierPrompt } from '../dossierPrompts.js';
+import { entriesOnThisDay, orphanedDishNames } from '../journal.js';
+import { DISH_RENAMES } from '../utils.js';
 import { currentWeekInfo } from '../timeBanners.js';
 const C = { panel: '#1c2422', border: '#2d3a36', text: '#e8ede9', dim: '#9aa5a0', faint: '#6b7570', good: '#5DCAA5', warn: '#EF9F27', bad: '#e0828a' };
 const S = {
@@ -14,7 +16,7 @@ const S = {
 };
 
 // #6 The Monday briefing — everything the app knows, in one read.
-export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut, journal, weekDishes }) {
+export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut, journal, weekDishes, knownNames, askLog, onPullQuestions }) {
   const [fbMsg, setFbMsg] = useState(null);
   const [open, setOpen] = useState(false);
   const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
@@ -44,6 +46,19 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
     const wk = currentWeekInfo();
     return weeklyDossierPrompt(journal, weekDishes || [], wk.stamp);
   }, [open, journal, weekDishes]);
+
+  // Written on this day in a previous year. The payoff for keeping the record.
+  const onThisDay = useMemo(
+    () => (open ? entriesOnThisDay(journal, new Date(), DISH_RENAMES) : []),
+    [open, journal]
+  );
+
+  // Names in order history the registry does not know and DISH_RENAMES does
+  // not map. Each one silently fragments passport stamps and sales counts.
+  const orphans = useMemo(
+    () => (open ? orphanedDishNames(orders || [], knownNames || new Set(), DISH_RENAMES) : []),
+    [open, orders, knownNames]
+  );
 
   return (
     <div style={S.section}>
@@ -78,6 +93,48 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
               )}
             </>
           )}
+          {onThisDay.length > 0 && (
+            <>
+              <div style={S.h}>On this day</div>
+              {onThisDay.slice(0, 3).map(e => (
+                <div key={e.id} style={S.p}>
+                  <span style={{ color: C.dim }}>
+                    {e.yearsAgo} year{e.yearsAgo === 1 ? '' : 's'} ago{e.dish ? `, on ${e.dish}` : ''}:
+                  </span>{' '}
+                  {e.text}
+                </div>
+              ))}
+            </>
+          )}
+
+          {orphans.length > 0 && (
+            <>
+              <div style={S.h}>Names the app does not recognize</div>
+              {orphans.map(o => (
+                <div key={o.name} style={{ ...S.p, color: C.warn }}>
+                  "{o.name}" appears on {o.orderCount} order{o.orderCount === 1 ? '' : 's'} but is not a dish or a known rename.
+                </div>
+              ))}
+              <div style={{ ...S.p, ...S.dim, fontSize: 11.5 }}>
+                Each of these splits its dish's passport stamps and sales counts. Add it to DISH_RENAMES if it was renamed.
+              </div>
+            </>
+          )}
+
+          {(askLog || []).length > 0 && (
+            <>
+              <div style={S.h}>What customers asked their kitchen page</div>
+              {(askLog || []).slice(0, 5).map((q, i) => (
+                <div key={i} style={S.p}>
+                  <span style={{ color: C.dim }}>{new Date(q.at).toLocaleDateString()}:</span> "{q.question}"
+                </div>
+              ))}
+              <div style={{ ...S.p, ...S.dim, fontSize: 11.5 }}>
+                Real confusions at the moment of cooking. The ones that repeat belong in a dossier entry.
+              </div>
+            </>
+          )}
+
           {question && (
             <>
               <div style={S.h}>This week's question</div>
@@ -162,6 +219,21 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
               }}
             >
               Close out the week
+            </button>
+          )}
+          {onPullQuestions && (
+            <button
+              style={{ width: '100%', marginTop: 8, padding: '9px', borderRadius: 8, border: `1px solid ${C.border}`, background: '#232d2a', color: C.dim, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+              onClick={async () => {
+                setFbMsg('Pulling questions…');
+                try {
+                  const n = await onPullQuestions();
+                  setFbMsg(n ? `${n} question${n === 1 ? '' : 's'} pulled.` : 'No questions yet.');
+                } catch (e) { setFbMsg('Could not pull questions.'); }
+                setTimeout(() => setFbMsg(null), 4000);
+              }}
+            >
+              Pull customer questions
             </button>
           )}
           {onPullFeedback && (

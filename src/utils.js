@@ -565,6 +565,14 @@ export function resetDishFeedback(store, dish, now) {
 
 export const DISH_RENAMES = {
   'Cumin Mushroom Noodles / Cumin Beef on Rice': 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+  // Added Jul 24 2026. These three sat in order history under names the
+  // registry no longer knew, so they failed to canonicalize: passport stamps,
+  // per-dish sales counts, and dossier lookups all treated the old name as a
+  // separate dish that no longer existed. Found because the retirement nudge
+  // reported them as "retired" when they had only ever been renamed.
+  'Curry of the Week': 'Indian Style Curry',
+  'Cumin Mushroom Noodles': 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+  'Chicken Breast': 'Air-Chilled Chicken Breast',
 };
 // K9: the story beside the mechanism. DISH_RENAMES stays a flat mechanical
 // map because the passport, sales history, and rename immunity all depend on
@@ -582,6 +590,24 @@ export const RENAME_HISTORY = [
     to: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
     date: null, // predates the history; unrecorded
     reason: 'Lamb joined the beef option. (Recorded retroactively when RENAME_HISTORY landed, Jul 2026; original date not kept.)',
+  },
+  {
+    from: 'Curry of the Week',
+    to: 'Indian Style Curry',
+    date: null,
+    reason: 'The rotating "curry of the week" settled into a fixed Indian-style curry with its own variants.',
+  },
+  {
+    from: 'Cumin Mushroom Noodles',
+    to: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    date: null,
+    reason: 'Not a retirement: the dish was never removed. Variants were added and the name grew to name both plates coming off one prep line.',
+  },
+  {
+    from: 'Chicken Breast',
+    to: 'Air-Chilled Chicken Breast',
+    date: null,
+    reason: 'Upgraded to air-chilled birds. The name changed to say so, since that is what the price is for.',
   },
 ];
 export const VARIANT_RENAMES = {

@@ -207,6 +207,61 @@ export function principleIndex(journal, renames) {
   return out;
 }
 
+// ── On this day ────────────────────────────────────────────────────────────
+// The single most rewarding thing about keeping a journal is the day it starts
+// talking back. Returns entries written on this calendar day in a PREVIOUS
+// year. Deliberately excludes today's own writing (that is not a memory) and
+// anything marked `undated`, whose date is a migration artifact rather than a
+// real day.
+export function entriesOnThisDay(journal, now, renames) {
+  const at = now || new Date();
+  const m = at.getMonth(), d = at.getDate(), y = at.getFullYear();
+  return normalizeJournal(journal).entries
+    .filter(e => {
+      if (e.undated) return false;
+      const t = new Date(e.ts);
+      if (Number.isNaN(t.getTime())) return false;
+      return t.getMonth() === m && t.getDate() === d && t.getFullYear() < y;
+    })
+    .map(e => ({
+      ...e,
+      yearsAgo: y - new Date(e.ts).getFullYear(),
+      dish: e.subject && e.subject.kind === 'dish' ? canonDishName(e.subject.dish, renames) : null,
+    }))
+    .sort((a, b) => a.yearsAgo - b.yearsAgo);
+}
+
+// ── Orphaned dish names (data integrity) ───────────────────────────────────
+// Names sitting in order history that the registry does not know AND that
+// DISH_RENAMES does not map. Every one of them silently fragments the app:
+// passport stamps, per-dish sales counts, and dossier lookups all treat the
+// orphan as a separate dish that no longer exists. Three of these were found
+// by eye on Jul 24 (Curry of the Week, Cumin Mushroom Noodles, Chicken
+// Breast); this is what finds the next one without anybody squinting at a
+// screenshot.
+//
+// NOT a gate test on purpose: order history lives in this device's
+// localStorage, so no build-time check can see it. It runs where the data is.
+export function orphanedDishNames(orders, knownNames, renames) {
+  const known = knownNames instanceof Set ? knownNames : new Set(knownNames || []);
+  const map = renames || {};
+  const out = new Map();
+  for (const o of orders || []) {
+    for (const it of (o && o.items) || []) {
+      if (!it || !it.name || it.omakase) continue;
+      const canon = canonDishName(it.name, map);
+      if (known.has(canon)) continue;
+      // A name that DOES map through DISH_RENAMES is handled, even if its
+      // target is off the menu now — that is a retirement, not an orphan.
+      if (map[it.name]) continue;
+      out.set(canon, (out.get(canon) || 0) + 1);
+    }
+  }
+  return [...out.entries()]
+    .map(([name, orderCount]) => ({ name, orderCount }))
+    .sort((a, b) => b.orderCount - a.orderCount || a.name.localeCompare(b.name));
+}
+
 // ── Legacy dishNotes migration (one-way, idempotent) ───────────────────────
 // dishNotes was { [dishName]: string } — flat, undated, one slot per dish.
 // Each non-empty note becomes ONE technique entry marked migrated+undated.

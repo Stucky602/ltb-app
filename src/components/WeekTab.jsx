@@ -18,7 +18,7 @@ import {
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
-  ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
+  ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY, WEEK_NOTICE_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
 import {
@@ -142,6 +142,22 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   // Take the week off: publishes a paused config so both customer pages say so
   // plainly instead of looking broken. Publishing a normal week clears it.
   const [pauseMsg, setPauseMsg] = useState('');
+  // The heads-up banner is two separate things: the TEXT, and whether it is
+  // armed. Keeping them apart means Kevin can leave last month's wording in the
+  // box, unchecked and harmless, and re-arm it in one tap when the dishwasher
+  // breaks again. Both persist, so neither survives only in component state.
+  const [notice, setNotice] = useState('');
+  const [noticeOn, setNoticeOn] = useState(false);
+  useEffect(() => {
+    loadJSON(WEEK_NOTICE_KEY, null).then(v => {
+      if (!v) return;
+      setNotice(v.text || '');
+      setNoticeOn(!!v.on);
+    });
+  }, []);
+  const persistNotice = useCallback((text, on) => {
+    saveJSON(WEEK_NOTICE_KEY, { text, on }).catch(() => {});
+  }, []);
   const [showPause, setShowPause] = useState(false);
   const [pausing, setPausing] = useState(false);
   const doPause = async () => {
@@ -149,7 +165,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     try {
       await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), {
         paused: true, pausedMsg: pauseMsg.trim() || 'Taking this week off, back next week.',
-      });
+      }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '' });
       setPublishMsg({ ok: true, text: 'Week paused. The form and menu now say you are off this week.' });
     } catch (e) {
       setPublishMsg({ ok: false, text: (e && e.message) || 'Could not pause the week.' });
@@ -162,7 +178,14 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     setPublishing(true);
     setPublishMsg(null);
     try {
-      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), null, { requestCounts: requestCounts || {}, favorites: favorites || [] });
+      // The checkbox is the switch, not the text. Unchecked publishes an empty
+      // notice, which CLEARS whatever was showing, so an old banner can never
+      // survive a week just because the words are still in the box.
+      await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), null, {
+        requestCounts: requestCounts || {},
+        favorites: favorites || [],
+        notice: noticeOn ? notice.trim() : '',
+      });
       setPublishMsg({ ok: true, text: "Published! The order form now shows this week's menu." });
     } catch (e) {
       setPublishMsg({ ok: false, text: (e && e.message) || 'Publish failed. Check your connection and try again.' });
@@ -381,6 +404,31 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
             >
               <AlertTriangle size={15} /> Check conflicts
             </button>
+          </div>
+          <div style={{ marginTop: 12, padding: 10, borderRadius: 8, border: '1px solid ' + (noticeOn ? GOLD : '#2d3a36'), background: noticeOn ? 'rgba(212,160,80,0.07)' : 'transparent' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={noticeOn}
+                onChange={e => { setNoticeOn(e.target.checked); persistNotice(notice, e.target.checked); }}
+                style={{ width: 17, height: 17, accentColor: GOLD, cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: noticeOn ? GOLD : '#c9d1cd' }}>
+                Show a heads-up banner this week
+              </span>
+            </label>
+            <input
+              value={notice}
+              onChange={e => { setNotice(e.target.value); persistNotice(e.target.value, noticeOn); }}
+              placeholder="e.g. dishwasher broke, deliveries may run a day late"
+              style={{ ...styles.input, width: '100%', marginTop: 8, boxSizing: 'border-box',
+                opacity: noticeOn ? 1 : 0.55 }}
+            />
+            <div style={{ fontSize: 10.5, color: '#7a8480', marginTop: 5, lineHeight: 1.45 }}>
+              {noticeOn
+                ? 'Every publish carries this until you untick the box. Shows on the landing page, the order form, and the menu.'
+                : 'Off. Publishing clears any banner that is currently showing. The text stays here for next time.'}
+            </div>
           </div>
           <div style={{ marginTop: 10 }}>
             <button

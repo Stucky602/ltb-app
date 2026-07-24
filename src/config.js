@@ -7,6 +7,10 @@ export const DELIVER_CHECKS_KEY = 'ltb-deliver-checks';
 export const DISH_NOTES_KEY = 'ltb-dish-notes';
 export const PIPELINE_JOURNAL_KEY = 'ltb-pipeline-journal';
 export const WEEK_NOTES_KEY = 'ltb-week-notes';
+// The weekly heads-up banner: its text AND whether it is armed. Persisted so
+// the text survives a tab switch and can be reused week to week, while the
+// toggle decides whether any given publish actually carries it.
+export const WEEK_NOTICE_KEY = 'ltb-week-notice';
 export const SHOPPING_KEY = 'ltb-shopping';
 export const WEEK_KEY = 'ltb-week';
 export const PENDING_KEY = 'ltb-pending-orders';

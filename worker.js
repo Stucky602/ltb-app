@@ -223,26 +223,14 @@ export default {
             await env.LTB_KV.put(KV_CONFIG_HIST, JSON.stringify(hist.slice(0, CONFIG_HIST_MAX)));
           }
         } catch (e) { /* history is a convenience, never a gate on publishing */ }
-        const config = {
-          dishes: body.dishes || [],
-          spotlight: body.spotlight || [],
-          fruit: body.fruit || [],
-          desserts: body.desserts || [],
-          addons: body.addons || [],
-          bag: body.bag || [],
-          sauces: body.sauces || [],
-          menuPdfUrl: body.menuPdfUrl || '',
-          weekLabel: body.weekLabel || '',
-          // Week off. This whitelist is exhaustive, so a field that is not
-          // named here is silently dropped: paused used to be, which meant the
-          // app and both customer pages supported taking a week off while the
-          // worker quietly threw the flag away.
-          paused: !!body.paused,
-          pausedMsg: String(body.pausedMsg || '').slice(0, 200),
-          updatedAt: new Date().toISOString(),
-        };
+        // Build from ONE declared field list (CONFIG_FIELDS, bottom of file)
+        // and report anything the app sent that this worker does not know
+        // about. See the note there for why the reporting matters.
+        const config = { updatedAt: new Date().toISOString() };
+        for (const key of Object.keys(CONFIG_FIELDS)) config[key] = CONFIG_FIELDS[key](body);
+        const dropped = Object.keys(body).filter(k => k !== 'token' && !(k in CONFIG_FIELDS));
         await env.LTB_KV.put(KV_CONFIG, JSON.stringify(config));
-        return json({ ok: true, config }, origin);
+        return json({ ok: true, config, dropped }, origin);
       }
 
       // ── GET /config-history — metadata only, for the app's rollback list ────
@@ -1134,8 +1122,52 @@ function b64ToBytes(b64) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// ── The published config's field list ───────────────────────────────────────
+// The customer pages read this object straight off KV, so the whitelist is
+// deliberate: nothing unvetted should reach them, and every value is coerced
+// to a known shape and bounded length here rather than trusted.
+//
+// WHAT WAS NOT DELIBERATE was dropping unknown fields SILENTLY. That has now
+// bitten three times: `paused` was thrown away while the app and both customer
+// pages fully supported taking a week off; and when this list was rewritten,
+// BOTH `notice` (the Week tab's heads-up banner) and `oneBottle` (the "one
+// bottle for the week" card on menu.html) were being discarded the same way —
+// fully built on the app side, fully rendered on the page side, quietly
+// deleted in transit here.
+//
+// Two changes stop it recurring:
+//   1. This list is the single source of truth, and defaultConfig() is derived
+//      FROM it, so a GET before the first publish returns the same SHAPE as one
+//      after. No more "undefined before publish, empty string after".
+//   2. POST /config returns a `dropped` array naming anything the app sent that
+//      is not listed here. Adding a field to the app without adding it here now
+//      announces itself on the very first publish instead of months later.
+// ADDING A FIELD: add one line here. That is the whole change.
+const CONFIG_FIELDS = {
+  dishes:     b => (Array.isArray(b.dishes) ? b.dishes : []),
+  spotlight:  b => (Array.isArray(b.spotlight) ? b.spotlight : []),
+  fruit:      b => (Array.isArray(b.fruit) ? b.fruit : []),
+  desserts:   b => (Array.isArray(b.desserts) ? b.desserts : []),
+  addons:     b => (Array.isArray(b.addons) ? b.addons : []),
+  bag:        b => (Array.isArray(b.bag) ? b.bag : []),
+  sauces:     b => (Array.isArray(b.sauces) ? b.sauces : []),
+  menuPdfUrl: b => String(b.menuPdfUrl || ''),
+  weekLabel:  b => String(b.weekLabel || ''),
+  paused:     b => !!b.paused,
+  pausedMsg:  b => String(b.pausedMsg || '').slice(0, 200),
+  // The Week tab's heads-up banner. ALWAYS written, even empty: an unchecked
+  // box publishes '' and that empty value is what CLEARS a live banner. If this
+  // were written only when truthy, last week's message would outlive its week.
+  notice:     b => String(b.notice || '').slice(0, 280),
+  // One bottle for the week, stamped at publish from the registry's pairing
+  // data. Absent publishes as null, which menu.html already treats as "none".
+  oneBottle:  b => ((b.oneBottle && typeof b.oneBottle === 'object') ? b.oneBottle : null),
+};
+
 function defaultConfig() {
-  return { dishes: [], spotlight: [], fruit: [], desserts: [], addons: [], bag: [], sauces: [], menuPdfUrl: '', weekLabel: '', updatedAt: null };
+  const out = { updatedAt: null };
+  for (const key of Object.keys(CONFIG_FIELDS)) out[key] = CONFIG_FIELDS[key]({});
+  return out;
 }
 
 async function proxyToAnthropic(request, env, origin) {

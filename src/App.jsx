@@ -831,6 +831,21 @@ export default function LTBOrderTracker() {
       const txt = await res.text();
       throw new Error('Publish failed (' + res.status + '): ' + txt.slice(0, 120));
     }
+    // The worker builds the stored config from its OWN field list and reports
+    // anything it did not recognize. Surfacing that is the whole defense
+    // against a class of bug that has now bitten three times (paused, notice,
+    // oneBottle): a field fully built here, fully rendered on the customer
+    // page, and silently discarded in transit. A publish that quietly loses
+    // data must never look like a clean publish.
+    try {
+      const out = await res.json();
+      if (out && Array.isArray(out.dropped) && out.dropped.length) {
+        setNotice(
+          'Published, but the worker ignored ' + out.dropped.join(', ') +
+          '. Those never reach the customer pages — the worker needs the field added to CONFIG_FIELDS.'
+        );
+      }
+    } catch (_) { /* a body we cannot parse is not a reason to fail a publish that succeeded */ }
     // Publish the full dinner catalog as the request whitelist. Fire-and-forget:
     // a failure here must never block the week publish, and POST /requests just
     // rejects everything until the next successful write. Full ALL_DINNERS, not

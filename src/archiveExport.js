@@ -27,7 +27,10 @@
 
 import { DISHES, ALWAYS_ITEMS } from './dishes.js';
 import { RENAME_HISTORY, DISH_RENAMES } from './utils.js';
-import { JOURNAL_TYPES, normalizeJournal, canonDishName } from './journal.js';
+import {
+  JOURNAL_TYPES, normalizeJournal, canonDishName,
+  transferableEntries, principleIndex, UNNAMED_PRINCIPLE,
+} from './journal.js';
 
 // Every text field is Kevin's or a customer's — escape everything.
 export const esc = (s) => String(s == null ? '' : s)
@@ -55,6 +58,9 @@ function htmlShell(title, generatedAt, body, embeddedJson) {
   .private { border-left-color: #b8860b; }
   .type { font-variant: small-caps; letter-spacing: 0.5px; font-weight: 700; font-size: 12px; }
   .lock { color: #b8860b; font-size: 11px; }
+  .carries { color: #2e6b4f; font-size: 11px; font-weight: 700; }
+  .principle { border-left: 3px solid #2e6b4f; padding-left: 12px; margin: 10px 0 14px; }
+  .principle .src { color: #666; font-size: 12px; }
   table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 8px 0; }
   th, td { border: 1px solid #ccc4b4; padding: 5px 8px; text-align: left; vertical-align: top; }
   th { background: #efe9dc; font-size: 12px; }
@@ -119,7 +125,7 @@ function journalSection(entries, renames) {
     .map(e => {
       const t = JOURNAL_TYPES[e.type] || { label: e.type };
       return `<div class="entry${e.private ? ' private' : ''}">
-  <span class="type">${esc(t.label)}</span> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>${e.private ? ' <span class="lock">private</span>' : ''}${e.migrated ? ' <span class="meta">(migrated cook note)</span>' : ''}
+  <span class="type">${esc(t.label)}</span> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>${e.private ? ' <span class="lock">private</span>' : ''}${e.transferable ? ' <span class="carries">holds beyond this dish</span>' : ''}${e.migrated ? ' <span class="meta">(migrated cook note)</span>' : ''}
   <div>${esc(e.text)}</div>
 </div>`;
     });
@@ -185,6 +191,25 @@ ${entries.length ? journalSection(entries, DISH_RENAMES) : '<p class="meta">No r
     }
   }
 
+  // ── Principles: the only cross-dish structure in the record ──────────────
+  // Derived entirely from the transferable flag — nothing here is authored
+  // separately, so it cannot drift from the dossiers it came from. Until the
+  // naming pass runs, everything sits under one unnamed heading, which is the
+  // honest state: the statements exist, the taxonomy does not yet.
+  const principles = principleIndex(j, DISH_RENAMES);
+  const flagged = transferableEntries(j, DISH_RENAMES);
+  if (flagged.length) {
+    parts.push('<h2>Principles — what holds beyond one dish</h2>');
+    parts.push(`<div class="meta">${flagged.length} statement${flagged.length === 1 ? '' : 's'} marked as carrying past the dish they were written under. These are the lessons; the dishes above are the exercises. Grouping and naming them is a later pass — this section is generated from the marks themselves and is never edited by hand.</div>`);
+    for (const [name, list] of principles) {
+      parts.push(`<h3>${esc(name === UNNAMED_PRINCIPLE ? 'Not yet grouped' : name)}</h3>`);
+      for (const e of list) {
+        parts.push(`<div class="principle">${esc(e.text)}
+<div class="src">${esc(JOURNAL_TYPES[e.type] ? JOURNAL_TYPES[e.type].label : e.type)} · ${esc(e.dish || 'general')} · ${e.private ? 'private · ' : ''}${esc(fmtDate(e.ts))}</div></div>`);
+      }
+    }
+  }
+
   if ((RENAME_HISTORY || []).length) {
     parts.push('<h2>Name changes</h2><table><tr><th>Was</th><th>Became</th><th>When</th><th>Why</th></tr>');
     for (const h of RENAME_HISTORY) {
@@ -196,6 +221,9 @@ ${entries.length ? journalSection(entries, DISH_RENAMES) : '<p class="meta">No r
   const embedded = JSON.stringify({
     kind: 'ltb-archive', generatedAt: when,
     journal: j, renameHistory: RENAME_HISTORY || [],
+    // Pre-extracted so a future reader (the teaching app) does not have to
+    // re-implement the filter to find the lessons.
+    transferable: flagged,
   }, null, 1);
 
   return htmlShell(`LTB Archive ${year}`, when, parts.join('\n'), embedded);

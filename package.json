@@ -1,6 +1,6 @@
 {
   "name": "ltb-order-tracker",
-  "version": "9.9.0",
+  "version": "10.0.0",
   "private": true,
   "scripts": {
     "build": "npm test && esbuild entry.jsx --bundle --loader:.jsx=jsx --outfile=app.js --define:process.env.NODE_ENV=\\\"production\\\" --format=iife --platform=browser",

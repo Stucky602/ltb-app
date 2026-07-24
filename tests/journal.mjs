@@ -18,6 +18,7 @@ import {
   stampEntry, addEntry, updateEntry, removeEntry,
   canonDishName, entriesForDish, generalEntries, publicEntries,
   latestPriceRationale, migrateDishNotes, missingRetirementRecords,
+  canBeTransferable, transferableEntries, principleIndex, UNNAMED_PRINCIPLE,
 } from '../src/journal.js';
 
 let pass = 0;
@@ -92,6 +93,59 @@ ok(missingRetirementRecords(emptyJournal(), orders, new Set(['Bo Ssam', 'Tea-Smo
   'an on-menu dish never nudges');
 // The omakase item never nudges: an omakase is an act of trust, not a catalog dish.
 ok(!missingRetirementRecords(emptyJournal(), orders, known).includes('Omakase'), 'omakase excluded from the nudge');
+
+// ── Transferable principles (the cross-dish structure) ──────────────────────
+// Capture is a FLAG, not a taxonomy: mark it, write it in the dish's voice,
+// save it to that dish. Naming happens later, in one pass, from evidence.
+ok(canBeTransferable('technique') && canBeTransferable('adjustment')
+   && canBeTransferable('doneCues') && canBeTransferable('mistake'),
+  'craft types can carry a principle');
+ok(!canBeTransferable('price') && !canBeTransferable('retirement') && !canBeTransferable('provenance'),
+  'business and history types cannot — a price rationale is not a lesson that transfers');
+
+const flaggedEntry = stampEntry({ type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' },
+  text: 'Fat carries the flavor of anything you bloom in it.', transferable: true }, NOW);
+ok(flaggedEntry.transferable === true, 'the flag is carried on a craft entry');
+ok(stampEntry({ type: 'technique', text: 'x' }, NOW).transferable === false,
+  'entries are dish-specific by default — a flag that is usually on carries no information');
+ok(stampEntry({ type: 'price', text: 'x', transferable: true }, NOW).transferable === false,
+  'the flag is DROPPED on a non-craft type rather than left dangling where it can never mean anything');
+ok(!('principle' in flaggedEntry),
+  'principle is reserved in the shape but never invented at capture — naming is a later pass');
+ok(stampEntry({ type: 'technique', text: 'x', transferable: true, principle: '  Fat as carrier  ' }, NOW).principle === 'Fat as carrier',
+  'a principle name is carried and trimmed when the later pass does set one');
+
+let jp = emptyJournal();
+jp = addEntry(jp, { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' }, text: 'Bloom the paste in fat.', transferable: true, ts: '2026-01-01T00:00:00Z' }, NOW);
+jp = addEntry(jp, { type: 'adjustment', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'Flat means it needs acid.', transferable: true, ts: '2026-02-01T00:00:00Z' }, NOW);
+jp = addEntry(jp, { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' }, text: 'Stir the bottom or it scorches.', ts: '2026-03-01T00:00:00Z' }, NOW);
+const flagged = transferableEntries(jp);
+ok(flagged.length === 2, 'only flagged statements enter the aggregation set — the dish-specific note stays out');
+ok(flagged[0].ts < flagged[1].ts, 'oldest first, so the order reads as the order Kevin learned to say it');
+ok(flagged[0].dish === 'Bolognese' && flagged[1].dish === 'Gumbo',
+  'each statement keeps the dish it was written under — the lesson knows its exercise');
+ok(flagged.every(e => e.principle === null),
+  'principle is null until the naming pass — honest, not an error');
+
+const idx = principleIndex(jp);
+ok(idx.size === 1 && idx.has(UNNAMED_PRINCIPLE),
+  'before naming, everything groups under one unnamed heading rather than being guessed at');
+ok(idx.get(UNNAMED_PRINCIPLE).length === 2, 'and it holds every flagged statement');
+
+let jn = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' },
+  text: 'Bloom it in fat.', transferable: true, principle: 'Fat as carrier' }, NOW);
+jn = addEntry(jn, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' },
+  text: 'The roux is the flavor.', transferable: true, principle: 'Fat as carrier' }, NOW);
+const named = principleIndex(jn);
+ok(named.size === 1 && named.get('Fat as carrier').length === 2,
+  'once named, statements from different dishes group under one principle — the curriculum skeleton');
+
+// Rename-following applies here too: a lesson written under an old dish name
+// must not lose its exercise when the dish is renamed.
+let jr = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Old Name' },
+  text: 'Carries.', transferable: true }, NOW);
+ok(transferableEntries(jr, RENAMES)[0].dish === 'New Name',
+  'a flagged statement follows its dish through a rename');
 
 // ── Normalization tolerance ─────────────────────────────────────────────────
 ok(normalizeJournal(undefined).entries.length === 0, 'undefined store normalizes clean');

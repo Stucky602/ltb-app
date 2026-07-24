@@ -39,6 +39,25 @@ export const JOURNAL_TYPES = {
 };
 export const JOURNAL_TYPE_ORDER = ['decision', 'price', 'provenance', 'doneCues', 'adjustment', 'technique', 'mistake', 'retirement'];
 
+// ── Transferable principles ────────────────────────────────────────────────
+// The ONE piece of cross-dish structure in the system. Every dossier entry is
+// filed under a dish, which sorts the corpus perfectly for reading the story
+// of that dish — but a guided path needs SEQUENCE, and sequence is inherently
+// cross-dish ("these five dishes all teach the same thing about heat").
+// No dossier can hold that fact, because it belongs to all of them equally.
+//
+// CAPTURE IS A FLAG, NOT A TAXONOMY (Kevin's call, and the right one): mark
+// the entry as holding beyond this dish, write it in that dish's voice, save
+// it to that dish. Nothing else. Naming and grouping the principles happens
+// LATER, in one pass over the flagged set, once there is enough of it to name
+// from evidence instead of guesswork. `principle` is reserved in the shape now
+// so that later pass needs no migration; nothing writes it yet.
+//
+// Only craft types can carry a principle. A price rationale or a retirement is
+// business history, not a lesson that transfers.
+export const TRANSFERABLE_TYPES = new Set(['technique', 'adjustment', 'doneCues', 'mistake']);
+export const canBeTransferable = (type) => TRANSFERABLE_TYPES.has(type);
+
 // Dependency-free id. utils.uid exists, but importing utils would drag menu.js
 // and dishes.js into every consumer (including node tests) for eight random
 // characters. Not worth the coupling.
@@ -71,6 +90,10 @@ export function stampEntry(partial, now) {
   const priv = partial && typeof partial.private === 'boolean'
     ? partial.private
     : JOURNAL_TYPES[type].privateDefault;
+  // The transferable flag only means anything on craft types. If the type is
+  // switched to a non-craft one after the toggle was set, the flag is dropped
+  // rather than left dangling on an entry that can never be a lesson.
+  const transferable = canBeTransferable(type) && !!(partial && partial.transferable);
   const entry = {
     ...partial, // unknown fields ride along (non-destructive)
     id: (partial && partial.id) || jid(),
@@ -79,7 +102,15 @@ export function stampEntry(partial, now) {
     subject,
     text: String((partial && partial.text) || '').trim(),
     private: priv,
+    transferable,
   };
+  // Reserved for the later naming pass. Only carried if something set it;
+  // never invented here.
+  if (partial && typeof partial.principle === 'string' && partial.principle.trim()) {
+    entry.principle = partial.principle.trim();
+  } else {
+    delete entry.principle;
+  }
   return entry;
 }
 
@@ -140,6 +171,40 @@ export function latestPriceRationale(journal, dishName, renames) {
     .sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
   const priced = list.find(e => e.type === 'price') || list[0];
   return priced || null;
+}
+
+// Every flagged statement, with the dish it was written under and when.
+// This is the raw material for the naming pass: in a few months, this one
+// call is the whole dataset to aggregate. Sorted oldest first so the order
+// reads as the order Kevin learned to say it.
+export function transferableEntries(journal, renames) {
+  return normalizeJournal(journal).entries
+    .filter(e => e.transferable && canBeTransferable(e.type))
+    .map(e => ({
+      id: e.id,
+      ts: e.ts,
+      type: e.type,
+      dish: e.subject && e.subject.kind === 'dish' ? canonDishName(e.subject.dish, renames) : null,
+      text: e.text,
+      principle: e.principle || null, // null until the naming pass fills it
+      private: !!e.private,
+    }))
+    .sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+}
+
+// Groups flagged statements by principle name. Until the naming pass runs,
+// everything lands under UNNAMED — which is the correct and honest state, not
+// an error. Deliberately does NOT guess names from the text: the whole point
+// of deferring is that the taxonomy is Kevin's, not a clustering artifact.
+export const UNNAMED_PRINCIPLE = '(unnamed — pending the naming pass)';
+export function principleIndex(journal, renames) {
+  const out = new Map();
+  for (const e of transferableEntries(journal, renames)) {
+    const key = e.principle || UNNAMED_PRINCIPLE;
+    if (!out.has(key)) out.set(key, []);
+    out.get(key).push(e);
+  }
+  return out;
 }
 
 // ── Legacy dishNotes migration (one-way, idempotent) ───────────────────────

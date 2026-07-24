@@ -28,6 +28,7 @@ j = addEntry(j, { type: 'provenance', subject: { kind: 'dish', dish: DISHES[0].n
 j = addEntry(j, { type: 'decision', subject: { kind: 'general' }, text: 'Kimchi is passthrough on purpose. <script>alert(1)</script>' }, NOW);
 j = addEntry(j, { type: 'technique', subject: { kind: 'dish', dish: DISHES[0].name }, text: 'Migrated note.', migrated: true, undated: true }, NOW);
 j = addEntry(j, { type: 'retirement', subject: { kind: 'dish', dish: 'Tea-Smoked Chicken' }, text: 'Fully retired rather than shipped.' }, NOW);
+j = addEntry(j, { type: 'technique', subject: { kind: 'dish', dish: DISHES[0].name }, text: 'PRINCIPLE-MARKER fat carries what you bloom in it.', transferable: true }, NOW);
 
 const orders = [
   { id: 'o1', customer: 'Dave', createdAt: '2026-06-01T00:00:00Z', status: 'Delivered', archived: true,
@@ -68,6 +69,19 @@ ok(/3 sold to 2 households/.test(html), 'house order excluded from the sales cou
 ok(!html.includes('<script>alert(1)</script>'), 'journal text is escaped — an entry cannot script the archive');
 ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'), 'the hostile text still APPEARS, readably, as text');
 
+// ── Principles: the curriculum skeleton, derived not authored ───────────────
+ok(/Principles — what holds beyond one dish/.test(html),
+  'the archive carries a Principles section — the only cross-dish structure in the record');
+ok(html.includes('PRINCIPLE-MARKER fat carries what you bloom in it.'),
+  'a flagged statement appears there in full');
+ok(/Not yet grouped/.test(html),
+  'before the naming pass it sits under one honest heading rather than a guessed taxonomy');
+ok(/holds beyond this dish/.test(html),
+  'and it is still marked inline in its own dish dossier — the flag is visible in both places');
+const noFlags = buildArchiveHtml({ journal: addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: DISHES[0].name }, text: 'Just this dish.' }, NOW), orders: [] });
+ok(!/Principles — what holds beyond one dish/.test(noFlags),
+  'with nothing flagged the section does not appear at all — no empty scaffolding');
+
 // ── Machine recovery ────────────────────────────────────────────────────────
 const m = html.match(/<script type="application\/json" id="ltb-archive-data">\n([\s\S]*?)\n<\/script>/);
 ok(m, 'embedded JSON block present');
@@ -75,6 +89,11 @@ const data = JSON.parse(m[1].replace(/<\\\//g, '</'));
 ok(data.kind === 'ltb-archive' && data.journal.entries.length === j.entries.length,
   'embedded JSON round-trips the complete journal, private entries included');
 ok(Array.isArray(data.renameHistory), 'rename history rides the JSON too');
+ok(Array.isArray(data.transferable) && data.transferable.length === 1
+   && /PRINCIPLE-MARKER/.test(data.transferable[0].text),
+  'flagged statements are PRE-EXTRACTED in the JSON so a future reader need not re-implement the filter');
+ok(data.transferable[0].dish === DISHES[0].name && data.transferable[0].principle === null,
+  'each carries its dish and a null principle awaiting the naming pass');
 
 // ── Empty-state safety ──────────────────────────────────────────────────────
 const bare = buildArchiveHtml({});

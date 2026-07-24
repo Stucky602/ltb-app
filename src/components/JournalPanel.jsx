@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   JOURNAL_TYPES, JOURNAL_TYPE_ORDER, addEntry, removeEntry,
-  entriesForDish, missingRetirementRecords,
+  entriesForDish, missingRetirementRecords, canBeTransferable,
 } from '../journal.js';
 import { DISH_RENAMES } from '../utils.js';
 
@@ -35,6 +35,7 @@ function Entry({ e, onDelete }) {
         <span style={{ color: e.type === 'retirement' ? C.bad : e.type === 'price' || e.type === 'decision' ? C.gold : C.good, fontWeight: 700 }}>{t.label}</span>
         <span>{e.undated ? 'undated' : fmtDate(e.ts)}</span>
         {e.private && <span style={{ color: C.gold }}>🔒 private</span>}
+        {e.transferable && <span style={{ color: C.good, fontWeight: 700 }}>↗ holds beyond this dish</span>}
         {e.migrated && <span>migrated cook note</span>}
         <span style={{ flex: 1 }} />
         {confirm
@@ -55,6 +56,9 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
   const [type, setType] = useState('technique');
   const [text, setText] = useState('');
   const [priv, setPriv] = useState(JOURNAL_TYPES.technique.privateDefault);
+  // The transferable flag. Off by default — most of what gets written is
+  // about THIS dish, and a flag that is usually on carries no information.
+  const [transferable, setTransferable] = useState(false);
   const [typeTouchedPriv, setTypeTouchedPriv] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
@@ -78,6 +82,7 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
 
   const pickType = (t) => {
     setType(t);
+    if (!canBeTransferable(t)) setTransferable(false);
     // Follow the type's privacy default until Kevin touches the lock himself;
     // after that his choice sticks for this draft.
     if (!typeTouchedPriv) setPriv(JOURNAL_TYPES[t].privateDefault);
@@ -87,8 +92,9 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
     if (!text.trim()) return;
     if (!dish) return;
     const subject = { kind: 'dish', dish };
-    onSaveJournal(prev => addEntry(prev, { type, subject, text, private: priv }));
+    onSaveJournal(prev => addEntry(prev, { type, subject, text, private: priv, transferable }));
     setText('');
+    setTransferable(false);
     setTypeTouchedPriv(false);
     setPriv(JOURNAL_TYPES[type].privateDefault);
     setSavedFlash(true);
@@ -121,6 +127,19 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
         value={text}
         onChange={e => setText(e.target.value)}
       />
+      {canBeTransferable(type) && (
+        <div
+          style={{ ...S.lockRow, color: transferable ? C.good : C.dim }}
+          onClick={() => setTransferable(v => !v)}
+        >
+          <span style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${transferable ? C.good : '#5F5E5A'}`, background: transferable ? C.good : 'transparent', color: '#14201d', fontSize: 12, fontWeight: 800, lineHeight: 1 }}>
+            {transferable ? '✓' : ''}
+          </span>
+          <span>{transferable
+            ? 'Holds beyond this dish — a principle, not just this recipe'
+            : 'This holds beyond this dish'}</span>
+        </div>
+      )}
       <div style={S.lockRow} onClick={() => { setPriv(p => !p); setTypeTouchedPriv(true); }}>
         <span style={{ fontSize: 15 }}>{priv ? '🔒' : '🔓'}</span>
         <span>{priv ? 'Private — never leaves the owner app, excluded from the content studio' : 'Owner-app only — usable by the content studio'}</span>

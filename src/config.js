@@ -22,6 +22,10 @@ export const FEEDBACK_KEY = 'ltb_dish_feedback_v1'; // per-dish feedback: { [dis
 // backup ring. DISH_NOTES_KEY is retired into it (one-way boot migration,
 // schema v2); the old key is kept above only so the migration can read it.
 export const JOURNAL_KEY = 'ltb-journal';
+// Forward-only record of what was on the menu each business week, UPSERTED by
+// week stamp so the several publishes a single week receives collapse into one
+// row. Exists for seasonal recall, not restore (that is config-history).
+export const WEEK_LEDGER_KEY = 'ltb-week-ledger';
 // M1: owned container counts + the meal-pool manual adjustment. Rides the
 // backup ring. Costs and type definitions live in containers.js (they are
 // registry facts, not per-device state); this key holds only what varies:

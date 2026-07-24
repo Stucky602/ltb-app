@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   JOURNAL_TYPES, JOURNAL_TYPE_ORDER, addEntry, removeEntry,
-  entriesForDish, canBeTransferable,
+  entriesForDish, canBeTransferable, recentlyDeleted, restoreEntry,
 } from '../journal.js';
 import { DISH_RENAMES } from '../utils.js';
 
@@ -151,6 +151,27 @@ export function JournalPanel({ dish, journal, onSaveJournal }) {
         <span>{priv ? 'Private — never leaves the owner app, excluded from the content studio' : 'Owner-app only — usable by the content studio'}</span>
       </div>
       <button style={S.saveBtn} onClick={save}>{savedFlash ? '✓ Saved' : 'Add to the record'}</button>
+
+      {undoable.length > 0 && (
+        <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 10, paddingTop: 8 }}>
+          <div style={{ fontSize: 10.5, color: C.faint, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+            Recently deleted
+          </div>
+          {undoable.slice(0, 5).map(e => (
+            <div key={e.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '3px 0' }}>
+              <span style={{ flex: 1, fontSize: 12, color: C.faint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {e.text}
+              </span>
+              <button
+                onClick={() => onSaveJournal(prev => restoreEntry(prev, e.id))}
+                style={{ minHeight: 32, padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.good}`, background: 'transparent', color: C.good, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Undo
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {entries.length === 0
         ? <div style={{ fontSize: 12, color: C.faint, marginTop: 10 }}>Nothing recorded yet. The whys are the most perishable thing in this app — costs are on receipts, reasons are only in your head.</div>

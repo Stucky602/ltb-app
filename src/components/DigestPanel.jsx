@@ -69,7 +69,7 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
         <div>
           {needs && (needs.undecided.length > 0 || needs.unsettled > 0 || needs.jarTotal > 0 || needs.unpaidCount > 0) && (
             <>
-              <div style={S.h}>Needs a decision</div>
+              <div style={{ ...S.h, color: C.warn, fontSize: 13 }}>Needs a decision</div>
               {needs.undecided.length > 0 && (
                 <div style={S.p}>
                   Omakase still undecided: {needs.undecided.map(u => `${u.customer} (${new Date(u.createdAt).toLocaleDateString()})`).join(', ')}.
@@ -93,6 +93,16 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
               )}
             </>
           )}
+          {/* ── Everything below this line is INFORMATION, not a decision.
+                 The panel had grown to eleven sections all competing for the
+                 same glance, and the app's own backup-warning comment says it:
+                 a warning that cries wolf gets learned into furniture. The
+                 split is the fix — decisions lead, reading follows. ── */}
+          <div style={{ borderTop: `1px solid ${C.border}`, margin: '14px 0 4px' }} />
+          <div style={{ fontSize: 10.5, color: C.faint, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>
+            For reading
+          </div>
+
           {onThisDay.length > 0 && (
             <>
               <div style={S.h}>On this day</div>

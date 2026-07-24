@@ -20,6 +20,8 @@ import {
   latestPriceRationale, migrateDishNotes, missingRetirementRecords,
   canBeTransferable, transferableEntries, principleIndex, UNNAMED_PRINCIPLE,
   entriesOnThisDay, orphanedDishNames,
+  restoreEntry, recentlyDeleted, purgeTombstones, UNDO_WINDOW_DAYS,
+  dossierCoverage, dossierComposition,
 } from '../src/journal.js';
 
 let pass = 0;
@@ -181,6 +183,37 @@ ok(orph[0].orderCount === 2, 'orphans report how many orders carry them, so the 
 ok(!orph.some(o => o.name === 'Omakase'), 'omakase is an act of trust, not a catalog dish');
 ok(orphanedDishNames(hist, new Set([...orphanKnown, 'Ghost Dish']), renameMap).length === 0,
   'nothing is an orphan once the registry knows it');
+
+// ── Soft delete: a 30-day window, not a softened meaning ────────────────────
+const NOW2 = new Date('2026-07-24T12:00:00Z');
+let sd = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'deleted soon' }, NOW2);
+const victimId = sd.entries[0].id;
+sd = removeEntry(sd, victimId, NOW2);
+ok(sd.entries.length === 0, 'a removed entry is gone from every READ — removal still means removed');
+ok(recentlyDeleted(sd, NOW2).length === 1, 'but it sits in a tombstone inside the undo window');
+ok(entriesForDish(sd, 'Gumbo').length === 0, 'tombstones never leak back into dish reads');
+ok(transferableEntries(sd).length === 0, 'nor into the transferable set');
+const restored = restoreEntry(sd, victimId);
+ok(restored.entries.length === 1 && recentlyDeleted(restored, NOW2).length === 0, 'undo puts it back and clears the tombstone');
+ok(!('deletedAt' in restored.entries[0]), 'a restored entry carries no deletion residue');
+const later = new Date(NOW2.getTime() + (UNDO_WINDOW_DAYS + 1) * 86400000);
+ok(recentlyDeleted(sd, later).length === 0, 'past the window it is no longer offered');
+ok(purgeTombstones(sd, later).deleted.length === 0, 'and purging drops it for good');
+ok(purgeTombstones(sd, NOW2).deleted.length === 1, 'purging inside the window keeps it');
+ok(removeEntry(sd, 'no-such-id', NOW2).entries.length === sd.entries.length, 'removing an unknown id is a no-op');
+
+// ── The record's own shape ──────────────────────────────────────────────────
+let shape = emptyJournal();
+shape = addEntry(shape, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'a' }, NOW2);
+shape = addEntry(shape, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'b' }, NOW2);
+shape = addEntry(shape, { type: 'doneCues', subject: { kind: 'dish', dish: 'Chili' }, text: 'c' }, NOW2);
+const cov = dossierCoverage(shape, ['Gumbo', 'Chili', 'Bolognese']);
+ok(cov.rows[0].dish === 'Bolognese' && cov.rows[0].entries === 0, 'coverage puts the emptiest dish first — it is a worklist');
+ok(cov.empty === 1 && cov.documented === 2 && cov.total === 3, 'coverage counts documented against the whole catalog');
+const comp = dossierComposition(shape);
+ok(comp.total === 3 && comp.byType.technique === 2 && comp.byType.doneCues === 1, 'composition counts by type');
+ok(comp.missing.includes('mistake'),
+  'and NAMES the types with nothing at all — a record with zero mistakes is the finding, not a gap in the report');
 
 // ── Normalization tolerance ─────────────────────────────────────────────────
 ok(normalizeJournal(undefined).entries.length === 0, 'undefined store normalizes clean');

@@ -17,7 +17,7 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
-  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, SW_VERSION_KEY,
+  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -48,7 +48,8 @@ import {
   houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
-import { emptyJournal, normalizeJournal, migrateDishNotes } from './journal.js';
+import { emptyJournal, normalizeJournal, migrateDishNotes, purgeTombstones } from './journal.js';
+import { recordWeek, normalizeLedger } from './weekLedger.js';
 import { useWakeLock } from './useWakeLock.js';
 import { usePreserveScroll } from './usePreserveScroll.js';
 import { currentWeekInfo, msUntilDeadline, formatCountdown, intakeVsMedian, weekRolledOver } from './timeBanners.js';
@@ -171,6 +172,7 @@ export default function LTBOrderTracker() {
   // Customer questions pulled from the worker. Not persisted: the worker holds
   // the rolling log, so this is a view of it, not a second copy to drift.
   const [askLog, setAskLog] = useState([]);
+  const [weekLedger, setWeekLedger] = useState(() => normalizeLedger(null));
   // M1: owned container counts + meal-pool adjustment (containers.js).
   const [containerConfig, setContainerConfig] = useState(() => normalizeContainerConfig(null));
   // Pipeline test-kitchen journal: { version, entries: { key: { journal:[], status, promoteChecklist } } }
@@ -303,7 +305,7 @@ export default function LTBOrderTracker() {
         await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
       }
 
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg] = await Promise.all([
+      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
         loadJSON(SHOPPING_KEY, []),
@@ -315,6 +317,7 @@ export default function LTBOrderTracker() {
         loadJSON(JOURNAL_KEY, null),
         loadJSON(LAST_SEEN_WEEK_KEY, null),
         loadJSON(CONTAINER_INVENTORY_KEY, null),
+        loadJSON(WEEK_LEDGER_KEY, null),
       ]);
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
@@ -354,9 +357,12 @@ export default function LTBOrderTracker() {
         await saveJSON(JOURNAL_KEY, bootJournal);
         await saveJSON(DISH_NOTES_KEY, {});
       }
+      // Drop journal entries whose 30-day undo window has closed.
+      bootJournal = purgeTombstones(bootJournal);
       setJournal(bootJournal);
       setLastSeenWeek(loadedLastSeenWeek ?? null);
       setContainerConfig(normalizeContainerConfig(loadedContainerCfg));
+      setWeekLedger(normalizeLedger(loadedLedger));
       setDishFeedback(loadedDishFeedback || {});
       if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
         setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
@@ -850,6 +856,15 @@ export default function LTBOrderTracker() {
     try {
       published = await res.json();
     } catch (_) { /* an unparseable body is not a failed publish */ }
+    // Forward-only seasonal record. UPSERTED by business week, so publishing
+    // three times in one week (menu, then omakase, then a notice) leaves one
+    // row holding the final state rather than three rows to reconcile later.
+    setWeekLedger(prev => {
+      const next = recordWeek(prev, allDinners.map(d => d.name), new Date(),
+        { paused: !!(pausedOpts && pausedOpts.paused) });
+      saveJSON(WEEK_LEDGER_KEY, next);
+      return next;
+    });
     if (published && Array.isArray(published.dropped) && published.dropped.length) {
       setNotice(
         'Published, but the worker ignored ' + published.dropped.join(', ') +
@@ -1471,11 +1486,12 @@ export default function LTBOrderTracker() {
     // orders are on the worker, but the whys are only here).
     journal,
     containerInventory: containerConfig,
+    weekLedger,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1646,6 +1662,11 @@ export default function LTBOrderTracker() {
       const jr = normalizeJournal(payload.journal);
       setJournal(jr);
       await saveJSON(JOURNAL_KEY, jr);
+    }
+    if (payload.weekLedger && typeof payload.weekLedger === 'object') {
+      const wl = normalizeLedger(payload.weekLedger);
+      setWeekLedger(wl);
+      await saveJSON(WEEK_LEDGER_KEY, wl);
     }
     if (payload.containerInventory && typeof payload.containerInventory === 'object') {
       const cc = normalizeContainerConfig(payload.containerInventory);

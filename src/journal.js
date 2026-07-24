@@ -64,7 +64,7 @@ export const canBeTransferable = (type) => TRANSFERABLE_TYPES.has(type);
 const jid = () => 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function emptyJournal() {
-  return { version: JOURNAL_VERSION, entries: [] };
+  return { version: JOURNAL_VERSION, entries: [], deleted: [] };
 }
 
 // Tolerate anything localStorage or a hand-made payload can throw at us.
@@ -73,7 +73,8 @@ export function emptyJournal() {
 export function normalizeJournal(raw) {
   if (!raw || typeof raw !== 'object') return emptyJournal();
   const entries = Array.isArray(raw.entries) ? raw.entries.filter(e => e && typeof e === 'object' && typeof e.text === 'string') : [];
-  return { version: JOURNAL_VERSION, entries };
+  const deleted = Array.isArray(raw.deleted) ? raw.deleted.filter(e => e && typeof e === 'object' && typeof e.text === 'string') : [];
+  return { version: JOURNAL_VERSION, entries, deleted };
 }
 
 // ── The one stamping decision (T3 lives here) ──────────────────────────────
@@ -121,17 +122,62 @@ export function addEntry(journal, partial, now) {
   return { ...j, entries: [...j.entries, entry] };
 }
 
+// How long a deleted entry stays recoverable. The record is meant to last a
+// decade and the only other backstop is a MANUAL yearly archive, so an
+// accidental delete could otherwise be unrecoverable for up to a year. This is
+// not softening what removal means (a removed entry is gone from every read,
+// every export, and the archive) — it is a window for the fat-finger case.
+export const UNDO_WINDOW_DAYS = 30;
+
 // The journal is Kevin's own diary, so unlike the audit log it is editable:
-// correcting your own record is not tampering. removeEntry is a real delete —
-// "removed means gone" — not a soft flag.
+// correcting your own record is not tampering.
 export function updateEntry(journal, id, patch) {
   const j = normalizeJournal(journal);
   return { ...j, entries: j.entries.map(e => (e.id === id ? stampEntry({ ...e, ...patch, id: e.id, ts: e.ts }) : e)) };
 }
 
-export function removeEntry(journal, id) {
+// Removal moves the entry to a tombstone list rather than dropping it on the
+// floor. Everything that READS the journal ignores tombstones, so removed
+// really is removed everywhere it counts; purgeTombstones drops them for good
+// once the window closes.
+export function removeEntry(journal, id, now) {
   const j = normalizeJournal(journal);
-  return { ...j, entries: j.entries.filter(e => e.id !== id) };
+  const gone = j.entries.find(e => e.id === id);
+  if (!gone) return j;
+  return {
+    ...j,
+    entries: j.entries.filter(e => e.id !== id),
+    deleted: [...(j.deleted || []), { ...gone, deletedAt: (now || new Date()).toISOString() }],
+  };
+}
+
+export function restoreEntry(journal, id) {
+  const j = normalizeJournal(journal);
+  const back = (j.deleted || []).find(e => e.id === id);
+  if (!back) return j;
+  const { deletedAt, ...clean } = back;
+  return {
+    ...j,
+    entries: [...j.entries, clean],
+    deleted: (j.deleted || []).filter(e => e.id !== id),
+  };
+}
+
+// Entries still inside the undo window, newest deletion first.
+export function recentlyDeleted(journal, now) {
+  const j = normalizeJournal(journal);
+  const cutoff = (now || new Date()).getTime() - UNDO_WINDOW_DAYS * 86400000;
+  return (j.deleted || [])
+    .filter(e => Date.parse(e.deletedAt) >= cutoff)
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
+}
+
+// Drops anything past the window. Called on boot; safe to call any time.
+export function purgeTombstones(journal, now) {
+  const j = normalizeJournal(journal);
+  const keep = recentlyDeleted(j, now);
+  if ((j.deleted || []).length === keep.length) return j;
+  return { ...j, deleted: keep };
 }
 
 // ── Reading ────────────────────────────────────────────────────────────────
@@ -205,6 +251,53 @@ export function principleIndex(journal, renames) {
     out.get(key).push(e);
   }
   return out;
+}
+
+// ── The record's own shape ─────────────────────────────────────────────────
+// COVERAGE answers "what should I write about next": how many entries each
+// dish has. Operational, acted on while already in the writing surface.
+//
+// COMPOSITION answers a different and less comfortable question: what KIND of
+// record is this. If the corpus is ninety percent technique and almost no
+// mistakes, then the file quietly tells whoever reads it that cooking is a
+// thing that goes right. Kevin knows better and would never say it, but the
+// shape of the record would say it for him. That is not visible from inside
+// the writing, which is exactly why it needs to be computed.
+export function dossierCoverage(journal, dishNames, renames) {
+  const j = normalizeJournal(journal);
+  const counts = new Map((dishNames || []).map(n => [n, 0]));
+  const canonOf = new Map((dishNames || []).map(n => [canonDishName(n, renames), n]));
+  for (const e of j.entries) {
+    if (!e.subject || e.subject.kind !== 'dish') continue;
+    const target = canonOf.get(canonDishName(e.subject.dish, renames));
+    if (target) counts.set(target, counts.get(target) + 1);
+  }
+  const rows = [...counts.entries()]
+    .map(([dish, entries]) => ({ dish, entries }))
+    .sort((a, b) => a.entries - b.entries || a.dish.localeCompare(b.dish));
+  return {
+    rows,
+    empty: rows.filter(r => r.entries === 0).length,
+    documented: rows.filter(r => r.entries > 0).length,
+    total: rows.length,
+  };
+}
+
+export function dossierComposition(journal) {
+  const j = normalizeJournal(journal);
+  const byType = {};
+  for (const t of JOURNAL_TYPE_ORDER) byType[t] = 0;
+  for (const e of j.entries) if (byType[e.type] !== undefined) byType[e.type] += 1;
+  const total = j.entries.length;
+  return {
+    total,
+    byType,
+    // Types with nothing at all. The interesting output is usually here, not
+    // in the counts: a record with zero mistakes is the finding.
+    missing: JOURNAL_TYPE_ORDER.filter(t => byType[t] === 0),
+    transferable: j.entries.filter(e => e.transferable).length,
+    private: j.entries.filter(e => e.private).length,
+  };
 }
 
 // ── On this day ────────────────────────────────────────────────────────────

@@ -2064,6 +2064,46 @@ TAX  0.00
   }
 }
 
+// ─── CHANGE CONTROL (Jul 24) ─────────────────────────────────────────────────
+// Borrowed straight from Kevin's day job: changing a validated thing triggers
+// an impact assessment of everything downstream. Editing a dish here touches
+// artifacts that live in different files and can silently fall out of step —
+// a new variant with no cost, a renamed dish whose reheat bucket did not
+// follow, a dish nobody can pack because it has no container. These are the
+// downstream checks, run on every build so a stale artifact cannot ship.
+{
+  const { DISHES: CC_DISHES } = await import('../src/dishes.js');
+  const { containerTypesFor } = await import('../src/containers.js');
+
+  for (const d of CC_DISHES) {
+    // Every priced variant needs a cost, or margin math silently reads zero
+    // and the dish looks infinitely profitable.
+    for (const v of (d.variants || [])) {
+      if (typeof v.price === 'number' && typeof v.cost !== 'number') {
+        F('change-control', `${d.name} variant "${v.label}" has a price but no cost`);
+      }
+      if (typeof v.price === 'number' && v.price <= 0) {
+        F('change-control', `${d.name} variant "${v.label}" has a non-positive price`);
+      }
+    }
+    // Every dish must resolve to at least one container, or the Sunday pack
+    // check silently undercounts it.
+    const types = containerTypesFor({ name: d.name });
+    if (!types.length) F('change-control', `${d.name} resolves to no container type`);
+    // A dish customers see needs its customer-facing copy present.
+    if (!d.copy || !d.copy.desc) W('change-control', `${d.name} has no customer description`);
+  }
+
+  // A rename must not orphan its own reheat handling: the NEW name has to
+  // resolve to a container just like the old one did.
+  const { DISH_RENAMES: CC_RENAMES } = await import('../src/utils.js');
+  for (const [from, to] of Object.entries(CC_RENAMES)) {
+    if (!containerTypesFor({ name: to }).length) {
+      F('change-control', `rename target "${to}" (from "${from}") resolves to no container type`);
+    }
+  }
+}
+
 // ─── Report ──────────────────────────────────────────────────────────────────
 console.log(`\nLTB invariant suite — ${DISHES.length} dinners, ${ALL_ALWAYS_ITEMS.length} always-menu items, ${Object.keys(RECIPES).length} recipes checked.\n`);
 if (warns.length) {

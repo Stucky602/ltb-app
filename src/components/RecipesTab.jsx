@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD } from '../styles.js';
-import { currency, itemCost, copyText } from '../utils.js';
+import { currency, itemCost, copyText, DISH_RENAMES } from '../utils.js';
+import { entriesForDish, publicEntries, latestPriceRationale } from '../journal.js';
+import { JournalPanel } from './JournalPanel.jsx';
 import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { itemHandling } from '../recipes.js';
 import { MARGIN_BUFFER, costPipelineIngredients, pipelineMarginAt, baselineCostMap } from '../dishCosting.js';
@@ -188,13 +190,12 @@ function FeedbackStrip({ fb, dish, onReset }) {
   );
 }
 
-export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, dishNotes, onSaveDishNote, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog }) {
+export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog }) {
   const [showRepricing, setShowRepricing] = useState(false);
   const repricing = useMemo(() => repricingScoreboard(auditLog || [], orders || []), [auditLog, orders]);
   const [dish, setDish] = useState('');
   const [flavorIdx, setFlavorIdx] = useState(0);
   const [size, setSize] = useState('small'); // 'small' | 'large' | 'only'
-  const [noteText, setNoteText] = useState('');
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(true);
   const [portSort, setPortSort] = useState('margin');
@@ -235,7 +236,6 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     setFlavorIdx(0);
     const g = report.decomposition.groups[0];
     setSize(g.small ? 'small' : g.large ? 'large' : 'only');
-    setNoteText((dishNotes || {})[dish] || '');
     setShowBreakdown(false);
   }, [dish]); // eslint-disable-line
 
@@ -249,18 +249,23 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const recipe = (report && currentVariant) ? report.recipeFor(currentVariant.label) : null;
 
   // Grounding facts for the studio: ingredient names (NEVER costs), the canon
-  // reheat approach, and Kevin's own cook notes. Only what's true.
+  // reheat approach, and Kevin's own craft notes. Only what's true — and only
+  // what's PUBLIC. The studio's output goes through the worker toward
+  // customer-facing posts, so it draws exclusively from publicEntries():
+  // provenance and anything Kevin locked stays out by construction.
   const contentFacts = useMemo(() => {
     if (!dish || !recipe) return '';
     const ings = (recipe.displayLines || []).map(l => l.name).filter(Boolean).join(', ');
     const h = itemHandling(dish, {});
-    const notes = (dishNotes || {})[dish] || '';
+    const craft = publicEntries(entriesForDish(journal, dish, DISH_RENAMES))
+      .filter(e => e.type === 'technique' || e.type === 'adjustment' || e.type === 'doneCues')
+      .slice(-4).map(e => e.text).join(' · ');
     return [
       `Ingredients: ${ings}`,
       h.cue ? `Customer finish: ${h.cue}` : '',
-      notes ? `Kevin's cook notes: ${notes}` : '',
+      craft ? `Kevin's craft notes: ${craft}` : '',
     ].filter(Boolean).join('\n');
-  }, [dish, recipe, dishNotes]);
+  }, [dish, recipe, journal]);
 
   const makeDraft = async (angle) => {
     setDrafting(true); setDraftErr(null); setDraft(null);
@@ -1116,11 +1121,22 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   <span>Baseline anchor</span><span>{currency(econ.anchorCost)} · {econ.marginBasePct.toFixed(0)}%</span>
                 </div>
               )}
-              {econ.underFloorEffective && (
-                <div style={S.banner('bad')}>
-                  Below the {report.floorPct}% floor{econ.hasPassthrough ? ' on value-add basis (pasta already excluded)' : ''}. {econ.priceToHoldFloor && !econ.hasPassthrough ? `About ${currency(econ.priceToHoldFloor.suggested)} would hold it.` : ''}
-                </div>
-              )}
+              {econ.underFloorEffective && (() => {
+                // K1/K2: if the price is on the record, the warning CITES the
+                // record instead of inviting a fix. Steak au Poivre, the Rib
+                // Chop, Coriander Lamb, and Leblanc are sub-floor on purpose;
+                // this is the mechanism that keeps future hands off them.
+                const why = latestPriceRationale(journal, dish, DISH_RENAMES);
+                return why ? (
+                  <div style={S.banner('warn')}>
+                    Below the {report.floorPct}% floor — deliberately, per the dossier ({why.undated ? 'undated' : new Date(why.ts).toLocaleDateString()}): {why.text}
+                  </div>
+                ) : (
+                  <div style={S.banner('bad')}>
+                    Below the {report.floorPct}% floor{econ.hasPassthrough ? ' on value-add basis (pasta already excluded)' : ''}. {econ.priceToHoldFloor && !econ.hasPassthrough ? `About ${currency(econ.priceToHoldFloor.suggested)} would hold it. ` : ''}If this is deliberate, put the reason in the dossier below and this warning will cite it instead.
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1292,23 +1308,11 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
             </div>
           )}
 
-          {/* ── Cook notes ── */}
-          <div style={S.section}>
-            <div style={S.sectionTitle}>Cook notes</div>
-            <textarea
-              style={S.notes}
-              placeholder="Technique reminders, timing, substitutions, anything you want to remember…"
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-            />
-            <button style={S.saveBtn} onClick={() => onSaveDishNote(dish, noteText)}>Save notes</button>
-          </div>
-
           {/* ── Content studio: this dish, told well, in Kevin's voice ── */}
           <div style={S.section}>
             <div style={S.sectionTitle}>Content studio</div>
             <div style={{ fontSize: 12, color: '#8a958f', marginBottom: 8, lineHeight: 1.45 }}>
-              Turn this dish into a post. Grounded in the real recipe and your cook notes, written in your voice. Each draft is one small Sonnet call.
+              Turn this dish into a post. Grounded in the real recipe and the public entries of your dossier (private entries never feed it), written in your voice. Each draft is one small Sonnet call.
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {[['science', 'Food science'], ['technique', 'Technique'], ['story', 'Behind the dish'], ['caption', 'IG caption']].map(([k, label]) => (
@@ -1328,6 +1332,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
           </div>
         </>
       )}
+
+      {/* ── The dossier (K1–K8): the knowledge base this app exists to hold.
+             Renders with or without a dish selected — decisions like "kimchi
+             is passthrough" or "omakase floor is 40%" are business entries
+             with no single dish to live under. ── */}
+      <JournalPanel
+        dish={dish}
+        journal={journal}
+        onSaveJournal={onSaveJournal}
+        orders={orders}
+        knownNames={knownNames}
+      />
     </div>
   );
 }

@@ -22,7 +22,7 @@ import {
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
-  urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName,
+  urlBase64ToUint8Array, nameMatchType, regularNames, regularDisplayName, regularAllNames,
   regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
   orderTotal, repricePerLbItem, itemCost, orderCostInfo, jarsOutForRegular,
@@ -60,6 +60,8 @@ export function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
   );
 }
 
+import { sortList, searchList, windowList, DEFAULT_WINDOW } from '../listControls.js';
+
 // ─── Regulars Tab: VIP customer profiles ───────────────────────────────────
 export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLink, onUnlink }) {
   const [mode, setMode] = useState('list'); // 'list' | 'add' | 'profile'
@@ -68,6 +70,13 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
   const activeRegular = regulars.find(r => r.id === activeId) || null;
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [analyticsWindow, setAnalyticsWindow] = useState('all'); // month | quarter | all
+  // V2: one search box, shared by the analytics table and the plain list
+  // below it — a name search should find someone in both places at once.
+  const [regularSearch, setRegularSearch] = useState('');
+  // V5: the analytics table used to render every regular, always. Sorted by
+  // profit already (below); this just stops rendering all of them forever.
+  const [showAllAnalytics, setShowAllAnalytics] = useState(false);
+  const [showAllRegulars, setShowAllRegulars] = useState(false);
 
   const REG_PERIOD_DAYS = { month: 30, quarter: 90, all: null };
   const analytics = useMemo(() => {
@@ -97,6 +106,28 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
     rows.sort((a, b) => (a.isHouse - b.isHouse) || (b.profit - a.profit));
     return rows;
   }, [regulars, orders, analyticsWindow]);
+
+  // V2: every name a regular goes by (aliases included), for alias-aware
+  // search — matches how the app already resolves a customer everywhere
+  // else via regularAllNames.
+  const regularNameIndex = useMemo(
+    () => new Map((regulars || []).map(r => [r.id, regularAllNames(r)])),
+    [regulars]
+  );
+
+  // V5: the analytics table used to render every regular, always. `analytics`
+  // is already sorted (house last, profit descending); search narrows it,
+  // then window caps how many rows actually render.
+  const visibleAnalytics = useMemo(() => {
+    const searched = searchList(analytics, regularSearch, row => regularNameIndex.get(row.id) || [row.name]);
+    return windowList(searched, showAllAnalytics ? null : DEFAULT_WINDOW);
+  }, [analytics, regularSearch, regularNameIndex, showAllAnalytics]);
+
+  // V2/V3: the plain regulars list below, same search box, its own window.
+  const visibleRegulars = useMemo(() => {
+    const searched = searchList(regulars, regularSearch, r => regularAllNames(r));
+    return windowList(searched, showAllRegulars ? null : DEFAULT_WINDOW);
+  }, [regulars, regularSearch, showAllRegulars]);
 
   if (mode === 'add') {
     return (
@@ -149,7 +180,7 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
           </button>
           {showAnalytics && (
             <div style={{ marginTop: 10, overflowX: 'auto' }}>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 10, color: '#7a8480', letterSpacing: 0.5 }}>WINDOW</span>
                 {[['month', 'This month'], ['quarter', 'Quarter'], ['all', 'All time']].map(([k, label]) => (
                   <button key={k} onClick={() => setAnalyticsWindow(k)}
@@ -157,6 +188,14 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
                     {label}
                   </button>
                 ))}
+                {regulars.length > 8 && (
+                  <input
+                    value={regularSearch}
+                    onChange={e => setRegularSearch(e.target.value)}
+                    placeholder="Search name…"
+                    style={{ flex: '1 1 120px', minWidth: 100, background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 7, color: CREAM, fontSize: 11.5, padding: '4px 8px' }}
+                  />
+                )}
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
                 <thead>
@@ -171,7 +210,7 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
                   </tr>
                 </thead>
                 <tbody>
-                  {analytics.map(row => (
+                  {visibleAnalytics.shown.map(row => (
                     <tr key={row.id} style={{ borderTop: '1px solid #2a332f', color: CREAM }}>
                       <td style={{ padding: '5px 6px' }}>{row.name}{row.isHouse ? <span style={{ color: '#7a8480' }}> (house)</span> : ''}</td>
                       <td style={{ padding: '5px 6px', textAlign: 'right' }}>{row.isHouse ? '—' : row.orders}</td>
@@ -184,6 +223,17 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
                   ))}
                 </tbody>
               </table>
+              {visibleAnalytics.hiddenCount > 0 && (
+                <button
+                  onClick={() => setShowAllAnalytics(true)}
+                  style={{ width: '100%', minHeight: 40, marginTop: 8, padding: '8px', borderRadius: 7, border: '1px dashed #3a453f', background: 'transparent', color: '#9aa5a0', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                >
+                  Show {visibleAnalytics.hiddenCount} more regular{visibleAnalytics.hiddenCount !== 1 ? 's' : ''}
+                </button>
+              )}
+              {visibleAnalytics.total === 0 && regularSearch && (
+                <div style={{ fontSize: 12, color: '#7a8480', padding: '8px 0', textAlign: 'center' }}>No regulars match.</div>
+              )}
               {analytics.some(r => !r.complete) && <div style={{ fontSize: 10, color: '#7a8480', marginTop: 6 }}>* some orders predate cost tracking, so profit is partial</div>}
             </div>
           )}
@@ -196,29 +246,51 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
           <div style={styles.emptyBody}>Add your repeat customers to track their preferences and order history.</div>
         </div>
       ) : (
-        <div style={styles.regularsList}>
-          {regulars.map(r => {
-            const linkedCount = (r.linkedOrderIds || []).length;
-            return (
-              <button
-                key={r.id}
-                style={styles.regularRow}
-                onClick={() => { setActiveId(r.id); setMode('profile'); }}
-              >
-                <div style={styles.regularRowLeft}>
-                  <div style={styles.regularRowName}>
-                    {regularDisplayName(r)} <span style={styles.regularStar}>★</span>
-                  </div>
-                  <div style={styles.regularRowMeta}>
-                    {linkedCount} order{linkedCount !== 1 ? 's' : ''}
-                    {r.discountPercent > 0 ? ` · ${r.discountPercent}% off` : ''}
-                  </div>
-                </div>
-                <ChevronDown size={16} style={{ transform: 'rotate(-90deg)' }} />
-              </button>
-            );
-          })}
-        </div>
+        <>
+          {regulars.length > 8 && !showAnalytics && (
+            <input
+              value={regularSearch}
+              onChange={e => setRegularSearch(e.target.value)}
+              placeholder="Search regulars…"
+              style={{ ...styles.input, width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '9px 11px', fontSize: 13 }}
+            />
+          )}
+          {visibleRegulars.total === 0 ? (
+            <div style={{ fontSize: 12.5, color: '#7a8480', padding: '10px 0', textAlign: 'center' }}>No regulars match.</div>
+          ) : (
+            <div style={styles.regularsList}>
+              {visibleRegulars.shown.map(r => {
+                const linkedCount = (r.linkedOrderIds || []).length;
+                return (
+                  <button
+                    key={r.id}
+                    style={styles.regularRow}
+                    onClick={() => { setActiveId(r.id); setMode('profile'); }}
+                  >
+                    <div style={styles.regularRowLeft}>
+                      <div style={styles.regularRowName}>
+                        {regularDisplayName(r)} <span style={styles.regularStar}>★</span>
+                      </div>
+                      <div style={styles.regularRowMeta}>
+                        {linkedCount} order{linkedCount !== 1 ? 's' : ''}
+                        {r.discountPercent > 0 ? ` · ${r.discountPercent}% off` : ''}
+                      </div>
+                    </div>
+                    <ChevronDown size={16} style={{ transform: 'rotate(-90deg)' }} />
+                  </button>
+                );
+              })}
+              {visibleRegulars.hiddenCount > 0 && (
+                <button
+                  onClick={() => setShowAllRegulars(true)}
+                  style={{ width: '100%', minHeight: 44, marginTop: 6, padding: '10px', borderRadius: 8, border: '1px dashed #37403c', background: 'transparent', color: '#9aa5a0', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+                >
+                  Show {visibleRegulars.hiddenCount} more regular{visibleRegulars.hiddenCount !== 1 ? 's' : ''}
+                </button>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

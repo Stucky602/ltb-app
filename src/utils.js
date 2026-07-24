@@ -566,6 +566,24 @@ export function resetDishFeedback(store, dish, now) {
 export const DISH_RENAMES = {
   'Cumin Mushroom Noodles / Cumin Beef on Rice': 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
 };
+// K9: the story beside the mechanism. DISH_RENAMES stays a flat mechanical
+// map because the passport, sales history, and rename immunity all depend on
+// it being a pure lookup. RENAME_HISTORY carries what the map cannot: WHEN
+// and WHY. A rename already silently broke passport stamps once; the next
+// person to touch one should find its reasons here. The `date` is the date
+// the RENAME happened (typed from memory if need be), NOT when this row was
+// written — null means unrecorded, and an unrecorded date stays null rather
+// than being invented (same rule that killed the rare badge).
+// invariants.mjs holds the two structures in lockstep: every DISH_RENAMES
+// pair appears here and vice versa, so neither can drift.
+export const RENAME_HISTORY = [
+  {
+    from: 'Cumin Mushroom Noodles / Cumin Beef on Rice',
+    to: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    date: null, // predates the history; unrecorded
+    reason: 'Lamb joined the beef option. (Recorded retroactively when RENAME_HISTORY landed, Jul 2026; original date not kept.)',
+  },
+];
 export const VARIANT_RENAMES = {
   'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice': {
     'Small (~3-4)': 'Mushroom, Small (~3-4)',

@@ -31,6 +31,18 @@ const CASES = [
   // The invoice has to EXPLAIN its own total. At-cost add-ons counted toward
   // the money but rendered nowhere, so a customer saw a number that did not
   // match the lines above it.
+  // The dossier (K1–K8). Real journal data including a private entry and a
+  // retired dish with no retirement record, so the nudge path renders too.
+  ['JournalPanel', './src/components/JournalPanel.jsx',
+    `{ dish: '', orders: [{ items: [{ name: 'Tea-Smoked Chicken', qty: 1 }] }],
+       knownNames: new Set(['Bo Ssam']),
+       journal: { version: 1, entries: [
+         { id: 'j1', ts: '2026-07-24T06:00:00Z', type: 'decision', subject: { kind: 'general' },
+           text: 'Kimchi is passthrough on purpose.', private: false },
+         { id: 'j2', ts: '2026-07-24T06:01:00Z', type: 'provenance', subject: { kind: 'general' },
+           text: 'Private provenance line.', private: true },
+       ] },
+       onSaveJournal: () => {} }`],
   ['InvoiceModal', './src/components/Modals.jsx',
     `{ order: { id:'o1', customer:'Dave', createdAt:'2026-07-20', total: 110.5,
         items: [{ name:'Bolognese', variant:'Large (~8)', qty:1, price:100, cost:45,
@@ -60,6 +72,11 @@ console.log(html);
       '--format=cjs', '--platform=node', '--outfile=' + out], { stdio: 'pipe' });
     const stdout = String(execFileSync('node', [out], { stdio: 'pipe' }) || '');
     check(`${name} renders with real data`, true);
+    if (name === 'JournalPanel') {
+      check('dossier shows the K8 retirement nudge', /Tea-Smoked Chicken/.test(stdout));
+      check('dossier renders a general decision entry', /Kimchi is passthrough/.test(stdout));
+      check('dossier marks a private entry as private', /private/.test(stdout));
+    }
     if (name === 'InvoiceModal') {
       check('invoice shows at-cost add-ons as line items', /Block of good parm/.test(stdout));
       check('invoice shows a pending add-on too', /Extra chili oil/.test(stdout));

@@ -13,6 +13,7 @@ function check(name, cond, extra) {
 
 const form = fs.readFileSync('form.html', 'utf8');
 const menu = fs.readFileSync('menu.html', 'utf8');
+const landing = fs.existsSync('order.html') ? fs.readFileSync('order.html', 'utf8') : null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const CFG = {
@@ -107,6 +108,102 @@ console.log('form.html');
   const h = dom.window.document.body.innerHTML;
   check('a paused week says so instead of showing a menu', /Taking this week off/.test(h) && /Back on the 30th/.test(h));
   check('a paused week cannot be ordered from', !dom.window.document.getElementById('reviewBtn'));
+}
+
+// M4: the fridge-space note. Kevin's exact thresholds — 4+ Large portions
+// or 8+ Smalls — and BELOW them nobody needs warning, so silence below is
+// as much the spec as the note above. Asserted by ELEMENT
+// (.container-space-note), never by page text, per the gate's own rule.
+// Per-lb cuts are vacuum bags and never count toward either threshold.
+{
+  const BIG = { weekLabel: 'Week of Jul 22', dishes: [
+    { name: 'Big Dish', variants: [{ label: 'Small (~4)', price: 40, cost: 20 }, { label: 'Large (~8)', price: 80, cost: 40 }] },
+  ] };
+  const drive = async (variantIdx, times) => {
+    const dom = boot(form, BIG); await sleep(150);
+    const d = dom.window.document, w = dom.window;
+    d.getElementById('custName').value = 'Test';
+    for (let i = 0; i < times; i++) w.changeQty('0_0_' + variantIdx, 1);
+    w.openReview();
+    return d;
+  };
+  let d = await drive(1, 4);
+  check('4 large portions trigger the fridge-space note', !!d.querySelector('.container-space-note'));
+  check('the fridge-space note never blocks submitting', !!d.getElementById('submitBtn'));
+  d = await drive(1, 3);
+  check('3 larges stay silent — below the threshold nobody needs warning', !d.querySelector('.container-space-note'));
+  d = await drive(0, 8);
+  check('8 smalls trigger the fridge-space note', !!d.querySelector('.container-space-note'));
+  d = await drive(0, 7);
+  check('7 smalls stay silent', !d.querySelector('.container-space-note'));
+}
+
+// ── The week heads-up banner (published from the Week tab) ────────────────
+// This feature was wired end to end EXCEPT that publishWeek dropped the
+// value and no page rendered it, so checking the box did nothing anywhere.
+// These checks exist so that can never be true again silently: the banner
+// must appear on all three customer surfaces when published, and must
+// DISAPPEAR when an unchecked week is published (an empty notice clears it).
+{
+  const NOTICE = 'Delivery slides to Thursday this week.';
+  const withNotice = { ...CFG, notice: NOTICE };
+
+  const f1 = boot(form, withNotice); await sleep(150);
+  check('form.html shows a published heads-up banner',
+    !!f1.window.document.querySelector('.week-notice')
+    && f1.window.document.querySelector('.week-notice').textContent.includes(NOTICE));
+
+  const f2 = boot(form, { ...CFG, notice: '' }); await sleep(150);
+  check('form.html shows NO banner when the week publishes an empty notice',
+    !f2.window.document.querySelector('.week-notice'));
+
+  const f3 = boot(form, CFG); await sleep(150);
+  check('form.html shows no banner when the field is absent entirely',
+    !f3.window.document.querySelector('.week-notice'));
+
+  // A paused week still needs its banner — "we're off AND here's why" is
+  // exactly when a heads-up matters most.
+  const f4 = boot(form, { ...CFG, paused: true, pausedMsg: 'Back next week.', notice: NOTICE }); await sleep(150);
+  check('form.html shows the banner even on a paused week',
+    !!f4.window.document.querySelector('.week-notice'));
+
+  const m1 = boot(menu, withNotice); await sleep(150);
+  check('menu.html shows a published heads-up banner',
+    !!m1.window.document.querySelector('.week-notice')
+    && m1.window.document.querySelector('.week-notice').textContent.includes(NOTICE));
+
+  const m2 = boot(menu, CFG); await sleep(150);
+  check('menu.html shows no banner when none is published',
+    !m2.window.document.querySelector('.week-notice'));
+
+  const m3 = boot(menu, { ...CFG, paused: true, pausedMsg: 'Back next week.', notice: NOTICE }); await sleep(150);
+  check('menu.html shows the banner even on a paused week',
+    !!m3.window.document.querySelector('.week-notice'));
+
+  // The banner is escaped like everything else customers can see.
+  const m4 = boot(menu, { ...CFG, notice: '<script>alert(1)</script>' }); await sleep(150);
+  check('a published notice is HTML-escaped, never executed',
+    !/<script>alert\(1\)<\/script>/.test(m4.window.document.querySelector('.week-notice').innerHTML));
+
+  if (landing) {
+    const l1 = boot(landing, withNotice); await sleep(200);
+    check('order.html (landing) shows a published heads-up banner',
+      !!l1.window.document.querySelector('.week-notice')
+      && l1.window.document.querySelector('.week-notice').textContent.includes(NOTICE));
+
+    const l2 = boot(landing, CFG); await sleep(200);
+    check('order.html shows no banner when none is published',
+      !l2.window.document.querySelector('.week-notice'));
+
+    // The landing page was fully static before this feature. A dead worker
+    // must leave it exactly as it was, never an error state.
+    const l3 = new JSDOM(landing, { runScripts: 'dangerously', url: 'https://x.test/',
+      beforeParse(w) { w.fetch = () => Promise.reject(new Error('worker down')); } });
+    await sleep(200);
+    check('order.html survives a dead worker with no banner and no error',
+      !l3.window.document.querySelector('.week-notice')
+      && !!l3.window.document.getElementById('orderBtn'));
+  }
 }
 
 console.log('menu.html');

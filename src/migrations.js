@@ -27,17 +27,28 @@
 // SCHEMA_VERSION tracks the SHAPE of the data underneath it and starts
 // separately at 1.
 
-export const SCHEMA_VERSION = 1;
+import { migrateDishNotes, normalizeJournal } from './journal.js';
+
+export const SCHEMA_VERSION = 2;
 export const SCHEMA_VERSION_KEY = 'ltb-schema-version';
 
 // Ordered, one function per step. Each MUST be:
 //   - idempotent        — running it twice changes nothing the second time
 //   - non-destructive    — never drop a field it doesn't recognize
-// Add v1→v2 here when the next real shape change lands. There is nothing to
-// migrate yet, since v1 is the current shape — this scaffold exists so the
-// NEXT change has a slot instead of an excuse to skip stamping.
 const MIGRATIONS = {
-  // 1: (data) => data,  // example shape for the next entry
+  // v1 → v2 (Jul 24 2026): the knowledge journal lands and the legacy
+  // dishNotes store retires into it. Payloads never actually CARRIED
+  // dishNotes (it lived on-device only and buildBackupPayload never included
+  // it), so for real ring snapshots this step is normalize-only — but a
+  // hand-made or file payload could carry one, and folding is cheap. The
+  // fold is idempotent by content (migrateDishNotes dedupes migrated
+  // entries), and dishNotes is left ON the payload untouched: this step
+  // recognizes it, but dropping fields is not this function's job.
+  1: (data) => {
+    if (!data || typeof data !== 'object') return data;
+    const journal = migrateDishNotes(normalizeJournal(data.journal), data.dishNotes || null);
+    return { ...data, journal };
+  },
 };
 
 // Runs every migration step between `fromVersion` and SCHEMA_VERSION, in

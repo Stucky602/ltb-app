@@ -35,6 +35,8 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { BooksPanel } from './BooksPanel.jsx';
 import { AuditPanel } from './AuditPanel.jsx';
 import { WeeklySummaryModal } from './WeeklySummary.jsx';
+import { buildArchiveHtml, buildRecordsHtml } from '../archiveExport.js';
+import { CONTAINER_TYPES, CONTAINER_TYPE_ORDER, packagingCost } from '../containers.js';
 
 export function ProfitChart({ series }) {
   const W = 320, H = 160;
@@ -164,7 +166,7 @@ export function compactMoney(v) {
 }
 
 // ─── Money Tab ──────────────────────────────────────────────────────────────
-export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName }) {
+export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName, journal, containerStatus, onSaveContainerConfig }) {
   const [sortField, setSortField] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [groupMode, setGroupMode] = useState('none');
@@ -173,6 +175,23 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
   const [storage, setStorage] = useState(null);
   const [search, setSearch] = useState('');
   const [showChart, setShowChart] = useState(false);
+  // K10/M3 downloads. Explicit button, never automatic (Kevin's rule). The
+  // whole build runs on-device; nothing is sent anywhere.
+  const [archiveMsg, setArchiveMsg] = useState(null);
+  const downloadDoc = (html, filename, label) => {
+    try {
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setArchiveMsg(`${label} downloaded. It opens in any browser, with or without this app, and prints clean.`);
+    } catch (e) {
+      setArchiveMsg(`${label} failed to build. Nothing was changed.`);
+    }
+    setTimeout(() => setArchiveMsg(null), 6000);
+  };
   const [showRecap, setShowRecap] = useState(false);
   const [weekNotes, setWeekNotes] = useState({});
   const [weekNotesDraft, setWeekNotesDraft] = useState('');
@@ -573,6 +592,90 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
               ingredientName={ingredientName}
             />
             <AuditPanel log={auditLog} />
+            {/* ── The durable record (K10 + M3) ──
+                 Everything lives in one device's localStorage; these two
+                 buttons are the way out. The archive is the whole knowledge
+                 base — registry, journal (private entries included, per
+                 Kevin), sales counts, renames — as ONE self-contained HTML
+                 file. Records is the delivery log with declared allergens.
+                 Yearly cadence for the archive is a habit, not a timer. */}
+            <div style={{ marginTop: 10, padding: '10px 0', borderTop: '1px solid #2d3a36' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa5a0', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>The durable record</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  style={{ minHeight: 44, padding: '10px 16px', borderRadius: 8, border: '1px solid #3d4a2e', background: '#232d2a', color: '#5DCAA5', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  onClick={() => downloadDoc(
+                    buildArchiveHtml({ journal, orders }),
+                    `LTB_ARCHIVE_${new Date().getFullYear()}.html`,
+                    'The archive')}
+                >
+                  Download the yearly archive
+                </button>
+                <button
+                  style={{ minHeight: 44, padding: '10px 16px', borderRadius: 8, border: '1px solid #2d3a36', background: '#232d2a', color: '#e8ede9', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
+                  onClick={() => downloadDoc(
+                    buildRecordsHtml({ orders }),
+                    `LTB_RECORDS_${new Date().toISOString().slice(0, 10)}.html`,
+                    'The delivery records')}
+                >
+                  Download delivery records
+                </button>
+              </div>
+              {archiveMsg && <div style={{ fontSize: 12, color: '#9aa5a0', marginTop: 6 }}>{archiveMsg}</div>}
+            </div>
+            {/* ── M1 + M2: Packaging & containers ──
+                 Owned counts (editable — Kevin called his numbers
+                 placeholders), the meal-pool outstanding count with his
+                 manual override, and this week's packaging spend.
+                 DISPLAY-ONLY costs (decision 3a): nothing here ever
+                 touches the dish margin engine. */}
+            {containerStatus && (
+              <div style={{ marginTop: 10, padding: '10px 0', borderTop: '1px solid #2d3a36' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa5a0', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Packaging &amp; containers</div>
+                {CONTAINER_TYPE_ORDER.map(t => {
+                  const row = containerStatus.rows.find(r => r.type === t);
+                  return (
+                    <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 12.5, color: '#e8ede9' }}>
+                      <span style={{ flex: 1 }}>{CONTAINER_TYPES[t].label} <span style={{ color: '#7a8480' }}>(${CONTAINER_TYPES[t].cost.toFixed(2)})</span></span>
+                      <span style={{ color: row && row.short > 0 ? '#e0828a' : '#7a8480', fontSize: 11.5 }}>
+                        need {row ? row.need : 0}{t === 'jar' && containerStatus.jarsHeld > 0 ? ` · ${containerStatus.jarsHeld} held` : ''}
+                      </span>
+                      <span style={{ color: '#7a8480', fontSize: 11.5 }}>own</span>
+                      <input
+                        type="number" min="0" inputMode="numeric"
+                        value={containerStatus.owned[t]}
+                        onChange={e => onSaveContainerConfig && onSaveContainerConfig(prev => ({ ...prev, owned: { ...prev.owned, [t]: Math.max(0, Math.floor(Number(e.target.value) || 0)) } }))}
+                        style={{ width: 56, minHeight: 36, background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 7, color: '#e8ede9', fontSize: 13, padding: '4px 6px', textAlign: 'center' }}
+                      />
+                    </div>
+                  );
+                })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0 2px', fontSize: 12.5, color: '#e8ede9', borderTop: '1px solid #232d2a', marginTop: 6 }}>
+                  <span style={{ flex: 1 }}>Meal containers still out <span style={{ color: '#7a8480' }}>(returns net out via invoices)</span></span>
+                  <span style={{ fontWeight: 700, color: containerStatus.mealOut > 0 ? '#EF9F27' : '#7a8480' }}>{containerStatus.mealOut}</span>
+                  <span style={{ color: '#7a8480', fontSize: 11.5 }}>adjust</span>
+                  <input
+                    type="number" inputMode="numeric"
+                    value={containerStatus.mealAdjust}
+                    onChange={e => onSaveContainerConfig && onSaveContainerConfig(prev => ({ ...prev, mealAdjust: Math.floor(Number(e.target.value) || 0) }))}
+                    style={{ width: 56, minHeight: 36, background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 7, color: '#e8ede9', fontSize: 13, padding: '4px 6px', textAlign: 'center' }}
+                  />
+                </div>
+                {(() => {
+                  const wk = packagingCost((orders || []).filter(o => {
+                    const t = new Date(o.createdAt || 0).getTime();
+                    return t >= Date.now() - 7 * 86400000;
+                  }));
+                  return (
+                    <div style={{ fontSize: 12, color: '#9aa5a0', marginTop: 6 }}>
+                      Packaging out, last 7 days: <b style={{ color: '#e8ede9' }}>${wk.total.toFixed(2)}</b>
+                      {wk.bags > 0 ? ` · ${wk.bags} sous vide bag${wk.bags !== 1 ? 's' : ''} (uncosted)` : ''}
+                      <span style={{ color: '#7a8480' }}> — display only, never in dish margins.</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -61,6 +61,21 @@ const fromZero = migrateForward(sample, 0);
 ok(fromZero && typeof fromZero === 'object',
   'migrateForward from v0 returns a usable object without throwing');
 
+// ── v1→v2: legacy dishNotes fold into the journal ───────────────────────────
+// A v1 payload carrying an old flat dishNotes map migrates into journal
+// entries (marked migrated+undated — the real date is unknown and never
+// invented), and the step is idempotent + non-destructive.
+const v1Payload = { orders: [], dishNotes: { 'Bolognese': 'stir the bottom' }, keepMe: 'yes' };
+const v2 = migrateForward(v1Payload, 1);
+ok(v2.journal && v2.journal.entries.length === 1
+   && v2.journal.entries[0].migrated === true && v2.journal.entries[0].undated === true,
+  'v1→v2 folds legacy dishNotes into migrated+undated journal entries');
+ok(v2.keepMe === 'yes' && v2.dishNotes,
+  'v1→v2 is non-destructive — unrecognized fields and the legacy map both survive');
+const v2again = migrateForward({ ...v2 }, 1);
+ok(v2again.journal.entries.length === 1,
+  'v1→v2 is idempotent — re-running the fold adds nothing');
+
 // ── REFUSE_MESSAGE is a real, user-facing string ────────────────────────────
 ok(typeof REFUSE_MESSAGE === 'string' && REFUSE_MESSAGE.length > 20 &&
    /nothing was changed/i.test(REFUSE_MESSAGE),

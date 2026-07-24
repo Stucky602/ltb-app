@@ -106,6 +106,11 @@
   .save-inner h3:first-child { margin-top:0; }
   .save-inner p { color:var(--cream); margin-bottom:3px; }
   .save-inner .step { color:var(--dim); padding-left:5px; }
+  .week-notice { background:rgba(201,168,76,0.12); border:1px solid var(--gold); border-radius:12px;
+    padding:13px 15px; margin:0 0 18px; font-size:13.5px; line-height:1.55; color:var(--cream);
+    text-align:left; width:100%; }
+  .week-notice b { color:var(--gold); display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.6px; margin-bottom:4px; }
   .footer { margin-top:24px; font-size:11px; color:#6a726c; text-align:center; line-height:1.5; width:100%; }
 </style>
 </head>
@@ -117,6 +122,10 @@
     <img class="logo" src="/ltb-logo.png" alt="LTB logo">
     <div class="brand">Lettuce, Turnip, The Beet</div>
     <div class="week">meal prep, delivered fresh</div>
+
+    <!-- Heads-up banner for the week, published from the Week tab. Stays
+         empty (and invisible) unless a notice is actually published. -->
+    <div id="weekNotice"></div>
 
     <div class="blurb">
       Orders are generally needed by <b>Sunday</b> to ensure delivery the following <b>Wednesday</b>.
@@ -238,6 +247,28 @@
     // form.html always navigates directly (never in panel) to avoid nesting order.html inside itself
     // default href behavior on both mobile and desktop
   });
+
+  // Heads-up banner for the week. This page was fully static before, so the
+  // fetch is strictly additive: any failure leaves the page exactly as it was
+  // and the customer never sees an error for a banner that may not exist.
+  (function () {
+    var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+    }
+    try {
+      fetch(WORKER + "/config")
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
+          if (!t) return; // nothing published: the slot stays empty
+          document.getElementById("weekNotice").innerHTML =
+            '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
+        })
+        .catch(function () { /* offline or worker down — the page is fine without it */ });
+    } catch (e) { /* no fetch at all (very old browser) — same */ }
+  })();
 
   // If this page is ever loaded inside an iframe (e.g. after form submit redirects here), break out
   if (window.top !== window.self) {

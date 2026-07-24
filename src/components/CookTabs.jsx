@@ -149,7 +149,7 @@ export function DeliverList({ groups, orderCount, checks, onToggle, onReset, oma
               </span>
               <button
                 onClick={() => onConfirmOmakase && onConfirmOmakase(p.orderId)}
-                style={{ padding: '5px 12px', borderRadius: 6, cursor: 'pointer', background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12 }}
+                style={{ padding: '5px 12px', minHeight: 44, borderRadius: 6, cursor: 'pointer', background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700, fontSize: 12 }}
               >
                 Confirm {currency(p.price)}
               </button>

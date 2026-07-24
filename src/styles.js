@@ -1284,6 +1284,7 @@ export const styles = {
     border: 'none',
     borderRadius: '6px',
     padding: '5px 10px',
+    minHeight: '44px', // P2: cook-flow tap target floor (kitchen hands, not a mouse)
     fontSize: '12px',
     fontWeight: 600,
     cursor: 'pointer',
@@ -1294,6 +1295,7 @@ export const styles = {
     border: 'none',
     borderRadius: '6px',
     padding: '5px 10px',
+    minHeight: '44px', // P2
     fontSize: '12px',
     fontWeight: 600,
     cursor: 'pointer',
@@ -1304,6 +1306,7 @@ export const styles = {
     border: '1px solid #37403c',
     borderRadius: '6px',
     padding: '5px 10px',
+    minHeight: '44px', // P2
     fontSize: '12px',
     cursor: 'pointer',
   },
@@ -1328,6 +1331,7 @@ export const styles = {
     border: '1px dashed #37403c',
     borderRadius: '8px',
     padding: '10px 12px',
+    minHeight: '44px', // P2
     cursor: 'pointer',
     marginTop: '10px',
     width: '100%',
@@ -1874,6 +1878,7 @@ export const styles = {
     border: '1px solid #37403c',
     borderRadius: '6px',
     padding: '5px 10px',
+    minHeight: '44px', // P2: cook/deliver Reset — kitchen hands, mid-cook
     cursor: 'pointer',
   },
   cookCategory: {

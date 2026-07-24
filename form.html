@@ -71,6 +71,13 @@
   .menu-link { display: block; text-align: center; color: var(--teal-light); font-size: 13px; margin-bottom: 18px; text-decoration: none; }
   .empty { text-align: center; color: var(--dim); padding: 30px 0; font-style: italic; line-height: 1.5; }
   .sticky-back { position:fixed; top:max(14px,env(safe-area-inset-top)); left:14px; z-index:999; background:var(--teal-dark); border:1px solid var(--teal-mid); border-radius:10px; padding:8px 14px; color:var(--teal-light); font-size:13px; font-weight:600; text-decoration:none; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
+
+  /* Heads-up banner published from the Week tab. Renders only when the week
+     actually has one; an unchecked publish clears it. */
+  .week-notice { background:rgba(201,168,76,0.12); border:1px solid var(--gold); border-radius:12px;
+    padding:13px 15px; margin:0 0 16px; font-size:14px; line-height:1.55; color:var(--cream); }
+  .week-notice b { color:var(--gold); display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.6px; margin-bottom:4px; }
 </style>
 </head>
 <body>
@@ -84,6 +91,12 @@
 
   <script>
     var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
+    // The week's heads-up banner. Absent or empty renders nothing at all.
+    function noticeHtml(cfg) {
+      var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
+      if (!t) return "";
+      return '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
+    }
     var config = null;
     var cart = {}; // key "dishIdx:variantIdx" -> qty
     var spiceSelections = {};  // variantKey -> spice level (0-5; 0 = No spice)
@@ -347,6 +360,7 @@
       // rather than looking broken or empty.
       if (config.paused) {
         document.getElementById("content").innerHTML =
+          noticeHtml(config) +
           '<div class="section" style="text-align:center;">' +
           '<div class="section-title">Taking this week off</div>' +
           '<div style="font-size:13px;color:var(--dim);line-height:1.6;">No menu this week. Back next week, same as always.' +
@@ -357,11 +371,12 @@
       var groups = allGroups();
       if (groups.length === 0) {
         document.getElementById("content").innerHTML =
+          noticeHtml(config) +
           '<div class="empty">No menu is published right now.<br>Check back soon or reach out directly.</div>';
         return;
       }
 
-      var html = "";
+      var html = noticeHtml(config);
       if (config.menuPdfUrl) {
         html += '<a class="menu-link" href="' + config.menuPdfUrl + '" target="_blank" rel="noopener">View the full menu PDF →</a>';
       }
@@ -767,6 +782,24 @@
             '<div style="font-size:13px;color:var(--cream);line-height:1.5;">' + esc(it.note) + '</div></div>' : '');
       });
       var totalStr = (total % 1 === 0 ? total : total.toFixed(2));
+      // M4: container space, Kevin's exact thresholds — 4+ Large portions or
+      // 8+ Smalls, and BELOW that nobody needs warning, so below that this
+      // block renders nothing at all. A friendly heads-up, never a blocker:
+      // the submit button is untouched. Per-lb cuts are vacuum bags, not
+      // containers, so they never count toward either threshold.
+      var largeCount = 0, smallCount = 0;
+      items.forEach(function (it) {
+        if (it.perLb) return;
+        var v = it.variant || "";
+        if (/large/i.test(v)) largeCount += it.qty;
+        else if (/small/i.test(v)) smallCount += it.qty;
+      });
+      if (largeCount >= 4 || smallCount >= 8) {
+        summaryHtml += '<div class="container-space-note" style="margin:10px 0 4px;padding:9px 11px;border:1px solid var(--gold);border-radius:8px;background:rgba(212,160,80,0.08);font-size:12.5px;color:var(--cream);line-height:1.5;">' +
+          '<span style="color:var(--gold);font-weight:700;">A note on fridge space:</span> that\u2019s ' +
+          (largeCount >= 4 ? largeCount + ' large containers' : smallCount + ' containers') +
+          ' arriving Wednesday \u2014 worth clearing a shelf before delivery day.</div>';
+      }
       summaryHtml += '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--gold);padding:10px 0 4px;">' +
         '<span>Total' + (hasPerLb ? ' (est.)' : '') + '</span><span>' + (hasPerLb ? '~' : '') + '$' + totalStr + '</span></div>';
       if (hasPerLb) {

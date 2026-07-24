@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { INGREDIENT_SEED } from '../src/ingredients.js';
 import { decomposeVariants, parseServings, buildDishReport, priceToHoldFloor, reportableDishes, buildPortfolioSummary, dishSalesHistory } from '../src/dishReport.js';
 import { scoreWeekCandidates, dishRunStats, composeWeek } from '../src/weekPlanner.js';
-import { mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames, regularMatchType } from '../src/utils.js';
+import { mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames, regularMatchType, DISH_RENAMES, RENAME_HISTORY } from '../src/utils.js';
 import { itemHandling, mergeShoppingRows, parseShoppingLine, buildAutoShoppingRows } from '../src/recipes.js';
 import { buildCookSchedule } from '../src/cookSchedule.js';
 import { buildWeeklyDigest } from '../src/digest.js';
@@ -2041,6 +2041,27 @@ TAX  0.00
   if (diceCoefficient('habanero pepper', 'habanero') <= diceCoefficient('habanero pepper', 'jalapeno')) F('scanner#4', 'habanero must out-score jalapeno for a habanero line');
   if (diceCoefficient('gumbo', 'gumbo') !== 1) F('scanner#4', 'identical strings score 1');
   if (diceCoefficient('', 'x') !== 0) F('scanner#4', 'empty scores 0');
+}
+
+// ─── K9: rename history in lockstep with the rename map (Jul 24) ─────────────
+// DISH_RENAMES is the load-bearing mechanical lookup; RENAME_HISTORY is the
+// record of when and why. Neither may drift from the other: a rename with no
+// history is a story lost, and a history row with no map entry is a rename
+// that never mechanically happened (stamps would silently break, again).
+{
+  const mapPairs = new Set(Object.entries(DISH_RENAMES).map(([f, t]) => `${f}→${t}`));
+  const histPairs = new Set((RENAME_HISTORY || []).map(h => `${h.from}→${h.to}`));
+  for (const p of mapPairs) {
+    if (!histPairs.has(p)) F('renames', `DISH_RENAMES pair has no RENAME_HISTORY row: ${p}`);
+  }
+  for (const p of histPairs) {
+    if (!mapPairs.has(p)) F('renames', `RENAME_HISTORY row has no DISH_RENAMES pair: ${p}`);
+  }
+  for (const h of (RENAME_HISTORY || [])) {
+    if (!h.reason || !String(h.reason).trim()) F('renames', `RENAME_HISTORY row missing a reason: ${h.from}`);
+    // date: null is legal (unrecorded), but a PRESENT date must be a real date string.
+    if (h.date != null && Number.isNaN(Date.parse(h.date))) F('renames', `RENAME_HISTORY date is not parseable: ${h.from} (${h.date})`);
+  }
 }
 
 // ─── Report ──────────────────────────────────────────────────────────────────

@@ -17,12 +17,16 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
-  SW_VERSION_KEY,
+  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
 const INGREDIENTS_KEY = 'ltb_ingredients_v1';
 const COST_HISTORY_KEY = 'ltb_cost_history_v1';
+// T2: the last business-week stamp this device has SEEN (not the same as
+// SCHEMA_VERSION or any other guard — just a rollover flag). One key, one
+// banner, per the plan.
+const LAST_SEEN_WEEK_KEY = 'ltb-last-seen-week';
 const RECEIPT_ALIASES_KEY = 'ltb_receipt_aliases_v1';
 // Worker pending ids Kevin has already accepted or rejected. The worker is the
 // durable order queue; this ledger stops a re-poll from resurrecting an order
@@ -44,6 +48,13 @@ import {
   houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
+import { emptyJournal, normalizeJournal, migrateDishNotes } from './journal.js';
+import { useWakeLock } from './useWakeLock.js';
+import { usePreserveScroll } from './usePreserveScroll.js';
+import { currentWeekInfo, msUntilDeadline, formatCountdown, intakeVsMedian, weekRolledOver } from './timeBanners.js';
+import { sortList, filterByStatus, searchList, orderHaystacks, windowList, DEFAULT_WINDOW } from './listControls.js';
+import { containerReport, normalizeContainerConfig } from './containers.js';
+import { extractNotice } from './weekNotice.js';
 import {
   SOURCES, appendAudit, auditEntry, diffIngredientCosts,
   menuFingerprint, diffMenuFingerprint, diffAliases, diffReconcile,
@@ -153,7 +164,12 @@ export default function LTBOrderTracker() {
   const [cookChecks, setCookChecks] = useState({});
   const [deliverChecks, setDeliverChecks] = useState({});
   const [cookSubView, setCookSubView] = useState('cook');
-  const [dishNotes, setDishNotes] = useState({});
+  // The knowledge journal (K1–K8). Replaced dishNotes (schema v2): a flat
+  // { dish: text } map had one undated slot per dish, and the whole point of
+  // the record is dated, typed, accumulating entries.
+  const [journal, setJournal] = useState(emptyJournal());
+  // M1: owned container counts + meal-pool adjustment (containers.js).
+  const [containerConfig, setContainerConfig] = useState(() => normalizeContainerConfig(null));
   // Pipeline test-kitchen journal: { version, entries: { key: { journal:[], status, promoteChecklist } } }
   // Rides the backup ring (below) — day-three verdicts are the whole point of
   // the feature and a device wipe must not lose them.
@@ -171,6 +187,30 @@ export default function LTBOrderTracker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('orders');
+  // P1: the screen sleeping mid-cook, by Kevin's own account probably the
+  // single most annoying daily thing in the app. Held on cook and shop only
+  // — the two tabs a phone sits propped up for while hands are busy.
+  useWakeLock(view === 'cook' || view === 'shop');
+
+  // T1: a minute-granularity clock for the deadline countdown. A full
+  // re-render every 60s is negligible and keeps "3h 12m" honest without any
+  // per-second churn a phone battery would notice.
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setClockTick(t => t + 1), 60000);
+    return () => clearInterval(id);
+  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const now = useMemo(() => new Date(), [clockTick]);
+
+  // T2: the business-week rollover flag. Dismissed by TAP, not silently and
+  // not by a timer — same rule already applied to `notice` below: an
+  // informational banner should not vanish before Kevin has read it.
+  const [lastSeenWeek, setLastSeenWeek] = useState(null);
+  const markWeekSeen = useCallback((stamp) => {
+    setLastSeenWeek(stamp);
+    saveJSON(LAST_SEEN_WEEK_KEY, stamp);
+  }, []);
   const [showLabels, setShowLabels] = useState(false); // bag-labels print sheet
   const [formMode, setFormMode] = useState(null);
   const [showPaste, setShowPaste] = useState(false);
@@ -219,6 +259,19 @@ export default function LTBOrderTracker() {
   const [inventory, setInventory] = useState({});
   const [linkPrompt, setLinkPrompt] = useState(null);
   const [expandedOrder, setExpandedOrder] = useState(null);
+  // V1/V2/V3: orders-list sort, status filter, search, and per-section
+  // windowing. One shared helper (listControls.js) behind all three; the
+  // list itself stays exactly as fast at 300 orders as it is at 30.
+  const [orderSort, setOrderSort] = useState('newest');
+  const [orderStatusFilter, setOrderStatusFilter] = useState(null);
+  const [orderSearch, setOrderSearch] = useState('');
+  const [showAllActive, setShowAllActive] = useState(false);
+  const [showAllDelivered, setShowAllDelivered] = useState(false);
+  // V4: bulk actions. selectMode is off by default so the list looks and
+  // behaves exactly as it always has until Kevin asks for it — the
+  // checkboxes are not in the way of the normal one-order-at-a-time flow.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -247,7 +300,7 @@ export default function LTBOrderTracker() {
         await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
       }
 
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal] = await Promise.all([
+      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
         loadJSON(SHOPPING_KEY, []),
@@ -256,6 +309,9 @@ export default function LTBOrderTracker() {
         loadJSON(DISH_NOTES_KEY, {}),
         loadJSON(FEEDBACK_KEY, {}),
         loadJSON(PIPELINE_JOURNAL_KEY, { version: 1, entries: {} }),
+        loadJSON(JOURNAL_KEY, null),
+        loadJSON(LAST_SEEN_WEEK_KEY, null),
+        loadJSON(CONTAINER_INVENTORY_KEY, null),
       ]);
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
@@ -284,7 +340,20 @@ export default function LTBOrderTracker() {
       setOrders(migrated);
       setCookChecks(loadedChecks || {});
       setDeliverChecks(loadedDeliverChecks || {});
-      setDishNotes(loadedDishNotes || {});
+      // Journal hydrate + the one-way dishNotes migration (schema v2).
+      // Each legacy note becomes a technique entry marked migrated+undated —
+      // its real date is unknown and is never invented. Idempotent by
+      // content, and the old key is emptied after the fold so a second boot
+      // is a no-op. The key itself stays in config.js so THIS read works.
+      let bootJournal = normalizeJournal(loadedJournal);
+      if (loadedDishNotes && Object.keys(loadedDishNotes).some(k => String(loadedDishNotes[k] || '').trim())) {
+        bootJournal = migrateDishNotes(bootJournal, loadedDishNotes);
+        await saveJSON(JOURNAL_KEY, bootJournal);
+        await saveJSON(DISH_NOTES_KEY, {});
+      }
+      setJournal(bootJournal);
+      setLastSeenWeek(loadedLastSeenWeek ?? null);
+      setContainerConfig(normalizeContainerConfig(loadedContainerCfg));
       setDishFeedback(loadedDishFeedback || {});
       if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
         setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
@@ -745,6 +814,13 @@ export default function LTBOrderTracker() {
       ...(pausedOpts && pausedOpts.paused
         ? { paused: true, pausedMsg: String(pausedOpts.pausedMsg || '').slice(0, 200) }
         : { paused: false, pausedMsg: '' }),
+      // The heads-up banner. This line is the fix for a feature that was
+      // wired end to end EXCEPT here: WeekTab collected the message and
+      // publishWeek dropped it on the floor, so it never reached the worker
+      // and no customer page could have shown it. Always present, never
+      // conditional — an unchecked box must publish '' to CLEAR last week's
+      // banner, exactly like pausedMsg above.
+      notice: extractNotice(pausedOpts, extras),
     };
     const res = await fetch(CONFIG_PUBLISH_URL, {
       method: 'POST',
@@ -1324,6 +1400,26 @@ export default function LTBOrderTracker() {
     ));
   }, [orders, persistOrders]);
 
+  // ── V4: bulk actions ──────────────────────────────────────────────────────
+  // ONE state commit and ONE localStorage write for N orders, never N
+  // sequential updateOrder calls: N writes would be N chances to hit the
+  // quota guard halfway through, leaving some orders marked and some not
+  // with no record of where it stopped. Idempotent by construction — an
+  // order already in the target state is returned untouched, so a
+  // double-tap can never double-apply.
+  const bulkUpdateOrders = useCallback((ids, patch) => {
+    const idSet = ids instanceof Set ? ids : new Set(ids || []);
+    if (idSet.size === 0) return;
+    persistOrders((orders || []).map(o => (idSet.has(o.id) ? { ...o, ...patch } : o)));
+  }, [orders, persistOrders]);
+
+  // House orders are $0 and never enter the books, so "mark paid" is
+  // meaningless for them — they are filtered out at the selection layer
+  // (see selectableOrders) rather than silently skipped here, so the count
+  // Kevin sees on the button is the count that actually changes.
+  const bulkMarkPaid = useCallback((ids) => bulkUpdateOrders(ids, { paid: true }), [bulkUpdateOrders]);
+  const bulkArchive = useCallback((ids) => bulkUpdateOrders(ids, { archived: true }), [bulkUpdateOrders]);
+
   const [exportMsg, setExportMsg] = useState(null);
 
   // ── Backup payload + online backup ring (v9.20) ──────────────────────────
@@ -1345,11 +1441,16 @@ export default function LTBOrderTracker() {
     receiptAliases,
     auditLog,
     pipelineJournal,
+    // The knowledge journal MUST ride the ring: it is the one store whose
+    // loss is total (reasons live nowhere else — costs are on receipts,
+    // orders are on the worker, but the whys are only here).
+    journal,
+    containerInventory: containerConfig,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1516,6 +1617,16 @@ export default function LTBOrderTracker() {
       setPipelineJournal(pj);
       await saveJSON(PIPELINE_JOURNAL_KEY, pj);
     }
+    if (payload.journal && typeof payload.journal === 'object') {
+      const jr = normalizeJournal(payload.journal);
+      setJournal(jr);
+      await saveJSON(JOURNAL_KEY, jr);
+    }
+    if (payload.containerInventory && typeof payload.containerInventory === 'object') {
+      const cc = normalizeContainerConfig(payload.containerInventory);
+      setContainerConfig(cc);
+      await saveJSON(CONTAINER_INVENTORY_KEY, cc);
+    }
     // Seed reconciliation on restore. A snapshot is a photograph of the DB as
     // it was up to three days ago, so it carries whatever baselines were
     // current THEN — including the stale ones this whole mechanism exists to
@@ -1673,6 +1784,73 @@ export default function LTBOrderTracker() {
   const activeOrders = useMemo(() => currentOrders.filter(o => o.status !== 'Delivered'), [currentOrders]);
   const deliveredOrders = useMemo(() => currentOrders.filter(o => o.status === 'Delivered'), [currentOrders]);
 
+  // V1/V2/V3: the same pipeline for both sections — status filter (active
+  // section only; "Delivered" is itself a status, so the filter would be a
+  // no-op there and just confuses the control), search, sort, then window.
+  // Search and sort apply to both, since a name search should find someone
+  // whether they're still cooking or already delivered.
+  const visibleActiveOrders = useMemo(() => {
+    const filtered = filterByStatus(activeOrders, orderStatusFilter);
+    const searched = searchList(filtered, orderSearch, orderHaystacks);
+    return sortList(searched, orderSort);
+  }, [activeOrders, orderStatusFilter, orderSearch, orderSort]);
+  const activeWindow = useMemo(
+    () => windowList(visibleActiveOrders, showAllActive ? null : DEFAULT_WINDOW),
+    [visibleActiveOrders, showAllActive]
+  );
+
+  const visibleDeliveredOrders = useMemo(() => {
+    const searched = searchList(deliveredOrders, orderSearch, orderHaystacks);
+    return sortList(searched, orderSort);
+  }, [deliveredOrders, orderSearch, orderSort]);
+  const deliveredWindow = useMemo(
+    () => windowList(visibleDeliveredOrders, showAllDelivered ? null : DEFAULT_WINDOW),
+    [visibleDeliveredOrders, showAllDelivered]
+  );
+
+  // P3: arm scroll restoration on any action that changes the order list.
+  // Keyed on the count, since that is what changes the page height and thus
+  // what moves Kevin's place out from under him.
+  const preserveScroll = usePreserveScroll((orders || []).length);
+
+  // ── V4 selection ──────────────────────────────────────────────────────────
+  // Selection is scoped to what is VISIBLE. Selecting "all" while a search
+  // is active must mean "all six of these", never "all three hundred
+  // including the ones filtered out of sight" — a bulk action that reaches
+  // past the filter is how someone marks the wrong orders paid.
+  // House orders are excluded outright: they are $0 and never enter the
+  // books, so "mark paid" is meaningless for them, and including them would
+  // make the button's count lie about what it is going to change.
+  const selectableActive = useMemo(
+    () => activeWindow.shown.filter(o => !isHouseOrder(o)),
+    [activeWindow]
+  );
+  const selectedCount = selectedIds.size;
+  const toggleSelected = useCallback((id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+  const selectAllVisible = useCallback(() => {
+    setSelectedIds(new Set(selectableActive.map(o => o.id)));
+  }, [selectableActive]);
+  // Leaving select mode always clears the selection: a stale selection
+  // surviving out of sight is exactly how a later bulk tap hits orders
+  // Kevin forgot were checked.
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+  const runBulk = useCallback((fn) => {
+    preserveScroll();
+    fn(selectedIds);
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [preserveScroll, selectedIds]);
+
   // Money headline numbers exclude house orders. NOTE the filter is here and
   // NOT on currentOrders: the Week tab, cook schedule, shopping list, labels,
   // and packing slips all read currentOrders and MUST still see her orders —
@@ -1694,6 +1872,22 @@ export default function LTBOrderTracker() {
     });
     return { revenue: round2(revenue), cost: round2(cost), profit: round2(revenue - cost) };
   }, [activeOrders]);
+
+  // T1: deadline countdown + this-week intake vs the trailing median. Reads
+  // from ALL currentOrders (archived still counts, matching the Money tab's
+  // own "archived still counts as revenue" rule), not just activeOrders.
+  const deadlineMs = useMemo(() => msUntilDeadline(now), [now]);
+  const intake = useMemo(() => intakeVsMedian(currentOrders, now, 5), [currentOrders, now]);
+
+  // T2: has the business week rolled over since this device last saw it?
+  const weekRollover = useMemo(() => weekRolledOver(lastSeenWeek, now), [lastSeenWeek, now]);
+
+  // M1: the Sunday container check. Demand from every undelivered order,
+  // availability from owned counts (jars via the ledger).
+  const containerStatus = useMemo(
+    () => containerReport(orders || [], regulars || [], containerConfig),
+    [orders, regulars, containerConfig]
+  );
 
   const recentCustomers = useMemo(() => {
     const seen = new Set();
@@ -1774,11 +1968,23 @@ export default function LTBOrderTracker() {
     saveJSON(DELIVER_CHECKS_KEY, {});
   }, []);
 
-  const saveDishNote = useCallback((dishName, text) => {
-    setDishNotes(prev => {
-      const next = { ...prev, [dishName]: text };
-      saveJSON(DISH_NOTES_KEY, next);
-      return next;
+  // Journal writer: accepts the next store OR an updater fn, same contract as
+  // savePipelineJournal. Writes surface quota failures through saveError —
+  // this is the knowledge base, and a silent lost entry is the exact failure
+  // the record exists to prevent.
+  const saveContainerConfig = useCallback((next) => {
+    setContainerConfig(prev => {
+      const cfg = normalizeContainerConfig(typeof next === 'function' ? next(prev) : next);
+      saveJSON(CONTAINER_INVENTORY_KEY, cfg).then(r => setError(saveError(r)));
+      return cfg;
+    });
+  }, []);
+
+  const saveJournal = useCallback((next) => {
+    setJournal(prev => {
+      const j = normalizeJournal(typeof next === 'function' ? next(prev) : next);
+      saveJSON(JOURNAL_KEY, j).then(r => setError(saveError(r)));
+      return j;
     });
   }, []);
 
@@ -1793,6 +1999,13 @@ export default function LTBOrderTracker() {
   }, []);
 
   const menu = useMemo(() => buildMenu(weekDishes), [weekDishes]);
+
+  // Every name the app still serves, for the K8 retirement nudge: anything
+  // people ORDERED that falls outside this set is a dish that left the menu.
+  // FULL_MENU is the whole catalog (dinners + always items, per-lb included),
+  // so retired ALWAYS items nudge too — a dessert that left has a story just
+  // as much as a dinner does. Static registry, so no deps.
+  const knownDishNames = useMemo(() => new Set(Object.values(FULL_MENU).flat().map(m => m.name)), []);
 
   // Cost maps for live dish costing (Option B). baseline is static from the seed;
   // live reflects the current edited ingredient costs.
@@ -2025,6 +2238,45 @@ export default function LTBOrderTracker() {
       <main style={styles.main}>
         {view === 'orders' && (
           <>
+            {/* T2: week rollover — dismissed by tap, not silently, not by a
+                timer (same rule as `notice` below: don't let the telling
+                expire before Kevin has read it). */}
+            {weekRollover.rolled && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(93,202,165,0.10)', border: '1px solid #2f6f57', borderRadius: 10, padding: '9px 12px', marginBottom: 10 }}>
+                <span style={{ fontSize: 12.5, color: '#e8ede9' }}>New business week: {weekRollover.currentLabel}.</span>
+                <button
+                  onClick={() => markWeekSeen(weekRollover.currentStamp)}
+                  style={{ minHeight: 32, padding: '4px 12px', borderRadius: 6, border: '1px solid #2f6f57', background: 'transparent', color: '#5DCAA5', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                >
+                  Got it
+                </button>
+              </div>
+            )}
+            {/* M1: the Sunday check. Fires only on a genuine shortage —
+                next week's pack needs more of a type than Kevin owns
+                (jars: owns minus held). Silent otherwise. */}
+            {containerStatus.shortages.length > 0 && (
+              <div style={{ background: 'rgba(224,130,138,0.10)', border: '1px solid #e0828a', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
+                <b style={{ color: '#e0828a' }}>Short on containers for this pack:</b>
+                {' '}{containerStatus.shortages.map(s => `${s.label} — need ${s.need}, have ${s.have}`).join(' · ')}.
+                {containerStatus.mealOut > 0 ? ` ${containerStatus.mealOut} meal container${containerStatus.mealOut !== 1 ? 's' : ''} still out with customers — some may come back before Wednesday.` : ''}
+                {' '}Counts live in Money → Packaging.
+              </div>
+            )}
+            {/* T1: Sunday deadline pressure + intake vs a normal week. Pure
+                information, never blocking — Kevin already knows his own
+                deadline; this just puts the countdown where he's looking. */}
+            {deadlineMs > 0 && deadlineMs < 3 * 86400000 && (
+              <div style={{ background: 'rgba(212,160,80,0.10)', border: '1px solid #D4A050', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
+                <b style={{ color: '#D4A050' }}>Orders close in {formatCountdown(deadlineMs)}.</b>
+                {' '}{intake.thisWeekCount} order{intake.thisWeekCount !== 1 ? 's' : ''} so far this week
+                {intake.median != null ? (
+                  intake.thisWeekCount < intake.median
+                    ? `, below the usual ${intake.median} — a normal week still has time to catch up.`
+                    : `, at or above the usual ${intake.median}.`
+                ) : '.'}
+              </div>
+            )}
             <StatsBar stats={stats} />
 
             {!formMode && !showPaste && !showAmend && !showCsv && (
@@ -2246,23 +2498,138 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
-            <div style={styles.orderList}>
-              {activeOrders.map(order => (
-                <ErrorBoundary key={order.id} compact label={order.customer || order.id} raw={order}>
-                <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
-                  key={order.id}
-                  order={order}
-                  regulars={regulars}
-                  expanded={expandedOrder === order.id}
-                  onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                  onUpdate={(patch) => updateOrder(order.id, patch)}
-                  onDelete={() => deleteOrder(order.id)}
-                  onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
-                  onMakeRegular={makeRegularFromOrder}
-                  onLinkRegular={linkOrderWithAlias}
+            {/* V1/V2/V3: sort, status filter, and search — the same list is
+                one house or three hundred, and this is what keeps it from
+                becoming a scroll marathon at scale. */}
+            {(activeOrders.length > 6 || deliveredOrders.length > 6) && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+                <input
+                  value={orderSearch}
+                  onChange={e => setOrderSearch(e.target.value)}
+                  placeholder="Search name, dish, or note…"
+                  style={{ ...styles.input, flex: '1 1 160px', minWidth: 140, padding: '8px 10px', fontSize: 13 }}
                 />
-                </ErrorBoundary>
-              ))}
+                <select
+                  value={orderSort}
+                  onChange={e => setOrderSort(e.target.value)}
+                  style={{ background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 8, color: CREAM, fontSize: 12.5, padding: '8px 8px', minHeight: 36 }}
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="name">By name</option>
+                  <option value="unpaidFirst">Unpaid first</option>
+                  <option value="status">By status</option>
+                </select>
+                {STATUSES.length > 0 && (
+                  <select
+                    value={orderStatusFilter || ''}
+                    onChange={e => setOrderStatusFilter(e.target.value || null)}
+                    style={{ background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 8, color: CREAM, fontSize: 12.5, padding: '8px 8px', minHeight: 36 }}
+                  >
+                    <option value="">All statuses</option>
+                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                )}
+                <button
+                  onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                  style={{ minHeight: 36, padding: '7px 12px', borderRadius: 8, border: `1px solid ${selectMode ? GOLD : '#37403c'}`, background: selectMode ? 'rgba(212,160,80,0.15)' : 'transparent', color: selectMode ? GOLD : '#9aa5a0', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+                >
+                  {selectMode ? 'Done' : 'Select'}
+                </button>
+              </div>
+            )}
+
+            {/* V4: the bulk bar. Only appears in select mode, and every
+                button names the exact count it will affect — a bulk action
+                that does not say how many is a bulk action you check twice. */}
+            {selectMode && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(212,160,80,0.08)', border: '1px solid #D4A050', borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
+                <span style={{ fontSize: 12.5, color: '#e8ede9', fontWeight: 700 }}>
+                  {selectedCount} selected
+                </span>
+                <button
+                  onClick={selectAllVisible}
+                  style={{ minHeight: 36, padding: '6px 10px', borderRadius: 7, border: '1px solid #37403c', background: 'transparent', color: '#9aa5a0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Select all {selectableActive.length} shown
+                </button>
+                {selectedCount > 0 && (
+                  <button
+                    onClick={clearSelection}
+                    style={{ minHeight: 36, padding: '6px 10px', borderRadius: 7, border: '1px solid #37403c', background: 'transparent', color: '#9aa5a0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Clear
+                  </button>
+                )}
+                <span style={{ flex: 1 }} />
+                <button
+                  disabled={selectedCount === 0}
+                  onClick={() => runBulk(bulkMarkPaid)}
+                  style={{ minHeight: 44, padding: '9px 14px', borderRadius: 8, border: 'none', background: selectedCount ? '#2f6f57' : '#232d2a', color: selectedCount ? '#fff' : '#5a635f', fontWeight: 700, fontSize: 12.5, cursor: selectedCount ? 'pointer' : 'default' }}
+                >
+                  Mark {selectedCount || ''} paid
+                </button>
+                <button
+                  disabled={selectedCount === 0}
+                  onClick={() => runBulk(bulkArchive)}
+                  style={{ minHeight: 44, padding: '9px 14px', borderRadius: 8, border: `1px solid ${selectedCount ? '#37403c' : '#232d2a'}`, background: 'transparent', color: selectedCount ? '#9aa5a0' : '#5a635f', fontWeight: 700, fontSize: 12.5, cursor: selectedCount ? 'pointer' : 'default' }}
+                >
+                  Archive {selectedCount || ''}
+                </button>
+              </div>
+            )}
+
+            <div style={styles.orderList}>
+              {activeWindow.shown.map(order => {
+                const house = isHouseOrder(order);
+                const card = (
+                  <ErrorBoundary key={order.id} compact label={order.customer || order.id} raw={order}>
+                  <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
+                    key={order.id}
+                    order={order}
+                    regulars={regulars}
+                    expanded={expandedOrder === order.id}
+                    onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
+                    onDelete={() => { preserveScroll(); deleteOrder(order.id); }}
+                    onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
+                    onMakeRegular={makeRegularFromOrder}
+                    onLinkRegular={linkOrderWithAlias}
+                  />
+                  </ErrorBoundary>
+                );
+                if (!selectMode) return card;
+                // A house order shows in the list but cannot be selected:
+                // $0 and outside the books, so both bulk actions are
+                // meaningless for it. Greyed rather than hidden, so the
+                // list Kevin sees in select mode is still the list he
+                // knows.
+                return (
+                  <div key={order.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                    <button
+                      onClick={() => !house && toggleSelected(order.id)}
+                      aria-label={house ? 'House orders cannot be selected' : 'Select order'}
+                      style={{ minWidth: 44, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', cursor: house ? 'default' : 'pointer', flexShrink: 0, opacity: house ? 0.3 : 1 }}
+                    >
+                      <span style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${selectedIds.has(order.id) ? GOLD : '#5F5E5A'}`, background: selectedIds.has(order.id) ? GOLD : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {selectedIds.has(order.id) && <Check size={13} color="#1a1a1a" />}
+                      </span>
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>{card}</div>
+                  </div>
+                );
+              })}
+              {activeWindow.hiddenCount > 0 && (
+                <button
+                  onClick={() => setShowAllActive(true)}
+                  style={{ width: '100%', minHeight: 44, marginTop: 6, padding: '10px', borderRadius: 8, border: '1px dashed #37403c', background: 'transparent', color: '#9aa5a0', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+                >
+                  Show {activeWindow.hiddenCount} older order{activeWindow.hiddenCount !== 1 ? 's' : ''}
+                </button>
+              )}
+              {activeWindow.total === 0 && (orderSearch || orderStatusFilter) && (
+                <div style={{ ...styles.emptyBody, textAlign: 'center', padding: '14px 0' }}>No orders match.</div>
+              )}
             </div>
 
             {deliveredOrders.length > 0 && (
@@ -2271,7 +2638,7 @@ export default function LTBOrderTracker() {
                   Delivered ({deliveredOrders.length})
                 </summary>
                 <div style={styles.orderList}>
-                  {deliveredOrders.map(order => (
+                  {deliveredWindow.shown.map(order => (
                     <ErrorBoundary key={order.id} compact label={order.customer || order.id} raw={order}>
                     <OrderCard allOrders={orders || []} perLbLiveCost={liveCostMap} weekDishes={weekDishes}
                       key={order.id}
@@ -2279,14 +2646,22 @@ export default function LTBOrderTracker() {
                       regulars={regulars}
                       expanded={expandedOrder === order.id}
                       onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                      onUpdate={(patch) => updateOrder(order.id, patch)}
-                      onDelete={() => deleteOrder(order.id)}
+                      onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
+                      onDelete={() => { preserveScroll(); deleteOrder(order.id); }}
                       onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
                       onMakeRegular={makeRegularFromOrder}
                       onLinkRegular={linkOrderWithAlias}
                     />
                     </ErrorBoundary>
                   ))}
+                  {deliveredWindow.hiddenCount > 0 && (
+                    <button
+                      onClick={() => setShowAllDelivered(true)}
+                      style={{ width: '100%', minHeight: 44, marginTop: 6, padding: '10px', borderRadius: 8, border: '1px dashed #37403c', background: 'transparent', color: '#9aa5a0', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}
+                    >
+                      Show {deliveredWindow.hiddenCount} more delivered order{deliveredWindow.hiddenCount !== 1 ? 's' : ''}
+                    </button>
+                  )}
                 </div>
                 <ArchiveDeliveredButton count={deliveredOrders.length} onArchive={archiveDelivered} />
               </details>
@@ -2351,7 +2726,7 @@ export default function LTBOrderTracker() {
 
         {view === 'money' && (
           <>
-            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} />
+            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} journal={journal} containerStatus={containerStatus} onSaveContainerConfig={saveContainerConfig} />
             <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} />
           </>
         )}
@@ -2363,8 +2738,9 @@ export default function LTBOrderTracker() {
             liveCostMap={liveCostMap}
             baseCostMap={baseCostMap}
             costHistory={costHistory}
-            dishNotes={dishNotes}
-            onSaveDishNote={saveDishNote}
+            journal={journal}
+            onSaveJournal={saveJournal}
+            knownNames={knownDishNames}
             weekDishes={weekDishes}
             orders={orders || []}
             pipelineJournal={pipelineJournal}

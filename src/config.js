@@ -7,14 +7,26 @@ export const DELIVER_CHECKS_KEY = 'ltb-deliver-checks';
 export const DISH_NOTES_KEY = 'ltb-dish-notes';
 export const PIPELINE_JOURNAL_KEY = 'ltb-pipeline-journal';
 export const WEEK_NOTES_KEY = 'ltb-week-notes';
-// The weekly heads-up banner: its text AND whether it is armed. Persisted so
-// the text survives a tab switch and can be reused week to week, while the
-// toggle decides whether any given publish actually carries it.
+// The Week tab's heads-up banner: { text, on }. Kept apart from the publish
+// itself so last month's wording can sit in the box unchecked and harmless,
+// then be re-armed in one tap. WeekTab.jsx imports this; it was missing here,
+// which is a build-stopping error in esbuild ("no matching export"), so any
+// checkout with WeekTab and without this key cannot build.
 export const WEEK_NOTICE_KEY = 'ltb-week-notice';
 export const SHOPPING_KEY = 'ltb-shopping';
 export const WEEK_KEY = 'ltb-week';
 export const PENDING_KEY = 'ltb-pending-orders';
 export const FEEDBACK_KEY = 'ltb_dish_feedback_v1'; // per-dish feedback: { [dish]: { tally: {good,meh,bad}, notes: [...] } }
+// The knowledge journal (K1–K8): decisions, price rationale, provenance,
+// done-cues, adjustments, techniques, mistakes, retirements. Rides the
+// backup ring. DISH_NOTES_KEY is retired into it (one-way boot migration,
+// schema v2); the old key is kept above only so the migration can read it.
+export const JOURNAL_KEY = 'ltb-journal';
+// M1: owned container counts + the meal-pool manual adjustment. Rides the
+// backup ring. Costs and type definitions live in containers.js (they are
+// registry facts, not per-device state); this key holds only what varies:
+// how many Kevin OWNS, and his correction to the outstanding-pool math.
+export const CONTAINER_INVENTORY_KEY = 'ltb-container-inventory';
 export const SEEN_ROWS_KEY = 'ltb-seen-rows';
 export const REGULARS_KEY = 'ltb-regulars';
 export const INVENTORY_KEY = 'ltb-inventory';

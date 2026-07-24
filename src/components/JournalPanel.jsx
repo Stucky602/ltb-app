@@ -61,6 +61,10 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
   const [transferable, setTransferable] = useState(false);
   const [typeTouchedPriv, setTypeTouchedPriv] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
+  // The arc: read oldest-first and a dossier stops being a feed and becomes
+  // the story of how the dish changed. This is the single most teaching-shaped
+  // read of the pool, and it costs a sort order.
+  const [arc, setArc] = useState(false);
 
   // Per-dish only. The business-wide scope was removed (Kevin, Jul 24): it
   // cluttered every recipe with a view that had nothing to do with the dish on
@@ -69,9 +73,11 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
   // editor here. Nothing was deleted.
   const entries = useMemo(() => {
     if (!dish) return [];
-    return [...entriesForDish(journal, dish, DISH_RENAMES)]
-      .sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
-  }, [journal, dish]);
+    const list = [...entriesForDish(journal, dish, DISH_RENAMES)];
+    return arc
+      ? list.sort((a, b) => String(a.ts).localeCompare(String(b.ts)))
+      : list.sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  }, [journal, dish, arc]);
 
   // K8 nudge: dishes people actually ordered that left the registry with no
   // retirement entry. Nudge, never block (Kevin's call, decision 7a).
@@ -106,7 +112,19 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
 
   return (
     <div style={S.section}>
-      <div style={S.title}>Dossier · {dish}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <div style={S.title}>Dossier · {dish}</div>
+        {entries.length > 1 && (
+          <button style={S.chip(arc)} onClick={() => setArc(a => !a)}>
+            {arc ? 'Newest first' : 'Read as an arc'}
+          </button>
+        )}
+      </div>
+      {arc && entries.length > 1 && (
+        <div style={{ fontSize: 11, color: C.faint, marginBottom: 6 }}>
+          Oldest first: how this dish changed, in order.
+        </div>
+      )}
 
       {missing.length > 0 && (
         <div style={{ border: `1px solid ${C.warn}`, background: 'rgba(239,159,39,0.08)', borderRadius: 8, padding: 8, margin: '6px 0 10px', fontSize: 12, color: C.warn }}>

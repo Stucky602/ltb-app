@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { buildWeeklyDigest } from '../digest.js';
 import { currency, jarsOutForRegular, regularDisplayName } from '../utils.js';
 import { undecidedOmakases, omakasePriceUnsettled } from '../omakase.js';
+import { weeklyDossierPrompt } from '../dossierPrompts.js';
+import { currentWeekInfo } from '../timeBanners.js';
 const C = { panel: '#1c2422', border: '#2d3a36', text: '#e8ede9', dim: '#9aa5a0', faint: '#6b7570', good: '#5DCAA5', warn: '#EF9F27', bad: '#e0828a' };
 const S = {
   section: { background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: 12, margin: '10px 0' },
@@ -12,7 +14,7 @@ const S = {
 };
 
 // #6 The Monday briefing — everything the app knows, in one read.
-export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut }) {
+export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut, journal, weekDishes }) {
   const [fbMsg, setFbMsg] = useState(null);
   const [open, setOpen] = useState(false);
   const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
@@ -34,6 +36,15 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
     const unpaidTotal = unpaidOrders.reduce((s2, o) => s2 + (Number(o.total) || 0), 0);
     return { undecided, unsettled, jarTotal, topJar, unpaidCount: unpaidOrders.length, unpaidTotal };
   }, [open, orders, regulars]);
+  // ONE question a week, aimed at the thinnest record on this week's menu.
+  // The pool fails by tapering, not by crashing; this is the forcing function.
+  // Computed from current state, so answering it moves the target on its own.
+  const question = useMemo(() => {
+    if (!open) return null;
+    const wk = currentWeekInfo();
+    return weeklyDossierPrompt(journal, weekDishes || [], wk.stamp);
+  }, [open, journal, weekDishes]);
+
   return (
     <div style={S.section}>
       <button style={S.head} onClick={() => setOpen(o => !o)}>
@@ -67,6 +78,23 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
               )}
             </>
           )}
+          {question && (
+            <>
+              <div style={S.h}>This week's question</div>
+              <div style={{ ...S.p, border: `1px solid ${C.good}`, borderRadius: 8, padding: '9px 11px', background: 'rgba(93,202,165,0.07)' }}>
+                {question.question}
+                <div style={{ fontSize: 11, color: C.faint, marginTop: 4 }}>
+                  {question.kind === 'never'
+                    ? 'Nothing on record for it yet.'
+                    : question.kind === 'stale'
+                      ? 'Nothing written about it in months.'
+                      : `${question.entryCount} entr${question.entryCount === 1 ? 'y' : 'ies'} on record.`}
+                  {' '}Recipes tab &rarr; {question.dish} &rarr; Dossier.
+                </div>
+              </div>
+            </>
+          )}
+
           <div style={S.h}>Money</div>
           <div style={S.p}>
             {d.week.count} order{d.week.count !== 1 ? 's' : ''} this week, {currency(d.week.revenue)} revenue, {currency(d.week.profit)} profit

@@ -93,6 +93,8 @@
     padding:13px 15px; margin:0 0 16px; font-size:14px; line-height:1.55; color:var(--cream); }
   .week-notice b { color:var(--gold); display:block; font-size:11px; text-transform:uppercase;
     letter-spacing:0.6px; margin-bottom:4px; }
+
+  .closed-note { color:#9aa5a0; font-style:italic; }
 </style>
 </head>
 <body>
@@ -104,6 +106,15 @@
 
 <script>
   var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
+  // Order window (Wed-Sun), mirroring order.html and form.html. A link that
+  // leads to a closed form is a worse experience than an honest "closed" line,
+  // so the CTA becomes plain text outside the window instead of a dead link.
+  function ordersOpen() {
+    var d = new Date().getDay();
+    return d === 0 || d >= 3;
+  }
+  var CLOSED_LINE = '<span class="closed-note">Orders open Wednesday</span>';
+
   // The week's heads-up banner. Empty string (or absent) renders nothing at
   // all — publishing an unchecked week clears it, so a stale message can
   // never linger here.
@@ -512,7 +523,9 @@
     if (day >= 1 && day <= 2) {
       html += '<div class="order-cta" style="background:var(--teal-mid);cursor:default;opacity:0.6;">Ordering opens Wednesday →</div>';
     } else {
-      html += '<a class="order-cta" href="form.html">Place Your Order →</a>';
+      html += ordersOpen()
+        ? '<a class="order-cta" href="form.html">Place Your Order →</a>'
+        : '<div class="order-cta" style="opacity:0.55;cursor:default;">Orders open Wednesday</div>';
     }
     html += '<a class="pipeline-cta" href="pipeline.html">In the Works — what I\'m testing next →</a>';
 

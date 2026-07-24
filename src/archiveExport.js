@@ -33,6 +33,16 @@ import {
 } from './journal.js';
 
 // Every text field is Kevin's or a customer's — escape everything.
+// Interchange schema version. Bump ONLY on a breaking shape change; additive
+// fields do not need it. See the note at the embedded block below.
+export const ARCHIVE_SCHEMA = 1;
+export const ARCHIVE_FIELD_NOTES = {
+  journal: 'All dossier entries. {id, ts (ISO, when WRITTEN), type, subject:{kind,dish}, text, private, transferable, undated?, migrated?, principle?}',
+  transferable: 'Pre-extracted lessons: entries flagged as holding beyond their dish. principle is null until a naming pass assigns one.',
+  renameHistory: 'Dish renames with dates and reasons. date null = the rename predates the record.',
+  note: 'undated:true means the real date is unknown and was deliberately never invented.',
+};
+
 export const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -218,8 +228,21 @@ ${entries.length ? journalSection(entries, DISH_RENAMES) : '<p class="meta">No r
     parts.push('</table>');
   }
 
+  // ── The interchange contract ────────────────────────────────────────────
+  // This block is not a convenience extra: it is the SEAM the eventual
+  // separate teaching app will read, years from now, from a file written
+  // today. That makes it an interface, so it is versioned and self-describing
+  // rather than incidental. Rules for whoever changes it next:
+  //   - BUMP `schema` on any breaking shape change; add fields freely without.
+  //   - A reader must be able to open a file written under an older `schema`
+  //     and know what it is holding WITHOUT this codebase.
+  //   - `fields` documents the shape in the file itself, because the reader in
+  //     2036 will not have these comments.
   const embedded = JSON.stringify({
-    kind: 'ltb-archive', generatedAt: when,
+    kind: 'ltb-archive',
+    schema: ARCHIVE_SCHEMA,
+    fields: ARCHIVE_FIELD_NOTES,
+    generatedAt: when,
     journal: j, renameHistory: RENAME_HISTORY || [],
     // Pre-extracted so a future reader (the teaching app) does not have to
     // re-implement the filter to find the lessons.

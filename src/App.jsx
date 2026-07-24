@@ -837,15 +837,22 @@ export default function LTBOrderTracker() {
     // oneBottle): a field fully built here, fully rendered on the customer
     // page, and silently discarded in transit. A publish that quietly loses
     // data must never look like a clean publish.
+    // READ THE BODY EXACTLY ONCE. A Response body is a one-shot stream: this
+    // function already ended with `return res.json()`, so adding a second read
+    // here threw "body is disturbed or locked" AFTER the publish had actually
+    // succeeded. That is the worst shape a bug can take, because it reports
+    // failure for work that landed and teaches you to distrust the success
+    // message. The parsed value is reused for both jobs below.
+    let published = null;
     try {
-      const out = await res.json();
-      if (out && Array.isArray(out.dropped) && out.dropped.length) {
-        setNotice(
-          'Published, but the worker ignored ' + out.dropped.join(', ') +
-          '. Those never reach the customer pages — the worker needs the field added to CONFIG_FIELDS.'
-        );
-      }
-    } catch (_) { /* a body we cannot parse is not a reason to fail a publish that succeeded */ }
+      published = await res.json();
+    } catch (_) { /* an unparseable body is not a failed publish */ }
+    if (published && Array.isArray(published.dropped) && published.dropped.length) {
+      setNotice(
+        'Published, but the worker ignored ' + published.dropped.join(', ') +
+        '. Those never reach the customer pages; the worker needs the field added to CONFIG_FIELDS.'
+      );
+    }
     // Publish the full dinner catalog as the request whitelist. Fire-and-forget:
     // a failure here must never block the week publish, and POST /requests just
     // rejects everything until the next successful write. Full ALL_DINNERS, not
@@ -873,7 +880,7 @@ export default function LTBOrderTracker() {
         ...(weekLabel ? { weekLabel: String(weekLabel).slice(0, 80) } : {}),
       },
     })]);
-    return res.json();
+    return published; // already parsed above; never re-read res
   }, [recordAudit]);
 
   // ── Auto-fill regular contact info from incoming order ─────────────────────
@@ -2742,7 +2749,7 @@ export default function LTBOrderTracker() {
         {view === 'money' && (
           <>
             <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} journal={journal} containerStatus={containerStatus} onSaveContainerConfig={saveContainerConfig} />
-            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} />
+            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} journal={journal} weekDishes={weekDishes} />
           </>
         )}
 

@@ -91,6 +91,19 @@
 
   <script>
     var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
+    // ── Order window (Wed-Sun), the AUTHORITATIVE gate ────────────────────
+    // order.html greys out its button outside the window, but that is one link
+    // among several: menu.html and main-menu.html both linked straight here,
+    // so anyone following those could order on a Monday. Link-level gating is
+    // whack-a-mole; the only place a gate cannot be walked around is this page.
+    // Same rule as order.html: Sun(0) and Wed-Sat(3-6) open, Mon/Tue closed.
+    // `?preview=1` bypasses it so Kevin can still check the form any day.
+    function ordersOpen() {
+      if (/[?&]preview=1/.test(window.location.search)) return true;
+      var d = new Date().getDay();
+      return d === 0 || d >= 3;
+    }
+
     // The week's heads-up banner. Absent or empty renders nothing at all.
     function noticeHtml(cfg) {
       var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
@@ -365,6 +378,20 @@
           '<div class="section-title">Taking this week off</div>' +
           '<div style="font-size:13px;color:var(--dim);line-height:1.6;">No menu this week. Back next week, same as always.' +
           (config.pausedMsg ? '<br><br>' + esc(config.pausedMsg) : '') + '</div></div>';
+        return;
+      }
+
+      // Closed window: say so plainly and show NO form. The notice still
+      // renders above it, since a heads-up matters just as much on a day
+      // nobody can order.
+      if (!ordersOpen()) {
+        document.getElementById("content").innerHTML =
+          noticeHtml(config) +
+          '<div class="section" style="text-align:center;">' +
+          '<div class="section-title">Orders are closed right now</div>' +
+          '<div style="font-size:13px;color:var(--dim);line-height:1.6;">' +
+          'Orders are open <strong style="color:var(--gold)">Wednesday through Sunday</strong> for delivery the following Wednesday.' +
+          '<br><br>Need something outside that window? Just reach out directly and we will work it out.</div></div>';
         return;
       }
 

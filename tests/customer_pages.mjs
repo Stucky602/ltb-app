@@ -206,6 +206,49 @@ console.log('form.html');
   }
 }
 
+
+// ── Order window (Wed-Sun) ─────────────────────────────────────────────────
+// order.html greyed out its own button, but menu.html and main-menu.html both
+// linked STRAIGHT to form.html with no gate, so anyone following those could
+// order on a Monday — which actually happened. form.html now gates itself,
+// because link-level gating is whack-a-mole and the form is the one place a
+// gate cannot be walked around. Clock is frozen so this never flakes by weekday.
+{
+  const CFG2 = { weekLabel: 'Week of Jul 22', dishes: [{ name: 'Gumbo', variants: [{ label: 'Small (~4)', price: 40, cost: 20 }] }] };
+  const bootAt = (html, cfg, dayISO) => new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.test/', beforeParse(w) {
+    const Real = w.Date;
+    const Fake = function (...a) { return a.length ? new Real(...a) : new Real(dayISO); };
+    Fake.now = () => new Real(dayISO).getTime(); Fake.parse = Real.parse; Fake.UTC = Real.UTC;
+    Fake.prototype = Real.prototype; w.Date = Fake;
+    w.fetch = () => Promise.resolve({ json: () => Promise.resolve(cfg) });
+    const st = {};
+    Object.defineProperty(w, 'localStorage', { value: { getItem: k => (k in st ? st[k] : null), setItem: (k, v) => { st[k] = String(v); }, removeItem: k => { delete st[k]; }, clear: () => {} }, configurable: true });
+  } });
+  const MON = '2026-07-27T10:00:00', WED = '2026-07-29T10:00:00';
+  const mainMenu = fs.existsSync('main-menu.html') ? fs.readFileSync('main-menu.html', 'utf8') : null;
+
+  let g1 = bootAt(form, CFG2, MON); await sleep(200);
+  check('form.html on a MONDAY shows closed and renders NO order form',
+    /Orders are closed right now/.test(g1.window.document.body.textContent) && !g1.window.document.getElementById('reviewBtn'));
+  let g2 = bootAt(form, CFG2, WED); await sleep(200);
+  check('form.html on a WEDNESDAY renders the form normally', !!g2.window.document.getElementById('reviewBtn'));
+  let g3 = bootAt(form, { ...CFG2, notice: 'Heads up.' }, MON); await sleep(200);
+  check('the heads-up banner still shows on a closed day', !!g3.window.document.querySelector('.week-notice'));
+
+  let g4 = bootAt(menu, CFG2, MON); await sleep(200);
+  check('menu.html on a MONDAY offers NO link to the form',
+    !g4.window.document.querySelector('a[href="form.html"]'));
+  let g5 = bootAt(menu, CFG2, WED); await sleep(200);
+  check('menu.html on a WEDNESDAY offers the order link', !!g5.window.document.querySelector('a[href="form.html"]'));
+
+  if (mainMenu) {
+    let g6 = bootAt(mainMenu, CFG2, MON); await sleep(250);
+    check('main-menu.html on a MONDAY offers no "Go order" link', !g6.window.document.querySelector('a[href="form.html"]'));
+    let g7 = bootAt(mainMenu, CFG2, WED); await sleep(250);
+    check('main-menu.html on a WEDNESDAY offers "Go order"', !!g7.window.document.querySelector('a[href="form.html"]'));
+  }
+}
+
 console.log('menu.html');
 {
   const dom = boot(menu, CFG); await sleep(150);

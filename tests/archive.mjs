@@ -15,7 +15,7 @@
 // Run: node tests/archive.mjs
 
 import assert from 'node:assert';
-import { buildArchiveHtml, buildRecordsHtml, esc } from '../src/archiveExport.js';
+import { buildArchiveHtml, buildRecordsHtml, esc, ARCHIVE_SCHEMA } from '../src/archiveExport.js';
 import { addEntry, emptyJournal } from '../src/journal.js';
 import { DISHES } from '../src/dishes.js';
 
@@ -89,6 +89,12 @@ const data = JSON.parse(m[1].replace(/<\\\//g, '</'));
 ok(data.kind === 'ltb-archive' && data.journal.entries.length === j.entries.length,
   'embedded JSON round-trips the complete journal, private entries included');
 ok(Array.isArray(data.renameHistory), 'rename history rides the JSON too');
+// The interchange contract: this block is the seam a separate teaching app
+// will read years from now, so it must be self-describing without this code.
+ok(data.schema === ARCHIVE_SCHEMA && typeof data.schema === 'number',
+  'the embedded block carries a SCHEMA VERSION — it is an interface, not an extra');
+ok(data.fields && typeof data.fields.journal === 'string' && typeof data.fields.transferable === 'string',
+  'and documents its own shape in the file, because the reader in 2036 has no access to these comments');
 ok(Array.isArray(data.transferable) && data.transferable.length === 1
    && /PRINCIPLE-MARKER/.test(data.transferable[0].text),
   'flagged statements are PRE-EXTRACTED in the JSON so a future reader need not re-implement the filter');

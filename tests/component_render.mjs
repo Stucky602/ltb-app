@@ -34,12 +34,12 @@ const CASES = [
   // The dossier (K1–K8). Real journal data including a private entry and a
   // retired dish with no retirement record, so the nudge path renders too.
   ['JournalPanel', './src/components/JournalPanel.jsx',
-    `{ dish: '', orders: [{ items: [{ name: 'Tea-Smoked Chicken', qty: 1 }] }],
+    `{ dish: 'Bo Ssam', orders: [{ items: [{ name: 'Tea-Smoked Chicken', qty: 1 }] }],
        knownNames: new Set(['Bo Ssam']),
        journal: { version: 1, entries: [
-         { id: 'j1', ts: '2026-07-24T06:00:00Z', type: 'decision', subject: { kind: 'general' },
+         { id: 'j1', ts: '2026-07-24T06:00:00Z', type: 'decision', subject: { kind: 'dish', dish: 'Bo Ssam' },
            text: 'Kimchi is passthrough on purpose.', private: false },
-         { id: 'j2', ts: '2026-07-24T06:01:00Z', type: 'provenance', subject: { kind: 'general' },
+         { id: 'j2', ts: '2026-07-24T06:01:00Z', type: 'provenance', subject: { kind: 'dish', dish: 'Bo Ssam' },
            text: 'Private provenance line.', private: true },
        ] },
        onSaveJournal: () => {} }`],
@@ -74,7 +74,7 @@ console.log(html);
     check(`${name} renders with real data`, true);
     if (name === 'JournalPanel') {
       check('dossier shows the K8 retirement nudge', /Tea-Smoked Chicken/.test(stdout));
-      check('dossier renders a general decision entry', /Kimchi is passthrough/.test(stdout));
+      check('dossier renders the selected dish\'s entries', /Kimchi is passthrough/.test(stdout));
       check('dossier marks a private entry as private', /private/.test(stdout));
     }
     if (name === 'InvoiceModal') {

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   JOURNAL_TYPES, JOURNAL_TYPE_ORDER, addEntry, removeEntry,
-  entriesForDish, generalEntries, missingRetirementRecords,
+  entriesForDish, missingRetirementRecords,
 } from '../journal.js';
 import { DISH_RENAMES } from '../utils.js';
 
@@ -52,20 +52,22 @@ function Entry({ e, onDelete }) {
 // dish: the currently selected dish ('' = none → general view only)
 // knownNames: Set of every name still served (for the retirement nudge)
 export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames }) {
-  const [scope, setScope] = useState('dish'); // 'dish' | 'general'
   const [type, setType] = useState('technique');
   const [text, setText] = useState('');
   const [priv, setPriv] = useState(JOURNAL_TYPES.technique.privateDefault);
   const [typeTouchedPriv, setTypeTouchedPriv] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
 
-  const effScope = dish ? scope : 'general';
+  // Per-dish only. The business-wide scope was removed (Kevin, Jul 24): it
+  // cluttered every recipe with a view that had nothing to do with the dish on
+  // screen. Business-level entries already in the journal are preserved on
+  // disk and still ride the backup and the archive — they simply have no
+  // editor here. Nothing was deleted.
   const entries = useMemo(() => {
-    const list = effScope === 'dish' && dish
-      ? entriesForDish(journal, dish, DISH_RENAMES)
-      : generalEntries(journal);
-    return [...list].sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
-  }, [journal, dish, effScope]);
+    if (!dish) return [];
+    return [...entriesForDish(journal, dish, DISH_RENAMES)]
+      .sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  }, [journal, dish]);
 
   // K8 nudge: dishes people actually ordered that left the registry with no
   // retirement entry. Nudge, never block (Kevin's call, decision 7a).
@@ -83,7 +85,8 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
 
   const save = () => {
     if (!text.trim()) return;
-    const subject = effScope === 'dish' && dish ? { kind: 'dish', dish } : { kind: 'general' };
+    if (!dish) return;
+    const subject = { kind: 'dish', dish };
     onSaveJournal(prev => addEntry(prev, { type, subject, text, private: priv }));
     setText('');
     setTypeTouchedPriv(false);
@@ -92,19 +95,14 @@ export function JournalPanel({ dish, journal, onSaveJournal, orders, knownNames 
     setTimeout(() => setSavedFlash(false), 1500);
   };
 
+  // No dish selected means no dossier — the panel simply is not there.
+  if (!dish) return null;
+
   return (
     <div style={S.section}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <div style={S.title}>Dossier{effScope === 'dish' && dish ? ` · ${dish}` : ' · business'}</div>
-        {dish && (
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button style={S.chip(scope === 'dish')} onClick={() => setScope('dish')}>This dish</button>
-            <button style={S.chip(scope === 'general')} onClick={() => setScope('general')}>Business</button>
-          </div>
-        )}
-      </div>
+      <div style={S.title}>Dossier · {dish}</div>
 
-      {missing.length > 0 && effScope === 'general' && (
+      {missing.length > 0 && (
         <div style={{ border: `1px solid ${C.warn}`, background: 'rgba(239,159,39,0.08)', borderRadius: 8, padding: 8, margin: '6px 0 10px', fontSize: 12, color: C.warn }}>
           No retirement record yet: {missing.join(', ')}. Worth a line while you still remember why.
         </div>

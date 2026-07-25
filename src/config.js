@@ -55,6 +55,21 @@ export const AUDIT_LOG_KEY = 'ltb-audit-log';
 // DEPLOY, so nothing in the running app can witness the edit. Diffing this
 // fingerprint on boot is the only way the app notices a deploy moved a number.
 export const MENU_FINGERPRINT_KEY = 'ltb-menu-fingerprint';
+// The five below were declared inline in App.jsx rather than here, which meant
+// storage keys lived in two places and only one of them was findable. Moved
+// verbatim (same strings, so no device sees a migration) when backupRestore.js
+// was split out and needed four of them. Values unchanged.
+export const INGREDIENTS_KEY = 'ltb_ingredients_v1';
+export const COST_HISTORY_KEY = 'ltb_cost_history_v1';
+// T2: the last business-week stamp this device has SEEN (not the same as
+// SCHEMA_VERSION or any other guard — just a rollover flag). One key, one
+// banner, per the plan.
+export const LAST_SEEN_WEEK_KEY = 'ltb-last-seen-week';
+export const RECEIPT_ALIASES_KEY = 'ltb_receipt_aliases_v1';
+// Worker pending ids Kevin has already accepted or rejected. The worker is the
+// durable order queue; this ledger stops a re-poll from resurrecting an order
+// he already handled if the worker's own delete didn't land.
+export const HANDLED_PENDING_KEY = 'ltb_handled_pending_v1';
 
 export const WORKER_BASE = 'https://ltb-proxy.strickland-kevinj.workers.dev';
 export const PENDING_POLL_URL = WORKER_BASE + '/pending';

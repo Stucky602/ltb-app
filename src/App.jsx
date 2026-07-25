@@ -20,18 +20,9 @@ import {
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
+  INGREDIENTS_KEY, COST_HISTORY_KEY, LAST_SEEN_WEEK_KEY, RECEIPT_ALIASES_KEY,
+  HANDLED_PENDING_KEY,
 } from './config.js';
-const INGREDIENTS_KEY = 'ltb_ingredients_v1';
-const COST_HISTORY_KEY = 'ltb_cost_history_v1';
-// T2: the last business-week stamp this device has SEEN (not the same as
-// SCHEMA_VERSION or any other guard — just a rollover flag). One key, one
-// banner, per the plan.
-const LAST_SEEN_WEEK_KEY = 'ltb-last-seen-week';
-const RECEIPT_ALIASES_KEY = 'ltb_receipt_aliases_v1';
-// Worker pending ids Kevin has already accepted or rejected. The worker is the
-// durable order queue; this ledger stops a re-poll from resurrecting an order
-// he already handled if the worker's own delete didn't land.
-const HANDLED_PENDING_KEY = 'ltb_handled_pending_v1';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
@@ -47,7 +38,9 @@ import {
   mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
   houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
-import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
+// migrateForward is no longer named here: the only caller was the restore body,
+// which now lives in backupRestore.js. Boot still runs the same guard.
+import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, REFUSE_MESSAGE } from './migrations.js';
 import { emptyJournal, normalizeJournal, migrateDishNotes, purgeTombstones } from './journal.js';
 import { recordWeek, normalizeLedger } from './weekLedger.js';
 import { useWakeLock } from './useWakeLock.js';
@@ -91,6 +84,11 @@ import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
 import { INGREDIENT_SEED } from './ingredients.js';
 import { baselineCostMap, liveCostMapFrom } from './dishCosting.js';
+import {
+  djb2, buildBackupPayload as buildPayload, applyBackupPayload as applyPayload,
+  postBackupSnapshot, fetchBackupList, fetchBackupSnapshot, relativeAge,
+} from './backupRestore.js';
+import { BackupModal } from './components/BackupModal.jsx';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -1488,35 +1486,15 @@ export default function LTBOrderTracker() {
   const [exportMsg, setExportMsg] = useState(null);
 
   // ── Backup payload + online backup ring (v9.20) ──────────────────────────
-  // One builder for every path that serializes app data (clipboard copy,
-  // file download, auto-push). Shape unchanged from the v9.18 exportData —
-  // the worker validates version + orders on push, and restore validates
-  // the same fields, so old Notes-paste backups stay importable.
-  const buildBackupPayload = useCallback(() => ({
-    version: 'ltb-v1',
-    schemaVersion: SCHEMA_VERSION,
-    exportedAt: new Date().toISOString(),
-    orders: orders || [],
-    shopping,
-    weekDishes,
-    regulars,
-    inventory,
-    ingredientsDb,
-    costHistory,
-    receiptAliases,
-    auditLog,
-    pipelineJournal,
-    // The knowledge journal MUST ride the ring: it is the one store whose
-    // loss is total (reasons live nowhere else — costs are on receipts,
-    // orders are on the worker, but the whys are only here).
-    journal,
-    containerInventory: containerConfig,
-    weekLedger,
-    copiesNote,
+  // The payload's shape, and the reason each store is in it, now live in
+  // backupRestore.js. This stays a useCallback with the SAME dep list because
+  // pushBackup holds it in a ref and re-reads it on every 15-minute tick: the
+  // identity of this function is what tells that effect the state moved.
+  const buildBackupPayload = useCallback(() => buildPayload({
+    orders, shopping, weekDishes, regulars, inventory, ingredientsDb,
+    costHistory, receiptAliases, auditLog, pipelineJournal, journal,
+    containerConfig, weekLedger, copiesNote,
     archiveHistory,
-    // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
-    // order Kevin already accepted (when a worker clear failed). It lived only
-    // on-device, so a restore blanked it and could resurrect. Ride the backup.
     handledPending: handledPendingRef.current,
   }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory]);
 
@@ -1619,12 +1597,12 @@ export default function LTBOrderTracker() {
       // confirmation, not a gap, so it counts as backed up. Otherwise an idle
       // week would slowly turn the icon red while nothing was wrong.
       if (hash === lastPushedHash.current) { markBackupOk(); return; }
-      const res = await fetch(WORKER_BASE + '/backup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: PUBLISH_TOKEN, snapshot: payload }),
-      });
-      if (res.ok) { lastPushedHash.current = hash; markBackupOk(); }
+      // postBackupSnapshot swallows its own transport errors and reports a
+      // plain boolean, because a thrown fetch and a 500 mean the same thing
+      // here: not backed up. The outer catch stays anyway, since djb2 and
+      // JSON.stringify above it can still throw on a pathological payload.
+      const ok = await postBackupSnapshot(payload);
+      if (ok) { lastPushedHash.current = hash; markBackupOk(); }
       else markBackupFailed();
     } catch {
       // Offline or worker down. Next tick retries; the arrow carries the news.
@@ -1642,125 +1620,22 @@ export default function LTBOrderTracker() {
   }, [loading, pushBackup]);
 
   // ── Shared restore body (v9.20) ───────────────────────────────────────────
-  // ONE implementation applied by all three restore paths (file/paste/online)
-  // — previously importData and submitImport were 45-line twins, the exact
-  // "same logic in N places" footgun. Validation and any confirm dialog stay
-  // with the CALLER; this just applies a validated payload.
-  const applyBackupPayload = useCallback(async (payload) => {
-    // ── Schema forward-compat guard (v9.22) ─────────────────────────────
-    // This is the REAL cross-device schema gap, not a service-worker cache:
-    // Device A updates first and pushes a v2 snapshot into the shared ring.
-    // Device B is still running old code (only understands v1) and restores
-    // that same ring entry. Refuse before any write. An older snapshot is
-    // safe — migrate it forward first.
-    const snapVersion = payload && typeof payload.schemaVersion !== 'undefined' ? payload.schemaVersion : undefined;
-    const compat = assessForwardCompat(snapVersion);
-    if (compat.outcome === 'refuse') {
-      setError(REFUSE_MESSAGE);
-      return false;
-    }
-    const migrated = compat.outcome === 'migrate' ? migrateForward(payload, compat.storedVersion) : payload;
-    payload = migrated;
+  // The implementation moved to backupRestore.js; this is the binding that
+  // hands it the setters. Still the ONE choke point every restore path goes
+  // through, and the schema forward-compat guard still lives inside it. Do
+  // not give any caller a way around this function.
+  //
+  // The dep list is [persistOrders] and nothing else, matching the original
+  // exactly. Every other setter is a stable useState setter or a ref, so
+  // React guarantees their identity across renders and naming them would
+  // only add churn without adding correctness.
+  const applyBackupPayload = useCallback(async (payload) => applyPayload(payload, {
+    persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
+    setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
+    setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
+    setAuditLog, setError, setExportMsg, setNotice, handledPendingRef,
+  }), [persistOrders]);
 
-    const res = await persistOrders((payload.orders || []).map(o => ({ ...o, items: stampItemCosts(o.items, 'backfilled') })));
-    if (!res.ok) return false;
-    if (Array.isArray(payload.shopping)) {
-      setShopping(payload.shopping);
-      await saveJSON(SHOPPING_KEY, payload.shopping);
-    }
-    if (Array.isArray(payload.weekDishes)) {
-      setWeekDishes(payload.weekDishes);
-      await saveJSON(WEEK_KEY, { selected: payload.weekDishes });
-    }
-    if (Array.isArray(payload.regulars)) {
-      setRegulars(payload.regulars);
-      await saveJSON(REGULARS_KEY, payload.regulars);
-    }
-    if (payload.inventory && typeof payload.inventory === 'object') {
-      setInventory(payload.inventory);
-      await saveJSON(INVENTORY_KEY, payload.inventory);
-    }
-    if (payload.pipelineJournal && typeof payload.pipelineJournal === 'object') {
-      const pj = { version: 1, entries: payload.pipelineJournal.entries || {} };
-      setPipelineJournal(pj);
-      await saveJSON(PIPELINE_JOURNAL_KEY, pj);
-    }
-    if (payload.journal && typeof payload.journal === 'object') {
-      const jr = normalizeJournal(payload.journal);
-      setJournal(jr);
-      await saveJSON(JOURNAL_KEY, jr);
-    }
-    if (typeof payload.copiesNote === 'string') {
-      setCopiesNote(payload.copiesNote);
-      await saveJSON(COPIES_NOTE_KEY, payload.copiesNote);
-    }
-    if (payload.weekLedger && typeof payload.weekLedger === 'object') {
-      const wl = normalizeLedger(payload.weekLedger);
-      setWeekLedger(wl);
-      await saveJSON(WEEK_LEDGER_KEY, wl);
-    }
-    if (payload.containerInventory && typeof payload.containerInventory === 'object') {
-      const cc = normalizeContainerConfig(payload.containerInventory);
-      setContainerConfig(cc);
-      await saveJSON(CONTAINER_INVENTORY_KEY, cc);
-    }
-    // Seed reconciliation on restore. A snapshot is a photograph of the DB as
-    // it was up to three days ago, so it carries whatever baselines were
-    // current THEN — including the stale ones this whole mechanism exists to
-    // fix. Restoring without reconciling would quietly undo the boot fix and
-    // put thyme back at 1144%, which is the worst version of this bug: fixed,
-    // then broken again by a button labelled "restore."
-    let restoreChanges = [];
-    if (Array.isArray(payload.ingredientsDb)) {
-      const rec = reconcileIngredients(payload.ingredientsDb, INGREDIENT_SEED);
-      restoreChanges = rec.changes;
-      setIngredientsDb(rec.next);
-      await saveJSON(INGREDIENTS_KEY, rec.next);
-    }
-    if (Array.isArray(payload.costHistory)) {
-      const pruned = pruneCostHistory(payload.costHistory, restoreChanges);
-      setCostHistory(pruned);
-      await saveJSON(COST_HISTORY_KEY, pruned);
-    }
-    if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
-      setReceiptAliases(payload.receiptAliases);
-      await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
-    }
-    // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
-    // state back to the backup point, so the ledger of what was handled THEN is
-    // the correct guard: orders accepted before the backup stay suppressed;
-    // orders accepted after it are rolled back and correctly re-sync as pending.
-    // Only overwrite when the field is present, so restoring a pre-EC-3 backup
-    // doesn't blank a good live ledger.
-    if (payload.handledPending && typeof payload.handledPending === 'object') {
-      handledPendingRef.current = payload.handledPending;
-      await saveJSON(HANDLED_PENDING_KEY, handledPendingRef.current);
-    }
-    // The trail rides the snapshot, so a restore rewinds it to whatever that
-    // snapshot held. That's the accepted cost of not giving it its own
-    // storage. Stamp the restore itself onto the RESTORED log so the rewind
-    // is visible rather than looking like history quietly changed.
-    if (Array.isArray(payload.auditLog)) {
-      const restored = appendAudit(payload.auditLog, [
-        auditEntry({
-          target: 'app', field: 'restored', from: null,
-          to: (payload.orders || []).length, source: SOURCES.MANUAL,
-          meta: { from: payload.exportedAt || 'unknown snapshot' },
-        }),
-        // Must ride THIS write. The restored log replaces the live one
-        // wholesale, so reconcile entries appended anywhere else would be
-        // overwritten a line later and the cost rewrite would go unrecorded.
-        ...diffReconcile(restoreChanges),
-      ]);
-      setAuditLog(restored);
-      await saveJSON(AUDIT_LOG_KEY, restored);
-    }
-    setExportMsg(`Imported ${(payload.orders || []).length} orders successfully.`);
-    setTimeout(() => setExportMsg(null), 4000);
-    setError(null);
-    if (restoreChanges.length) setNotice(summarizeReconcile(restoreChanges));
-    return true;
-  }, [persistOrders]);
 
   // ── Online restore (v9.20) ────────────────────────────────────────────────
   const [showBackupModal, setShowBackupModal] = useState(false);
@@ -1769,20 +1644,15 @@ export default function LTBOrderTracker() {
   const openBackupModal = useCallback(async () => {
     setShowBackupModal(true);
     setBackupList(null);
-    try {
-      const res = await fetch(WORKER_BASE + '/backup/list', { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
-      const j = await res.json();
-      setBackupList(res.ok && Array.isArray(j.backups) ? j.backups : 'error');
-    } catch {
-      setBackupList('error');
-    }
+    // fetchBackupList resolves to the array or the 'error' sentinel and never
+    // rejects, so the three modal states map straight onto its return value.
+    setBackupList(await fetchBackupList());
   }, []);
 
   const restoreFromOnline = useCallback(async (age) => {
     try {
-      const res = await fetch(WORKER_BASE + '/backup?age=' + age, { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
-      const j = await res.json();
-      if (!res.ok || !j.snapshot) {
+      const { ok: fetchOk, body: j } = await fetchBackupSnapshot(age);
+      if (!fetchOk || !j.snapshot) {
         setError(j.error || 'Could not fetch that backup.');
         return;
       }
@@ -2906,111 +2776,6 @@ export default function LTBOrderTracker() {
           debug={debugScan}
         />
       )}
-    </div>
-  );
-}
-
-// ── Backup helpers + modal (v9.20) ──────────────────────────────────────────
-// djb2 string hash — throttles auto-push (skip identical payloads). Not
-// crypto, just cheap change detection.
-function djb2(str) {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-// "26 hours ago" style honesty for the restore picker — never pretend a
-// snapshot is exactly the age Kevin asked for.
-function relativeAge(iso) {
-  const ms = Date.now() - Date.parse(iso);
-  if (!Number.isFinite(ms) || ms < 0) return 'just now';
-  const mins = Math.round(ms / 60e3);
-  if (mins < 2) return 'just now';
-  if (mins < 90) return `${mins} minutes ago`;
-  const hours = Math.round(ms / 3600e3);
-  if (hours < 48) return `${hours} hours ago`;
-  return `${Math.round(ms / 86400e3)} days ago`;
-}
-
-// The four approximate restore targets, resolved against the REAL list:
-// each option shows the actual nearest snapshot's true age, and options
-// that resolve to the same snapshot collapse into one (no fake choices).
-function resolveRestoreOptions(list) {
-  if (!Array.isArray(list) || list.length === 0) return [];
-  const now = Date.now();
-  const targets = [
-    { age: 'recent', label: 'Most recent', ms: 0 },
-    { age: '1h', label: 'About 1 hour ago', ms: 3600e3 },
-    { age: '1d', label: 'About 1 day ago', ms: 24 * 3600e3 },
-    { age: '3d', label: 'About 3 days ago', ms: 72 * 3600e3 },
-  ];
-  const seen = new Set();
-  const options = [];
-  for (const t of targets) {
-    let best = null;
-    let bestDiff = Infinity;
-    for (const b of list) {
-      const diff = Math.abs((now - Date.parse(b.timestamp)) - t.ms);
-      if (diff < bestDiff) { bestDiff = diff; best = b; }
-    }
-    if (!best || seen.has(best.timestamp)) continue;
-    seen.add(best.timestamp);
-    options.push({ ...t, timestamp: best.timestamp, orders: best.orders });
-  }
-  return options;
-}
-
-function BackupModal({ list, onRestore, onRestoreFile, onDownloadFile, onCopy, onClose }) {
-  const m = {
-    overlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 },
-    box: { background: '#1c2422', border: '1px solid #2d3a36', borderRadius: 12, padding: 18, width: '100%', maxWidth: 420, maxHeight: '85vh', overflowY: 'auto', color: '#e8e6df' },
-    h: { margin: '0 0 4px', fontSize: 17, fontWeight: 700 },
-    sub: { margin: '0 0 14px', fontSize: 12.5, color: '#9aa5a0', lineHeight: 1.45 },
-    section: { fontSize: 12, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: '#9aa5a0', margin: '16px 0 8px' },
-    opt: { display: 'block', width: '100%', textAlign: 'left', background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 10, padding: '10px 12px', marginBottom: 8, color: '#e8e6df', cursor: 'pointer' },
-    optTitle: { fontSize: 14.5, fontWeight: 600 },
-    optMeta: { fontSize: 12, color: '#9aa5a0', marginTop: 2 },
-    row: { display: 'flex', gap: 8 },
-    smallBtn: { flex: 1, background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 10, padding: '10px 8px', color: '#e8e6df', fontSize: 13.5, cursor: 'pointer' },
-    close: { display: 'block', width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#9aa5a0', fontSize: 14, padding: 8, cursor: 'pointer' },
-    note: { fontSize: 12, color: '#9aa5a0', lineHeight: 1.45 },
-    fileLabel: { display: 'block', width: '100%', textAlign: 'center', background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 10, padding: '10px 8px', color: '#e8e6df', fontSize: 13.5, cursor: 'pointer', boxSizing: 'border-box' },
-  };
-  const options = Array.isArray(list) ? resolveRestoreOptions(list) : [];
-  return (
-    <div style={m.overlay} onClick={onClose}>
-      <div style={m.box} onClick={e => e.stopPropagation()}>
-        <h3 style={m.h}>Backup &amp; Restore</h3>
-        <p style={m.sub}>The app backs itself up online automatically while it's open. Restoring replaces what's on this device.</p>
-
-        <div style={m.section}>Restore from online</div>
-        {list === null && <div style={m.note}>Checking for backups…</div>}
-        {list === 'error' && <div style={m.note}>Couldn't reach the backup server. You can still restore from a file below.</div>}
-        {Array.isArray(list) && options.length === 0 && <div style={m.note}>No online backups yet. They'll start appearing after the app has been open with data in it.</div>}
-        {options.map(o => (
-          <button key={o.age} style={m.opt} onClick={() => onRestore(o.age)}>
-            <div style={m.optTitle}>{o.label}</div>
-            <div style={m.optMeta}>
-              {relativeAge(o.timestamp)} · {formatDate(o.timestamp)}
-              {o.orders != null ? ` · ${o.orders} orders` : ''}
-            </div>
-          </button>
-        ))}
-
-        <div style={m.section}>Restore from file</div>
-        <label style={m.fileLabel}>
-          Choose a backup file…
-          <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={onRestoreFile} />
-        </label>
-
-        <div style={m.section}>Save a copy</div>
-        <div style={m.row}>
-          <button style={m.smallBtn} onClick={onDownloadFile}>Download file</button>
-          <button style={m.smallBtn} onClick={onCopy}>Copy to clipboard</button>
-        </div>
-
-        <button style={m.close} onClick={onClose}>Close</button>
-      </div>
     </div>
   );
 }

@@ -217,4 +217,65 @@ for (const f of CUSTOMER_SURFACES) {
 }
 console.log(`  (privacy wall scanned ${scanned} customer surface${scanned === 1 ? '' : 's'} present in this checkout)`);
 
+
+// ── The taxonomy can GROW ───────────────────────────────────────────────────
+// Nine types designed top-down in an afternoon, before a single entry existed.
+// Custom types live IN the journal so they ride the backup and reach the
+// archive with no code change.
+{
+  const { addCustomType, allTypes, allTypeOrder, editHistory, EDIT_HISTORY_MAX } = await import('../src/journal.js');
+  let jt = addCustomType(emptyJournal(), 'ratio', 'Ratio or formula', 'The arithmetic that transfers.');
+  ok(allTypeOrder(jt).includes('ratio'), 'a custom type joins the order');
+  ok(allTypes(jt).ratio.label === 'Ratio or formula', 'and carries its label');
+  ok(allTypes(jt).ratio.custom === true, 'and is marked custom, so built-ins stay distinguishable');
+  ok(addCustomType(jt, 'technique', 'Hijack').customTypes.length === 1,
+    'a custom type can NEVER shadow a built-in');
+  ok(addCustomType(jt, 'ratio', 'Again').customTypes.length === 1, 'nor be added twice');
+  ok(addCustomType(jt, '  ', 'Blank').customTypes.length === 1, 'a blank key is refused');
+  const withCustom = addEntry(jt, { type: 'ratio', subject: { kind: 'dish', dish: 'Gumbo' }, text: '1:1:1' });
+  ok(withCustom.entries[0].type === 'ratio',
+    'and an entry can actually USE it — otherwise the taxonomy is only decoratively growable');
+
+  // ── Edit history ─────────────────────────────────────────────────────────
+  let je = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'v1' });
+  const eid = je.entries[0].id;
+  je = updateEntry(je, eid, { text: 'v2' }, new Date('2026-08-01'));
+  je = updateEntry(je, eid, { text: 'v3' }, new Date('2026-09-01'));
+  const hist = editHistory(je.entries[0]);
+  ok(hist.edited && hist.count === 2, 'an edit is recorded');
+  ok(hist.versions.map(v => v.was).join(',') === 'v1,v2',
+    'and the REPLACED text is kept — "written in 2026 or rewritten in 2034" is now answerable');
+  ok(hist.lastEditedAt, 'with a timestamp');
+  ok(editHistory(addEntry(emptyJournal(), { type: 'technique', text: 'x' }).entries[0]).edited === false,
+    'an untouched entry has no history and is not pretending to');
+  let many = addEntry(emptyJournal(), { type: 'technique', text: 'start' });
+  const mid = many.entries[0].id;
+  for (let i = 0; i < EDIT_HISTORY_MAX + 5; i++) many = updateEntry(many, mid, { text: 'v' + i });
+  ok(editHistory(many.entries[0]).count === EDIT_HISTORY_MAX, 'history is capped so a decade of fiddling cannot bloat the store');
+
+  // ── When it happened vs when it was written ─────────────────────────────
+  const ev = stampEntry({ type: 'mistake', text: 'x', eventDate: '2026-03-01' }, NOW);
+  ok(ev.eventDate === '2026-03-01' && ev.ts !== ev.eventDate,
+    'an event date is separate from the write time, so a note typed a year later says so');
+  ok(stampEntry({ type: 'mistake', text: 'x' }, NOW).eventDate === undefined,
+    'and it is NEVER inferred — absent means unknown, which is honest');
+
+  // ── Association, not just negation ──────────────────────────────────────
+  const rel = stampEntry({ type: 'technique', text: 'x', relatesTo: ['a', 'a', 'b'] }, NOW);
+  ok(rel.relatesTo.length === 2, 'relations dedupe');
+  ok(stampEntry({ type: 'technique', text: 'x', relatesTo: [] }, NOW).relatesTo === undefined, 'an empty relation list is dropped');
+
+  // ── Origin ──────────────────────────────────────────────────────────────
+  ok(stampEntry({ type: 'technique', text: 'x' }, NOW).origin === 'written',
+    'origin is stated explicitly, so the ABSENCE of a flag never has to mean "old"');
+  ok(stampEntry({ type: 'technique', text: 'x', imported: true }, NOW).origin === 'imported', 'the old imported flag still maps');
+  ok(stampEntry({ type: 'technique', text: 'x', origin: 'harvested' }, NOW).origin === 'harvested', 'and harvested is its own thing');
+
+  // ── PERSONAL is not PRIVATE ─────────────────────────────────────────────
+  ok(stampEntry({ type: 'provenance', text: 'x' }, NOW).personal === true,
+    'provenance is personal by default — it is the warmest material in the record');
+  ok(stampEntry({ type: 'price', text: 'x' }, NOW).personal === false, 'a price rationale is not');
+  ok(stampEntry({ type: 'provenance', text: 'x', personal: false }, NOW).personal === false, 'and it can be turned off');
+}
+
 console.log(`JOURNAL: ALL PASS (${pass} checks)`);

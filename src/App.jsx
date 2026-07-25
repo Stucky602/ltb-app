@@ -17,7 +17,7 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
-  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY, SW_VERSION_KEY,
+  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -179,6 +179,16 @@ export default function LTBOrderTracker() {
   // Where the archive copies live. Prints INTO the archive, so it is readable
   // by someone who does not have Kevin to ask.
   const [copiesNote, setCopiesNote] = useState('');
+  const [archiveHistory, setArchiveHistory] = useState([]);
+  // Stamped each time an archive is downloaded, so the NEXT one knows where it
+  // sits in the series.
+  const recordArchive = useCallback((entryCount) => {
+    setArchiveHistory(prev => {
+      const next = [...prev, { generatedAt: new Date().toISOString(), entryCount }].slice(-40);
+      saveJSON(ARCHIVE_HISTORY_KEY, next);
+      return next;
+    });
+  }, []);
   const saveCopiesNote = useCallback((text) => {
     const v = String(text || '').slice(0, 600);
     setCopiesNote(v);
@@ -316,7 +326,7 @@ export default function LTBOrderTracker() {
         await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
       }
 
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote] = await Promise.all([
+      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
         loadJSON(SHOPPING_KEY, []),
@@ -330,6 +340,7 @@ export default function LTBOrderTracker() {
         loadJSON(CONTAINER_INVENTORY_KEY, null),
         loadJSON(WEEK_LEDGER_KEY, null),
         loadJSON(COPIES_NOTE_KEY, ''),
+        loadJSON(ARCHIVE_HISTORY_KEY, []),
       ]);
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
@@ -376,6 +387,7 @@ export default function LTBOrderTracker() {
       setContainerConfig(normalizeContainerConfig(loadedContainerCfg));
       setWeekLedger(normalizeLedger(loadedLedger));
       setCopiesNote(typeof loadedCopiesNote === 'string' ? loadedCopiesNote : '');
+      setArchiveHistory(Array.isArray(loadedArchiveHistory) ? loadedArchiveHistory : []);
       setDishFeedback(loadedDishFeedback || {});
       if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
         setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
@@ -1501,11 +1513,12 @@ export default function LTBOrderTracker() {
     containerInventory: containerConfig,
     weekLedger,
     copiesNote,
+    archiveHistory,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -2823,6 +2836,8 @@ export default function LTBOrderTracker() {
             copiesNote={copiesNote}
             onSaveCopiesNote={saveCopiesNote}
             containerAudit={containerStatus.audit}
+            archiveHistory={archiveHistory}
+            onArchiveDownloaded={recordArchive}
           />
         )}
 

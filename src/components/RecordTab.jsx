@@ -47,7 +47,7 @@ const fmtDate = (ts) => { try { return new Date(ts).toLocaleDateString(); } catc
 
 export function RecordTab({
   journal, onSaveJournal, dishNames, weekDishes, orders, knownNames,
-  weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit,
+  weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit, archiveHistory, onArchiveDownloaded,
 }) {
   const [msg, setMsg] = useState(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
@@ -67,7 +67,7 @@ export function RecordTab({
   const undoable = useMemo(() => recentlyDeleted(journal), [journal]);
   const season = useMemo(() => sameMonthPreviousYears(weekLedger, new Date()), [weekLedger]);
 
-  const downloadDoc = (html, filename, label) => {
+  const downloadDoc = (html, filename, label, after) => {
     try {
       const blob = new Blob([html], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
@@ -76,6 +76,7 @@ export function RecordTab({
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
       setMsg(`${label} downloaded. It opens in any browser, with or without this app, and prints clean.`);
+      if (typeof after === 'function') after();
     } catch (e) {
       setMsg(`${label} failed to build. Nothing was changed.`);
     }
@@ -291,12 +292,13 @@ export function RecordTab({
         <div style={S.h}>The durable record</div>
         <div style={S.faint}>
           Everything above lives in this one device's storage. These two files do not.
+          {(archiveHistory || []).length > 0 ? ` This will be number ${archiveHistory.length + 1} in the series.` : ' This would be the first of the series.'}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
           <button style={S.btn(C.good)} onClick={() => downloadDoc(
-            buildArchiveHtml({ journal, orders, copiesNote }),
+            buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory }),
             `LTB_ARCHIVE_${new Date().getFullYear()}_${new Date().toISOString().slice(5, 10)}.html`,
-            'The archive')}>
+            'The archive', () => onArchiveDownloaded && onArchiveDownloaded((journal && journal.entries ? journal.entries.length : 0)))}>
             Download the yearly archive
           </button>
           <button style={S.btn()} onClick={() => downloadDoc(

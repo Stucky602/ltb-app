@@ -29,6 +29,10 @@ export const WEEK_LEDGER_KEY = 'ltb-week-ledger';
 // Kevin's note about where archive copies are kept. Small, and it PRINTS INTO
 // the archive, because the one person who needs it most will not have the app.
 export const COPIES_NOTE_KEY = 'ltb-copies-note';
+// One row per archive ever generated: {generatedAt, entryCount}. Tiny, and it
+// is what lets each archive know it is the Nth rather than pretending to be the
+// only one. The series IS the artifact.
+export const ARCHIVE_HISTORY_KEY = 'ltb-archive-history';
 // M1: owned container counts + the meal-pool manual adjustment. Rides the
 // backup ring. Costs and type definitions live in containers.js (they are
 // registry facts, not per-device state); this key holds only what varies:

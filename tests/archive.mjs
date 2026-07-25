@@ -140,4 +140,48 @@ ok(!/<link[^>]/i.test(rec) && /@media print/.test(rec), 'records file is self-co
   ok(h.indexOf('OLD-CUE-MARKER') < h.indexOf('NEW-CUE-MARKER'), 'and the arc reads oldest first');
 }
 
+
+// ── The archive knows it is a SERIES ────────────────────────────────────────
+// Software cannot express "you kept this" through content. Only through
+// continuity made visible, which is why each file states which one it is.
+{
+  const { archiveSeriesLine, archiveGapYears } = await import('../src/archiveExport.js');
+  const dishName = DISHES[0].name;
+  let js = emptyJournal();
+  js = addEntry(js, { type: 'technique', subject: { kind: 'dish', dish: dishName }, text: 'a', ts: '2026-07-01T00:00:00Z' }, NOW);
+  js = addEntry(js, { type: 'provenance', subject: { kind: 'dish', dish: dishName }, text: 'PERSONAL-MARKER from my grandmother.', ts: '2026-07-02T00:00:00Z', personal: true }, NOW);
+
+  const first = archiveSeriesLine([], js, '2026-07-24T00:00:00Z');
+  ok(/first of these/.test(first.text), 'the first archive says so rather than pretending to be the ninth');
+
+  const ninth = archiveSeriesLine(
+    Array.from({ length: 8 }, (_, i) => ({ generatedAt: `20${26 + i}-07-24T00:00:00Z`, entryCount: i })),
+    js, '2034-07-24T00:00:00Z');
+  ok(/ninth of these/.test(ninth.text), 'the ninth knows it is the ninth');
+  ok(/Kept since 2026-07-24/.test(ninth.text), 'and states when the record started, which no single file could infer');
+  ok(ninth.days > 2900, 'the SPAN is the artifact, and it is stated');
+  ok(ninth.sinceLast === js.entries.length - 7, 'and what changed since the last one');
+
+  const gaps = archiveGapYears({ version: 1, entries: [
+    { id: 'g1', ts: '2026-05-01T00:00:00Z', type: 'technique', subject: { kind: 'general' }, text: 'a' },
+    { id: 'g2', ts: '2029-05-01T00:00:00Z', type: 'technique', subject: { kind: 'general' }, text: 'b' },
+  ] }, '2029-12-01T00:00:00Z');
+  ok(gaps.join() === '2027,2028',
+    'gap years are NAMED, not hidden — a record that admits its thin years is what makes the rest believable');
+  ok(archiveGapYears(emptyJournal()).length === 0, 'an empty journal has no gaps to confess');
+
+  const html2 = buildArchiveHtml({
+    journal: js, orders: [], generatedAt: NOW.toISOString(),
+    history: [{ generatedAt: '2025-07-24T00:00:00Z', entryCount: 1 }],
+    equipment: [{ name: 'iSi siphon', note: 'rapid infusions' }],
+  });
+  ok(/second of these/.test(html2), 'the series line renders at the top of the file');
+  ok(/This file contains private notes/.test(html2),
+    'and the file says outright that it is not the delivery log — the realistic risk is attaching the wrong one');
+  ok(/<h2>For you<\/h2>/.test(html2), 'personal entries get their own thread');
+  ok(html2.includes('PERSONAL-MARKER from my grandmother.'), 'with the text set as a letter rather than a redaction');
+  ok(/The equipment these assume/.test(html2) && /iSi siphon/.test(html2),
+    'and the equipment the instructions assume is finally written down');
+}
+
 console.log(`ARCHIVE: ALL PASS (${pass} checks)`);

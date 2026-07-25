@@ -48,6 +48,33 @@ export const JOURNAL_TYPES = {
 };
 export const JOURNAL_TYPE_ORDER = ['decision', 'price', 'provenance', 'doneCues', 'adjustment', 'technique', 'mistake', 'retirement', 'revision'];
 
+// ── The taxonomy can GROW ──────────────────────────────────────────────────
+// The nine types above were designed top-down in a single afternoon, before a
+// single entry existed. A decade of thoughts forced into bins that were guessed
+// at is a real cost, and real corpora grow their own categories. Custom types
+// live IN the journal, so they travel with the data, ride the backup, and land
+// in the archive without any code change.
+export function allTypes(journal) {
+  const custom = normalizeJournal(journal).customTypes || [];
+  const out = { ...JOURNAL_TYPES };
+  for (const t of custom) {
+    if (!t || !t.key || out[t.key]) continue; // built-ins always win
+    out[t.key] = { label: t.label || t.key, hint: t.hint || '', privateDefault: false, custom: true };
+  }
+  return out;
+}
+export function allTypeOrder(journal) {
+  const custom = (normalizeJournal(journal).customTypes || []).map(t => t && t.key).filter(k => k && !JOURNAL_TYPES[k]);
+  return [...JOURNAL_TYPE_ORDER, ...custom];
+}
+export function addCustomType(journal, key, label, hint) {
+  const j = normalizeJournal(journal);
+  const clean = String(key || '').trim().replace(/[^a-zA-Z0-9]/g, '');
+  if (!clean || JOURNAL_TYPES[clean]) return j; // never shadow a built-in
+  if ((j.customTypes || []).some(t => t.key === clean)) return j;
+  return { ...j, customTypes: [...(j.customTypes || []), { key: clean, label: String(label || clean).trim(), hint: String(hint || '').trim() }] };
+}
+
 // ── Transferable principles ────────────────────────────────────────────────
 // The ONE piece of cross-dish structure in the system. Every dossier entry is
 // filed under a dish, which sorts the corpus perfectly for reading the story
@@ -73,7 +100,7 @@ export const canBeTransferable = (type) => TRANSFERABLE_TYPES.has(type);
 const jid = () => 'j' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
 export function emptyJournal() {
-  return { version: JOURNAL_VERSION, entries: [], deleted: [] };
+  return { version: JOURNAL_VERSION, entries: [], deleted: [], customTypes: [] };
 }
 
 // Tolerate anything localStorage or a hand-made payload can throw at us.
@@ -83,7 +110,10 @@ export function normalizeJournal(raw) {
   if (!raw || typeof raw !== 'object') return emptyJournal();
   const entries = Array.isArray(raw.entries) ? raw.entries.filter(e => e && typeof e === 'object' && typeof e.text === 'string') : [];
   const deleted = Array.isArray(raw.deleted) ? raw.deleted.filter(e => e && typeof e === 'object' && typeof e.text === 'string') : [];
-  return { version: JOURNAL_VERSION, entries, deleted };
+  const customTypes = Array.isArray(raw.customTypes)
+    ? raw.customTypes.filter(t => t && typeof t === 'object' && typeof t.key === 'string' && t.key)
+    : [];
+  return { version: JOURNAL_VERSION, entries, deleted, customTypes };
 }
 
 // ── The one stamping decision (T3 lives here) ──────────────────────────────
@@ -92,8 +122,9 @@ export function normalizeJournal(raw) {
 // but the UI must show "undated" — a backfilled date would measure when the
 // migration ran, not when the note was true. Same principle that killed the
 // rare badge.
-export function stampEntry(partial, now) {
-  const type = JOURNAL_TYPES[partial && partial.type] ? partial.type : 'technique';
+export function stampEntry(partial, now, knownTypes) {
+  const types = knownTypes || JOURNAL_TYPES;
+  const type = types[partial && partial.type] ? partial.type : 'technique';
   // DUAL-WRITE. A dish subject carries both the display name and the stable
   // id from now on. The name stays because readers that have not migrated yet
   // still resolve by it; the id is what survives a rename. An unresolvable
@@ -106,7 +137,7 @@ export function stampEntry(partial, now) {
   }
   const priv = partial && typeof partial.private === 'boolean'
     ? partial.private
-    : JOURNAL_TYPES[type].privateDefault;
+    : (types[type] ? types[type].privateDefault : false);
   // The transferable flag only means anything on craft types. If the type is
   // switched to a non-craft one after the toggle was set, the flag is dropped
   // rather than left dangling on an entry that can never be a lesson.
@@ -129,6 +160,36 @@ export function stampEntry(partial, now) {
   } else {
     delete entry.supersedes;
   }
+  // ── WHEN IT HAPPENED, as opposed to when it was written ─────────────────
+  // `ts` is the write time and always has been. An entry typed the night of and
+  // one typed a year later look identical without this, and at twenty years
+  // that is the difference between a record and a reconstruction. Optional and
+  // NEVER inferred: an absent eventDate means unknown, which is honest.
+  if (partial && typeof partial.eventDate === 'string' && partial.eventDate.trim()) {
+    entry.eventDate = partial.eventDate.trim();
+  } else {
+    delete entry.eventDate;
+  }
+  // ── Association, as opposed to negation ─────────────────────────────────
+  // `supersedes` can only say "this replaces that". Most of how knowledge
+  // connects is "this relates to that", which had no expression at all.
+  if (partial && Array.isArray(partial.relatesTo) && partial.relatesTo.length) {
+    entry.relatesTo = [...new Set(partial.relatesTo.filter(x => typeof x === 'string' && x))];
+  } else {
+    delete entry.relatesTo;
+  }
+  // ── Where this came from ────────────────────────────────────────────────
+  // `imported: true` was the only marker, which works until its ABSENCE starts
+  // meaning "old" rather than "typed by hand". Stated explicitly instead.
+  entry.origin = (partial && ['written', 'imported', 'harvested'].includes(partial.origin))
+    ? partial.origin
+    : (partial && partial.imported ? 'imported' : 'written');
+  // ── PERSONAL is not the same as PRIVATE ─────────────────────────────────
+  // `private` means business-internal, do not publish. `personal` means written
+  // for his son. Same storage protection, opposite presentation: the archive
+  // was rendering the warmest material with a lock icon, which reads as
+  // redaction rather than intimacy.
+  entry.personal = !!(partial && partial.personal) || (type === 'provenance' && !partial?.hasOwnProperty('personal'));
   // GAP C: how sure you were. TWO states, deliberately, because a scale invites
   // agonising over 3 versus 4 and tells a reader nothing extra. Absent means
   // unmarked, which is not the same as uncertain.
@@ -149,7 +210,7 @@ export function stampEntry(partial, now) {
 
 export function addEntry(journal, partial, now) {
   const j = normalizeJournal(journal);
-  const entry = stampEntry(partial, now);
+  const entry = stampEntry(partial, now, allTypes(j));
   if (!entry.text) return j; // an empty entry is a mis-tap, not a record
   return { ...j, entries: [...j.entries, entry] };
 }
@@ -163,9 +224,37 @@ export const UNDO_WINDOW_DAYS = 30;
 
 // The journal is Kevin's own diary, so unlike the audit log it is editable:
 // correcting your own record is not tampering.
-export function updateEntry(journal, id, patch) {
+// How many prior versions of an entry's text to keep. Enough to see how a
+// thought changed; not so many that a decade of fiddling bloats the store.
+export const EDIT_HISTORY_MAX = 10;
+
+// Editing your own notebook is not tampering, which is why entries are
+// editable at all. But with no record of edits, "was this written in 2026 or
+// rewritten in 2034" is unanswerable, and at twenty years that is the
+// difference between a document and a draft. So an edit KEEPS the text it
+// replaced, with the time it was replaced.
+export function updateEntry(journal, id, patch, now) {
   const j = normalizeJournal(journal);
-  return { ...j, entries: j.entries.map(e => (e.id === id ? stampEntry({ ...e, ...patch, id: e.id, ts: e.ts }) : e)) };
+  const at = (now || new Date()).toISOString();
+  return {
+    ...j,
+    entries: j.entries.map(e => {
+      if (e.id !== id) return e;
+      const changedText = typeof patch.text === 'string' && patch.text.trim() !== e.text;
+      const edits = changedText
+        ? [...(e.edits || []), { at, was: e.text }].slice(-EDIT_HISTORY_MAX)
+        : e.edits;
+      const next = stampEntry({ ...e, ...patch, id: e.id, ts: e.ts }, now, allTypes(j));
+      if (edits && edits.length) next.edits = edits; else delete next.edits;
+      return next;
+    }),
+  };
+}
+
+// Whether an entry has been rewritten since it was first saved, and when last.
+export function editHistory(entry) {
+  const edits = (entry && entry.edits) || [];
+  return { edited: edits.length > 0, count: edits.length, lastEditedAt: edits.length ? edits[edits.length - 1].at : null, versions: edits };
 }
 
 // Removal moves the entry to a tombstone list rather than dropping it on the

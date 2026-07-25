@@ -90,6 +90,10 @@ function htmlShell(title, generatedAt, body, embeddedJson) {
   .entry.stale { opacity: 0.72; }
   .revision { border-top: 2px solid #1a1a1a; margin: 18px 0 10px; padding-top: 6px; }
   .revision b { font-variant: small-caps; letter-spacing: 0.5px; }
+  .series { font-size: 13px; color: #555; border-bottom: 1px solid #d8d2c4; padding-bottom: 10px; margin-bottom: 6px; }
+  .personal { border-left: 3px solid #b8860b; padding-left: 14px; margin: 12px 0; font-size: 15.5px; line-height: 1.7; max-width: 62ch; }
+  .personal .src { color: #888; font-size: 12px; margin-top: 3px; }
+  .privatemark { background: #f6e9c8; border: 1px solid #b8860b; border-radius: 6px; padding: 8px 11px; font-size: 13px; margin: 0 0 14px; }
   .intro { font-size: 15px; line-height: 1.7; max-width: 62ch; }
   .intro:first-of-type { font-size: 17px; }
   .principle { border-left: 3px solid #2e6b4f; padding-left: 12px; margin: 10px 0 14px; }
@@ -174,7 +178,44 @@ function journalSection(entries, renames, superseded) {
 
 // ── K10: the yearly archive ────────────────────────────────────────────────
 // { journal, orders, generatedAt? } → one self-contained HTML document.
-export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote } = {}) {
+// A record's value as an artifact is largely its SPAN. Software cannot express
+// "you kept this" through content; it can only show continuity. So each archive
+// states which one it is, when the record started, and what changed since the
+// last one — and shows gap years HONESTLY, because a record that hides its thin
+// years is less trustworthy than one that admits them.
+export function archiveSeriesLine(history, journal, now) {
+  const past = Array.isArray(history) ? history.filter(h => h && h.generatedAt) : [];
+  const j = normalizeJournal(journal);
+  const n = past.length + 1;
+  const first = past.length ? past.map(h => h.generatedAt).sort()[0] : (now || new Date().toISOString());
+  const days = Math.max(0, Math.round((Date.parse(now || new Date().toISOString()) - Date.parse(first)) / 86400000));
+  const ordinal = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'][n - 1] || `${n}th`;
+  const prev = past.length ? past.slice().sort((x, y) => String(y.generatedAt).localeCompare(String(x.generatedAt)))[0] : null;
+  const since = prev && typeof prev.entryCount === 'number' ? j.entries.length - prev.entryCount : null;
+  return {
+    n, first, days, ordinal,
+    entryCount: j.entries.length,
+    sinceLast: since,
+    text: past.length
+      ? `The ${ordinal} of these. Kept since ${String(first).slice(0, 10)}: ${j.entries.length} entries across ${days} days.`
+      : `The first of these. ${j.entries.length} entr${j.entries.length === 1 ? 'y' : 'ies'} so far.`,
+  };
+}
+
+// Years with nothing written. Named rather than hidden: the gaps are part of
+// the record, and admitting one is what makes the rest believable.
+export function archiveGapYears(journal, now) {
+  const j = normalizeJournal(journal);
+  if (!j.entries.length) return [];
+  const years = new Set(j.entries.map(e => new Date(e.ts).getFullYear()).filter(y => !Number.isNaN(y)));
+  const start = Math.min(...years);
+  const end = (now ? new Date(now) : new Date()).getFullYear();
+  const gaps = [];
+  for (let y = start; y <= end; y++) if (!years.has(y)) gaps.push(y);
+  return gaps;
+}
+
+export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, history, equipment } = {}) {
   const j = normalizeJournal(journal);
   const when = generatedAt || new Date().toISOString();
   const year = when.slice(0, 4);
@@ -195,7 +236,23 @@ export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote } = 
 
   const parts = [];
   parts.push(`<h1>Lettuce, Turnip, The Beet — The Record, ${esc(year)}</h1>
+<div class="privatemark"><b>This file contains private notes.</b> It is the personal record, not the delivery log. Do not send it to a customer.</div>
 <div class="sub">Generated ${esc(fmtDate(when))} · ${DISHES.length} dinners on the register · ${j.entries.length} journal entr${j.entries.length === 1 ? 'y' : 'ies'} · This file is complete in itself: no app, no internet, no software beyond a browser is needed to read it, and it prints clean. The same data rides inside it in machine-readable form.</div>`);
+
+  // The series line goes ABOVE everything, because it is the one thing that
+  // cannot be inferred from any single file.
+  {
+    const series = archiveSeriesLine(history, j, when);
+    const gaps = archiveGapYears(j, when);
+    parts.push(`<div class="series">${esc(series.text)}`);
+    if (series.sinceLast != null && series.sinceLast > 0) {
+      parts.push(` <span class="meta">${series.sinceLast} new since the last one.</span>`);
+    }
+    if (gaps.length) {
+      parts.push(` <span class="meta">Nothing written in ${gaps.join(', ')}.</span>`);
+    }
+    parts.push('</div>');
+  }
 
   parts.push('<h2>Start here</h2>');
   for (const para of ARCHIVE_INTRO) parts.push(`<p class="intro">${esc(para)}</p>`);
@@ -206,6 +263,25 @@ export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote } = 
     // or Kevin, to ask.
     parts.push('<h2>Where the copies are</h2>');
     parts.push(`<p class="intro">${esc(String(copiesNote).trim())}</p>`);
+  }
+
+  // PERSONAL entries gathered into their own thread. They were being rendered
+  // with a lock icon and the word "private", which reads as redaction on the
+  // warmest material in the record. Here they are set like letters instead,
+  // and they stay in their dish sections too — this is a second way in, not a
+  // move.
+  {
+    const personal = j.entries.filter(e => e.personal)
+      .sort((a2, b2) => String(a2.ts).localeCompare(String(b2.ts)));
+    if (personal.length) {
+      parts.push('<h2>For you</h2>');
+      parts.push('<p class="meta">The parts of this that are not about running a business.</p>');
+      for (const e of personal) {
+        const dish = e.subject && e.subject.kind === 'dish' ? canonDishName(e.subject.dish, DISH_RENAMES) : null;
+        parts.push(`<div class="personal">${esc(e.text)}
+<div class="src">${dish ? esc(dish) + ' · ' : ''}${e.undated ? 'undated' : esc(fmtDate(e.eventDate || e.ts))}</div></div>`);
+      }
+    }
   }
 
   parts.push('<h2>The business journal</h2>');
@@ -262,6 +338,17 @@ ${entries.length ? journalSection(entries, DISH_RENAMES, superseded) : '<p class
     }
   }
 
+  // What the instructions assume you own. The record referenced "the siphon"
+  // and "the sous vide" without ever saying what they were.
+  if (equipment && Array.isArray(equipment) && equipment.length) {
+    parts.push('<h2>The equipment these assume</h2>');
+    parts.push('<table><tr><th>Thing</th><th>What it is for</th></tr>');
+    for (const eq of equipment) {
+      parts.push(`<tr><td>${esc(eq.name || '')}</td><td>${esc(eq.note || '')}</td></tr>`);
+    }
+    parts.push('</table>');
+  }
+
   if ((RENAME_HISTORY || []).length) {
     parts.push('<h2>Name changes</h2><table><tr><th>Was</th><th>Became</th><th>When</th><th>Why</th></tr>');
     for (const h of RENAME_HISTORY) {
@@ -314,6 +401,7 @@ export function buildRecordsHtml({ orders, generatedAt } = {}) {
       return `<tr><td>${esc(fmtDate(o.createdAt) || '?')}</td><td>${esc(o.customer || '?')}${o.house ? ' <span class="meta">(house)</span>' : ''}</td><td>${esc(items)}</td><td>${esc(declared || 'none declared')}</td><td>${esc(o.status || '')}${o.archived ? ' · archived' : ''}</td></tr>`;
     });
   const body = `<h1>LTB delivery records</h1>
+<div class="privatemark"><b>This file contains private notes.</b> It is the personal record, not the delivery log. Do not send it to a customer.</div>
 <div class="sub">Generated ${esc(fmtDate(when))} · ${rows.length} order${rows.length === 1 ? '' : 's'} · what went out, to whom, when, and the allergens declared for it.</div>
 <table><tr><th>Date</th><th>Customer</th><th>Items</th><th>Allergens declared</th><th>Status</th></tr>
 ${rows.join('\n')}

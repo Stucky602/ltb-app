@@ -18,24 +18,22 @@ import {
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
-  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
-  BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
-  INGREDIENTS_KEY, COST_HISTORY_KEY, LAST_SEEN_WEEK_KEY, RECEIPT_ALIASES_KEY,
-  HANDLED_PENDING_KEY,
+  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY,
+  BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
   urlBase64ToUint8Array, onStorageFull, storageFootprint, nameMatchType, regularNames, regularDisplayName,
-  regularMatchType, buildInsights, insightStamp, loadHtml2Canvas,
+  buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
-  orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
-  optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons, applyFeedbackSave, resetDishFeedback,
+  orderTotal, repricePerLbItem, itemCost, orderCostInfo,
+  optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
-  photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes,
+  photoKey, savePhoto, loadPhoto, photoStorageBytes,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
-  mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
   houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
 // migrations.js, seedReconcile.js, and INGREDIENT_SEED are no longer imported
@@ -52,9 +50,7 @@ import { currentWeekInfo, msUntilDeadline, formatCountdown, intakeVsMedian, week
 import { sortList, filterByStatus, searchList, orderHaystacks, windowList, DEFAULT_WINDOW } from './listControls.js';
 import { containerReport, normalizeContainerConfig } from './containers.js';
 import { extractNotice } from './weekNotice.js';
-import {
-  SOURCES, appendAudit, auditEntry, diffIngredientCosts, diffAliases,
-} from './auditLog.js';
+import { SOURCES, appendAudit, auditEntry } from './auditLog.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
 import { ImportModal } from './components/ImportModal.jsx';
@@ -90,6 +86,12 @@ import {
 } from './backupRestore.js';
 import { BackupModal } from './components/BackupModal.jsx';
 import { hydrateFromStorage } from './bootHydrate.js';
+// Namespaced rather than named: every one of these has a same-named thin
+// wrapper below, and `ops.updateOrder` inside `const updateOrder = ...` reads
+// unambiguously where a bare import would shadow itself.
+import * as ops from './orderOps.js';
+import * as fb from './feedbackSync.js';
+import * as ing from './ingredientOps.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -323,95 +325,26 @@ export default function LTBOrderTracker() {
     return () => { mounted = false; };
   }, []);
 
-  const persistOrders = useCallback(async (next) => {
-    setOrders(next);
-    const res = await saveJSON(ORDERS_KEY, next);
-    setError(saveError(res));
-    return res;
-  }, []);
+  // ── Order, regular, and inventory operations ─────────────────────────────
+  // Bodies live in orderOps.js. Each wrapper below keeps the dependency array
+  // the original useCallback had, so hook count, hook order, and every
+  // function identity a child component sees are unchanged by the split.
+  const persistOrders = useCallback(async (next) => ops.persistOrders(next, { setOrders, setError }), []);
 
+  // Shopping is not an order operation and stays here: it has exactly one
+  // writer and no domain logic worth moving.
   const persistShopping = useCallback((next) => {
     setShopping(next);
     saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
   }, []);
 
-  const INVENTORY_ADDON_MAP = {
-    'Queso': 'queso_0',
-    'Chili Oil': 'chiliOil',
-    'Chimichurri': 'chimichurri',
-    'Romesco': 'romesco',
-    'Chermoula': 'chermoula',
-    'Miso Butter Sauce': 'misoButter',
-    'Whipped Lemon Garlic Herb Butter': 'whippedButter',
-  };
+  const saveOrder = useCallback((order) => ops.saveOrder(order, {
+    regulars, setOrders, setInventory, setError, setFormMode,
+  }), [regulars]);
 
-  const saveOrder = useCallback((order) => {
-    // Auto-house: a manual "New order" builds the order in OrderForm without a
-    // regularId or house flag, so an order for the wife (a house regular) was
-    // counted against metrics and Kevin had to enter the 100% by hand. If the
-    // customer matches a house regular by link OR exact name, make it a proper
-    // house order here (free, flagged, linked) so isHouseOrder excludes it
-    // everywhere. Exact name only, since house means free. Idempotent.
-    let o = order;
-    const houseReg = (regulars || []).find(r => r.house && (o.regularId === r.id || regularMatchType(r, o.customer) === 'exact'));
-    if (houseReg && (!o.house || o.total !== 0 || o.regularId !== houseReg.id)) {
-      o = { ...o, house: true, regularId: houseReg.id, waiveSurcharge: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT, total: 0 };
-    }
-    setOrders(prev => {
-      const exists = (prev || []).some(x => x.id === o.id);
-      const next = exists
-        ? (prev || []).map(x => (x.id === o.id ? o : x))
-        : [o, ...(prev || [])];
-      saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
-      if (!exists) {
-        (o.items || []).forEach(it => {
-          const invKey = INVENTORY_ADDON_MAP[it.name];
-          if (invKey) {
-            setInventory(inv => {
-              const current = Number(inv[invKey]) || 0;
-              const updated = { ...inv, [invKey]: Math.max(0, current - (it.qty || 1)) };
-              saveJSON(INVENTORY_KEY, updated);
-              return updated;
-            });
-          }
-        });
-      }
-      return next;
-    });
-    setFormMode(null);
-  }, [regulars]);
-
-  const importOrders = useCallback((parsedOrders) => {
-    const newOrders = parsedOrders.map(p => {
-      const items = p.items || [];
-      const total = orderTotal(items, p.jarSwaps || 0, p.containerReturns || 0, null, 0, [], false);
-      return {
-        id: uid(),
-        customer: p.customer,
-        items,
-        jarSwaps: p.jarSwaps || 0,
-        containerReturns: p.containerReturns || 0,
-        notes: p.notes || '',
-        discountType: null,
-        discountValue: 0,
-        customCharges: [],
-        waiveSurcharge: false,
-        total,
-        status: 'Ordered',
-        paid: false,
-        archived: false,
-        createdAt: new Date().toISOString(),
-      };
-    });
-    setOrders(prev => {
-      const next = [...newOrders, ...(prev || [])];
-      saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-    setShowCsv(false);
-    setExportMsg(`Imported ${newOrders.length} order${newOrders.length !== 1 ? 's' : ''} from the sheet.`);
-    setTimeout(() => setExportMsg(null), 4000);
-  }, []);
+  const importOrders = useCallback((parsedOrders) => ops.importOrders(parsedOrders, {
+    setOrders, setError, setShowCsv, setExportMsg,
+  }), []);
 
   const checkFormNow = React.useCallback(async () => {
     setCheckingForm(true);
@@ -712,189 +645,27 @@ export default function LTBOrderTracker() {
   // ── Auto-fill regular contact info from incoming order ─────────────────────
   // Called after linking an order to a regular. If the regular has no address
   // or phone and the order does, fills in the blank fields and shows a banner.
-  const autoFillRegularContact = useCallback((reg, order) => {
-    const infoPatch = {};
-    if (!reg.address && order.address) infoPatch.address = order.address;
-    if (!reg.phone && order.phone) infoPatch.phone = order.phone;
-    if (Object.keys(infoPatch).length > 0) {
-      updateRegular(reg.id, infoPatch);
-      const fields = [infoPatch.address && 'address', infoPatch.phone && 'phone']
-        .filter(Boolean).join(' and ');
-      const name = (reg.names && reg.names[0]) || reg.name || 'Regular';
-      setExportMsg(`${name}'s ${fields} saved to Regulars.`);
-      setTimeout(() => setExportMsg(null), 4000);
-    }
-  }, []);
+  const autoFillRegularContact = useCallback((reg, order) => ops.autoFillRegularContact(reg, order, {
+    updateRegular, setExportMsg,
+  }), []);
 
-  const acceptPending = useCallback((pending) => {
-    // EC-1 idempotency guard: a double-tap on a slow phone fires acceptPending
-    // twice before the card unmounts, and each call mints a fresh uid() order,
-    // doubles the inventory decrement, and double-links the regular. Claim the
-    // id synchronously up front so a repeat call bails. dismissPending marks it
-    // again at the end, which is idempotent.
-    if (!pending) return;
-    const claimId = pending.pendingId;
-    if (claimId) {
-      if (handledPendingRef.current[claimId]) return;
-      handledPendingRef.current[claimId] = Date.now();
-    }
-    const orderId = uid();
+  const acceptPending = useCallback((pending) => ops.acceptPending(pending, {
+    handledPendingRef, regulars, setOrders, setError, adjustInventory,
+    linkOrderToRegular, autoFillRegularContact, setLinkPrompt, dismissPending,
+    setShowPendingIdx,
+  }), [regulars, autoFillRegularContact]);
 
-    let exactReg = null;
-    const partialRegs = [];
-    regulars.forEach(r => {
-      const m = regularMatchType(r, pending.customer);
-      if (m === 'exact') exactReg = r;
-      else if (m === 'partial') partialRegs.push(r);
-    });
+  const dismissPending = useCallback((pendingId) => ops.dismissPending(pendingId, {
+    setPendingOrders, handledPendingRef, setShowPendingIdx,
+  }), []);
 
-    // A house regular (the wife) is free, full stop: the flag alone implies
-    // 100% off, so there is no discount field to set and no way to half-apply
-    // it. A normal regular's lifetime discount applies as before.
-    const isHouse = !!(exactReg && exactReg.house);
-    const discountType = isHouse ? 'percent' : (exactReg && exactReg.discountPercent > 0 ? 'percent' : null);
-    const discountValue = isHouse ? HOUSE_DISCOUNT_PERCENT : (exactReg && exactReg.discountPercent > 0 ? exactReg.discountPercent : 0);
+  const persistRegulars = useCallback((next) => ops.persistRegulars(next, { setRegulars, setError }), []);
 
-    // Normalize the customer-form item shape FIRST (per-lb proteins arrive with
-    // the $/lb rate in price/cost and no weightPending — see normalizePendingItems),
-    // then total and stamp. Order of operations matters: totaling before
-    // normalizing counts a rate as a price; stamping before normalizing freezes
-    // a rate as a cost basis.
-    const normalizedItems = normalizePendingItems(pending.items);
-    const total = orderTotal(normalizedItems, 0, 0, discountType, discountValue, [], isHouse);
+  const addRegular = useCallback((profile) => ops.addRegular(profile, { setRegulars, setError }), []);
 
-    // Re-stamp cost bases from the app's own registry at acceptance — the
-    // registry is authoritative over whatever the customer form submitted
-    // (which can be stale, zero-coerced, or tampered). Items the registry
-    // can't match keep any client value they carried.
-    const stampedItems = stampItemCosts(normalizedItems, 'snapshot', { reStamp: true });
+  const updateRegular = useCallback((id, patch) => ops.updateRegular(id, patch, { setRegulars, setError }), []);
 
-    const order = {
-      id: orderId,
-      customer: pending.customer,
-      address: pending.address || '',
-      phone: pending.phone || '',
-      items: stampedItems,
-      jarSwaps: 0,
-      containerReturns: 0,
-      notes: pending.notes || '',
-      discountType,
-      discountValue,
-      customCharges: [],
-      // EC-6: a house order (the wife) is free, full stop, so the $2 surcharge
-      // is waived too. Leaving it false billed her $2 and fed $2 of phantom
-      // revenue into books on every house order.
-      waiveSurcharge: isHouse,
-      total,
-      status: 'Ordered',
-      paid: false,
-      archived: false,
-      regularId: exactReg ? exactReg.id : null,
-      // Copied from the regular at link time, not looked up later: books.js and
-      // weekPlanner.js only ever see `orders`, never `regulars`.
-      house: isHouse,
-      createdAt: new Date().toISOString(),
-    };
-    setOrders(prev => {
-      const next = [order, ...(prev || [])];
-      saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-
-    (order.items || []).forEach(it => {
-      const invKey = INVENTORY_ADDON_MAP[it.name];
-      if (invKey) adjustInventory(invKey, -(it.qty || 1));
-    });
-
-    if (exactReg) {
-      linkOrderToRegular(exactReg.id, orderId);
-      autoFillRegularContact(exactReg, order);
-    } else if (partialRegs.length > 0) {
-      setLinkPrompt({ order, candidates: partialRegs });
-    }
-
-    dismissPending(pending.pendingId);
-    setShowPendingIdx(null);
-  }, [regulars, autoFillRegularContact]);
-
-  const dismissPending = useCallback((pendingId) => {
-    setPendingOrders(prev => {
-      const next = prev.filter(p => p.pendingId !== pendingId);
-      saveJSON(PENDING_KEY, next);
-      return next;
-    });
-    // This is where an order actually leaves the worker queue: Kevin accepted
-    // it (acceptPending calls through here) or rejected it. Record the id as
-    // handled so a re-poll can't resurrect it, then tell the worker to drop it.
-    // The ledger is the durable guard; the network clear is best-effort on top,
-    // so a failed clear degrades to a harmless dedup, never a lost order.
-    if (pendingId) {
-      const ledger = handledPendingRef.current || {};
-      ledger[pendingId] = Date.now();
-      const keys = Object.keys(ledger);
-      if (keys.length > 800) {
-        const trimmed = {};
-        keys.slice(-400).forEach(k => { trimmed[k] = ledger[k]; });
-        handledPendingRef.current = trimmed;
-      } else {
-        handledPendingRef.current = ledger;
-      }
-      saveJSON(HANDLED_PENDING_KEY, handledPendingRef.current);
-      fetch(WORKER_BASE + '/pending/clear', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [pendingId], token: PUBLISH_TOKEN }),
-      }).catch(() => {});
-    }
-    setShowPendingIdx(null);
-  }, []);
-
-  const persistRegulars = useCallback((next) => {
-    setRegulars(next);
-    saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-  }, []);
-
-  const addRegular = useCallback((profile) => {
-    const names = (Array.isArray(profile.names) ? profile.names : [profile.name])
-      .map(n => String(n || '').trim())
-      .filter(Boolean);
-    const reg = {
-      id: uid(),
-      names,
-      name: names[0] || '',
-      address: profile.address || '',
-      phone: profile.phone || '',
-      dietary: profile.dietary || '',
-      spice: profile.spice || '',
-      discountPercent: Number(profile.discountPercent) || 0,
-      notes: profile.notes || '',
-      linkedOrderIds: profile.linkedOrderIds || [],
-      lastInsightSig: '',
-      createdAt: new Date().toISOString(),
-    };
-    setRegulars(prev => {
-      const next = [...prev, reg];
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-    return reg.id;
-  }, []);
-
-  const updateRegular = useCallback((id, patch) => {
-    setRegulars(prev => {
-      const next = prev.map(r => (r.id === id ? { ...r, ...patch } : r));
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
-
-  const deleteRegular = useCallback((id) => {
-    setRegulars(prev => {
-      const next = prev.filter(r => r.id !== id);
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const deleteRegular = useCallback((id) => ops.deleteRegular(id, { setRegulars, setError }), []);
 
   // ── STARTUP AUTOMATIONS (Jul 9): run once per session, silently. Feedback
   // pull only fires when any order carries a kitchenPageId; backfill is safe
@@ -909,344 +680,110 @@ export default function LTBOrderTracker() {
     }
   }, [booted]);
 
-  const linkOrderToRegular = useCallback((regularId, orderId) => {
-    setRegulars(prev => {
-      const next = prev.map(r => {
-        if (r.id !== regularId) return r;
-        const linkedOrderIds = r.linkedOrderIds.includes(orderId)
-          ? r.linkedOrderIds
-          : [...r.linkedOrderIds, orderId];
-        return { ...r, linkedOrderIds };
-      });
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const linkOrderToRegular = useCallback((regularId, orderId) => ops.linkOrderToRegular(regularId, orderId, { setRegulars, setError }), []);
 
-  const unlinkOrderFromRegular = useCallback((regularId, orderId) => {
-    setRegulars(prev => {
-      const next = prev.map(r =>
-        r.id === regularId
-          ? { ...r, linkedOrderIds: r.linkedOrderIds.filter(oid => oid !== orderId) }
-          : r
-      );
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const unlinkOrderFromRegular = useCallback((regularId, orderId) => ops.unlinkOrderFromRegular(regularId, orderId, { setRegulars, setError }), []);
 
-  const adjustInventory = useCallback((key, delta) => {
-    setInventory(prev => {
-      const current = Number(prev[key]) || 0;
-      const next = { ...prev, [key]: Math.max(0, current + delta) };
-      saveJSON(INVENTORY_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const adjustInventory = useCallback((key, delta) => ops.adjustInventory(key, delta, { setInventory, setError }), []);
 
-  const setInventoryCount = useCallback((key, value) => {
-    setInventory(prev => {
-      const next = { ...prev, [key]: Math.max(0, Number(value) || 0) };
-      saveJSON(INVENTORY_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const setInventoryCount = useCallback((key, value) => ops.setInventoryCount(key, value, { setInventory, setError }), []);
 
-  const updateIngredients = useCallback((next) => {
-    // Diff against current state to log only changed costs into history.
-    setIngredientsDb(prev => {
-      // Same prev/next pair the cost-history diff below already uses — the
-      // audit trail is a second reader of a diff this function already had.
-      recordAudit(diffIngredientCosts(prev, next, SOURCES.MANUAL));
-      const prevById = {};
-      (prev || []).forEach(i => { prevById[i.id] = i.current; });
-      const t = Date.now();
-      const points = [];
-      (next || []).forEach(i => {
-        const before = prevById[i.id];
-        // log when a new ingredient appears or its current cost moved
-        if (before === undefined || Math.abs((before || 0) - (i.current || 0)) > 0.0001) {
-          points.push({ t, id: i.id, cost: i.current });
-        }
-      });
-      if (points.length) {
-        setCostHistory(h => {
-          const merged = [...(h || []), ...points];
-          // cap history to keep storage small (~last 4000 points)
-          const capped = merged.length > 4000 ? merged.slice(merged.length - 4000) : merged;
-          saveJSON(COST_HISTORY_KEY, capped).then(res => setError(saveError(res)));
-          return capped;
-        });
-      }
-      return next;
-    });
-    saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
-  }, [recordAudit]);
+  // ── Ingredient cost writers ──────────────────────────────────────────────
+  // Bodies in ingredientOps.js. These are the money-writing paths, and all
+  // three funnel through recordAudit so a cost can never move without a trail.
+  const updateIngredients = useCallback((next) => ing.updateIngredients(next, {
+    setIngredientsDb, setCostHistory, setError, recordAudit,
+  }), [recordAudit]);
 
   // Phase 3 — receipt commit. Twin of updateIngredients, but stamps cost-history
   // points with the receipt's PURCHASE date (not the scan moment). `updates` is
   // [{ id, cost }] for accepted lines only. `purchaseDate` is an ISO 'YYYY-MM-DD'
   // string or null (fallback: now). Never touches baseline.
-  const commitReceiptCosts = useCallback((updates, purchaseDate, newIngredients) => {
-    if ((!updates || !updates.length) && (!newIngredients || !newIngredients.length)) return;
-    const stamp = (() => {
-      if (purchaseDate) {
-        const ms = Date.parse(purchaseDate);
-        if (!isNaN(ms)) return ms;
-      }
-      return Date.now();
-    })();
-    const byId = {};
-    (updates || []).forEach(u => { byId[u.id] = u.cost; });
-    // Per-ingredient provenance for the audit trail: the receipt line's raw
-    // text and the derivation basis that produced this number. This is what
-    // makes "why is this cost wrong?" answerable — it traces a bad cost to
-    // the exact scanned line and the exact rule that read it.
-    const metaById = {};
-    (updates || []).forEach(u => {
-      const m = {};
-      if (u.raw) m.raw = String(u.raw).slice(0, 80);
-      if (u.basis) m.basis = u.basis;
-      if (purchaseDate) m.receiptDate = purchaseDate;
-      if (Object.keys(m).length) metaById[u.id] = m;
-    });
-    setIngredientsDb(prev => {
-      // first, append any inline-created ingredients (so cost updates resolve)
-      const created = (newIngredients || []).filter(ni => !(prev || []).some(i => i.id === ni.id));
-      const base = [...(prev || []), ...created];
-      const next = base.map(i => (byId[i.id] != null ? { ...i, current: byId[i.id] } : i));
-      recordAudit(diffIngredientCosts(base, next, SOURCES.RECEIPT, metaById));
-      const prevById = {};
-      base.forEach(i => { prevById[i.id] = i.current; });
-      const t = stamp;
-      const points = [];
-      // log created ingredients' initial cost + any moved currents
-      created.forEach(ni => { points.push({ t, id: ni.id, cost: ni.current }); });
-      Object.keys(byId).forEach(id => {
-        const before = prevById[id];
-        const after = byId[id];
-        if (before === undefined || Math.abs((before || 0) - (after || 0)) > 0.0001) {
-          // avoid double-logging a just-created ingredient whose cost equals its seed
-          if (!created.some(c => c.id === id && Math.abs((c.current || 0) - (after || 0)) < 0.0001)) {
-            points.push({ t, id, cost: after });
-          }
-        }
-      });
-      if (points.length) {
-        setCostHistory(h => {
-          const merged = [...(h || []), ...points].sort((a, b) => a.t - b.t);
-          const capped = merged.length > 4000 ? merged.slice(merged.length - 4000) : merged;
-          saveJSON(COST_HISTORY_KEY, capped).then(res => setError(saveError(res)));
-          return capped;
-        });
-      }
-      saveJSON(INGREDIENTS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, [recordAudit]);
+  const commitReceiptCosts = useCallback((updates, purchaseDate, newIngredients) =>
+    ing.commitReceiptCosts(updates, purchaseDate, newIngredients, {
+      setIngredientsDb, setCostHistory, setError, recordAudit,
+    }), [recordAudit]);
 
   // Persist learned receipt aliases (merge + save).
-  const saveReceiptAliases = useCallback((nextAliases) => {
-    setReceiptAliases(prev => {
-      // Only REMAPS are logged. The alias map also churns sighting counters
-      // and store facts on every scan, and none of that moves money — logging
-      // it would bury the one thing that does: which ingredient a receipt
-      // string resolves to.
-      recordAudit(diffAliases(prev, nextAliases));
-      return nextAliases;
-    });
-    saveJSON(RECEIPT_ALIASES_KEY, nextAliases).then(res => setError(saveError(res)));
-  }, [recordAudit]);
+  const saveReceiptAliases = useCallback((nextAliases) => ing.saveReceiptAliases(nextAliases, {
+    setReceiptAliases, setError, recordAudit,
+  }), [recordAudit]);
 
-  const updateOrder = useCallback((id, patch) => {
-    setOrders(prev => {
-      const next = (prev || []).map(o => (o.id === id ? { ...o, ...patch } : o));
-      saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const updateOrder = useCallback((id, patch) => ops.updateOrder(id, patch, { setOrders, setError }), []);
 
   // ── Make-a-regular star (OrderCard) ────────────────────────────────────────
-  const makeRegularFromOrder = useCallback((order) => {
-    const id = addRegular({
-      names: [order.customer || ''],
-      address: order.address || '',
-      phone: order.phone || '',
-      linkedOrderIds: [order.id],
-    });
-    updateOrder(order.id, { regularId: id });
-  }, [addRegular, updateOrder]);
+  const makeRegularFromOrder = useCallback((order) => ops.makeRegularFromOrder(order, {
+    addRegular, updateOrder,
+  }), [addRegular, updateOrder]);
 
   // Link an order to an EXISTING regular from the star's near-miss chooser.
   // The order's name becomes an alias on the regular (non-destructive merge
   // mechanism) so all past and future orders under that name match too.
-  const linkOrderWithAlias = useCallback((regularId, order) => {
-    setRegulars(prev => {
-      const next = prev.map(r => {
-        if (r.id !== regularId) return r;
-        const has = regularAllNames(r).some(n => n.toLowerCase() === String(order.customer || '').toLowerCase());
-        return {
-          ...r,
-          aliases: has ? (r.aliases || []) : [...(r.aliases || []), order.customer],
-          linkedOrderIds: r.linkedOrderIds.includes(order.id) ? r.linkedOrderIds : [...r.linkedOrderIds, order.id],
-        };
-      });
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-    updateOrder(order.id, { regularId });
-  }, [updateOrder]);
+  const linkOrderWithAlias = useCallback((regularId, order) => ops.linkOrderWithAlias(regularId, order, {
+    setRegulars, setError, updateOrder,
+  }), [updateOrder]);
 
   // ── Merge / unmerge (non-destructive, reversible) ───────────────────────────
-  const doMergeRegulars = useCallback((targetId, sourceId) => {
-    setRegulars(prev => {
-      const { regulars: next, relinkOrderIds } = mergeRegulars(prev, targetId, sourceId);
-      if (relinkOrderIds.length) {
-        setOrders(po => {
-          const on = (po || []).map(o => (relinkOrderIds.includes(o.id) ? { ...o, regularId: targetId } : o));
-          saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
-          return on;
-        });
-      }
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const doMergeRegulars = useCallback((targetId, sourceId) => ops.doMergeRegulars(targetId, sourceId, {
+    setRegulars, setOrders, setError,
+  }), []);
 
-  const doUnmergeRegular = useCallback((targetId, snapshotId) => {
-    setRegulars(prev => {
-      const next = unmergeRegular(prev, targetId, snapshotId);
-      saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const doUnmergeRegular = useCallback((targetId, snapshotId) => ops.doUnmergeRegular(targetId, snapshotId, {
+    setRegulars, setError,
+  }), []);
 
   // ── Backfill pre-regulars orders (exact/alias auto; partial = suggestions) ──
   // Voice add-item: append a single-variant item to an order, repriced via
   // the same math every other item flows through (stamp totals via updateOrder).
   // ── CLOSE OUT THE WEEK (one tap): pull any last kitchen feedback, then
   // archive everything delivered. The ritual, automated.
-  const closeOutWeek = useCallback(async () => {
-    let fb = { attached: 0 };
-    try { fb = await pullKitchenFeedback(); } catch (e) { /* offline is fine */ }
-    const deliveredCount = (orders || []).filter(o => o.status === 'Delivered' && !o.archived).length;
-    archiveDelivered();
-    return { feedback: fb.pulled || 0, archived: deliveredCount };
-  }, [orders]);
+  const closeOutWeek = useCallback(async () => fb.closeOutWeek({
+    orders, pullKitchenFeedback, archiveDelivered,
+  }), [orders]);
 
   // ── Kitchen feedback sync (triage flow, Jul 11) ────────────────────────────
   // Pulls tapped verdicts from the worker into a TRIAGE QUEUE (pendingFeedback).
   // Nothing is attached to orders and nothing is cleared on pull — each entry
   // is cleared from KV only when Kevin Saves or Ignores it (and only once all
   // entries sharing its pageId are triaged), so mid-triage app closes are safe.
-  const pullKitchenFeedback = useCallback(async () => {
-    const res = await fetch(WORKER_BASE + '/feedback/pending?token=' + encodeURIComponent(PUBLISH_TOKEN));
-    if (!res.ok) throw new Error('pull failed');
-    const { feedback } = await res.json();
-    if (!feedback || !feedback.length) return { pulled: 0 };
-    const incoming = [];
-    for (const page of feedback) {
-      (page.entries || []).forEach((e, i) => {
-        incoming.push({ id: page.pageId + ':' + i, pageId: page.pageId, dish: e.dish, verdict: e.verdict, note: e.note || '', at: e.at });
-      });
-    }
-    let pulled = 0;
-    setPendingFeedback(prev => {
-      const have = new Set(prev.map(e => e.id));
-      const fresh = incoming.filter(e => !have.has(e.id));
-      pulled = fresh.length;
-      return fresh.length ? [...prev, ...fresh] : prev;
-    });
-    return { pulled: incoming.length };
-  }, []);
+  // ── Kitchen feedback sync ─────────────────────────────────────────────────
+  // Bodies in feedbackSync.js. The rule that shapes them: an entry leaves
+  // worker KV only once it AND every sibling sharing its pageId are triaged.
+  const pullKitchenFeedback = useCallback(async () => fb.pullKitchenFeedback({ setPendingFeedback }), []);
 
   // Clear a pageId from worker KV once no queued entries reference it.
-  const clearPageIfDone = useCallback(async (queue, pageId) => {
-    if (queue.some(e => e.pageId === pageId)) return;
-    try {
-      await fetch(WORKER_BASE + '/feedback/clear', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ token: PUBLISH_TOKEN, pageIds: [pageId] }),
-      });
-    } catch (e) { /* offline: KV entry lingers, harmless — dedupe by id on next pull */ }
-  }, []);
+  const clearPageIfDone = useCallback(async (queue, pageId) => fb.clearPageIfDone(queue, pageId), []);
 
   // Save one triaged entry to the per-dish store. mode: 'tally' | 'tallyNote'.
-  const saveFeedbackEntry = useCallback((entry, mode) => {
-    setDishFeedback(prev => {
-      const next = applyFeedbackSave(prev, entry, mode);
-      saveJSON(FEEDBACK_KEY, next).then(r => setError(saveError(r)));
-      return next;
-    });
-    setPendingFeedback(prev => {
-      const next = prev.filter(e => e.id !== entry.id);
-      clearPageIfDone(next, entry.pageId);
-      return next;
-    });
-  }, [clearPageIfDone]);
+  const saveFeedbackEntry = useCallback((entry, mode) => fb.saveFeedbackEntry(entry, mode, {
+    setDishFeedback, setPendingFeedback, setError, clearPageIfDone,
+  }), [clearPageIfDone]);
 
-  const ignoreFeedbackEntry = useCallback((entry) => {
-    setPendingFeedback(prev => {
-      const next = prev.filter(e => e.id !== entry.id);
-      clearPageIfDone(next, entry.pageId);
-      return next;
-    });
-  }, [clearPageIfDone]);
+  const ignoreFeedbackEntry = useCallback((entry) => fb.ignoreFeedbackEntry(entry, {
+    setPendingFeedback, clearPageIfDone,
+  }), [clearPageIfDone]);
 
   // Reset one dish's live tally (archives current tally+notes to history first).
-  const resetDishFeedbackTally = useCallback((dish) => {
-    setDishFeedback(prev => {
-      const next = resetDishFeedback(prev, dish);
-      saveJSON(FEEDBACK_KEY, next).then(r => setError(saveError(r)));
-      return next;
-    });
-  }, []);
+  const resetDishFeedbackTally = useCallback((dish) => fb.resetDishFeedbackTally(dish, {
+    setDishFeedback, setError,
+  }), []);
 
   // Resolve a backfill near-miss inline: link an order (by id, archived or
   // not) to the chosen regular, reusing the alias-merge mechanism so the
   // order's name is remembered on that regular going forward.
-  const linkSuggestionToRegular = useCallback((orderId, regularId) => {
-    const order = (orders || []).find(o => o.id === orderId);
-    if (order) linkOrderWithAlias(regularId, order);
-  }, [orders, linkOrderWithAlias]);
+  const linkSuggestionToRegular = useCallback((orderId, regularId) => ops.linkSuggestionToRegular(orderId, regularId, {
+    orders, linkOrderWithAlias,
+  }), [orders, linkOrderWithAlias]);
 
-  const runBackfill = useCallback(() => {
-    const { auto, suggestions } = backfillRegularLinks(regulars, orders || []);
-    if (auto.length) {
-      setOrders(po => {
-        const byId = new Map(auto.map(a => [a.orderId, a.regularId]));
-        const on = (po || []).map(o => (byId.has(o.id) ? { ...o, regularId: byId.get(o.id) } : o));
-        saveJSON(ORDERS_KEY, on).then(res => setError(saveError(res)));
-        return on;
-      });
-      setRegulars(prev => {
-        const next = prev.map(r => {
-          const mine = auto.filter(a => a.regularId === r.id).map(a => a.orderId);
-          if (!mine.length) return r;
-          return { ...r, linkedOrderIds: [...new Set([...(r.linkedOrderIds || []), ...mine])] };
-        });
-        saveJSON(REGULARS_KEY, next).then(res => setError(saveError(res)));
-        return next;
-      });
-    }
-    return { autoCount: auto.length, suggestions };
-  }, [regulars, orders]);
+  const runBackfill = useCallback(() => ops.runBackfill({
+    regulars, orders, setOrders, setRegulars, setError,
+  }), [regulars, orders]);
 
-  const deleteOrder = useCallback((id) => {
-    setOrders(prev => {
-      const target = (prev || []).find(o => o.id === id);
-      if (target) (target.items || []).forEach((it, i) => { if (it.hasPhoto) deletePhoto(id, i); });
-      const next = (prev || []).filter(o => o.id !== id);
-      saveJSON(ORDERS_KEY, next).then(res => setError(saveError(res)));
-      return next;
-    });
-  }, []);
+  const deleteOrder = useCallback((id) => ops.deleteOrder(id, { setOrders, setError }), []);
 
-  const archiveDelivered = useCallback(() => {
-    persistOrders((orders || []).map(o =>
-      o.status === 'Delivered' && !o.archived ? { ...o, archived: true } : o
-    ));
-  }, [orders, persistOrders]);
+  const archiveDelivered = useCallback(() => ops.archiveDelivered({
+    orders, persistOrders,
+  }), [orders, persistOrders]);
 
   // ── V4: bulk actions ──────────────────────────────────────────────────────
   // ONE state commit and ONE localStorage write for N orders, never N
@@ -1255,11 +792,9 @@ export default function LTBOrderTracker() {
   // with no record of where it stopped. Idempotent by construction — an
   // order already in the target state is returned untouched, so a
   // double-tap can never double-apply.
-  const bulkUpdateOrders = useCallback((ids, patch) => {
-    const idSet = ids instanceof Set ? ids : new Set(ids || []);
-    if (idSet.size === 0) return;
-    persistOrders((orders || []).map(o => (idSet.has(o.id) ? { ...o, ...patch } : o)));
-  }, [orders, persistOrders]);
+  const bulkUpdateOrders = useCallback((ids, patch) => ops.bulkUpdateOrders(ids, patch, {
+    orders, persistOrders,
+  }), [orders, persistOrders]);
 
   // House orders are $0 and never enter the books, so "mark paid" is
   // meaningless for them — they are filtered out at the selection layer

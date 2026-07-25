@@ -5,7 +5,7 @@ import {
   Scale, Camera, Download, Upload, Flame, Bell,
 } from './icons.jsx';
 import {
-  ALL_DINNERS, ALWAYS_MENU, DEFAULT_WEEK, PER_LB_ITEMS, FULL_MENU,
+  ALWAYS_MENU, DEFAULT_WEEK, FULL_MENU,
   isPerLbItem, buildMenu, CATEGORY_LABELS, STATUSES, STATUS_COLORS,
 } from './menu.js';
 import {
@@ -14,10 +14,10 @@ import {
   normalizeIngredientName, generateShoppingItems, buildAutoShoppingRows, buildReheatBlocks,
 } from './recipes.js';
 import {
-  SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
+  SURCHARGE, WORKER_BASE, PENDING_POLL_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
-  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
+  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
   LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY,
@@ -43,14 +43,13 @@ import {
 // points by design. If a third caller ever needs them, that is a signal to ask
 // why, not to re-add the import.
 import { emptyJournal, normalizeJournal } from './journal.js';
-import { recordWeek, normalizeLedger } from './weekLedger.js';
+import { normalizeLedger } from './weekLedger.js';
 import { useWakeLock } from './useWakeLock.js';
 import { usePreserveScroll } from './usePreserveScroll.js';
 import { currentWeekInfo, msUntilDeadline, formatCountdown, intakeVsMedian, weekRolledOver } from './timeBanners.js';
 import { sortList, filterByStatus, searchList, orderHaystacks, windowList, DEFAULT_WINDOW } from './listControls.js';
 import { containerReport, normalizeContainerConfig } from './containers.js';
-import { extractNotice } from './weekNotice.js';
-import { SOURCES, appendAudit, auditEntry } from './auditLog.js';
+import { appendAudit } from './auditLog.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
 import { ImportModal } from './components/ImportModal.jsx';
@@ -64,7 +63,6 @@ import { ArchiveDeliveredButton, CookingList, DeliverList } from './components/C
 import { ShoppingList } from './components/ShoppingList.jsx';
 import { MoneyTab } from './components/MoneyTab.jsx';
 import { undecidedOmakases, omakaseStats, omakasePriceUnsettled } from './omakase.js';
-import { weekOneBottle } from './weekPlanner.js';
 import { customerFavorites } from './favorites.js';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
@@ -85,6 +83,11 @@ import {
   postBackupSnapshot, fetchBackupList, fetchBackupSnapshot, relativeAge,
 } from './backupRestore.js';
 import { BackupModal } from './components/BackupModal.jsx';
+import { AppHeader } from './components/AppHeader.jsx';
+import { OrderBanners } from './components/OrderBanners.jsx';
+import { PendingOrders } from './components/PendingOrders.jsx';
+import { OrderListControls } from './components/OrderListControls.jsx';
+import { BulkActionBar } from './components/BulkActionBar.jsx';
 import { hydrateFromStorage } from './bootHydrate.js';
 // Namespaced rather than named: every one of these has a same-named thin
 // wrapper below, and `ops.updateOrder` inside `const updateOrder = ...` reads
@@ -92,6 +95,7 @@ import { hydrateFromStorage } from './bootHydrate.js';
 import * as ops from './orderOps.js';
 import * as fb from './feedbackSync.js';
 import * as ing from './ingredientOps.js';
+import * as pub from './publishWeek.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -495,152 +499,18 @@ export default function LTBOrderTracker() {
     setCheckingForm(false);
   }, [pollWorkerPending]);
 
-  // Publish history: the config drives the entire customer surface and had no
-  // undo. The worker keeps the last few; these two just read and restore.
-  const fetchConfigHistory = React.useCallback(async () => {
-    const res = await fetch(`${WORKER_BASE}/config-history?token=${encodeURIComponent(PUBLISH_TOKEN)}`);
-    if (!res.ok) throw new Error('Could not load publish history.');
-    return res.json();
-  }, []);
-  const restoreConfig = React.useCallback(async (index) => {
-    const res = await fetch(`${WORKER_BASE}/config-restore`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: PUBLISH_TOKEN, index }),
-    });
-    if (!res.ok) throw new Error('Restore failed.');
-    return res.json();
-  }, []);
-
-  const publishWeek = React.useCallback(async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras) => {
-    const activeMenu = buildMenu(currentWeekDishes || []);
-    const toVariants = (item) => {
-      const info = PER_LB_ITEMS[item.name];
-      if (info) {
-        return {
-          name: item.name,
-          perLb: true,
-          pricePerLb: info.pricePerLb,
-          avgWeightLb: info.avgWeightLb,
-          variants: [{ label: 'By weight', price: info.pricePerLb, cost: info.costPerLb }],
-        };
-      }
-      return {
-        name: item.name,
-        variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })),
-        ...(item.spotlight ? { spotlight: true } : {}), // spotlight dinners route to their own form header
-        ...(item.options ? { options: item.options } : {}), // form.html renders pickers from this (Batch 3)
-        ...(item.diet ? { diet: item.diet } : {}), // menu.html dietary filter reads veg/pesc tags from this
-      };
-    };
-    const allDinners = (activeMenu.dinner || []).map(toVariants);
-    const req = (extras && extras.requestCounts) || {};
-    // Customer favorites, earned from repeat orders and feedback rather than
-    // declared. Computed at publish so the customer pages need no history.
-    const favSet = new Set(((extras && extras.favorites) || []).map(f => f.name));
-    const allDinnersTagged = allDinners.map(d => {
-      let out = d;
-      if (req[d.name] > 0) out = { ...out, requested: true };
-      if (favSet.has(d.name)) out = { ...out, favorite: true };
-      return out;
-    });
-    const dishes = allDinnersTagged.filter(d => !d.spotlight);
-    const spotlight = allDinnersTagged.filter(d => d.spotlight);
-    const fruit = (activeMenu.fruit || []).map(toVariants);
-    const desserts = (activeMenu.desserts || []).map(toVariants);
-    const addons = (activeMenu.addons || []).map(toVariants);
-    const bag = (activeMenu.bag || []).map(toVariants);
-    const sauces = (activeMenu.sauces || []).map(toVariants);
-    const payload = {
-      token: PUBLISH_TOKEN,
-      dishes, spotlight, fruit, desserts, addons, bag, sauces,
-      menuPdfUrl: menuPdfUrl || '',
-      weekLabel: weekLabel || '',
-      // One bottle that covers the week, computed from the registry's pairing
-      // data at publish time so the customer pages need no drink logic.
-      ...(() => { const ob = weekOneBottle(currentWeekDishes || []); return ob ? { oneBottle: ob } : {}; })(),
-      // Week off: the form and menu page show a friendly notice instead of an
-      // empty menu. Publishing a normal week clears it.
-      ...(pausedOpts && pausedOpts.paused
-        ? { paused: true, pausedMsg: String(pausedOpts.pausedMsg || '').slice(0, 200) }
-        : { paused: false, pausedMsg: '' }),
-      // The heads-up banner. This line is the fix for a feature that was
-      // wired end to end EXCEPT here: WeekTab collected the message and
-      // publishWeek dropped it on the floor, so it never reached the worker
-      // and no customer page could have shown it. Always present, never
-      // conditional — an unchecked box must publish '' to CLEAR last week's
-      // banner, exactly like pausedMsg above.
-      notice: extractNotice(pausedOpts, extras),
-    };
-    const res = await fetch(CONFIG_PUBLISH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error('Publish failed (' + res.status + '): ' + txt.slice(0, 120));
-    }
-    // The worker builds the stored config from its OWN field list and reports
-    // anything it did not recognize. Surfacing that is the whole defense
-    // against a class of bug that has now bitten three times (paused, notice,
-    // oneBottle): a field fully built here, fully rendered on the customer
-    // page, and silently discarded in transit. A publish that quietly loses
-    // data must never look like a clean publish.
-    // READ THE BODY EXACTLY ONCE. A Response body is a one-shot stream: this
-    // function already ended with `return res.json()`, so adding a second read
-    // here threw "body is disturbed or locked" AFTER the publish had actually
-    // succeeded. That is the worst shape a bug can take, because it reports
-    // failure for work that landed and teaches you to distrust the success
-    // message. The parsed value is reused for both jobs below.
-    let published = null;
-    try {
-      published = await res.json();
-    } catch (_) { /* an unparseable body is not a failed publish */ }
-    // Forward-only seasonal record. UPSERTED by business week, so publishing
-    // three times in one week (menu, then omakase, then a notice) leaves one
-    // row holding the final state rather than three rows to reconcile later.
-    setWeekLedger(prev => {
-      const next = recordWeek(prev, allDinners.map(d => d.name), new Date(),
-        { paused: !!(pausedOpts && pausedOpts.paused) });
-      saveJSON(WEEK_LEDGER_KEY, next);
-      return next;
-    });
-    if (published && Array.isArray(published.dropped) && published.dropped.length) {
-      setNotice(
-        'Published, but the worker ignored ' + published.dropped.join(', ') +
-        '. Those never reach the customer pages; the worker needs the field added to CONFIG_FIELDS.'
-      );
-    }
-    // Publish the full dinner catalog as the request whitelist. Fire-and-forget:
-    // a failure here must never block the week publish, and POST /requests just
-    // rejects everything until the next successful write. Full ALL_DINNERS, not
-    // this week's subset — customers request dishes that AREN'T on this week.
-    try {
-      await fetch(WORKER_BASE + '/requestable', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: PUBLISH_TOKEN, dishes: ALL_DINNERS.map(d => d.name) }),
-      });
-    } catch (e) { /* non-fatal: week publish already succeeded */ }
-    // Logged only on SUCCESS — a failed publish changed nothing customer-facing
-    // and shouldn't leave a trail suggesting it did. Records WHEN a price set
-    // went live, which is the other half of "why did a customer see that
-    // price?" — the file-deploy entries say what the number became, this says
-    // when it reached the form. Dish names only, no customer data.
-    recordAudit([auditEntry({
-      target: 'week',
-      field: 'published',
-      from: null,
-      to: dishes.length + spotlight.length,
-      source: SOURCES.PUBLISH,
-      meta: {
-        dishes: allDinners.map(d => d.name).slice(0, 40),
-        ...(weekLabel ? { weekLabel: String(weekLabel).slice(0, 80) } : {}),
-      },
-    })]);
-    return published; // already parsed above; never re-read res
-  }, [recordAudit]);
+  // ── Publishing ────────────────────────────────────────────────────────────
+  // Bodies in publishWeek.js. Two rules live in there and are worth knowing
+  // from here: the publish response body is read exactly once, and a field the
+  // worker did not recognise raises a banner rather than passing silently.
+  const fetchConfigHistory = React.useCallback(async () => pub.fetchConfigHistory(), []);
+  const restoreConfig = React.useCallback(async (index) => pub.restoreConfig(index), []);
+  const publishWeek = React.useCallback(
+    async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras) =>
+      pub.publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras, {
+        setWeekLedger, setNotice, recordAudit,
+      }),
+    [recordAudit]);
 
   // ── Auto-fill regular contact info from incoming order ─────────────────────
   // Called after linking an order to a regular. If the regular has no address
@@ -1345,107 +1215,13 @@ export default function LTBOrderTracker() {
 
   return (
     <div style={styles.page}>
-      {storageFull && (
-        <div style={{ background: '#3a1f22', borderBottom: '1px solid #E24B4A', padding: '9px 12px', fontSize: 12.5, color: '#ffd9d9', lineHeight: 1.5 }}>
-          <b>Storage is full and changes are not saving.</b> Delete some order photos to free space, then reload. Nothing already saved has been lost.
-        </div>
-      )}
-      {!storageFull && storageBytes > 4 * 1024 * 1024 && (
-        <div style={{ background: 'rgba(212,160,80,0.10)', borderBottom: '1px solid #D4A050', padding: '7px 12px', fontSize: 12, color: '#e8ede9' }}>
-          Storage is at {(storageBytes / (1024 * 1024)).toFixed(1)}MB of about 5MB. Order photos take the most room.
-        </div>
-      )}
-      {swUpdate && (
-        <div
-          onClick={() => window.location.reload()}
-          style={{ background: 'rgba(93,202,165,0.12)', borderBottom: '1px solid #5DCAA5', padding: '8px 12px', fontSize: 12.5, color: '#e8ede9', cursor: 'pointer' }}
-        >
-          A new version is ready. <b>Tap to reload.</b>
-        </div>
-      )}
-      <header style={styles.header}>
-        <div style={styles.headerTop}>
-          <div style={styles.logoMark}>LTB</div>
-          <div style={styles.headerCenter}>
-            <div style={styles.title}>Order tracker</div>
-            <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v10.0-GH</div>
-          </div>
-          <div style={styles.headerActions}>
-            {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (
-              <button
-                style={{ ...styles.headerActionBtn, color: notifPerm === 'denied' ? '#993556' : GOLD }}
-                onClick={enablePushNotifications}
-                title={notifPerm === 'denied' ? 'Notifications blocked — enable in Settings' : 'Enable order notifications'}
-              >
-                <Bell size={16} />
-              </button>
-            )}
-            <button
-              style={{ ...styles.headerActionBtn, ...(backupFailing ? { color: '#E24B4A' } : {}) }}
-              onClick={openBackupModal}
-              title={backupFailing ? "Backups are failing — tap for detail" : "Backup & restore"}
-            >
-              <Download size={16} />
-            </button>
-            <button style={styles.headerActionBtn} onClick={pasteImport} title="Paste backup from clipboard">
-              <Upload size={16} />
-            </button>
-          </div>
-        </div>
-        {exportMsg && <div style={styles.exportMsg}>{exportMsg}</div>}
-        {notice && (
-          <button
-            onClick={() => setNotice(null)}
-            style={{
-              display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
-              background: '#2a2f2d', border: '1px solid ' + GOLD, borderRadius: 8,
-              padding: '10px 12px', margin: '8px 0', color: '#F5F0E8',
-              fontSize: 12, lineHeight: 1.45, font: 'inherit',
-            }}
-          >
-            {notice}
-            <span style={{ display: 'block', marginTop: 4, color: '#5F5E5A', fontSize: 11 }}>
-              Tap to dismiss
-            </span>
-          </button>
-        )}
-        <nav style={{ borderBottom: '1px solid #2d3a36' }}>
-          <div style={{ display: 'flex' }}>
-            {[
-              ['orders', 'Orders'],
-              ['cook', 'Cook'],
-              ['shop', 'Shop'],
-              ['ingredients', 'Ingredients'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                style={{ ...styles.tab, ...(view === key ? styles.tabActive : {}), flex: 1 }}
-                onClick={() => setView(key)}
-              >
-                {label}
-                {key === 'orders' && stats.active > 0 && <span style={styles.tabBadge}>{stats.active}</span>}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', borderTop: '1px solid #2d3a36' }}>
-            {[
-              ['money', 'Money'],
-              ['regulars', 'Regulars'],
-              ['recipes', 'Recipes'],
-              ['record', 'Record'],
-              ['week', 'Week'],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                style={{ ...styles.tab, ...(view === key ? styles.tabActive : {}), flex: 1, borderBottom: 'none' }}
-                onClick={() => setView(key)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </nav>
-      </header>
+      <AppHeader
+        storageFull={storageFull} storageBytes={storageBytes} swUpdate={swUpdate}
+        notifPerm={notifPerm} onEnablePush={enablePushNotifications}
+        backupFailing={backupFailing} onOpenBackup={openBackupModal} onPasteImport={pasteImport}
+        exportMsg={exportMsg} notice={notice} onDismissNotice={() => setNotice(null)}
+        view={view} setView={setView} activeCount={stats.active}
+      />
 
       {error && (
         <button
@@ -1509,55 +1285,13 @@ export default function LTBOrderTracker() {
       <main style={styles.main}>
         {view === 'orders' && (
           <>
-            {/* T2: week rollover — dismissed by tap, not silently, not by a
-                timer (same rule as `notice` below: don't let the telling
-                expire before Kevin has read it). */}
-            {weekRollover.rolled && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(93,202,165,0.10)', border: '1px solid #2f6f57', borderRadius: 10, padding: '9px 12px', marginBottom: 10 }}>
-                <span style={{ fontSize: 12.5, color: '#e8ede9' }}>New business week: {weekRollover.currentLabel}.</span>
-                <button
-                  onClick={() => markWeekSeen(weekRollover.currentStamp)}
-                  style={{ minHeight: 32, padding: '4px 12px', borderRadius: 6, border: '1px solid #2f6f57', background: 'transparent', color: '#5DCAA5', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                >
-                  Got it
-                </button>
-              </div>
-            )}
-            {/* M1: the Sunday check. Fires only on a genuine shortage —
-                next week's pack needs more of a type than Kevin owns
-                (jars: owns minus held). Silent otherwise. */}
-            {containerStatus.shortages.length === 0 && (containerStatus.atRisk || []).length > 0 && (
-              <div style={{ background: 'rgba(239,159,39,0.10)', border: '1px solid #EF9F27', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
-                <b style={{ color: '#EF9F27' }}>Containers might be tight:</b>
-                {' '}{containerStatus.atRisk.map(r => r.label).join(', ')}.
-                {' '}{containerStatus.audit.unconfirmed.length} dinner{containerStatus.audit.unconfirmed.length === 1 ? '' : 's'} still
-                {' '}count as one container each because their real composition has not been confirmed,
-                {' '}so this week's demand is a floor, not a figure. Record tab &rarr; Container audit.
-              </div>
-            )}
-            {containerStatus.shortages.length > 0 && (
-              <div style={{ background: 'rgba(224,130,138,0.10)', border: '1px solid #e0828a', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
-                <b style={{ color: '#e0828a' }}>Short on containers for this pack:</b>
-                {' '}{containerStatus.shortages.map(s => `${s.label} — need ${s.need}, have ${s.have}`).join(' · ')}.
-                {containerStatus.mealOut > 0 ? ` ${containerStatus.mealOut} meal container${containerStatus.mealOut !== 1 ? 's' : ''} still out with customers, some may come back before Wednesday.` : ''}
-                {containerStatus.demandIsFloor ? ' The real number may be higher: unconfirmed dishes count as one container each.' : ''}
-                {' '}Counts live in Money → Packaging.
-              </div>
-            )}
-            {/* T1: Sunday deadline pressure + intake vs a normal week. Pure
-                information, never blocking — Kevin already knows his own
-                deadline; this just puts the countdown where he's looking. */}
-            {deadlineMs > 0 && deadlineMs < 3 * 86400000 && (
-              <div style={{ background: 'rgba(212,160,80,0.10)', border: '1px solid #D4A050', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
-                <b style={{ color: '#D4A050' }}>Orders close in {formatCountdown(deadlineMs)}.</b>
-                {' '}{intake.thisWeekCount} order{intake.thisWeekCount !== 1 ? 's' : ''} so far this week
-                {intake.median != null ? (
-                  intake.thisWeekCount < intake.median
-                    ? `, below the usual ${intake.median} — a normal week still has time to catch up.`
-                    : `, at or above the usual ${intake.median}.`
-                ) : '.'}
-              </div>
-            )}
+            <OrderBanners
+              weekRollover={weekRollover}
+              markWeekSeen={markWeekSeen}
+              containerStatus={containerStatus}
+              deadlineMs={deadlineMs}
+              intake={intake}
+            />
             <StatsBar stats={stats} />
 
             {!formMode && !showPaste && !showAmend && !showCsv && (
@@ -1659,115 +1393,14 @@ export default function LTBOrderTracker() {
             )}
 
             {pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && (
-              <div style={styles.pendingSection}>
-                <div style={styles.pendingSectionHeader}>
-                  <span style={styles.pendingBadge}>{pendingOrders.length}</span>
-                  <span style={styles.pendingSectionTitle}>Pending form order{pendingOrders.length !== 1 ? 's' : ''}</span>
-                </div>
-                {pendingOrders.map((p, idx) => (
-                  showPendingIdx === idx ? (
-                    <div key={p.pendingId} style={styles.pendingCard}>
-                      <div style={styles.pendingCardHeader}>
-                        <div style={styles.pendingCardName}>{p.customer}</div>
-                        <div style={styles.pendingCardTime}>{p.timestamp}</div>
-                        {(p.address || p.phone) && (
-                          <div style={styles.pendingContactRow}>
-                            {p.address && <span style={styles.pendingContact}>📍 {p.address}</span>}
-                            {p.phone && <span style={styles.pendingContact}>📞 {p.phone}</span>}
-                          </div>
-                        )}
-                      </div>
-                      <div style={styles.pendingItemList}>
-                        {p.items.map((it, i) => (
-                          <div key={i} style={styles.pendingItem}>
-                            <span style={styles.pendingItemName}>{it.name}</span>
-                            {it.variant && <span style={styles.pendingItemVariant}> — {it.variant}</span>}
-                            <span style={styles.pendingItemPrice}> ${it.price.toFixed(2)}</span>
-                            {optionsSummary(it) && <span style={{ ...styles.pendingItemVariant, color: TEAL_LIGHT, fontWeight: 700 }}> · {optionsSummary(it)}</span>}
-                            {noteWithoutOptions(it.note) && <span style={styles.pendingItemVariant}> · “{noteWithoutOptions(it.note)}”</span>}
-                            {itemAddons(it).map((a, ai) => (
-                              <div key={ai} style={{ ...styles.pendingItemVariant, display: 'block', marginLeft: 10, color: GOLD }}>
-                                + {a.request} <span style={{ fontStyle: 'italic', opacity: 0.85 }}>(at cost, price pending)</span>
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                        {(() => {
-                          // Accept is the last moment a money mistake is cheap,
-                          // and it was blind. Omakase carries cost 0 until it is
-                          // logged, so it is held out of the margin rather than
-                          // flattering it.
-                          const items = p.items || [];
-                          const priced = items.filter(it => !it.omakase);
-                          const hasOma = items.some(it => it.omakase);
-                          const rev = items.reduce((n, it) => n + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
-                          const pRev = priced.reduce((n, it) => n + (Number(it.price) || 0) * (Number(it.qty) || 1), 0);
-                          const pCost = priced.reduce((n, it) => n + (Number(it.cost) || 0) * (Number(it.qty) || 1), 0);
-                          const pct = pRev > 0 ? Math.round((1 - pCost / pRev) * 100) : null;
-                          if (!items.length) return null;
-                          return (
-                            <div style={{ fontSize: 11.5, color: '#9aa5a0', marginTop: 6, paddingTop: 6, borderTop: '1px solid #2a332f' }}>
-                              Revenue {currency(rev)} · est. cost {currency(pCost)}
-                              {pct != null ? ` · ~${pct}% margin` : ''}
-                              {hasOma ? ' · omakase cost TBD, not counted' : ''}
-                            </div>
-                          );
-                        })()}
-                        {p.notes && (
-                          <div style={styles.pendingNotesSection}>
-                            <div style={styles.pendingNotes}>Notes: {p.notes}</div>
-                            {parsedNotes[p.pendingId] ? (
-                              <div style={styles.parsedNotesCard}>
-                                <div style={styles.parsedNotesTitle}>AI interpretation</div>
-                                {parsedNotes[p.pendingId].summary && (
-                                  <div style={styles.parsedNotesSummary}>{parsedNotes[p.pendingId].summary}</div>
-                                )}
-                                {['spice','substitutions','extras','delivery','other'].map(k =>
-                                  parsedNotes[p.pendingId][k] ? (
-                                    <div key={k} style={styles.parsedNotesItem}>
-                                      <span style={styles.parsedNotesKey}>{k}:</span> {parsedNotes[p.pendingId][k]}
-                                    </div>
-                                  ) : null
-                                )}
-                              </div>
-                            ) : (
-                              <button
-                                style={styles.parseNotesBtn}
-                                disabled={parsingNotes === p.pendingId}
-                                onClick={async () => {
-                                  setParsingNotes(p.pendingId);
-                                  const result = await parseFormNotes(p.notes);
-                                  if (result) setParsedNotes(prev => ({ ...prev, [p.pendingId]: result }));
-                                  setParsingNotes(null);
-                                }}
-                              >
-                                {parsingNotes === p.pendingId ? 'Parsing...' : 'Parse notes with AI'}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div style={styles.pendingActions}>
-                        <button style={styles.pendingAcceptBtn} onClick={() => acceptPending(p)}>
-                          <Check size={16} /> Accept
-                        </button>
-                        <button style={styles.pendingRejectBtn} onClick={() => dismissPending(p.pendingId)}>
-                          <X size={16} /> Reject
-                        </button>
-                        <button style={styles.pendingBackBtn} onClick={() => setShowPendingIdx(null)}>
-                          Back
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button key={p.pendingId} style={styles.pendingRow} onClick={() => setShowPendingIdx(idx)}>
-                      <span style={styles.pendingRowName}>{p.customer}</span>
-                      <span style={styles.pendingRowCount}>{p.items.length} item{p.items.length !== 1 ? 's' : ''}</span>
-                      <ChevronDown size={16} />
-                    </button>
-                  )
-                ))}
-              </div>
+              <PendingOrders
+                pendingOrders={pendingOrders}
+                showPendingIdx={showPendingIdx} setShowPendingIdx={setShowPendingIdx}
+                parsedNotes={parsedNotes} setParsedNotes={setParsedNotes}
+                parsingNotes={parsingNotes} setParsingNotes={setParsingNotes}
+                onAccept={acceptPending}
+                onDismiss={dismissPending}
+              />
             )}
 
             {undecidedOma.length > 0 && (
@@ -1779,85 +1412,26 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
-            {/* V1/V2/V3: sort, status filter, and search — the same list is
-                one house or three hundred, and this is what keeps it from
-                becoming a scroll marathon at scale. */}
             {(activeOrders.length > 6 || deliveredOrders.length > 6) && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-                <input
-                  value={orderSearch}
-                  onChange={e => setOrderSearch(e.target.value)}
-                  placeholder="Search name, dish, or note…"
-                  style={{ ...styles.input, flex: '1 1 160px', minWidth: 140, padding: '8px 10px', fontSize: 13 }}
-                />
-                <select
-                  value={orderSort}
-                  onChange={e => setOrderSort(e.target.value)}
-                  style={{ background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 8, color: CREAM, fontSize: 12.5, padding: '8px 8px', minHeight: 36 }}
-                >
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
-                  <option value="name">By name</option>
-                  <option value="unpaidFirst">Unpaid first</option>
-                  <option value="status">By status</option>
-                </select>
-                {STATUSES.length > 0 && (
-                  <select
-                    value={orderStatusFilter || ''}
-                    onChange={e => setOrderStatusFilter(e.target.value || null)}
-                    style={{ background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 8, color: CREAM, fontSize: 12.5, padding: '8px 8px', minHeight: 36 }}
-                  >
-                    <option value="">All statuses</option>
-                    {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                )}
-                <button
-                  onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                  style={{ minHeight: 36, padding: '7px 12px', borderRadius: 8, border: `1px solid ${selectMode ? GOLD : '#37403c'}`, background: selectMode ? 'rgba(212,160,80,0.15)' : 'transparent', color: selectMode ? GOLD : '#9aa5a0', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
-                >
-                  {selectMode ? 'Done' : 'Select'}
-                </button>
-              </div>
+              <OrderListControls
+                orderSearch={orderSearch} setOrderSearch={setOrderSearch}
+                orderSort={orderSort} setOrderSort={setOrderSort}
+                orderStatusFilter={orderStatusFilter} setOrderStatusFilter={setOrderStatusFilter}
+                statuses={STATUSES}
+                selectMode={selectMode}
+                onToggleSelectMode={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              />
             )}
 
-            {/* V4: the bulk bar. Only appears in select mode, and every
-                button names the exact count it will affect — a bulk action
-                that does not say how many is a bulk action you check twice. */}
             {selectMode && (
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', background: 'rgba(212,160,80,0.08)', border: '1px solid #D4A050', borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
-                <span style={{ fontSize: 12.5, color: '#e8ede9', fontWeight: 700 }}>
-                  {selectedCount} selected
-                </span>
-                <button
-                  onClick={selectAllVisible}
-                  style={{ minHeight: 36, padding: '6px 10px', borderRadius: 7, border: '1px solid #37403c', background: 'transparent', color: '#9aa5a0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                >
-                  Select all {selectableActive.length} shown
-                </button>
-                {selectedCount > 0 && (
-                  <button
-                    onClick={clearSelection}
-                    style={{ minHeight: 36, padding: '6px 10px', borderRadius: 7, border: '1px solid #37403c', background: 'transparent', color: '#9aa5a0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-                  >
-                    Clear
-                  </button>
-                )}
-                <span style={{ flex: 1 }} />
-                <button
-                  disabled={selectedCount === 0}
-                  onClick={() => runBulk(bulkMarkPaid)}
-                  style={{ minHeight: 44, padding: '9px 14px', borderRadius: 8, border: 'none', background: selectedCount ? '#2f6f57' : '#232d2a', color: selectedCount ? '#fff' : '#5a635f', fontWeight: 700, fontSize: 12.5, cursor: selectedCount ? 'pointer' : 'default' }}
-                >
-                  Mark {selectedCount || ''} paid
-                </button>
-                <button
-                  disabled={selectedCount === 0}
-                  onClick={() => runBulk(bulkArchive)}
-                  style={{ minHeight: 44, padding: '9px 14px', borderRadius: 8, border: `1px solid ${selectedCount ? '#37403c' : '#232d2a'}`, background: 'transparent', color: selectedCount ? '#9aa5a0' : '#5a635f', fontWeight: 700, fontSize: 12.5, cursor: selectedCount ? 'pointer' : 'default' }}
-                >
-                  Archive {selectedCount || ''}
-                </button>
-              </div>
+              <BulkActionBar
+                selectedCount={selectedCount}
+                selectableCount={selectableActive.length}
+                onSelectAll={selectAllVisible}
+                onClear={clearSelection}
+                onMarkPaid={() => runBulk(bulkMarkPaid)}
+                onArchive={() => runBulk(bulkArchive)}
+              />
             )}
 
             <div style={styles.orderList}>

@@ -48,6 +48,49 @@ const CASES = [
           addons:[{ id:'a1', request:'Block of good parm', cost:8.5, pending:false },
                   { id:'a2', request:'Extra chili oil', cost:null, pending:true }] }] },
       onClose: () => {} }`],
+  // ── Components split out of App.jsx during the decomposition ──────────────
+  // These are here for the branches tests/app_render.mjs CANNOT reach. That
+  // harness boots the real app, so it only ever sees the states a healthy boot
+  // produces: storage not full, no service-worker update, select mode off. The
+  // props below force the opposite of each, which is exactly where a prop
+  // missed during extraction hides. One did: AppHeader's tab badge still read
+  // `stats.active` from the old outer scope after the move.
+  ['AppHeader', './src/components/AppHeader.jsx',
+    `{ storageFull: true, storageBytes: 4.6 * 1024 * 1024, swUpdate: { waiting: true },
+       notifPerm: 'default', onEnablePush: () => {},
+       backupFailing: true, onOpenBackup: () => {}, onPasteImport: () => {},
+       exportMsg: 'Copied!', notice: 'Costs moved: thyme, salt.', onDismissNotice: () => {},
+       view: 'orders', setView: () => {}, activeCount: 3 }`],
+  // Every strip forced on at once: a rolled-over week, a hard container
+  // shortage, an unconfirmed-composition audit, and a live deadline. None of
+  // these states occur during a healthy boot, so app_render.mjs never sees them.
+  ['OrderBanners', './src/components/OrderBanners.jsx',
+    `{ weekRollover: { rolled: true, currentStamp: 'w1', currentLabel: 'Week of Jul 20' },
+       markWeekSeen: () => {},
+       containerStatus: {
+         shortages: [{ label: '32oz round', need: 12, have: 8, atRisk: false }],
+         atRisk: [],
+         audit: { unconfirmed: [{ dish: 'Bo Ssam', components: ['pork', 'rice'], assumed: 1 }] },
+       },
+       deadlineMs: 3 * 3600e3,
+       intake: { thisWeekCount: 4, median: 6, weeksSampled: 3, weekLabel: 'Week of Jul 20' } }`],
+  ['BulkActionBar', './src/components/BulkActionBar.jsx',
+    `{ selectedCount: 0, selectableCount: 5, onSelectAll: () => {}, onClear: () => {},
+       onMarkPaid: () => {}, onArchive: () => {} }`],
+  ['OrderListControls', './src/components/OrderListControls.jsx',
+    `{ orderSearch: 'dav', setOrderSearch: () => {}, orderSort: 'unpaidFirst', setOrderSort: () => {},
+       orderStatusFilter: 'all', setOrderStatusFilter: () => {},
+       statuses: ['Ordered', 'Cooking', 'Ready', 'Delivered'],
+       selectMode: true, onToggleSelectMode: () => {} }`],
+  ['PendingOrders', './src/components/PendingOrders.jsx',
+    `{ pendingOrders: [
+         { pendingId: 'p1', customer: 'Dave', timestamp: new Date().toISOString(), notes: 'gate code 1234',
+           items: [{ name:'Bo Ssam', variant:'Small', qty:1, price:40, cost:20 },
+                   { name:'Omakase', omakase:true, qty:1, price:75, cost:0 }] },
+       ],
+       showPendingIdx: 0, setShowPendingIdx: () => {},
+       parsedNotes: {}, setParsedNotes: () => {}, parsingNotes: {}, setParsingNotes: () => {},
+       onAccept: () => {}, onDismiss: () => {} }`],
 ];
 
 // Scratch dir INSIDE the project. Bundling from /tmp resolves a second copy of

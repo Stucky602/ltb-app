@@ -28,8 +28,9 @@
 // separately at 1.
 
 import { migrateDishNotes, normalizeJournal } from './journal.js';
+import { dishIdFor } from './dishIdentity.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 export const SCHEMA_VERSION_KEY = 'ltb-schema-version';
 
 // Ordered, one function per step. Each MUST be:
@@ -48,6 +49,55 @@ const MIGRATIONS = {
     if (!data || typeof data !== 'object') return data;
     const journal = migrateDishNotes(normalizeJournal(data.journal), data.dishNotes || null);
     return { ...data, journal };
+  },
+
+  // v2 → v3 (Jul 24 2026): STABLE DISH IDENTITY.
+  // Every subsystem identified a dish by its display string, which made every
+  // rename a data migration and had already fragmented four dishes' history by
+  // the time this was written. This stamps `dishId` onto stored order items
+  // and journal subjects.
+  //
+  // ADDITIVE AND NON-DESTRUCTIVE, deliberately: `name` is KEPT on every record.
+  // Readers that still resolve by name (passport.js, dishCosting.js,
+  // favorites.js, regularsIntel.js, repricing.js) keep working untouched, and
+  // move to ids one at a time. Nothing is removed until every reader has moved.
+  //
+  // A record whose name resolves to NOTHING is left exactly as it is rather
+  // than being guessed at or dropped. Those are real orphans and the Record
+  // tab reports them; silently inventing an id for one would bury the very
+  // problem this migration exists to surface.
+  2: (data) => {
+    if (!data || typeof data !== 'object') return data;
+    const out = { ...data };
+
+    if (Array.isArray(data.orders)) {
+      out.orders = data.orders.map(o => {
+        if (!o || !Array.isArray(o.items)) return o;
+        let touched = false;
+        const items = o.items.map(it => {
+          if (!it || it.dishId || !it.name || it.omakase) return it;
+          const id = dishIdFor(it.name);
+          if (!id) return it;
+          touched = true;
+          return { ...it, dishId: id };
+        });
+        return touched ? { ...o, items } : o;
+      });
+    }
+
+    if (data.journal && Array.isArray(data.journal.entries)) {
+      out.journal = {
+        ...data.journal,
+        entries: data.journal.entries.map(e => {
+          if (!e || !e.subject || e.subject.kind !== 'dish' || e.subject.dishId) return e;
+          const id = dishIdFor(e.subject.dish);
+          if (!id) return e;
+          return { ...e, subject: { ...e.subject, dishId: id } };
+        }),
+      };
+    }
+
+    return out;
   },
 };
 

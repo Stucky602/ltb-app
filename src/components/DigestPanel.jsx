@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { buildWeeklyDigest } from '../digest.js';
 import { currency, jarsOutForRegular, regularDisplayName } from '../utils.js';
 import { undecidedOmakases, omakasePriceUnsettled } from '../omakase.js';
-import { weeklyDossierPrompt } from '../dossierPrompts.js';
 import { entriesOnThisDay, orphanedDishNames } from '../journal.js';
 import { DISH_RENAMES } from '../utils.js';
 import { currentWeekInfo } from '../timeBanners.js';
@@ -16,7 +15,7 @@ const S = {
 };
 
 // #6 The Monday briefing — everything the app knows, in one read.
-export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut, journal, weekDishes, knownNames, askLog, onPullQuestions }) {
+export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut }) {
   const [fbMsg, setFbMsg] = useState(null);
   const [open, setOpen] = useState(false);
   const d = useMemo(() => open ? buildWeeklyDigest(orders || [], regulars || [], { liveCostMap, baseCostMap }) : null,
@@ -38,27 +37,7 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
     const unpaidTotal = unpaidOrders.reduce((s2, o) => s2 + (Number(o.total) || 0), 0);
     return { undecided, unsettled, jarTotal, topJar, unpaidCount: unpaidOrders.length, unpaidTotal };
   }, [open, orders, regulars]);
-  // ONE question a week, aimed at the thinnest record on this week's menu.
-  // The pool fails by tapering, not by crashing; this is the forcing function.
-  // Computed from current state, so answering it moves the target on its own.
-  const question = useMemo(() => {
-    if (!open) return null;
-    const wk = currentWeekInfo();
-    return weeklyDossierPrompt(journal, weekDishes || [], wk.stamp);
-  }, [open, journal, weekDishes]);
 
-  // Written on this day in a previous year. The payoff for keeping the record.
-  const onThisDay = useMemo(
-    () => (open ? entriesOnThisDay(journal, new Date(), DISH_RENAMES) : []),
-    [open, journal]
-  );
-
-  // Names in order history the registry does not know and DISH_RENAMES does
-  // not map. Each one silently fragments passport stamps and sales counts.
-  const orphans = useMemo(
-    () => (open ? orphanedDishNames(orders || [], knownNames || new Set(), DISH_RENAMES) : []),
-    [open, orders, knownNames]
-  );
 
   return (
     <div style={S.section}>
@@ -93,74 +72,7 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
               )}
             </>
           )}
-          {/* ── Everything below this line is INFORMATION, not a decision.
-                 The panel had grown to eleven sections all competing for the
-                 same glance, and the app's own backup-warning comment says it:
-                 a warning that cries wolf gets learned into furniture. The
-                 split is the fix — decisions lead, reading follows. ── */}
-          <div style={{ borderTop: `1px solid ${C.border}`, margin: '14px 0 4px' }} />
-          <div style={{ fontSize: 10.5, color: C.faint, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>
-            For reading
-          </div>
 
-          {onThisDay.length > 0 && (
-            <>
-              <div style={S.h}>On this day</div>
-              {onThisDay.slice(0, 3).map(e => (
-                <div key={e.id} style={S.p}>
-                  <span style={{ color: C.dim }}>
-                    {e.yearsAgo} year{e.yearsAgo === 1 ? '' : 's'} ago{e.dish ? `, on ${e.dish}` : ''}:
-                  </span>{' '}
-                  {e.text}
-                </div>
-              ))}
-            </>
-          )}
-
-          {orphans.length > 0 && (
-            <>
-              <div style={S.h}>Names the app does not recognize</div>
-              {orphans.map(o => (
-                <div key={o.name} style={{ ...S.p, color: C.warn }}>
-                  "{o.name}" appears on {o.orderCount} order{o.orderCount === 1 ? '' : 's'} but is not a dish or a known rename.
-                </div>
-              ))}
-              <div style={{ ...S.p, ...S.dim, fontSize: 11.5 }}>
-                Each of these splits its dish's passport stamps and sales counts. Add it to DISH_RENAMES if it was renamed.
-              </div>
-            </>
-          )}
-
-          {(askLog || []).length > 0 && (
-            <>
-              <div style={S.h}>What customers asked their kitchen page</div>
-              {(askLog || []).slice(0, 5).map((q, i) => (
-                <div key={i} style={S.p}>
-                  <span style={{ color: C.dim }}>{new Date(q.at).toLocaleDateString()}:</span> "{q.question}"
-                </div>
-              ))}
-              <div style={{ ...S.p, ...S.dim, fontSize: 11.5 }}>
-                Real confusions at the moment of cooking. The ones that repeat belong in a dossier entry.
-              </div>
-            </>
-          )}
-
-          {question && (
-            <>
-              <div style={S.h}>This week's question</div>
-              <div style={{ ...S.p, border: `1px solid ${C.good}`, borderRadius: 8, padding: '9px 11px', background: 'rgba(93,202,165,0.07)' }}>
-                {question.question}
-                <div style={{ fontSize: 11, color: C.faint, marginTop: 4 }}>
-                  {question.kind === 'never'
-                    ? 'Nothing on record for it yet.'
-                    : question.kind === 'stale'
-                      ? 'Nothing written about it in months.'
-                      : `${question.entryCount} entr${question.entryCount === 1 ? 'y' : 'ies'} on record.`}
-                  {' '}Recipes tab &rarr; {question.dish} &rarr; Dossier.
-                </div>
-              </div>
-            </>
-          )}
 
           <div style={S.h}>Money</div>
           <div style={S.p}>
@@ -229,21 +141,6 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
               }}
             >
               Close out the week
-            </button>
-          )}
-          {onPullQuestions && (
-            <button
-              style={{ width: '100%', marginTop: 8, padding: '9px', borderRadius: 8, border: `1px solid ${C.border}`, background: '#232d2a', color: C.dim, fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
-              onClick={async () => {
-                setFbMsg('Pulling questions…');
-                try {
-                  const n = await onPullQuestions();
-                  setFbMsg(n ? `${n} question${n === 1 ? '' : 's'} pulled.` : 'No questions yet.');
-                } catch (e) { setFbMsg('Could not pull questions.'); }
-                setTimeout(() => setFbMsg(null), 4000);
-              }}
-            >
-              Pull customer questions
             </button>
           )}
           {onPullFeedback && (

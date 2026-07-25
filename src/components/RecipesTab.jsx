@@ -3,6 +3,7 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD } from '../sty
 import { currency, itemCost, copyText, DISH_RENAMES } from '../utils.js';
 import { entriesForDish, publicEntries, latestPriceRationale } from '../journal.js';
 import { JournalPanel } from './JournalPanel.jsx';
+import { DISHES } from '../dishes.js';
 import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { itemHandling } from '../recipes.js';
 import { MARGIN_BUFFER, costPipelineIngredients, pipelineMarginAt, baselineCostMap } from '../dishCosting.js';
@@ -247,6 +248,8 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   }, [group, size]);
   const econ = (report && currentVariant) ? report.variantByLabel.get(currentVariant.label) : null;
   const recipe = (report && currentVariant) ? report.recipeFor(currentVariant.label) : null;
+  // The registry entry itself, for data the report does not carry (pairings).
+  const dishDef = useMemo(() => DISHES.find(d => d.name === dish) || null, [dish]);
 
   // Grounding facts for the studio: ingredient names (NEVER costs), the canon
   // reheat approach, and Kevin's own craft notes. Only what's true — and only
@@ -1305,6 +1308,26 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   {report.options.pasta ? `pasta shape${report.options.pasta.excludeVariants ? ` (not on ${report.options.pasta.excludeVariants.join('/')} variants)` : ''}` : ''}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── Pairings ──
+               The registry has carried copy.pairings all along and nothing in
+               the owner app ever showed it. A toy, not a feature: something to
+               poke at while looking at a dish. weekPlanner already computes the
+               week-level one-bottle from the same data, so this is the per-dish
+               view of a thing that existed. ── */}
+          {recipe && dishDef && dishDef.copy && Array.isArray(dishDef.copy.pairings) && dishDef.copy.pairings.length > 0 && (
+            <div style={S.section}>
+              <div style={S.sectionTitle}>Goes with</div>
+              {/* The pairing carries its own label and reason, so this needs
+                  no drinks lookup at all. One less dependency. */}
+              {dishDef.copy.pairings.map((p, i) => (
+                <div key={p.id || i} style={{ padding: '4px 0' }}>
+                  <div style={{ fontSize: 13, color: '#e8ede9', fontWeight: 600 }}>{p.drink || p.id}</div>
+                  {p.why && <div style={{ fontSize: 12, color: '#9aa5a0', lineHeight: 1.45 }}>{p.why}</div>}
+                </div>
+              ))}
             </div>
           )}
 

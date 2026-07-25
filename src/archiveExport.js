@@ -29,7 +29,7 @@ import { DISHES, ALWAYS_ITEMS } from './dishes.js';
 import { RENAME_HISTORY, DISH_RENAMES } from './utils.js';
 import {
   JOURNAL_TYPES, normalizeJournal, canonDishName,
-  transferableEntries, principleIndex, UNNAMED_PRINCIPLE,
+  transferableEntries, principleIndex, UNNAMED_PRINCIPLE, supersededIds,
 } from './journal.js';
 
 // Every text field is Kevin's or a customer's — escape everything.
@@ -86,6 +86,10 @@ function htmlShell(title, generatedAt, body, embeddedJson) {
   .type { font-variant: small-caps; letter-spacing: 0.5px; font-weight: 700; font-size: 12px; }
   .lock { color: #b8860b; font-size: 11px; }
   .carries { color: #2e6b4f; font-size: 11px; font-weight: 700; }
+  .superseded { color: #8a6a1f; font-size: 11px; font-weight: 700; }
+  .entry.stale { opacity: 0.72; }
+  .revision { border-top: 2px solid #1a1a1a; margin: 18px 0 10px; padding-top: 6px; }
+  .revision b { font-variant: small-caps; letter-spacing: 0.5px; }
   .intro { font-size: 15px; line-height: 1.7; max-width: 62ch; }
   .intro:first-of-type { font-size: 17px; }
   .principle { border-left: 3px solid #2e6b4f; padding-left: 12px; margin: 10px 0 14px; }
@@ -146,15 +150,22 @@ function salesSummary(orders) {
   return by;
 }
 
-function journalSection(entries, renames) {
+function journalSection(entries, renames, superseded) {
   if (!entries.length) return '<p class="meta">Nothing recorded.</p>';
   const rows = entries
     .slice()
-    .sort((a, b) => String(a.ts).localeCompare(String(b.ts)))
+    .sort((a, b) => String(a.ts).localeCompare(String(b.ts))) // oldest first: the arc, not a feed
     .map(e => {
       const t = JOURNAL_TYPES[e.type] || { label: e.type };
-      return `<div class="entry${e.private ? ' private' : ''}">
-  <span class="type">${esc(t.label)}</span> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>${e.private ? ' <span class="lock">private</span>' : ''}${e.transferable ? ' <span class="carries">holds beyond this dish</span>' : ''}${e.migrated ? ' <span class="meta">(migrated cook note)</span>' : ''}
+      if (e.type === 'revision') {
+        // A divider. Everything above it describes a dish that no longer
+        // exists in that form, and a reader in 2040 has no other way to know.
+        return `<div class="revision"><b>The recipe changed here</b> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>
+  <div>${esc(e.text)}</div>
+  <div class="meta">Anything above this point describes the earlier version.</div></div>`;
+      }
+      return `<div class="entry${e.private ? ' private' : ''}${superseded && superseded.has(e.id) ? ' stale' : ''}">
+  <span class="type">${esc(t.label)}</span> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>${e.private ? ' <span class="lock">private</span>' : ''}${e.transferable ? ' <span class="carries">holds beyond this dish</span>' : ''}${e.confidence === 'firm' ? ' <span class="carries">firm</span>' : ''}${e.confidence === 'working' ? ' <span class="meta">working idea</span>' : ''}${superseded && superseded.has(e.id) ? ' <span class="superseded">later replaced</span>' : ''}${e.migrated ? ' <span class="meta">(migrated cook note)</span>' : ''}
   <div>${esc(e.text)}</div>
 </div>`;
     });
@@ -163,11 +174,12 @@ function journalSection(entries, renames) {
 
 // ── K10: the yearly archive ────────────────────────────────────────────────
 // { journal, orders, generatedAt? } → one self-contained HTML document.
-export function buildArchiveHtml({ journal, orders, generatedAt } = {}) {
+export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote } = {}) {
   const j = normalizeJournal(journal);
   const when = generatedAt || new Date().toISOString();
   const year = when.slice(0, 4);
   const sales = salesSummary(orders || []);
+  const superseded = supersededIds(j);
   const dishEntries = {};
   const general = [];
   for (const e of j.entries) {
@@ -188,8 +200,16 @@ export function buildArchiveHtml({ journal, orders, generatedAt } = {}) {
   parts.push('<h2>Start here</h2>');
   for (const para of ARCHIVE_INTRO) parts.push(`<p class="intro">${esc(para)}</p>`);
 
+  if (copiesNote && String(copiesNote).trim()) {
+    // Printed INSIDE the artifact on purpose: the person who most needs to
+    // know where the other copies are is the one who does not have the app,
+    // or Kevin, to ask.
+    parts.push('<h2>Where the copies are</h2>');
+    parts.push(`<p class="intro">${esc(String(copiesNote).trim())}</p>`);
+  }
+
   parts.push('<h2>The business journal</h2>');
-  parts.push(journalSection(general, DISH_RENAMES));
+  parts.push(journalSection(general, DISH_RENAMES, superseded));
 
   parts.push('<h2>The dishes</h2>');
   for (const d of DISHES) {
@@ -207,7 +227,7 @@ export function buildArchiveHtml({ journal, orders, generatedAt } = {}) {
     }
     if (d.copy && d.copy.reheat) lines.push(`<p><b>Reheat:</b> ${esc(d.copy.reheat)}</p>`);
     if (d.copy && d.copy.contains) lines.push(`<div class="meta"><b>Contains:</b> ${esc(d.copy.contains)}</div>`);
-    if (entries.length) lines.push(journalSection(entries, DISH_RENAMES));
+    if (entries.length) lines.push(journalSection(entries, DISH_RENAMES, superseded));
     lines.push('</div>');
     parts.push(lines.join('\n'));
   }
@@ -219,7 +239,7 @@ export function buildArchiveHtml({ journal, orders, generatedAt } = {}) {
       const entries = dishEntries[name] || [];
       parts.push(`<div class="dish retired"><h3>${esc(name)}</h3>
 <div class="meta">${s ? `${s.units} sold to ${s.households.size} household${s.households.size === 1 ? '' : 's'}${s.first ? `, ${esc(fmtDate(s.first))} to ${esc(fmtDate(s.last))}` : ''}` : ''}</div>
-${entries.length ? journalSection(entries, DISH_RENAMES) : '<p class="meta">No retirement record. The reason left with the dish.</p>'}</div>`);
+${entries.length ? journalSection(entries, DISH_RENAMES, superseded) : '<p class="meta">No retirement record. The reason left with the dish.</p>'}</div>`);
     }
   }
 

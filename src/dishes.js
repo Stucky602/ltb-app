@@ -39,6 +39,7 @@ export const I = (name, q, u, staple = false) => ({ name, q, u, staple });
 export const DISHES = [
   // ── American / Southern / Tex-Mex ─────────────────────────────────────────
     {
+    id: 'brunswick-stew',
     name: 'Brunswick Stew',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -105,6 +106,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'chili',
     name: 'Chili',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -158,6 +160,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'gumbo',
     name: 'Gumbo',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -209,6 +212,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'tex-mex-kit',
     name: 'Tex-Mex Kit',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -272,6 +276,7 @@ export const DISHES = [
   },
   // ── Curry ──────────────────────────────────────────────────────────────────
   {
+    id: 'indian-style-curry',
     name: 'Indian Style Curry',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -357,6 +362,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'leblanc-inspired-japanese',
     name: 'Leblanc Inspired Japanese Curry',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -422,6 +428,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'tea-smoked-chicken-with',
     name: 'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -509,6 +516,7 @@ export const DISHES = [
   },
   // ── East Asian ─────────────────────────────────────────────────────────────
   {
+    id: 'bo-ssam',
     name: 'Bo Ssam',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -570,6 +578,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'cumin-mushroom-noodles-cumin',
     name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -685,6 +694,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'mapo-eggplant',
     name: 'Mapo Eggplant',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -735,6 +745,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'shrimp-or-tofu-with',
     name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -793,6 +804,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'stir-fried-long-beans-with',
     name: 'Stir Fried Long Beans with Ground Pork or Tofu',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -852,6 +864,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'texas-gulf-shrimp-or-tofu',
     name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -920,6 +933,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'thai-basil-chicken-pad',
     name: 'Thai Basil Chicken (Pad Krapow Gai)',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -970,6 +984,7 @@ export const DISHES = [
   },
   // ── Italian ────────────────────────────────────────────────────────────────
   {
+    id: 'bolognese',
     name: 'Bolognese',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1034,6 +1049,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'pasta-with-homegrown-tomato',
     name: 'Pasta with Homegrown Tomato Sauce',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1088,6 +1104,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'orecchiette-with-bitter',
     name: 'Orecchiette with Bitter Greens and Anchovies',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1150,6 +1167,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'pappardelle-with-vegetables',
     name: 'Pappardelle with Vegetables and Mint',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1205,6 +1223,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'saffron-pork-ragu',
     name: 'Saffron Pork Ragu',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1268,6 +1287,7 @@ export const DISHES = [
   },
 
   {
+    id: 'pork-with-mustard-tarragon',
     name: 'Pork with Mustard Tarragon Cream Sauce',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1330,6 +1350,7 @@ export const DISHES = [
   },
 
 {
+    id: 'mushroom-ragu',
     name: 'Mushroom Ragu',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1411,6 +1432,7 @@ export const DISHES = [
   // week. Tagged spotlight:true so WeekTab/publish can route the selected one
   // to its own "Spotlight dinner of the week" header on the weekly menu.
   {
+    id: 'coriander-lamb-steak-over',
     name: 'Coriander Lamb Steak over Gigantes Beans',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1468,6 +1490,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'pork-chop-with-kabocha-pur-e',
     name: 'Pork Chop with Kabocha Purée and Charred Broccolini',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1517,6 +1540,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'bone-in-pork-rib-chop-with',
     name: 'Bone-In Pork Rib Chop with All the Fixings',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1585,6 +1609,7 @@ export const DISHES = [
     },
   },
   {
+    id: 'steak-au-poivre',
     name: 'Steak au Poivre',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1646,6 +1671,7 @@ export const DISHES = [
     },
   },
 {
+    id: 'boeuf-bourguignon-beef-stew',
     name: 'Boeuf Bourguignon (Beef Stew)',
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
@@ -1715,6 +1741,7 @@ export const DISHES = [
     // To go live: remove it from both exemption sets and add its LIBRARY copy to
     // menu.html. Sizing is a normal Large = 2x Small (the sauce is batched at
     // half for a Small). Prices are FLOOR-HOLDING PLACEHOLDERS pending Kevin.
+    id: 'pecan-mole-fesenjan-beef-and',
     name: 'Pecan Mole-Fesenjan, Beef and Kabocha',
     copy: {
       desc: "A Persian fesenjan that walked west into mole. The sauce is built from toasted Texas pecans and pomegranate molasses, cooked down dark with dried chiles and a whisper of unsweetened chocolate until it is sour, bitter, and deep, and nobody guesses what is in it. Beef chuck in big chunks over kabocha squash cooked in the same warm spices, with cold pickled onion to cut it, pepitas for crunch, and charred tortillas for scooping. Made a day ahead on purpose.",
@@ -1764,6 +1791,7 @@ export const DISHES = [
 export const ALWAYS_ITEMS = {
   breakfast: [
     {
+      id: 'homemade-waffles',
       name: 'Homemade Waffles',
       variants: [{ label: 'Set of 12', price: 7, cost: 2.78 }],
       recipe: {
@@ -1780,12 +1808,14 @@ export const ALWAYS_ITEMS = {
   ],
   fruit: [
     {
+      id: 'fresh-cut-pineapple',
       name: 'Fresh Cut Pineapple',
       packaging: 'none',
       variants: [{ label: 'Per Container', price: 6, cost: 2.5 }],
       recipe: { factors: { 'Per Container': 0.5 }, base: [I('Pineapple (1 makes 2 containers)', 1, '')] },
     },
     {
+      id: 'seasonal-cantaloupe',
       name: 'Seasonal Cantaloupe',
       packaging: 'none',
       variants: [{ label: 'Per Container', price: 6, cost: 3 }],
@@ -1794,6 +1824,7 @@ export const ALWAYS_ITEMS = {
   ],
   desserts: [
     {
+      id: 'chocolate-chip-cookies',
       name: 'Chocolate Chip Cookies',
       equipment: { fixed: ['ovenNormal'] },
       variants: [
@@ -1815,6 +1846,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'peanut-butter-fudge',
       name: 'Peanut Butter Fudge',
       equipment: { fixed: ['largePot'] },
       // Anchor re-cut to the recipe's real cost Jul 15 (was $4.35). The old
@@ -1835,6 +1867,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'brownies',
       name: 'Brownies',
       equipment: { fixed: ['ovenNormal'] },
       variants: [{ label: '1 Batch', price: 25, cost: 10.46 }],
@@ -1855,6 +1888,7 @@ export const ALWAYS_ITEMS = {
   ],
   addons: [
     {
+      id: 'queso',
       name: 'Queso',
       packaging: 'none', // the $1.50 passthrough jar (recipe line) carries the container cost now, not the wrap
       equipment: { fixed: ['largePot'] },
@@ -1882,6 +1916,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'pickled-onions-or-carrots',
       name: 'Pickled Onions or Carrots',
       packaging: 'jar',
       variants: [
@@ -1898,6 +1933,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'chili-oil',
       name: 'Chili Oil',
       packaging: 'jar',
       variants: [
@@ -1914,6 +1950,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'thyme-or-lavender-syrup',
       name: 'Thyme or Lavender Syrup',
       packaging: 'jar',
       variants: [
@@ -1930,6 +1967,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'vanilla-syrup',
       name: 'Vanilla Syrup',
       packaging: 'jar',
       variants: [
@@ -1946,6 +1984,7 @@ export const ALWAYS_ITEMS = {
       },
     },
     {
+      id: 'vanilla-lavender-syrup',
       name: 'Vanilla Lavender Syrup',
       packaging: 'jar',
       variants: [
@@ -1973,31 +2012,37 @@ export const ALWAYS_ITEMS = {
     // form.html render, so this array IS the customer-facing order.
     // ── BEEF (alphabetical) ──────────────────────────────────────────────────
     {
+      id: 'filet-mignon',
       name: 'Filet Mignon', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_dinner', pricePerLb: 34, costPerLb: 23.49, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 34, cost: 23.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet mignon', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'filet-mignon-prime',
       name: 'Filet Mignon - Prime', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_prime', pricePerLb: 55, costPerLb: 34.99, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 55, cost: 34.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'flank-steak',
       name: 'Flank Steak', packaging: 'none', perLb: true, costIngredient: 'flank_steak', pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
       variants: [{ label: 'price by weight', price: 20, cost: 11 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'ny-strip',
       name: 'NY Strip', packaging: 'none', perLb: true, costIngredient: 'ny_strip', pricePerLb: 26, costPerLb: 14.49, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 26, cost: 14.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'ny-strip-prime',
       name: 'NY Strip - Prime', packaging: 'none', perLb: true, costIngredient: 'ny_strip_prime', pricePerLb: 32, costPerLb: 17.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 32, cost: 17.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'ribeye',
       name: 'Ribeye', packaging: 'none', perLb: true, costIngredient: 'ribeye', pricePerLb: 30, costPerLb: 16.49, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 30, cost: 16.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2005,12 +2050,14 @@ export const ALWAYS_ITEMS = {
     {
       // Prime line: renders directly under the regular Ribeye. Separate perLb
       // item (name-keyed pricing) so the whole weight pipeline works unchanged.
+      id: 'ribeye-prime',
       name: 'Ribeye - Prime', packaging: 'none', perLb: true, costIngredient: 'ribeye_prime', pricePerLb: 35, costPerLb: 19.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 35, cost: 19.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── PORK (alphabetical) ──────────────────────────────────────────────────
     {
+      id: 'pork-tenderloin',
       name: 'Pork Tenderloin', packaging: 'none', perLb: true, costIngredient: 'pork_tenderloin', pricePerLb: 15, costPerLb: 7.29, avgWeightLb: 1.25,
       variants: [{ label: 'price by weight', price: 15, cost: 7.29 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2020,43 +2067,51 @@ export const ALWAYS_ITEMS = {
       // ($6.29/lb, avg 0.75 lb). The old $4.19 anchor was CORRECT for the
       // thinner chop it replaced ($3.99/lb) — this is a product change, not a
       // fix. $6.29 raw x 1.0825 = $6.81 buffered; $13/lb holds 47.6%.
+      id: 'thick-cut-pork-chop',
       name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, costIngredient: 'pork_chop_boneless', pricePerLb: 13, costPerLb: 6.81, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 13, cost: 6.81 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── CHICKEN ──────────────────────────────────────────────────────────────
     {
+      id: 'air-chilled-chicken-breast',
       name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, costIngredient: 'air_chilled_chicken_breast', pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
       variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {
+      id: 'carrots',
       name: 'Carrots', packaging: 'none',
       variants: [{ label: '~2 servings', price: 6.5, cost: 2.71 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 0.5, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
+      id: 'baby-gold-potatoes',
       name: 'Baby Gold Potatoes', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7.5, cost: 3.79 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Baby gold potatoes', 0.75, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
+      id: 'corn-off-the-cob',
       name: 'Corn (off the cob)', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7.5, cost: 2.98 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Corn', 3, 'ears'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
+      id: 'kabocha-squash',
       name: 'Kabocha Squash', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7.5, cost: 3.25 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.667, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
+      id: 'parsnips',
       name: 'Parsnips', packaging: 'none',
       variants: [{ label: '~2 servings', price: 10, cost: 5.25 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Parsnips', 0.909, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
+      id: 'asparagus',
       name: 'Asparagus', packaging: 'none',
       variants: [
         { label: 'Whole (~2 servings)', price: 9, cost: 4.32 },
@@ -2070,17 +2125,18 @@ export const ALWAYS_ITEMS = {
       // customer copy (frozen-storage / botulism note) via the LIBRARY, but
       // renders as a normal bag card. NOT flagged isSousVideVeg (it isn't a
       // glaze veg and doesn't join the consolidated veg block).
+      id: 'garlic-confit',
       name: 'Garlic Confit', packaging: 'none',
       variants: [{ label: '6 oz bag', price: 10, cost: 5.05 }],
       recipe: { factors: { '6 oz bag': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
   ],
   sauces: [
-    { name: 'Chimichurri', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
-    { name: 'Romesco', variants: [{ label: 'Per Container', price: 4, cost: 0.80 }] },
-    { name: 'Chermoula', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
-    { name: 'Miso Butter Sauce', variants: [{ label: 'Per Container', price: 3, cost: 0.55 }] },
-    { name: 'Whipped Lemon Garlic Herb Butter', variants: [{ label: 'Per Container', price: 3, cost: 0.53 }] },
+    { id: 'chimichurri', name: 'Chimichurri', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
+    { id: 'romesco', name: 'Romesco', variants: [{ label: 'Per Container', price: 4, cost: 0.80 }] },
+    { id: 'chermoula', name: 'Chermoula', variants: [{ label: 'Per Container', price: 3, cost: 0.40 }] },
+    { id: 'miso-butter-sauce', name: 'Miso Butter Sauce', variants: [{ label: 'Per Container', price: 3, cost: 0.55 }] },
+    { id: 'whipped-lemon-garlic-herb', name: 'Whipped Lemon Garlic Herb Butter', variants: [{ label: 'Per Container', price: 3, cost: 0.53 }] },
   ],
 };
 

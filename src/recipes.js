@@ -849,3 +849,29 @@ export function buildAutoShoppingRows(activeOrders, includeStaples, prevRows, mk
   }));
   return [...autos, ...omaRows, ...manual];
 }
+
+
+// ─── Reheat rescue (customer-facing) ─────────────────────────────────────────
+// What to say when someone taps "a little off" or "had trouble". Sourced from
+// the reheat canon, NOT from the dossier: journal.js is behind the privacy
+// wall and companion.js can never import it. A per-dish override lives in
+// dishes.js under copy.rescue when a dish needs something specific.
+//
+// The default cases are the failure modes that actually happen, in order of
+// how often: stopping at warm (starch retrogradation reverses above 140F, so
+// a lukewarm polenta stays grainy while a steaming one comes back), too much
+// heat too fast on emulsions, and overcooking proteins on the second pass.
+const RESCUE_BY_BUCKET = {
+  simmer: 'Next time take it further than warm. Heat until it is steaming all the way through, not just hot at the edges. Most of the texture comes back at the top of that range and almost none of it comes back below.',
+  sear: 'Next time get the pan hotter and leave it alone longer before turning. A grey edge usually means the pan was not ready yet.',
+  oven: 'Next time give it a few more minutes covered, then uncover at the end. Covered brings it up evenly, uncovered brings the surface back.',
+  gentle: 'Next time keep the heat lower and go slower. This one breaks if it is pushed, and it cannot be un-broken once it splits.',
+};
+
+export function rescueFor(itemName, bucket) {
+  const d = DISHES.find(x => x.name === itemName);
+  if (d && d.copy && d.copy.rescue) return d.copy.rescue;
+  const b = bucket || DINNER_REHEAT_BUCKET[itemName];
+  if (b && RESCUE_BY_BUCKET[b]) return RESCUE_BY_BUCKET[b];
+  return RESCUE_BY_BUCKET.simmer;
+}

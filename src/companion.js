@@ -3,7 +3,7 @@
 // dishes, and exactly how to bring each home — all reheat/sear/frozen wording
 // pulled from the canonical engine (buildReheatBlocks + itemHandling), so this
 // page can never disagree with the order card or the labels.
-import { buildReheatBlocks, itemHandling } from './recipes.js';
+import { buildReheatBlocks, itemHandling, rescueFor } from './recipes.js';
 import { expandOrderForReheat, omakaseCustomReheat, omakaseItemsOf } from './omakase.js';
 import { isPerLbItem } from './menu.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
@@ -120,12 +120,20 @@ export function companionHtml(order, pageId = '', opts = {}) {
 
   // Reheat/sear steps, numbered so the page reads like a short recipe. The
   // sear block (when present) is styled amber; canon owns all the wording.
-  const stepCards = blocks.map((b, i) => `
+  // Spoken steps: the person following these has wet hands and a hot pan, so
+  // the screen is the wrong place to be looking. Uses the browser's own speech
+  // synthesis — no audio files, no network, no install, and nothing to load.
+  // iOS refuses to speak without a user gesture, so it is a button rather than
+  // autoplay, which is what you would want anyway.
+  const stepCards = blocks.map((b, i) => {
+    const spoken = [b.title, ...(Array.isArray(b.body) ? b.body : [b.body])].join('. ');
+    return `
     <div class="card step${/sear/i.test(b.title) ? ' sear' : ''}">
-      <div class="stephead"><span class="stepnum">${i + 1}</span><h3>${esc(b.title)}</h3></div>
+      <div class="stephead"><span class="stepnum">${i + 1}</span><h3>${esc(b.title)}</h3>
+        <button class="speak" data-say="${esc(spoken)}" aria-label="Read this step aloud">🔊</button></div>
       <div class="dishes">${b.dishes.map(esc).join(' · ')}</div>
       ${(Array.isArray(b.body) ? b.body : [b.body]).map(p => `<p>${esc(p)}</p>`).join('')}
-    </div>`).join('');
+    </div>`; }).join('');
 
   const frozenCard = frozen.length ? `
     <div class="card warn">
@@ -611,6 +619,11 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .fbbtn { border-radius: 9px; padding: 7px 11px; font-size: 12.5px; font-weight: 700; border: 1px solid #2d3a36; background: #14201d; color: #b7c4be; }
   .fbbtn.good { color: #5DCAA5; } .fbbtn.meh { color: #EF9F27; } .fbbtn.bad { color: #e0828a; }
   .fbdone { color: #5DCAA5; font-size: 12.5px; font-weight: 700; }
+    .fbrescue { background:rgba(212,160,80,0.10); border:1px solid #D4A050; border-radius:8px;
+      padding:9px 11px; margin:6px 0 0; font-size:13px; line-height:1.5; color:#e8e2d4; }
+    .fbseen { color:#5DCAA5; font-weight:600; }
+    .speak { margin-left:auto; background:transparent; border:1px solid #37403c; color:#9aa5a0;
+      border-radius:8px; min-width:40px; min-height:36px; font-size:15px; cursor:pointer; }
   .fbbtn.sel { border-color: #5DCAA5; background: #1d2a26; }
   .fbnotewrap { display: flex; gap: 7px; margin-top: 8px; }
   .fbnote { flex: 1; background: #14201d; border: 1px solid #2d3a36; border-radius: 9px; color: #e8ede9; padding: 8px 11px; font-size: 13px; }
@@ -759,6 +772,10 @@ document.addEventListener('keydown', function (e) {
 })();
 
 var FB_DISHES = ${JSON.stringify(items.map(it => it.name))};
+// What to say when a dish came out wrong. Embedded at build time from the
+// REHEAT CANON, never from the dossier: journal.js sits behind the privacy
+// wall and this file can never import it.
+var FB_RESCUE = ${JSON.stringify(Object.fromEntries(items.map(it => [it.name, rescueFor(it.name)])))};
 var FB_PAGE = "${esc(pageId)}";
 var fbSent = {};
 // Feedback is once-per-dish PER ORDER. We remember what was already submitted
@@ -787,6 +804,7 @@ function fbRemember(dish, label) {
       fbSent[d] = true;
       var done = document.createElement('div'); done.className = 'fbdone';
       done.textContent = 'You said: ' + already[d] + ' \\u2713';
+      done.setAttribute('data-fbdone', '1');
       row.appendChild(nm); row.appendChild(done); wrap.appendChild(row);
       return;
     }
@@ -797,6 +815,11 @@ function fbRemember(dish, label) {
     note.placeholder = 'Tell Kevin why (optional)';
     var send = document.createElement('button'); send.className = 'fbsend'; send.textContent = 'Send';
     noteWrap.appendChild(note); noteWrap.appendChild(send);
+    // The rescue line. A tap that says "this came out wrong" is the one moment
+    // the customer is most receptive to being told how to fix it, and it turns
+    // a complaint into a save. Shown BEFORE sending, so they read it while the
+    // dish is still in front of them.
+    var rescue = document.createElement('div'); rescue.className = 'fbrescue'; rescue.style.display = 'none';
     var picked = null;
     [['Perfect','good'],['A little off','meh'],['Had trouble','bad']].forEach(function(pair) {
       var b = document.createElement('button'); b.className = 'fbbtn ' + pair[1]; b.textContent = pair[0];
@@ -805,6 +828,12 @@ function fbRemember(dish, label) {
         picked = pair;
         Array.prototype.forEach.call(btns.children, function(x) { x.classList.remove('sel'); });
         b.classList.add('sel');
+        if (pair[1] !== 'good' && FB_RESCUE[d]) {
+          rescue.textContent = FB_RESCUE[d];
+          rescue.style.display = 'block';
+        } else {
+          rescue.style.display = 'none';
+        }
         noteWrap.style.display = 'flex';
         note.focus();
       };
@@ -829,7 +858,7 @@ function fbRemember(dish, label) {
         })
         .catch(function() { fbSent[d] = false; });
     };
-    row.appendChild(nm); row.appendChild(btns); row.appendChild(noteWrap); wrap.appendChild(row);
+    row.appendChild(nm); row.appendChild(btns); row.appendChild(rescue); row.appendChild(noteWrap); wrap.appendChild(row);
   });
 })();
 </script><script>
@@ -871,5 +900,52 @@ function ask() {
     .finally(function() { if (remaining > 0) { btn.disabled = false; input.disabled = false; input.focus(); } });
 }
 document.getElementById('q').addEventListener('keydown', function(e) { if (e.key === 'Enter') ask(); });
+
+// ── Did Kevin read it? ─────────────────────────────────────────────────────
+// Somebody who took the trouble to say a dish came out wrong used to get
+// silence back forever, because clearing the feedback erased every trace of
+// it. The worker now leaves a read receipt behind and this closes the loop.
+// Silent on failure: an unreachable worker must never put an error on a page
+// whose whole job is to be calm while someone cooks.
+(function fbSeen() {
+  var rows = document.querySelectorAll('[data-fbdone]');
+  if (!rows.length) return;
+  try {
+    fetch('/feedback/seen?id=' + encodeURIComponent(PAGE_ID))
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        if (!j || !j.seen) return;
+        Array.prototype.forEach.call(rows, function(el) {
+          var tag = document.createElement('span');
+          tag.className = 'fbseen';
+          tag.textContent = ' Kevin read this.';
+          el.appendChild(tag);
+        });
+      })
+      .catch(function() {});
+  } catch (e) {}
+})();
+
+// ── Read a step aloud ──────────────────────────────────────────────────────
+// The browser's own voice: no audio files, no network, no install. The person
+// following these has wet hands and a hot pan, so the screen is the wrong
+// place to be looking. iOS will not speak without a user gesture, hence a
+// button rather than autoplay. Tapping again while it talks stops it, which
+// is what everyone tries first.
+(function speakSteps() {
+  var btns = document.querySelectorAll('.speak');
+  if (!('speechSynthesis' in window)) {
+    Array.prototype.forEach.call(btns, function(b) { b.style.display = 'none'; });
+    return;
+  }
+  Array.prototype.forEach.call(btns, function(btn) {
+    btn.addEventListener('click', function() {
+      if (window.speechSynthesis.speaking) { window.speechSynthesis.cancel(); return; }
+      var u = new SpeechSynthesisUtterance(btn.getAttribute('data-say') || '');
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    });
+  });
+})();
 </script></body></html>`;
 }

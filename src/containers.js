@@ -95,6 +95,23 @@ export function normalizeContainerConfig(raw) {
 // resolves to a single default container and is therefore UNDERCOUNTED.
 // Filling this map in dish by dish is a 20-minute pass with Kevin and the
 // single highest-value correction left in the container model.
+// ── AUDIT STATUS ───────────────────────────────────────────────────────────
+// Only the dishes listed in DISH_CONTAINERS have a CONFIRMED composition. Every
+// other multi-component dinner resolves to a single container and is therefore
+// UNDERCOUNTED, which means the Sunday shortage check can tell Kevin he is fine
+// when he is not.
+//
+// Deliberately NOT auto-populated with inferred mappings. Kevin's naming
+// conventions (docs/NAMING.md) make it easy to guess which dinners have several
+// components, but "Orecchiette with Bitter Greens and Anchovies" is one bowl
+// while "Pork Chop with Kabocha Purée and Charred Broccolini" is three
+// containers, and nothing in the data distinguishes them. A guessed mapping
+// that LOOKS authoritative is worse than an obvious undercount, because the
+// undercount at least announces itself.
+//
+// So the honest move is to make the gap VISIBLE and let the check say what it
+// does not know. containerAuditStatus() below is what the Record tab and the
+// Sunday warning read.
 export const DISH_CONTAINERS = {
   // Kevin, verbatim: the rectangles are for "the charred broccolini that is
   // not in a bag, or the chicken component of the tea smoked chicken."
@@ -115,6 +132,37 @@ export const CATEGORY_TYPE_OVERRIDES = {
   // 'Some Dessert': 'round8',
 };
 export const DEFAULT_DINNER_TYPE = 'round32'; // the workhorse
+
+// Dinners whose name suggests several components, per Kevin's own conventions:
+// `with` attaches accompaniments, `and` joins co-equal parts, `over` a base.
+// These are CANDIDATES for the audit, not conclusions — some are one bowl.
+const COMPONENT_SPLIT = / with | and | over | in (?!a )/i;
+
+function nameComponents(dishName) {
+  return String(dishName || '').split(COMPONENT_SPLIT).map(s => s.trim()).filter(Boolean);
+}
+
+// What the container model actually knows, and what it does not. The Sunday
+// check reads this so it can state its own confidence instead of implying
+// precision it has not earned.
+export function containerAuditStatus(dishList) {
+  const dishes = dishList || DISHES.map(d => d.name);
+  const confirmed = [];
+  const unconfirmed = [];
+  for (const name of dishes) {
+    const parts = nameComponents(name);
+    if (DISH_CONTAINERS[name]) { confirmed.push({ dish: name, containers: DISH_CONTAINERS[name].length }); continue; }
+    if (parts.length > 1) unconfirmed.push({ dish: name, components: parts, assumed: 1 });
+  }
+  return {
+    confirmed,
+    unconfirmed,
+    // The most the Sunday check could be undercounting by, if every
+    // unconfirmed candidate turned out to be one container per component.
+    maxUndercount: unconfirmed.reduce((s, u) => s + (u.components.length - 1), 0),
+    complete: unconfirmed.length === 0,
+  };
+}
 
 // name → category, same derivation labels.js uses.
 const CATEGORY_OF = {};
@@ -146,11 +194,6 @@ export function containerTypesFor(it) {
   return ['round16'];
 }
 
-// Kept for callers that only want the primary box.
-export function containerTypeFor(it) {
-  const types = containerTypesFor(it);
-  return types.length ? types[0] : null;
-}
 
 // ── Physical packages per order, by type ───────────────────────────────────
 // The UNITS math must agree with labels.js (the canon for "how many physical
@@ -246,14 +289,36 @@ export function containerReport(orders, regulars, config) {
   const jarsHeld = (regulars || []).reduce((s, r) => s + jarsOutForRegular(r.id, orders || []), 0);
   const jarsAvailable = Math.max(0, cfg.owned.jar - jarsHeld);
 
+  const audit0 = containerAuditStatus();
+  // The undercount is not spread evenly, and nothing here knows which type the
+  // missing containers would be. So risk is assessed against the WHOLE possible
+  // shortfall on every type: if the audit's worst case could push this type past
+  // capacity, the check says so rather than staying silent.
   const rows = CONTAINER_TYPE_ORDER.map(t => {
     const need = demand[t] || 0;
     const have = t === 'jar' ? jarsAvailable : cfg.owned[t];
-    return { type: t, label: CONTAINER_TYPES[t].label, need, have, short: Math.max(0, need - have) };
+    const short = Math.max(0, need - have);
+    // Jars are exact (the ledger tracks them), so they carry no audit risk.
+    const riskCeiling = t === 'jar' ? need : need + audit0.maxUndercount;
+    return {
+      type: t, label: CONTAINER_TYPES[t].label, need, have, short,
+      // TRUE when this type is fine on the numbers we have but could be short
+      // once the unconfirmed dishes are counted properly. This is the case the
+      // old check was silent about, which is the dangerous one: it told Kevin
+      // he was fine when it did not actually know.
+      atRisk: short === 0 && riskCeiling > have,
+      riskCeiling,
+    };
   });
 
+  const audit = audit0;
   return {
     rows,
+    atRisk: rows.filter(r => r.atRisk),
+    // The check reports what it does not know rather than implying precision.
+    // Until the audit is done, demand is a FLOOR, not a figure.
+    audit,
+    demandIsFloor: !audit.complete,
     shortages: rows.filter(r => r.short > 0),
     bags: demand.bag || 0,
     jarsHeld,

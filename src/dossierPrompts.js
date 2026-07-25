@@ -118,11 +118,3 @@ export function weeklyDossierPrompt(journal, weekDishes, weekStamp, now, renames
   };
 }
 
-// Which entry TYPE the question is really asking for, so the dossier form can
-// open pre-set to it instead of making Kevin pick. `never` asks for done-cues
-// (the thing a recipe cannot carry); the others just ask for more technique.
-export function suggestedTypeFor(prompt) {
-  if (!prompt) return 'technique';
-  const t = prompt.kind === 'never' ? 'doneCues' : 'technique';
-  return JOURNAL_TYPES[t] ? t : 'technique';
-}

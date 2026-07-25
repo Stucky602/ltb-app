@@ -20,6 +20,8 @@
 // entries over years, and order-of-telling is part of the record.
 // One store, one localStorage key (JOURNAL_KEY), rides the backup ring.
 
+import { dishIdFor } from './dishIdentity.js';
+
 export const JOURNAL_VERSION = 1;
 
 // type → { label, hint, privateDefault }
@@ -36,8 +38,15 @@ export const JOURNAL_TYPES = {
   technique:  { label: 'Technique',       hint: 'How it is actually made. Written while fresh — some dishes run twice a year.', privateDefault: false },
   mistake:    { label: 'Mistake',         hint: 'What went wrong and what fixed it. Kept as data, not fixed and forgotten.', privateDefault: false },
   retirement: { label: 'Retirement',      hint: 'Why a shipped dish was killed.', privateDefault: false },
+  // GAP A: the record could not say "this is no longer true". Every entry read
+  // as permanently valid, so a done-cue from 2026 sat beside one from 2034 with
+  // nothing marking which described the dish as it is now. A revision entry is
+  // a DIVIDER: everything above it describes the previous version. Cheaper than
+  // versioning every entry, and self-documenting to a reader who has no access
+  // to whoever wrote it.
+  revision:   { label: 'Recipe changed',  hint: 'The dish itself changed here. Everything written before this describes the older version.', privateDefault: false },
 };
-export const JOURNAL_TYPE_ORDER = ['decision', 'price', 'provenance', 'doneCues', 'adjustment', 'technique', 'mistake', 'retirement'];
+export const JOURNAL_TYPE_ORDER = ['decision', 'price', 'provenance', 'doneCues', 'adjustment', 'technique', 'mistake', 'retirement', 'revision'];
 
 // ── Transferable principles ────────────────────────────────────────────────
 // The ONE piece of cross-dish structure in the system. Every dossier entry is
@@ -85,9 +94,16 @@ export function normalizeJournal(raw) {
 // rare badge.
 export function stampEntry(partial, now) {
   const type = JOURNAL_TYPES[partial && partial.type] ? partial.type : 'technique';
-  const subject = partial && partial.subject && partial.subject.kind === 'dish' && partial.subject.dish
-    ? { kind: 'dish', dish: String(partial.subject.dish) }
-    : { kind: 'general' };
+  // DUAL-WRITE. A dish subject carries both the display name and the stable
+  // id from now on. The name stays because readers that have not migrated yet
+  // still resolve by it; the id is what survives a rename. An unresolvable
+  // name gets no id rather than a guessed one.
+  let subject = { kind: 'general' };
+  if (partial && partial.subject && partial.subject.kind === 'dish' && partial.subject.dish) {
+    const dish = String(partial.subject.dish);
+    const dishId = partial.subject.dishId || dishIdFor(dish);
+    subject = dishId ? { kind: 'dish', dish, dishId } : { kind: 'dish', dish };
+  }
   const priv = partial && typeof partial.private === 'boolean'
     ? partial.private
     : JOURNAL_TYPES[type].privateDefault;
@@ -105,6 +121,22 @@ export function stampEntry(partial, now) {
     private: priv,
     transferable,
   };
+  // GAP A, the per-entry half: one entry can point at the one it replaces.
+  // Inside a single version of a dish you will still contradict yourself over
+  // a decade, and without this the contradictions read as equally current.
+  if (partial && typeof partial.supersedes === 'string' && partial.supersedes) {
+    entry.supersedes = partial.supersedes;
+  } else {
+    delete entry.supersedes;
+  }
+  // GAP C: how sure you were. TWO states, deliberately, because a scale invites
+  // agonising over 3 versus 4 and tells a reader nothing extra. Absent means
+  // unmarked, which is not the same as uncertain.
+  if (partial && (partial.confidence === 'firm' || partial.confidence === 'working')) {
+    entry.confidence = partial.confidence;
+  } else {
+    delete entry.confidence;
+  }
   // Reserved for the later naming pass. Only carried if something set it;
   // never invented here.
   if (partial && typeof partial.principle === 'string' && partial.principle.trim()) {
@@ -198,10 +230,6 @@ export function entriesForDish(journal, dishName, renames) {
     && canonDishName(e.subject.dish, renames) === target);
 }
 
-export function generalEntries(journal) {
-  const j = normalizeJournal(journal);
-  return j.entries.filter(e => !e.subject || e.subject.kind !== 'dish');
-}
 
 // Owner-side surfaces that compose text which LEAVES the device (the content
 // studio's worker call) must draw from this, never from raw entries.
@@ -251,6 +279,39 @@ export function principleIndex(journal, renames) {
     out.get(key).push(e);
   }
   return out;
+}
+
+// Ids that some later entry has explicitly replaced. Superseded entries are
+// NOT hidden: the point of the record is that the change is visible, and a
+// reader learns more from "I used to think X, now Y" than from Y alone. They
+// are MARKED, and callers decide what to do with that.
+export function supersededIds(journal) {
+  const out = new Set();
+  for (const e of normalizeJournal(journal).entries) {
+    if (e.supersedes) out.add(e.supersedes);
+  }
+  return out;
+}
+
+// The most recent revision marker for a dish, if any. Anything written before
+// it describes an older version of the dish.
+export function latestRevision(journal, dishName, renames) {
+  const list = entriesForDish(journal, dishName, renames)
+    .filter(e => e.type === 'revision')
+    .sort((a, b) => String(b.ts).localeCompare(String(a.ts)));
+  return list[0] || null;
+}
+
+// Entries that predate the dish's most recent revision, so a reader knows they
+// may no longer apply. Returns a Set of ids.
+export function staleByRevision(journal, dishName, renames) {
+  const rev = latestRevision(journal, dishName, renames);
+  if (!rev) return new Set();
+  return new Set(
+    entriesForDish(journal, dishName, renames)
+      .filter(e => e.type !== 'revision' && String(e.ts) < String(rev.ts))
+      .map(e => e.id)
+  );
 }
 
 // ── The record's own shape ─────────────────────────────────────────────────
@@ -382,29 +443,3 @@ export function migrateDishNotes(journal, dishNotes, now) {
   return j;
 }
 
-// ── The retirement nudge (K8, runtime — a gate test cannot see localStorage)
-// Dishes that appear in real order history but are no longer in the registry
-// and have no retirement entry. Caller passes the name sets so this module
-// stays dependency-free:
-//   knownNames — every name the app still serves (dinners + always items,
-//                per-lb included). Anything outside it that people ORDERED
-//                is a dish that left the menu.
-// Nudge, never block (Kevin's call).
-export function missingRetirementRecords(journal, orders, knownNames, renames) {
-  const known = knownNames instanceof Set ? knownNames : new Set(knownNames || []);
-  const recorded = new Set(
-    normalizeJournal(journal).entries
-      .filter(e => e.type === 'retirement' && e.subject && e.subject.kind === 'dish')
-      .map(e => canonDishName(e.subject.dish, renames))
-  );
-  const missing = new Set();
-  for (const o of orders || []) {
-    for (const it of (o && o.items) || []) {
-      if (!it || !it.name || it.omakase) continue; // an omakase is an act of trust, not a catalog dish
-      const canon = canonDishName(it.name, renames);
-      if (known.has(canon) || recorded.has(canon)) continue;
-      missing.add(canon);
-    }
-  }
-  return [...missing].sort();
-}

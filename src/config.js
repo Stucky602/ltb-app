@@ -26,6 +26,9 @@ export const JOURNAL_KEY = 'ltb-journal';
 // week stamp so the several publishes a single week receives collapse into one
 // row. Exists for seasonal recall, not restore (that is config-history).
 export const WEEK_LEDGER_KEY = 'ltb-week-ledger';
+// Kevin's note about where archive copies are kept. Small, and it PRINTS INTO
+// the archive, because the one person who needs it most will not have the app.
+export const COPIES_NOTE_KEY = 'ltb-copies-note';
 // M1: owned container counts + the meal-pool manual adjustment. Rides the
 // backup ring. Costs and type definitions live in containers.js (they are
 // registry facts, not per-device state); this key holds only what varies:

@@ -17,7 +17,7 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
-  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, SW_VERSION_KEY,
+  JOURNAL_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY, FEEDBACK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -78,6 +78,9 @@ import { weekOneBottle } from './weekPlanner.js';
 import { customerFavorites } from './favorites.js';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { RecipesTab } from './components/RecipesTab.jsx';
+import { RecordTab } from './components/RecordTab.jsx';
+import { reportableDishes } from './dishReport.js';
+import { buildCookList } from './cookList.js';
 import { FeedbackCard } from './components/FeedbackCard.jsx';
 import { PlannerPanel } from './components/PlannerPanel.jsx';
 import { RegularsIntelPanel } from './components/RegularsIntelPanel.jsx';
@@ -173,6 +176,14 @@ export default function LTBOrderTracker() {
   // the rolling log, so this is a view of it, not a second copy to drift.
   const [askLog, setAskLog] = useState([]);
   const [weekLedger, setWeekLedger] = useState(() => normalizeLedger(null));
+  // Where the archive copies live. Prints INTO the archive, so it is readable
+  // by someone who does not have Kevin to ask.
+  const [copiesNote, setCopiesNote] = useState('');
+  const saveCopiesNote = useCallback((text) => {
+    const v = String(text || '').slice(0, 600);
+    setCopiesNote(v);
+    saveJSON(COPIES_NOTE_KEY, v).then(r => setError(saveError(r)));
+  }, []);
   // M1: owned container counts + meal-pool adjustment (containers.js).
   const [containerConfig, setContainerConfig] = useState(() => normalizeContainerConfig(null));
   // Pipeline test-kitchen journal: { version, entries: { key: { journal:[], status, promoteChecklist } } }
@@ -305,7 +316,7 @@ export default function LTBOrderTracker() {
         await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
       }
 
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger] = await Promise.all([
+      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote] = await Promise.all([
         loadJSON(ORDERS_KEY, []),
         loadJSON(CHECKS_KEY, {}),
         loadJSON(SHOPPING_KEY, []),
@@ -318,6 +329,7 @@ export default function LTBOrderTracker() {
         loadJSON(LAST_SEEN_WEEK_KEY, null),
         loadJSON(CONTAINER_INVENTORY_KEY, null),
         loadJSON(WEEK_LEDGER_KEY, null),
+        loadJSON(COPIES_NOTE_KEY, ''),
       ]);
       if (!mounted) return;
       const migrated = loadedOrders.map(o => ({
@@ -363,6 +375,7 @@ export default function LTBOrderTracker() {
       setLastSeenWeek(loadedLastSeenWeek ?? null);
       setContainerConfig(normalizeContainerConfig(loadedContainerCfg));
       setWeekLedger(normalizeLedger(loadedLedger));
+      setCopiesNote(typeof loadedCopiesNote === 'string' ? loadedCopiesNote : '');
       setDishFeedback(loadedDishFeedback || {});
       if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
         setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
@@ -1487,11 +1500,12 @@ export default function LTBOrderTracker() {
     journal,
     containerInventory: containerConfig,
     weekLedger,
+    copiesNote,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1662,6 +1676,10 @@ export default function LTBOrderTracker() {
       const jr = normalizeJournal(payload.journal);
       setJournal(jr);
       await saveJSON(JOURNAL_KEY, jr);
+    }
+    if (typeof payload.copiesNote === 'string') {
+      setCopiesNote(payload.copiesNote);
+      await saveJSON(COPIES_NOTE_KEY, payload.copiesNote);
     }
     if (payload.weekLedger && typeof payload.weekLedger === 'object') {
       const wl = normalizeLedger(payload.weekLedger);
@@ -1949,22 +1967,14 @@ export default function LTBOrderTracker() {
     return names;
   }, [orders]);
 
-  const cookingList = useMemo(() => {
-    const map = new Map();
-    activeOrders.forEach(o => {
-      (o.items || []).forEach(it => {
-        const key = `${it.category}::${it.name}::${it.variant}`;
-        if (!map.has(key)) {
-          map.set(key, { key, category: it.category, name: it.name, variant: it.variant, qty: 0 });
-        }
-        map.get(key).qty += it.qty;
-      });
-    });
-    const catOrder = Object.keys(CATEGORY_LABELS);
-    return Array.from(map.values()).sort(
-      (a, b) => catOrder.indexOf(a.category) - catOrder.indexOf(b.category) || a.name.localeCompare(b.name)
-    );
-  }, [activeOrders]);
+  // Category is DERIVED from the menu by name rather than trusted from the
+  // item, and the key is name + variant only. Orders from the customer form
+  // do not carry the same category value manual entries do, so the old key
+  // split one dish across two lines with two counts. See cookList.js.
+  const cookingList = useMemo(
+    () => buildCookList(activeOrders, FULL_MENU, Object.keys(CATEGORY_LABELS)),
+    [activeOrders]
+  );
 
   const deliverList = useMemo(() => {
     const catOrder = Object.keys(CATEGORY_LABELS);
@@ -2059,6 +2069,9 @@ export default function LTBOrderTracker() {
   // FULL_MENU is the whole catalog (dinners + always items, per-lb included),
   // so retired ALWAYS items nudge too — a dessert that left has a story just
   // as much as a dinner does. Static registry, so no deps.
+  // Names the coverage map walks. Same set the Recipes picker offers, so
+  // coverage measures exactly what Kevin can actually write about.
+  const reportableDishNames = useMemo(() => reportableDishes(), []);
   const knownDishNames = useMemo(() => new Set(Object.values(FULL_MENU).flat().map(m => m.name)), []);
 
   // Cost maps for live dish costing (Option B). baseline is static from the seed;
@@ -2216,6 +2229,7 @@ export default function LTBOrderTracker() {
               ['money', 'Money'],
               ['regulars', 'Regulars'],
               ['recipes', 'Recipes'],
+              ['record', 'Record'],
               ['week', 'Week'],
             ].map(([key, label]) => (
               <button
@@ -2309,11 +2323,21 @@ export default function LTBOrderTracker() {
             {/* M1: the Sunday check. Fires only on a genuine shortage —
                 next week's pack needs more of a type than Kevin owns
                 (jars: owns minus held). Silent otherwise. */}
+            {containerStatus.shortages.length === 0 && (containerStatus.atRisk || []).length > 0 && (
+              <div style={{ background: 'rgba(239,159,39,0.10)', border: '1px solid #EF9F27', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
+                <b style={{ color: '#EF9F27' }}>Containers might be tight:</b>
+                {' '}{containerStatus.atRisk.map(r => r.label).join(', ')}.
+                {' '}{containerStatus.audit.unconfirmed.length} dinner{containerStatus.audit.unconfirmed.length === 1 ? '' : 's'} still
+                {' '}count as one container each because their real composition has not been confirmed,
+                {' '}so this week's demand is a floor, not a figure. Record tab &rarr; Container audit.
+              </div>
+            )}
             {containerStatus.shortages.length > 0 && (
               <div style={{ background: 'rgba(224,130,138,0.10)', border: '1px solid #e0828a', borderRadius: 10, padding: '9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
                 <b style={{ color: '#e0828a' }}>Short on containers for this pack:</b>
                 {' '}{containerStatus.shortages.map(s => `${s.label} — need ${s.need}, have ${s.have}`).join(' · ')}.
-                {containerStatus.mealOut > 0 ? ` ${containerStatus.mealOut} meal container${containerStatus.mealOut !== 1 ? 's' : ''} still out with customers — some may come back before Wednesday.` : ''}
+                {containerStatus.mealOut > 0 ? ` ${containerStatus.mealOut} meal container${containerStatus.mealOut !== 1 ? 's' : ''} still out with customers, some may come back before Wednesday.` : ''}
+                {containerStatus.demandIsFloor ? ' The real number may be higher: unconfirmed dishes count as one container each.' : ''}
                 {' '}Counts live in Money → Packaging.
               </div>
             )}
@@ -2780,9 +2804,26 @@ export default function LTBOrderTracker() {
 
         {view === 'money' && (
           <>
-            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} journal={journal} containerStatus={containerStatus} onSaveContainerConfig={saveContainerConfig} />
-            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} journal={journal} weekDishes={weekDishes} knownNames={knownDishNames} askLog={askLog} onPullQuestions={pullQuestions} />
+            <MoneyTab orders={orders || []} onUpdate={updateOrder} auditLog={auditLog} costHistory={costHistory} baseCostMap={baseCostMap} ingredientName={ingredientName} containerStatus={containerStatus} onSaveContainerConfig={saveContainerConfig} />
+            <DigestPanel orders={orders || []} regulars={regulars} liveCostMap={liveCostMap} baseCostMap={baseCostMap} onPullFeedback={pullKitchenFeedback} onCloseOut={closeOutWeek} />
           </>
+        )}
+
+        {view === 'record' && (
+          <RecordTab
+            journal={journal}
+            onSaveJournal={saveJournal}
+            dishNames={reportableDishNames}
+            weekDishes={weekDishes}
+            orders={orders || []}
+            knownNames={knownDishNames}
+            weekLedger={weekLedger}
+            askLog={askLog}
+            onPullQuestions={pullQuestions}
+            copiesNote={copiesNote}
+            onSaveCopiesNote={saveCopiesNote}
+            containerAudit={containerStatus.audit}
+          />
         )}
 
         {view === 'recipes' && (

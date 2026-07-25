@@ -35,7 +35,6 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { BooksPanel } from './BooksPanel.jsx';
 import { AuditPanel } from './AuditPanel.jsx';
 import { WeeklySummaryModal } from './WeeklySummary.jsx';
-import { buildArchiveHtml, buildRecordsHtml } from '../archiveExport.js';
 import { CONTAINER_TYPES, CONTAINER_TYPE_ORDER, packagingCost } from '../containers.js';
 
 export function ProfitChart({ series }) {
@@ -166,7 +165,7 @@ export function compactMoney(v) {
 }
 
 // ─── Money Tab ──────────────────────────────────────────────────────────────
-export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName, journal, containerStatus, onSaveContainerConfig }) {
+export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName, containerStatus, onSaveContainerConfig }) {
   const [sortField, setSortField] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [groupMode, setGroupMode] = useState('none');
@@ -175,23 +174,6 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
   const [storage, setStorage] = useState(null);
   const [search, setSearch] = useState('');
   const [showChart, setShowChart] = useState(false);
-  // K10/M3 downloads. Explicit button, never automatic (Kevin's rule). The
-  // whole build runs on-device; nothing is sent anywhere.
-  const [archiveMsg, setArchiveMsg] = useState(null);
-  const downloadDoc = (html, filename, label) => {
-    try {
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      setArchiveMsg(`${label} downloaded. It opens in any browser, with or without this app, and prints clean.`);
-    } catch (e) {
-      setArchiveMsg(`${label} failed to build. Nothing was changed.`);
-    }
-    setTimeout(() => setArchiveMsg(null), 6000);
-  };
   const [showRecap, setShowRecap] = useState(false);
   const [weekNotes, setWeekNotes] = useState({});
   const [weekNotesDraft, setWeekNotesDraft] = useState('');
@@ -592,37 +574,6 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
               ingredientName={ingredientName}
             />
             <AuditPanel log={auditLog} />
-            {/* ── The durable record (K10 + M3) ──
-                 Everything lives in one device's localStorage; these two
-                 buttons are the way out. The archive is the whole knowledge
-                 base — registry, journal (private entries included, per
-                 Kevin), sales counts, renames — as ONE self-contained HTML
-                 file. Records is the delivery log with declared allergens.
-                 Yearly cadence for the archive is a habit, not a timer. */}
-            <div style={{ marginTop: 10, padding: '10px 0', borderTop: '1px solid #2d3a36' }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa5a0', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>The durable record</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button
-                  style={{ minHeight: 44, padding: '10px 16px', borderRadius: 8, border: '1px solid #3d4a2e', background: '#232d2a', color: '#5DCAA5', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                  onClick={() => downloadDoc(
-                    buildArchiveHtml({ journal, orders }),
-                    `LTB_ARCHIVE_${new Date().getFullYear()}.html`,
-                    'The archive')}
-                >
-                  Download the yearly archive
-                </button>
-                <button
-                  style={{ minHeight: 44, padding: '10px 16px', borderRadius: 8, border: '1px solid #2d3a36', background: '#232d2a', color: '#e8ede9', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
-                  onClick={() => downloadDoc(
-                    buildRecordsHtml({ orders }),
-                    `LTB_RECORDS_${new Date().toISOString().slice(0, 10)}.html`,
-                    'The delivery records')}
-                >
-                  Download delivery records
-                </button>
-              </div>
-              {archiveMsg && <div style={{ fontSize: 12, color: '#9aa5a0', marginTop: 6 }}>{archiveMsg}</div>}
-            </div>
             {/* ── M1 + M2: Packaging & containers ──
                  Owned counts (editable — Kevin called his numbers
                  placeholders), the meal-pool outstanding count with his

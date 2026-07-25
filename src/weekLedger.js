@@ -73,22 +73,3 @@ export function sameMonthPreviousYears(ledger, now) {
     .sort((a, b) => b.stamp - a.stamp);
 }
 
-// How many recorded weeks a dish has appeared on, and when it last did.
-// Honest about its own shallowness: `weeksRecorded` lets a caller say "out of
-// 6 weeks on record" rather than implying it knows the whole history.
-export function dishFrequency(ledger, now) {
-  const l = normalizeLedger(ledger);
-  const counts = new Map();
-  for (const w of l.weeks) {
-    for (const d of w.dishes || []) {
-      const prev = counts.get(d) || { dish: d, weeks: 0, last: null };
-      prev.weeks += 1;
-      if (prev.last == null || w.stamp > prev.last) prev.last = w.stamp;
-      counts.set(d, prev);
-    }
-  }
-  return {
-    weeksRecorded: l.weeks.length,
-    dishes: [...counts.values()].sort((a, b) => b.weeks - a.weeks || a.dish.localeCompare(b.dish)),
-  };
-}

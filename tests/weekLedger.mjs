@@ -9,7 +9,7 @@
 // Run: node tests/weekLedger.mjs
 
 import assert from 'node:assert';
-import { recordWeek, normalizeLedger, sameMonthPreviousYears, dishFrequency, LEDGER_MAX_WEEKS } from '../src/weekLedger.js';
+import { recordWeek, normalizeLedger, sameMonthPreviousYears, LEDGER_MAX_WEEKS } from '../src/weekLedger.js';
 
 let pass = 0;
 const ok = (cond, msg) => { assert.ok(cond, msg); pass++; };
@@ -58,11 +58,6 @@ ok(!july.some(w => w.dishes.includes('Bolognese')), 'a different month is exclud
 ok(july[0].stamp > july[1].stamp, 'most recent year first');
 ok(sameMonthPreviousYears(null, new Date()).length === 0, 'an empty ledger has no season to recall');
 
-// ── Frequency, honest about its own shallowness ─────────────────────────────
-const f = dishFrequency(hist);
-ok(f.weeksRecorded === 4, 'frequency reports how many weeks are ON RECORD, so a caller cannot imply it knows the whole history');
-ok(f.dishes.every(d => d.weeks === 1), 'each dish appeared once across those weeks');
-ok(f.dishes.every(d => Number.isFinite(d.last)), 'and carries when it last appeared');
 
 // ── Bounded ─────────────────────────────────────────────────────────────────
 let big = null;

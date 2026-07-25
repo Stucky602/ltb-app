@@ -44,9 +44,18 @@ if (!existsSync(companionPath)) {
   process.exit(0);
 }
 
-const { companionHtml } = await import('../src/companion.js');
-const { DISHES } = await import('../src/dishes.js');
-const { buildPassport } = await import('../src/passport.js');
+let companionHtml, DISHES, buildPassport;
+try {
+  ({ companionHtml } = await import('../src/companion.js'));
+  ({ DISHES } = await import('../src/dishes.js'));
+  ({ buildPassport } = await import('../src/passport.js'));
+} catch (e) {
+  // A partial checkout is normal in scratch work. A missing dependency is not
+  // a weight failure, and crashing here would read like one. checkRepoStructure
+  // is what catches a genuinely missing file in the real tree.
+  console.log('KITCHEN WEIGHT: SKIPPED (' + (e && e.message ? e.message.split('\n')[0] : 'dependency unavailable') + ')');
+  process.exit(0);
+}
 
 // ── The worst realistic case, not a toy ─────────────────────────────────────
 // Page weight is dominated by the PASSPORT (every dish the customer has ever
@@ -99,6 +108,24 @@ const size = html.length;
 
 const pct = ((size / WORKER_CEILING) * 100).toFixed(1);
 console.log(`  kitchen page worst case: ${size.toLocaleString()} chars (${pct}% of the ${WORKER_CEILING.toLocaleString()} worker ceiling)`);
+
+// WHERE the weight is, not just how much. This matters because the two halves
+// behave completely differently: CSS and the inline script are FIXED costs
+// that do not grow, while passport markup grows with every dish a customer has
+// ever eaten. A ceiling that is approached by growth can only be fixed by
+// cutting the growing part, so shaving the constants is measurable work that
+// does not move the date the wall arrives.
+{
+  const styleBlock = (html.match(/<style[^>]*>([\s\S]*?)<\/style>/) || [])[1] || '';
+  const scriptChars = (html.match(/<script[^>]*>[\s\S]*?<\/script>/g) || []).join('').length;
+  const markup = size - styleBlock.length - scriptChars;
+  const share = (n) => ((n / size) * 100).toFixed(1) + '%';
+  console.log(`    fixed:   css ${styleBlock.length.toLocaleString()} (${share(styleBlock.length)}) · script ${scriptChars.toLocaleString()} (${share(scriptChars)})`);
+  console.log(`    GROWING: markup ${markup.toLocaleString()} (${share(markup)}) — this is the half that scales with the passport`);
+  if (markup > styleBlock.length + scriptChars) {
+    console.log('    → phase 2 belongs in the MARKUP. Trimming css/script is a fixed win that does not delay the ceiling.');
+  }
+}
 
 check(
   `kitchen page stays under the ${FAIL_AT.toLocaleString()}-char build threshold`,

@@ -81,4 +81,44 @@ ok(typeof REFUSE_MESSAGE === 'string' && REFUSE_MESSAGE.length > 20 &&
    /nothing was changed/i.test(REFUSE_MESSAGE),
   'refuse message reassures that nothing was changed');
 
+// ── v2→v3: stable dish identity ─────────────────────────────────────────────
+// Additive only. `name` stays on every record so the readers that have not
+// migrated yet keep working, and an unresolvable name is LEFT ALONE rather
+// than guessed at, because those are real orphans worth surfacing.
+{
+  const { DISHES } = await import('../src/dishes.js');
+  const real = DISHES[0].name, realId = DISHES[0].id;
+  const v2 = {
+    orders: [
+      { id: 'o1', items: [
+        { name: real, qty: 1 },
+        { name: 'A Dish That Never Was', qty: 1 },
+        { name: 'Omakase', omakase: true, qty: 1 },
+      ] },
+      { id: 'o2', items: null },
+    ],
+    journal: { version: 1, entries: [
+      { id: 'j1', type: 'technique', subject: { kind: 'dish', dish: 'Curry of the Week' }, text: 'historical name' },
+      { id: 'j2', type: 'decision', subject: { kind: 'general' }, text: 'no dish' },
+    ] },
+    keepMe: 'yes',
+  };
+  const v3 = migrateForward(v2, 2);
+  const items = v3.orders[0].items;
+  ok(items[0].dishId === realId && items[0].name === real,
+    'an order item gains a dishId and KEEPS its name, so unmigrated readers keep working');
+  ok(!items[1].dishId,
+    'an unresolvable name is left alone, never guessed at — those are real orphans worth surfacing');
+  ok(!items[2].dishId, 'an omakase line is not a catalog dish and gets no id');
+  ok(v3.orders[1].items === null, 'an order with no items survives untouched');
+  ok(v3.journal.entries[0].subject.dishId,
+    'a journal entry filed under a HISTORICAL dish name resolves through DISH_RENAMES to the right id');
+  ok(v3.journal.entries[0].subject.dish === 'Curry of the Week',
+    'and keeps the original name, so nothing about the record is rewritten');
+  ok(!v3.journal.entries[1].subject.dishId, 'a general entry has no dish to identify');
+  ok(v3.keepMe === 'yes', 'unrecognized top-level fields survive');
+  const again = migrateForward(v3, 2);
+  ok(JSON.stringify(again) === JSON.stringify(v3), 'the step is idempotent');
+}
+
 console.log(`MIGRATIONS: ALL PASS (${pass} checks)`);

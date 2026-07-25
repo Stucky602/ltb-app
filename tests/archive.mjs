@@ -120,4 +120,24 @@ ok(/none declared/.test(rec), 'an item with no registry claim reads "none declar
 ok(rec.indexOf('2026-07-02') < rec.indexOf('2026-05-01'), 'newest first');
 ok(!/<link[^>]/i.test(rec) && /@media print/.test(rec), 'records file is self-contained and printable too');
 
+// ── The archive shows obsolescence ──────────────────────────────────────────
+// A reader in 2040 has no way to ask which entries still apply. The revision
+// divider and the superseded mark are how the file answers that itself.
+{
+  const dishName = DISHES[0].name;
+  let jr = emptyJournal();
+  jr = addEntry(jr, { type: 'doneCues', subject: { kind: 'dish', dish: dishName }, text: 'OLD-CUE-MARKER', ts: '2026-01-01T00:00:00Z' }, NOW);
+  const oldId = jr.entries[0].id;
+  jr = addEntry(jr, { type: 'revision', subject: { kind: 'dish', dish: dishName }, text: 'REVISION-MARKER darker roux.', ts: '2026-03-01T00:00:00Z' }, NOW);
+  jr = addEntry(jr, { type: 'doneCues', subject: { kind: 'dish', dish: dishName }, text: 'NEW-CUE-MARKER', ts: '2026-04-01T00:00:00Z', supersedes: oldId, confidence: 'firm' }, NOW);
+  const h = buildArchiveHtml({ journal: jr, orders: [], generatedAt: NOW.toISOString() });
+  ok(/The recipe changed here/.test(h), 'a revision renders as a DIVIDER, not as another entry in the pile');
+  ok(/Anything above this point describes the earlier version/.test(h),
+    'and it says what that means, because the reader will not have Kevin to ask');
+  ok(/later replaced/.test(h), 'an entry a later one supersedes is marked as replaced');
+  ok(h.includes('OLD-CUE-MARKER'), 'but the superseded entry is still THERE — the change is the lesson');
+  ok(/>firm</.test(h), 'a firm claim is distinguished from a working one');
+  ok(h.indexOf('OLD-CUE-MARKER') < h.indexOf('NEW-CUE-MARKER'), 'and the arc reads oldest first');
+}
+
 console.log(`ARCHIVE: ALL PASS (${pass} checks)`);

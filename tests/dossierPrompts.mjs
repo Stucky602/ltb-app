@@ -9,7 +9,7 @@
 
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
-import { weeklyDossierPrompt, suggestedTypeFor, STALE_MONTHS } from '../src/dossierPrompts.js';
+import { weeklyDossierPrompt, STALE_MONTHS } from '../src/dossierPrompts.js';
 import { emptyJournal, addEntry } from '../src/journal.js';
 
 let pass = 0;
@@ -28,8 +28,6 @@ let p = weeklyDossierPrompt(j, WEEK, 'w1', NOW);
 ok(p.kind === 'never' && p.dish === 'Chili',
   'a dish with NOTHING written beats everything else — the emptiest record is the most urgent');
 ok(p.entryCount === 0 && /Chili/.test(p.question), 'the question names the dish and reports an empty record');
-ok(suggestedTypeFor(p) === 'doneCues',
-  'an empty record asks for done-cues first — the thing a recipe cannot carry');
 
 // ── Priority 2: stale beats thin ────────────────────────────────────────────
 let j2 = emptyJournal();
@@ -40,7 +38,6 @@ j2 = addEntry(j2, entry('Chili', ago(0)), NOW);
 let p2 = weeklyDossierPrompt(j2, WEEK, 'w1', NOW);
 ok(p2.kind === 'stale' && p2.dish === 'Bolognese',
   'once nothing is empty, the dish nobody has written about in months comes next');
-ok(suggestedTypeFor(p2) === 'technique', 'a stale record asks for technique, not done-cues again');
 
 // A record that is old but NOT past the threshold is not stale.
 let j3 = emptyJournal();

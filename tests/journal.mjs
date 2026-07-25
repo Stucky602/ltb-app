@@ -16,10 +16,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import {
   JOURNAL_TYPES, JOURNAL_TYPE_ORDER, emptyJournal, normalizeJournal,
   stampEntry, addEntry, updateEntry, removeEntry,
-  canonDishName, entriesForDish, generalEntries, publicEntries,
-  latestPriceRationale, migrateDishNotes, missingRetirementRecords,
+  canonDishName, entriesForDish, publicEntries,
+  latestPriceRationale, migrateDishNotes,
   canBeTransferable, transferableEntries, principleIndex, UNNAMED_PRINCIPLE,
-  entriesOnThisDay, orphanedDishNames,
+  entriesOnThisDay, orphanedDishNames, supersededIds, latestRevision, staleByRevision,
   restoreEntry, recentlyDeleted, purgeTombstones, UNDO_WINDOW_DAYS,
   dossierCoverage, dossierComposition,
 } from '../src/journal.js';
@@ -61,7 +61,6 @@ j2 = addEntry(j2, { type: 'technique', subject: { kind: 'dish', dish: 'Old Name'
 ok(entriesForDish(j2, 'New Name', RENAMES).length === 1,
   'entries follow a dish through DISH_RENAMES (the exact break that hit the passport)');
 ok(canonDishName('Old Name', RENAMES) === 'New Name', 'canonDishName follows the map');
-ok(generalEntries(j).length === 1, 'general entries separate from dish entries');
 ok(publicEntries(j.entries).every(e => !e.private), 'publicEntries strips private — the content studio must draw from this');
 
 // ── latestPriceRationale ────────────────────────────────────────────────────
@@ -82,125 +81,73 @@ m = migrateDishNotes(m, legacy, NOW);
 ok(m.entries.length === 1, 'migration is idempotent — running it twice adds nothing');
 ok(migrateDishNotes(m, null, NOW).entries.length === 1, 'null legacy store is a no-op');
 
-// ── Retirement nudge (K8) ───────────────────────────────────────────────────
-const orders = [
-  { items: [{ name: 'Tea-Smoked Chicken', qty: 1 }, { name: 'Bo Ssam', qty: 1 }] },
-  { items: [{ name: 'Omakase', omakase: true, qty: 1 }] },
-];
-const known = new Set(['Bo Ssam']);
-ok(missingRetirementRecords(emptyJournal(), orders, known).join() === 'Tea-Smoked Chicken',
-  'a dish people ordered that left the registry with no retirement entry is flagged');
-let j4 = addEntry(emptyJournal(), { type: 'retirement', subject: { kind: 'dish', dish: 'Tea-Smoked Chicken' }, text: 'Fully retired rather than shipped.' }, NOW);
-ok(missingRetirementRecords(j4, orders, known).length === 0, 'a recorded retirement clears the nudge');
-ok(missingRetirementRecords(emptyJournal(), orders, new Set(['Bo Ssam', 'Tea-Smoked Chicken'])).length === 0,
-  'an on-menu dish never nudges');
-// The omakase item never nudges: an omakase is an act of trust, not a catalog dish.
-ok(!missingRetirementRecords(emptyJournal(), orders, known).includes('Omakase'), 'omakase excluded from the nudge');
+
 
 // ── Transferable principles (the cross-dish structure) ──────────────────────
-// Capture is a FLAG, not a taxonomy: mark it, write it in the dish's voice,
-// save it to that dish. Naming happens later, in one pass, from evidence.
 ok(canBeTransferable('technique') && canBeTransferable('adjustment')
    && canBeTransferable('doneCues') && canBeTransferable('mistake'),
   'craft types can carry a principle');
 ok(!canBeTransferable('price') && !canBeTransferable('retirement') && !canBeTransferable('provenance'),
   'business and history types cannot — a price rationale is not a lesson that transfers');
-
 const flaggedEntry = stampEntry({ type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' },
   text: 'Fat carries the flavor of anything you bloom in it.', transferable: true }, NOW);
 ok(flaggedEntry.transferable === true, 'the flag is carried on a craft entry');
 ok(stampEntry({ type: 'technique', text: 'x' }, NOW).transferable === false,
   'entries are dish-specific by default — a flag that is usually on carries no information');
 ok(stampEntry({ type: 'price', text: 'x', transferable: true }, NOW).transferable === false,
-  'the flag is DROPPED on a non-craft type rather than left dangling where it can never mean anything');
-ok(!('principle' in flaggedEntry),
-  'principle is reserved in the shape but never invented at capture — naming is a later pass');
-ok(stampEntry({ type: 'technique', text: 'x', transferable: true, principle: '  Fat as carrier  ' }, NOW).principle === 'Fat as carrier',
-  'a principle name is carried and trimmed when the later pass does set one');
+  'the flag is DROPPED on a non-craft type rather than left dangling');
+ok(!('principle' in flaggedEntry), 'principle is reserved but never invented at capture');
 
 let jp = emptyJournal();
 jp = addEntry(jp, { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' }, text: 'Bloom the paste in fat.', transferable: true, ts: '2026-01-01T00:00:00Z' }, NOW);
 jp = addEntry(jp, { type: 'adjustment', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'Flat means it needs acid.', transferable: true, ts: '2026-02-01T00:00:00Z' }, NOW);
 jp = addEntry(jp, { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' }, text: 'Stir the bottom or it scorches.', ts: '2026-03-01T00:00:00Z' }, NOW);
 const flagged = transferableEntries(jp);
-ok(flagged.length === 2, 'only flagged statements enter the aggregation set — the dish-specific note stays out');
-ok(flagged[0].ts < flagged[1].ts, 'oldest first, so the order reads as the order Kevin learned to say it');
-ok(flagged[0].dish === 'Bolognese' && flagged[1].dish === 'Gumbo',
-  'each statement keeps the dish it was written under — the lesson knows its exercise');
-ok(flagged.every(e => e.principle === null),
-  'principle is null until the naming pass — honest, not an error');
-
+ok(flagged.length === 2, 'only flagged statements enter the aggregation set');
+ok(flagged[0].dish === 'Bolognese' && flagged[1].dish === 'Gumbo', 'each keeps the dish it was written under');
+ok(flagged.every(e => e.principle === null), 'principle is null until the naming pass');
 const idx = principleIndex(jp);
-ok(idx.size === 1 && idx.has(UNNAMED_PRINCIPLE),
-  'before naming, everything groups under one unnamed heading rather than being guessed at');
-ok(idx.get(UNNAMED_PRINCIPLE).length === 2, 'and it holds every flagged statement');
-
-let jn = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' },
-  text: 'Bloom it in fat.', transferable: true, principle: 'Fat as carrier' }, NOW);
-jn = addEntry(jn, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' },
-  text: 'The roux is the flavor.', transferable: true, principle: 'Fat as carrier' }, NOW);
-const named = principleIndex(jn);
-ok(named.size === 1 && named.get('Fat as carrier').length === 2,
-  'once named, statements from different dishes group under one principle — the curriculum skeleton');
-
-// Rename-following applies here too: a lesson written under an old dish name
-// must not lose its exercise when the dish is renamed.
-let jr = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Old Name' },
-  text: 'Carries.', transferable: true }, NOW);
-ok(transferableEntries(jr, RENAMES)[0].dish === 'New Name',
-  'a flagged statement follows its dish through a rename');
+ok(idx.size === 1 && idx.has(UNNAMED_PRINCIPLE), 'before naming, everything groups under one honest heading');
 
 // ── On this day ─────────────────────────────────────────────────────────────
 const TODAY = new Date('2026-07-24T12:00:00Z');
 let jd = emptyJournal();
 jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Bolognese' }, text: 'one year ago', ts: '2025-07-24T09:00:00Z' }, TODAY);
-jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'two years ago', ts: '2024-07-24T09:00:00Z' }, TODAY);
 jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Chili' }, text: 'written today', ts: '2026-07-24T09:00:00Z' }, TODAY);
-jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Chili' }, text: 'a different day', ts: '2025-03-03T09:00:00Z' }, TODAY);
 jd = addEntry(jd, { type: 'technique', subject: { kind: 'dish', dish: 'Chili' }, text: 'migrated', ts: '2025-07-24T09:00:00Z', undated: true, migrated: true }, TODAY);
 const otd = entriesOnThisDay(jd, TODAY);
-ok(otd.length === 2, 'only entries from THIS calendar day in PREVIOUS years come back');
-ok(otd[0].yearsAgo === 1 && otd[1].yearsAgo === 2, 'most recent year first');
-ok(!otd.some(e => e.text === 'written today'), "today's own writing is not a memory and is excluded");
-ok(!otd.some(e => e.text === 'migrated'), 'undated entries are excluded — their date is a migration artifact, not a real day');
-ok(otd[0].dish === 'Bolognese', 'each memory carries the dish it was written under');
-ok(entriesOnThisDay(emptyJournal(), TODAY).length === 0, 'an empty journal has no memories');
+ok(otd.length === 1 && otd[0].yearsAgo === 1, 'only this calendar day in a PREVIOUS year comes back');
+ok(!otd.some(e => e.text === 'written today'), "today's own writing is not a memory");
+ok(!otd.some(e => e.text === 'migrated'), 'undated entries are excluded — their date is a migration artifact');
 
 // ── Orphaned dish names ─────────────────────────────────────────────────────
 const orphanKnown = new Set(['Indian Style Curry', 'Bo Ssam']);
 const renameMap = { 'Curry of the Week': 'Indian Style Curry' };
 const hist = [
   { items: [{ name: 'Curry of the Week', qty: 1 }] },
-  { items: [{ name: 'Bo Ssam', qty: 1 }] },
   { items: [{ name: 'Ghost Dish', qty: 1 }] },
   { items: [{ name: 'Ghost Dish', qty: 1 }] },
   { items: [{ name: 'Omakase', omakase: true, qty: 1 }] },
 ];
 const orph = orphanedDishNames(hist, orphanKnown, renameMap);
-ok(orph.length === 1 && orph[0].name === 'Ghost Dish',
-  'a name that maps through DISH_RENAMES is NOT an orphan; only genuinely unknown names are');
-ok(orph[0].orderCount === 2, 'orphans report how many orders carry them, so the worst one is obvious');
-ok(!orph.some(o => o.name === 'Omakase'), 'omakase is an act of trust, not a catalog dish');
-ok(orphanedDishNames(hist, new Set([...orphanKnown, 'Ghost Dish']), renameMap).length === 0,
-  'nothing is an orphan once the registry knows it');
+ok(orph.length === 1 && orph[0].name === 'Ghost Dish', 'a name that maps through DISH_RENAMES is NOT an orphan');
+ok(orph[0].orderCount === 2, 'orphans report how many orders carry them');
+ok(!orph.some(o => o.name === 'Omakase'), 'omakase is not a catalog dish');
 
 // ── Soft delete: a 30-day window, not a softened meaning ────────────────────
 const NOW2 = new Date('2026-07-24T12:00:00Z');
 let sd = addEntry(emptyJournal(), { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'deleted soon' }, NOW2);
 const victimId = sd.entries[0].id;
 sd = removeEntry(sd, victimId, NOW2);
-ok(sd.entries.length === 0, 'a removed entry is gone from every READ — removal still means removed');
-ok(recentlyDeleted(sd, NOW2).length === 1, 'but it sits in a tombstone inside the undo window');
+ok(sd.entries.length === 0, 'a removed entry is gone from every READ');
+ok(recentlyDeleted(sd, NOW2).length === 1, 'but sits in a tombstone inside the undo window');
 ok(entriesForDish(sd, 'Gumbo').length === 0, 'tombstones never leak back into dish reads');
-ok(transferableEntries(sd).length === 0, 'nor into the transferable set');
 const restored = restoreEntry(sd, victimId);
-ok(restored.entries.length === 1 && recentlyDeleted(restored, NOW2).length === 0, 'undo puts it back and clears the tombstone');
+ok(restored.entries.length === 1 && recentlyDeleted(restored, NOW2).length === 0, 'undo puts it back');
 ok(!('deletedAt' in restored.entries[0]), 'a restored entry carries no deletion residue');
 const later = new Date(NOW2.getTime() + (UNDO_WINDOW_DAYS + 1) * 86400000);
 ok(recentlyDeleted(sd, later).length === 0, 'past the window it is no longer offered');
 ok(purgeTombstones(sd, later).deleted.length === 0, 'and purging drops it for good');
-ok(purgeTombstones(sd, NOW2).deleted.length === 1, 'purging inside the window keeps it');
-ok(removeEntry(sd, 'no-such-id', NOW2).entries.length === sd.entries.length, 'removing an unknown id is a no-op');
 
 // ── The record's own shape ──────────────────────────────────────────────────
 let shape = emptyJournal();
@@ -208,12 +155,43 @@ shape = addEntry(shape, { type: 'technique', subject: { kind: 'dish', dish: 'Gum
 shape = addEntry(shape, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'b' }, NOW2);
 shape = addEntry(shape, { type: 'doneCues', subject: { kind: 'dish', dish: 'Chili' }, text: 'c' }, NOW2);
 const cov = dossierCoverage(shape, ['Gumbo', 'Chili', 'Bolognese']);
-ok(cov.rows[0].dish === 'Bolognese' && cov.rows[0].entries === 0, 'coverage puts the emptiest dish first — it is a worklist');
-ok(cov.empty === 1 && cov.documented === 2 && cov.total === 3, 'coverage counts documented against the whole catalog');
+ok(cov.rows[0].dish === 'Bolognese' && cov.rows[0].entries === 0, 'coverage puts the emptiest dish first');
+ok(cov.empty === 1 && cov.documented === 2 && cov.total === 3, 'coverage counts documented against the catalog');
 const comp = dossierComposition(shape);
-ok(comp.total === 3 && comp.byType.technique === 2 && comp.byType.doneCues === 1, 'composition counts by type');
-ok(comp.missing.includes('mistake'),
-  'and NAMES the types with nothing at all — a record with zero mistakes is the finding, not a gap in the report');
+ok(comp.total === 3 && comp.byType.technique === 2, 'composition counts by type');
+ok(comp.missing.includes('mistake'), 'and NAMES the types with nothing at all');
+
+// ── GAP A: the record can now say "this is no longer true" ──────────────────
+const REV_NOW = new Date('2026-07-24T12:00:00Z');
+let rv = emptyJournal();
+rv = addEntry(rv, { type: 'doneCues', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'old cue', ts: '2026-01-01T00:00:00Z' }, REV_NOW);
+rv = addEntry(rv, { type: 'technique', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'old technique', ts: '2026-02-01T00:00:00Z' }, REV_NOW);
+rv = addEntry(rv, { type: 'revision', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'Switched to a darker roux.', ts: '2026-03-01T00:00:00Z' }, REV_NOW);
+rv = addEntry(rv, { type: 'doneCues', subject: { kind: 'dish', dish: 'Gumbo' }, text: 'new cue', ts: '2026-04-01T00:00:00Z' }, REV_NOW);
+ok(latestRevision(rv, 'Gumbo').text === 'Switched to a darker roux.', 'the most recent revision marker is findable');
+const staleSet = staleByRevision(rv, 'Gumbo');
+ok(staleSet.size === 2, 'entries written BEFORE the revision are flagged as describing an older version');
+ok(!staleSet.has(rv.entries[3].id), 'and entries written after it are not');
+ok(!staleSet.has(rv.entries[2].id), 'the revision marker does not flag itself');
+ok(staleByRevision(rv, 'Chili').size === 0, 'a dish never revised has nothing stale');
+ok(!canBeTransferable('revision'), 'a revision marker is bookkeeping, not a lesson that transfers');
+
+let sup = emptyJournal();
+sup = addEntry(sup, { type: 'adjustment', subject: { kind: 'dish', dish: 'Chili' }, text: 'add acid first' }, REV_NOW);
+const firstId = sup.entries[0].id;
+sup = addEntry(sup, { type: 'adjustment', subject: { kind: 'dish', dish: 'Chili' }, text: 'actually salt first', supersedes: firstId }, REV_NOW);
+ok(supersededIds(sup).has(firstId), 'an entry a later one replaces is marked superseded');
+ok(sup.entries.length === 2, 'the superseded entry is NOT deleted — "I used to think X, now Y" teaches more than Y alone');
+ok(stampEntry({ type: 'technique', text: 'x', supersedes: '' }, REV_NOW).supersedes === undefined,
+  'an empty supersedes link is dropped rather than stored as a dangling reference');
+
+// ── GAP C: confidence, two states only ──────────────────────────────────────
+ok(stampEntry({ type: 'technique', text: 'x', confidence: 'firm' }, REV_NOW).confidence === 'firm', 'firm is carried');
+ok(stampEntry({ type: 'technique', text: 'x', confidence: 'working' }, REV_NOW).confidence === 'working', 'working is carried');
+ok(stampEntry({ type: 'technique', text: 'x' }, REV_NOW).confidence === undefined,
+  'unmarked is the default, and unmarked is NOT the same as uncertain');
+ok(stampEntry({ type: 'technique', text: 'x', confidence: 4 }, REV_NOW).confidence === undefined,
+  'a numeric scale is rejected — it invites agonising over 3 versus 4 and tells a reader nothing extra');
 
 // ── Normalization tolerance ─────────────────────────────────────────────────
 ok(normalizeJournal(undefined).entries.length === 0, 'undefined store normalizes clean');

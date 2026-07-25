@@ -233,9 +233,9 @@ export default {
         // Build from ONE declared field list (CONFIG_FIELDS, bottom of file)
         // and report anything the app sent that this worker does not know
         // about. See the note there for why the reporting matters.
-        const config = { updatedAt: new Date().toISOString() };
+        const config = { updatedAt: new Date().toISOString(), schema: CONFIG_SCHEMA };
         for (const key of Object.keys(CONFIG_FIELDS)) config[key] = CONFIG_FIELDS[key](body);
-        const dropped = Object.keys(body).filter(k => k !== 'token' && !(k in CONFIG_FIELDS));
+        const dropped = Object.keys(body).filter(k => k !== 'token' && k !== 'schema' && !(k in CONFIG_FIELDS));
         await env.LTB_KV.put(KV_CONFIG, JSON.stringify(config));
         return json({ ok: true, config, dropped }, origin);
       }
@@ -463,8 +463,29 @@ export default {
         const body = await request.json().catch(() => ({}));
         if (!body.token || body.token !== env.PUBLISH_TOKEN) return json({ error: 'unauthorized' }, origin, 401);
         const ids = Array.isArray(body.pageIds) ? body.pageIds.slice(0, 200) : [];
-        for (const id of ids) await env.LTB_KV.delete('companionfb:' + String(id).slice(0, 80));
+        for (const id of ids) {
+          const clean = String(id).slice(0, 80);
+          await env.LTB_KV.delete('companionfb:' + clean);
+          // Leave a READ RECEIPT behind. Clearing used to erase every trace,
+          // which meant a customer who took the trouble to say a dish came out
+          // wrong got silence back forever. The receipt outlives the feedback
+          // and is what closes that loop. TTL matches the companion page's own
+          // 30-day life, so it cannot outlive the page it belongs to.
+          await env.LTB_KV.put('companionfbread:' + clean, new Date().toISOString(),
+            { expirationTtl: 30 * 24 * 60 * 60 });
+        }
         return json({ ok: true, cleared: ids.length }, origin);
+      }
+
+      // ── GET /feedback/seen — did Kevin read it? ─────────────────────────
+      // PUBLIC on purpose, like /ask: the unguessable page id is the auth, and
+      // the only thing it discloses is whether feedback for that page has been
+      // read. No token, because the customer's own page is the caller.
+      if (request.method === 'GET' && url.pathname === '/feedback/seen') {
+        const id = (url.searchParams.get('id') || '').slice(0, 80);
+        if (!id) return json({ seen: false }, origin);
+        const at = await env.LTB_KV.get('companionfbread:' + id);
+        return json({ seen: !!at, at: at || null }, origin);
       }
 
       // ── Content studio (v8): dish storytelling in Kevin's voice ─────────
@@ -1169,6 +1190,13 @@ function b64ToBytes(b64) {
 //      is not listed here. Adding a field to the app without adding it here now
 //      announces itself on the very first publish instead of months later.
 // ADDING A FIELD: add one line here. That is the whole change.
+// Bump ONLY when a field's MEANING changes in a way an old cached customer page
+// would misread. Adding a field does not need it. Pages compare this against
+// what they understand and degrade LOUDLY rather than misreading silently,
+// which is the same failure shape as the whitelist bug that ate `notice` and
+// `oneBottle` for months.
+const CONFIG_SCHEMA = 1;
+
 const CONFIG_FIELDS = {
   dishes:     b => (Array.isArray(b.dishes) ? b.dishes : []),
   spotlight:  b => (Array.isArray(b.spotlight) ? b.spotlight : []),
@@ -1191,7 +1219,7 @@ const CONFIG_FIELDS = {
 };
 
 function defaultConfig() {
-  const out = { updatedAt: null };
+  const out = { updatedAt: null, schema: CONFIG_SCHEMA };
   for (const key of Object.keys(CONFIG_FIELDS)) out[key] = CONFIG_FIELDS[key]({});
   return out;
 }

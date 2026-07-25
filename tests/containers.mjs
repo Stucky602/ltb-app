@@ -17,7 +17,7 @@
 import assert from 'node:assert';
 import {
   CONTAINER_TYPES, CONTAINER_TYPE_ORDER, DEFAULT_OWNED, MEAL_CONTAINER_EPOCH,
-  normalizeContainerConfig, containerTypeFor, containerTypesFor, orderContainerBreakdown,
+  normalizeContainerConfig, containerTypesFor, orderContainerBreakdown,
   sumBreakdowns, mealContainersOut, containerReport, packagingCost,
   DISH_CONTAINERS, DEFAULT_DINNER_TYPE,
 } from '../src/containers.js';
@@ -50,19 +50,12 @@ ok(normalizeContainerConfig({ mealAdjust: 2.9 }).mealAdjust === 2,
   'manual adjustment floors to a whole container');
 
 // ── Typing ──────────────────────────────────────────────────────────────────
-ok(containerTypeFor({ name: DINNER }) === 'round32',
-  'a plain dinner defaults to the 32 oz round — Kevin: a small (~4 servings) of anything saucy fits it almost perfectly');
 ok(DEFAULT_DINNER_TYPE === 'round32', 'the 38 oz rectangle is NOT the dinner default; it is for awkward components');
 // The two compositions Kevin described, expanded per unit.
 const tea = 'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce';
 ok(DISH_CONTAINERS[tea] && containerTypesFor({ name: tea }).join() === 'rect38,round16,round8',
   'the tea-smoked chicken occupies a rectangle (chicken), a 16 oz (polenta), and an 8 oz (white sauce)');
 ok(containerTypesFor({ name: DINNER }).length === 1, 'a dish with no composition entry is a single container');
-ok(containerTypeFor({ name: jarItem.name }) === 'jar',
-  'a jar item types as jar — via the CANONICAL orderOutboundJars rule, not a copied list');
-ok(containerTypeFor({ name: 'NY Strip', perLb: true }) === 'bag',
-  'a per-lb cut is a sous vide BAG — a consumable, never one of the five reusable types');
-ok(containerTypeFor(null) === null, 'a null item types as null, never throws');
 
 // ── THE LABELS CROSS-CHECK ──────────────────────────────────────────────────
 // Same order through both implementations: total physical CONTAINERS must
@@ -177,5 +170,34 @@ ok(pc.perType.jar.units === 1 && pc.perType.jar.cost === 1.12, 'one jar costs $1
 ok(pc.total === Math.round((1.16 + 1.12 + pc.perType.round8.cost + pc.perType.round16.cost + pc.perType.rect38.cost) * 100) / 100,
   'the total is the sum of the per-type costs, rounded to cents');
 ok(typeof pc.bags === 'number', 'bags are COUNTED (uncosted) so the number exists the day Kevin prices them');
+
+// ── THE AUDIT: what the model does NOT know ─────────────────────────────────
+// Only dishes in DISH_CONTAINERS have a confirmed composition. Everything else
+// resolves to one container and is undercounted, which means the Sunday check
+// could tell Kevin he is fine when he is not. That silence was the real bug;
+// a check that states its own confidence is trustworthy, one that guesses is not.
+{
+  const { containerAuditStatus } = await import('../src/containers.js');
+  const audit = containerAuditStatus();
+  ok(audit.confirmed.length >= 1, 'at least the dishes Kevin described are confirmed');
+  ok(audit.unconfirmed.length > 0, 'and the rest are honestly reported as unconfirmed');
+  ok(audit.complete === false, 'the audit knows it is not finished');
+  ok(audit.maxUndercount > 0, 'it quantifies how far off the Sunday check could be');
+  ok(audit.unconfirmed.every(u => u.components.length > 1),
+    'only genuinely multi-component candidates are listed, so the list is worth reading');
+
+  // NOT auto-populated on purpose: "Orecchiette with Bitter Greens and
+  // Anchovies" splits into three by name and is one bowl in reality. Nothing
+  // in the data distinguishes it from a genuine three-container plate.
+  ok(!DISH_CONTAINERS['Orecchiette with Bitter Greens and Anchovies'],
+    'no inferred mapping is written — a guess that looks authoritative is worse than an obvious gap');
+
+  const rep = containerReport(week, [], null);
+  ok(rep.demandIsFloor === true, 'while unconfirmed dishes remain, demand is reported as a FLOOR, not a figure');
+  ok(Array.isArray(rep.atRisk), 'the report names types that are fine on paper but could be short after the audit');
+  ok(rep.rows.every(r => r.riskCeiling >= r.need), 'the risk ceiling is never below the known demand');
+  ok(rep.rows.find(r => r.type === 'jar').riskCeiling === rep.rows.find(r => r.type === 'jar').need,
+    'jars carry NO audit risk, because the ledger tracks them exactly');
+}
 
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

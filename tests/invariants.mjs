@@ -2104,6 +2104,35 @@ TAX  0.00
   }
 }
 
+// ─── STABLE DISH IDENTITY (Jul 24) ───────────────────────────────────────────
+// An id is issued once and never changes, never gets reused, and never
+// disappears. A vanished id means history somewhere points at nothing, which is
+// the exact failure the ids were introduced to end, so it fails the build.
+{
+  const { DISH_ID_MANIFEST } = await import('../src/dishIdentity.js');
+  const { DISHES: ID_DISHES, ALWAYS_ITEMS: ID_ALWAYS } = await import('../src/dishes.js');
+  const all = [...ID_DISHES, ...Object.values(ID_ALWAYS).flat()];
+  const live = new Set(all.map(d => d.id));
+
+  for (const d of all) {
+    if (!d.id) F('dish-id', `${d.name} has no id — every registry item needs one`);
+    else if (!/^[a-z0-9-]+$/.test(d.id)) F('dish-id', `${d.name} has a malformed id: ${d.id}`);
+  }
+  const seen = new Set();
+  for (const d of all) {
+    if (d.id && seen.has(d.id)) F('dish-id', `duplicate id ${d.id} (${d.name})`);
+    seen.add(d.id);
+  }
+  for (const id of DISH_ID_MANIFEST) {
+    if (!live.has(id)) F('dish-id', `manifest id "${id}" is gone from the registry — history pointing at it is now orphaned`);
+  }
+  for (const d of all) {
+    if (d.id && !DISH_ID_MANIFEST.includes(d.id)) {
+      F('dish-id', `${d.name} has id "${d.id}" which is NOT in DISH_ID_MANIFEST — append it, never edit an existing line`);
+    }
+  }
+}
+
 // ─── Report ──────────────────────────────────────────────────────────────────
 console.log(`\nLTB invariant suite — ${DISHES.length} dinners, ${ALL_ALWAYS_ITEMS.length} always-menu items, ${Object.keys(RECIPES).length} recipes checked.\n`);
 if (warns.length) {

@@ -32,16 +32,19 @@ import {
   orderTotal, repricePerLbItem, itemCost, orderCostInfo, stampItemCosts, normalizePendingItems,
   optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons, applyFeedbackSave, resetDishFeedback,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
-  photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
+  photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
   mergeRegulars, unmergeRegular, backfillRegularLinks, regularAllNames,
   houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
-// migrateForward is no longer named here: the only caller was the restore body,
-// which now lives in backupRestore.js. Boot still runs the same guard.
-import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, REFUSE_MESSAGE } from './migrations.js';
-import { emptyJournal, normalizeJournal, migrateDishNotes, purgeTombstones } from './journal.js';
+// migrations.js, seedReconcile.js, and INGREDIENT_SEED are no longer imported
+// here at all: the schema guard, the seed reconcile, and the deploy-fingerprint
+// diff all moved with boot hydration into bootHydrate.js, and the restore-side
+// copies of the same guards live in backupRestore.js. Both of those are choke
+// points by design. If a third caller ever needs them, that is a signal to ask
+// why, not to re-add the import.
+import { emptyJournal, normalizeJournal } from './journal.js';
 import { recordWeek, normalizeLedger } from './weekLedger.js';
 import { useWakeLock } from './useWakeLock.js';
 import { usePreserveScroll } from './usePreserveScroll.js';
@@ -50,10 +53,8 @@ import { sortList, filterByStatus, searchList, orderHaystacks, windowList, DEFAU
 import { containerReport, normalizeContainerConfig } from './containers.js';
 import { extractNotice } from './weekNotice.js';
 import {
-  SOURCES, appendAudit, auditEntry, diffIngredientCosts,
-  menuFingerprint, diffMenuFingerprint, diffAliases, diffReconcile,
+  SOURCES, appendAudit, auditEntry, diffIngredientCosts, diffAliases,
 } from './auditLog.js';
-import { reconcileIngredients, pruneCostHistory, summarizeReconcile } from './seedReconcile.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from './styles.js';
 
 import { ImportModal } from './components/ImportModal.jsx';
@@ -82,13 +83,13 @@ import { DigestPanel } from './components/DigestPanel.jsx';
 import { SchedulePanel } from './components/SchedulePanel.jsx';
 import { IngredientsTab } from './components/IngredientsTab.jsx';
 import { ReceiptScan } from './components/ReceiptScan.jsx';
-import { INGREDIENT_SEED } from './ingredients.js';
 import { baselineCostMap, liveCostMapFrom } from './dishCosting.js';
 import {
   djb2, buildBackupPayload as buildPayload, applyBackupPayload as applyPayload,
   postBackupSnapshot, fetchBackupList, fetchBackupSnapshot, relativeAge,
 } from './backupRestore.js';
 import { BackupModal } from './components/BackupModal.jsx';
+import { hydrateFromStorage } from './bootHydrate.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -297,244 +298,28 @@ export default function LTBOrderTracker() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
 
+  // ── Boot hydration ────────────────────────────────────────────────────────
+  // The whole pass lives in bootHydrate.js. It is ONE function on purpose:
+  // several of these loads feed each other (ingredients -> costHistory, the
+  // dishNotes fold into the journal, orders -> the house backfill's rewrite),
+  // so the order is load-bearing and splitting it into per-key effects would
+  // race them. The header comment there spells out each dependency.
+  //
+  // The mounted flag stays HERE, owned by the effect that can actually clean
+  // it up, and is passed down as a predicate rather than a snapshot value —
+  // a boolean would be read once and be wrong forever after unmount.
   useEffect(() => {
     let mounted = true;
-    (async () => {
-      // ── Schema forward-compat guard (v9.22) ─────────────────────────────
-      // Checked BEFORE anything else loads. If this device's stored schema
-      // version is NEWER than the code currently running here, that means
-      // this device backed up on a later version and is now running older
-      // code — the exact "old code, new data" case. Refuse to touch local
-      // state rather than silently downgrading it. An unstamped device
-      // (storedVersion undefined) is pre-versioning data, not a threat, and
-      // reads as v0 — always safe to proceed and stamp forward.
-      const storedVersion = await loadJSON(SCHEMA_VERSION_KEY, undefined);
-      const compat = assessForwardCompat(storedVersion);
-      if (compat.outcome === 'refuse') {
-        if (mounted) {
-          setLoading(false);
-          setError(REFUSE_MESSAGE);
-        }
-        return;
-      }
-      if (compat.outcome !== 'current') {
-        // Older or unstamped — this device is behind, which is always safe
-        // to bring forward. Stamp now so a crash mid-load doesn't leave the
-        // device perpetually re-detecting as "needs migration."
-        await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
-      }
-
-      const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory] = await Promise.all([
-        loadJSON(ORDERS_KEY, []),
-        loadJSON(CHECKS_KEY, {}),
-        loadJSON(SHOPPING_KEY, []),
-        loadJSON(WEEK_KEY, null),
-        loadJSON(DELIVER_CHECKS_KEY, {}),
-        loadJSON(DISH_NOTES_KEY, {}),
-        loadJSON(FEEDBACK_KEY, {}),
-        loadJSON(PIPELINE_JOURNAL_KEY, { version: 1, entries: {} }),
-        loadJSON(JOURNAL_KEY, null),
-        loadJSON(LAST_SEEN_WEEK_KEY, null),
-        loadJSON(CONTAINER_INVENTORY_KEY, null),
-        loadJSON(WEEK_LEDGER_KEY, null),
-        loadJSON(COPIES_NOTE_KEY, ''),
-        loadJSON(ARCHIVE_HISTORY_KEY, []),
-      ]);
-      if (!mounted) return;
-      const migrated = loadedOrders.map(o => ({
-        ...o,
-        // Cost-basis migration: items stamped at creation keep their frozen
-        // cost (tagged 'snapshot'); items predating stamping get today's
-        // registry anchor, honestly tagged 'backfilled'. Idempotent.
-        items: stampItemCosts((o.items || []).map(it => {
-          const clean = { ...it };
-          if (clean.upcharge != null && typeof clean.upcharge !== 'object') {
-            delete clean.upcharge;
-          }
-          if ('lbs' in clean) delete clean.lbs;
-          return clean;
-        }), 'backfilled'),
-        paid: o.paid === undefined ? o.status === 'Delivered' : o.paid,
-        archived: o.archived || false,
-        discountType: o.discountType || null,
-        discountValue: o.discountValue || 0,
-        customCharges: o.customCharges || [],
-        jarSwaps: o.jarSwaps || 0,
-        containerReturns: o.containerReturns || 0,
-        waiveSurcharge: o.waiveSurcharge || false,
-        total: Number(o.total) || 0,
-      }));
-      setOrders(migrated);
-      setCookChecks(loadedChecks || {});
-      setDeliverChecks(loadedDeliverChecks || {});
-      // Journal hydrate + the one-way dishNotes migration (schema v2).
-      // Each legacy note becomes a technique entry marked migrated+undated —
-      // its real date is unknown and is never invented. Idempotent by
-      // content, and the old key is emptied after the fold so a second boot
-      // is a no-op. The key itself stays in config.js so THIS read works.
-      let bootJournal = normalizeJournal(loadedJournal);
-      if (loadedDishNotes && Object.keys(loadedDishNotes).some(k => String(loadedDishNotes[k] || '').trim())) {
-        bootJournal = migrateDishNotes(bootJournal, loadedDishNotes);
-        await saveJSON(JOURNAL_KEY, bootJournal);
-        await saveJSON(DISH_NOTES_KEY, {});
-      }
-      // Drop journal entries whose 30-day undo window has closed.
-      bootJournal = purgeTombstones(bootJournal);
-      setJournal(bootJournal);
-      setLastSeenWeek(loadedLastSeenWeek ?? null);
-      setContainerConfig(normalizeContainerConfig(loadedContainerCfg));
-      setWeekLedger(normalizeLedger(loadedLedger));
-      setCopiesNote(typeof loadedCopiesNote === 'string' ? loadedCopiesNote : '');
-      setArchiveHistory(Array.isArray(loadedArchiveHistory) ? loadedArchiveHistory : []);
-      setDishFeedback(loadedDishFeedback || {});
-      if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
-        setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
-      }
-      setShopping(loadedShopping || []);
-      setBooted(true);
-      if (loadedWeek && Array.isArray(loadedWeek.selected)) {
-        const valid = loadedWeek.selected.filter(n => ALL_DINNERS.some(d => d.name === n));
-        setWeekDishes(valid.length > 0 ? valid : DEFAULT_WEEK);
-      }
-      const savedPending = await loadJSON(PENDING_KEY, []);
-      if (mounted) setPendingOrders(savedPending || []);
-      const savedHandled = await loadJSON(HANDLED_PENDING_KEY, {});
-      handledPendingRef.current = savedHandled || {};
-
-      const savedRegulars = await loadJSON(REGULARS_KEY, []);
-      const migratedRegulars = (savedRegulars || []).map(r => {
-        if (Array.isArray(r.names) && r.names.length) return r;
-        const names = r.name ? [String(r.name).trim()] : [];
-        return { ...r, names, name: names[0] || '' };
-      });
-      if (mounted) setRegulars(migratedRegulars);
-      // Retroactive house backfill (Jul 20): stamp house:true and the free-order
-      // fields onto any order linked to a house regular that's missing them, so
-      // isHouseOrder (books, Money tab, digest) excludes it from every metric.
-      // Catches orders that predate the flag or were linked via a path that
-      // didn't stamp it. The wife must not touch any number. Idempotent: once an
-      // order is house + $0 it no longer matches.
-      const houseRegs = migratedRegulars.filter(r => r.house);
-      if (houseRegs.length > 0) {
-        const houseMatch = (o) => houseRegs.find(r => o.regularId === r.id || regularMatchType(r, o.customer) === 'exact');
-        let houseFixed = 0;
-        const houseBackfilled = migrated.map(o => {
-          const reg = houseMatch(o);
-          if (reg && (!o.house || o.total !== 0 || o.regularId !== reg.id)) {
-            houseFixed++;
-            return { ...o, house: true, regularId: reg.id, waiveSurcharge: true, discountType: 'percent', discountValue: HOUSE_DISCOUNT_PERCENT, total: 0 };
-          }
-          return o;
-        });
-        if (houseFixed > 0 && mounted) {
-          setOrders(houseBackfilled);
-          saveJSON(ORDERS_KEY, houseBackfilled);
-        }
-      }
-      const savedInventory = await loadJSON(INVENTORY_KEY, {});
-      if (mounted) setInventory(savedInventory || {});
-
-      const savedIngredients = await loadJSON(INGREDIENTS_KEY, null);
-      let ingForHistory = null;
-      // Reconcile entries are produced here but LOGGED in the audit block
-      // below, alongside the deploy fingerprint diff — same boot, same write,
-      // one log. Both describe "a file edit moved your money," so splitting
-      // them across two saves would just mean two chances to lose one.
-      let reconcileChanges = [];
-      if (savedIngredients && Array.isArray(savedIngredients) && savedIngredients.length) {
-        // ── Seed reconciliation (Jul 15) ──────────────────────────────────
-        // The stored DB is authoritative, which used to mean INGREDIENT_SEED
-        // was inert after first install: editing a baseline in ingredients.js
-        // changed nothing here, forever. That would merely be useless. It was
-        // worse, because the drift engine reads the seed LIVE on one side of
-        // its own ratio (baselineCostMap() -> seed, liveCostMapFrom() ->
-        // storage). So a seed edit didn't do nothing; it made every dish using
-        // that ingredient report drift against an anchor its `current` had
-        // never been compared to. Thyme's unit change read as 1144%.
-        //
-        // This runs on EVERY boot, not once, because it is not a one-time
-        // shape fix — it is a standing invariant. Kevin edits prices
-        // regularly, and the next edit needs the same treatment as this one
-        // with nobody having to remember. See src/seedReconcile.js.
-        const rec = reconcileIngredients(savedIngredients, INGREDIENT_SEED);
-        reconcileChanges = rec.changes;
-        if (mounted) setIngredientsDb(rec.next);
-        ingForHistory = rec.next;
-        if (rec.changes.length) saveJSON(INGREDIENTS_KEY, rec.next);
-      } else {
-        // First run: seed from the canonical baseline. current = baseline at seed time.
-        const seeded = INGREDIENT_SEED.map(i => ({ ...i, current: i.baseline }));
-        if (mounted) setIngredientsDb(seeded);
-        saveJSON(INGREDIENTS_KEY, seeded);
-        ingForHistory = seeded;
-      }
-
-      // Cost history (lightweight time-series). Seed an initial snapshot on first run
-      // so trends have a starting anchor; afterward append on each cost edit.
-      const savedHistory = await loadJSON(COST_HISTORY_KEY, null);
-      if (savedHistory && Array.isArray(savedHistory) && savedHistory.length) {
-        // A unit-changed ingredient's history is denominated in the OLD unit.
-        // Plotting per-bunch points on a per-sprig axis is not stale data, it
-        // is a lie with a chart around it. Drop those points and let the
-        // series restart; this is a lightweight trend, not the books.
-        const pruned = pruneCostHistory(savedHistory, reconcileChanges);
-        if (mounted) setCostHistory(pruned);
-        if (pruned !== savedHistory) saveJSON(COST_HISTORY_KEY, pruned);
-      } else {
-        const t = Date.now();
-        const snapshot = (ingForHistory || []).map(i => ({ t, id: i.id, cost: i.current }));
-        if (mounted) setCostHistory(snapshot);
-        saveJSON(COST_HISTORY_KEY, snapshot);
-      }
-
-      // Receipt aliases (Phase 3): learned receipt-string -> ingredient mappings,
-      // always-ignore items, and flat-price flags. Empty map on first run.
-      const savedAliases = await loadJSON(RECEIPT_ALIASES_KEY, null);
-      if (mounted && savedAliases && typeof savedAliases === 'object') {
-        setReceiptAliases(savedAliases);
-      }
-
-      // ── Audit trail + file-deploy detection (v9.23) ────────────────────
-      // Dish prices and cost anchors live in dishes.js, so they change by
-      // DEPLOY. Nothing in the running app can witness that edit happening —
-      // by the time this code runs, the new number simply IS the number.
-      // Diffing a stored fingerprint of the catalog against the one now in
-      // the bundle is the only way the app can notice a deploy moved money.
-      // This is the check that would have caught the $0 filet the morning it
-      // shipped, instead of weeks later.
-      const savedAudit = await loadJSON(AUDIT_LOG_KEY, []);
-      const prevFp = await loadJSON(MENU_FINGERPRINT_KEY, null);
-      const nextFp = menuFingerprint(FULL_MENU);
-      // First run has no prior fingerprint: establish the baseline silently
-      // rather than logging the entire catalog as if it just changed.
-      const deployEntries = diffMenuFingerprint(prevFp, nextFp);
-      // Seed reconciliation from above. This one is louder than a deploy diff:
-      // a deploy entry records that the app NOTICED a number move, while a
-      // reconcile entry records that the app CHANGED Kevin's stored data. An
-      // unlogged migration that silently rewrites costs would be repeating the
-      // exact sin the audit log was built to end.
-      const seedEntries = diffReconcile(reconcileChanges);
-      const startingLog = appendAudit(
-        Array.isArray(savedAudit) ? savedAudit : [],
-        [...deployEntries, ...seedEntries]
-      );
-      if (mounted) setAuditLog(startingLog);
-      if (deployEntries.length || seedEntries.length) saveJSON(AUDIT_LOG_KEY, startingLog);
-      if (!prevFp || deployEntries.length) saveJSON(MENU_FINGERPRINT_KEY, nextFp);
-
-      // Tell Kevin his costs moved. Silently correcting money is how the filet
-      // bug hid for weeks; a boot that quietly rewrites prices and says nothing
-      // is the same failure wearing a fix's clothes.
-      if (mounted && reconcileChanges.length) setNotice(summarizeReconcile(reconcileChanges));
-
-      setLoading(false);
-      cleanupPhotos(migrated);
-      if (USE_LEGACY_CSV) {
-        pollFormOrders(migrated, savedPending || []);
-      } else {
-        pollWorkerPending();
-      }
-    })();
+    hydrateFromStorage({
+      isMounted: () => mounted,
+      setLoading, setError, setOrders, setCookChecks, setDeliverChecks,
+      setJournal, setLastSeenWeek, setContainerConfig, setWeekLedger,
+      setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
+      setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
+      setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
+      setAuditLog, setNotice,
+      handledPendingRef, pollFormOrders, pollWorkerPending,
+    });
     return () => { mounted = false; };
   }, []);
 

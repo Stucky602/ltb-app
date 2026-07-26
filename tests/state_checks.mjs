@@ -17,7 +17,7 @@ import {
   orphanedDishNames, dossierCoverage, dossierComposition, entriesOnThisDay,
   entriesForDish, recentlyDeleted, transferableEntries, publicEntries,
 } from '../src/journal.js';
-import { containerReport, mealContainersOut, packagingCost } from '../src/containers.js';
+import { containerReport, mealContainersOut, packagingCost, CONTAINER_TYPE_ORDER } from '../src/containers.js';
 import { buildCookList } from '../src/cookList.js';
 import { weeklyDossierPrompt } from '../src/dossierPrompts.js';
 import { sameMonthPreviousYears } from '../src/weekLedger.js';
@@ -48,7 +48,12 @@ ok(cook.every(r => r.category), 'every line lands in a bucket, including the one
 
 // ── CONTAINER MATH — the Sunday check ───────────────────────────────────────
 const report = containerReport(FIXTURE_ORDERS, FIXTURE_REGULARS, FIXTURE_CONTAINER_CONFIG);
-ok(report.rows.length === 5, 'the Sunday check reports on all five container types');
+// Asserted against the REGISTRY, not a literal. This read `=== 5` and went
+// stale the moment two container types were added on Jul 26, which is the test
+// failing for being out of date rather than the code being wrong. The intent
+// was always "reports on every type", so say that instead of a number.
+ok(report.rows.length === CONTAINER_TYPE_ORDER.length,
+  `the Sunday check reports on all ${CONTAINER_TYPE_ORDER.length} container types`);
 ok(report.rows.every(r => r.need >= 0 && r.have >= 0), 'no negative demand or availability');
 ok(report.shortages.every(s => s.short === s.need - s.have), 'a shortage is exactly need minus have');
 ok(typeof report.mealOut === 'number' && report.mealOut >= 0, 'the meal pool never goes negative');

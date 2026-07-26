@@ -87,6 +87,9 @@ const CASES = [
   // empty state is what app_render sees on a clean boot and the interesting
   // branches (a dish he came around on, an excluded unfair test, a family note)
   // only exist once there is history.
+  // Collapsed is the default and the only state app_render can reach, so this
+  // pins that the header renders and the form is genuinely absent rather than
+  // hidden with CSS (which would still be in the DOM and still be tabbable).
   ['RowanLogCard', './src/components/RowanLogCard.jsx',
     `{ dishNames: ['Bo Ssam', 'Pappardelle'], onLog: () => {} }`],
   ['RowanTab', './src/components/RowanTab.jsx',

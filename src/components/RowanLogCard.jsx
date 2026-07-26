@@ -1,6 +1,19 @@
 // RowanLogCard.jsx — the permanent card at the top of Orders for logging what
 // his son thought of a dish.
 //
+// COLLAPSED BY DEFAULT, and shaped like an order card on purpose. It is
+// permanent and it sits above every real order, so at full height it pushed the
+// actual work down the page every single time the app opened. Kevin: "I want it
+// in the same format as actual orders because those are tabs I can minimize,
+// and this takes up a lot of space." Matching the order-card affordance also
+// means there is nothing new to learn: the thing that collapses looks like the
+// other things that collapse.
+//
+// Collapse state is LOCAL and resets on reload, unlike the expanded-order state
+// in App.jsx which tracks which specific order is open. There is only ever one
+// of these, so lifting it would be state in App.jsx that no other component
+// could ever read.
+//
 // WHY IT LIVES IN ORDERS AND NEVER GOES AWAY
 // A record like this is only worth having if it actually gets filled in, and
 // capture that needs three taps to reach gets used twice and then forgotten.
@@ -17,11 +30,13 @@
 
 import React, { useState } from 'react';
 import { RATING_LABELS, formatAge, ageAt } from '../rowan.js';
+import { ChevronDown } from '../icons.jsx';
 import { GOLD, styles } from '../styles.js';
 
 const SWATCH = { 1: '#E24B4A', 2: '#C77B3A', 3: '#9aa5a0', 4: '#7FA86B', 5: '#4FA36B' };
 
 export function RowanLogCard({ dishNames, onLog }) {
+  const [open, setOpen] = useState(false);
   const [dish, setDish] = useState('');
   const [rating, setRating] = useState(0);
   const [note, setNote] = useState('');
@@ -37,6 +52,9 @@ export function RowanLogCard({ dishNames, onLog }) {
     onLog({ dish, rating, note, familyNote, fairTest });
     setDish(''); setRating(0); setNote(''); setFamilyNote(''); setFairTest(true);
     setSaved(true);
+    // Collapses itself after a log. The common case is one entry per sitting,
+    // so leaving it open just re-occupies the screen it was asked to give back.
+    setOpen(false);
     setTimeout(() => setSaved(false), 2500);
   };
 
@@ -48,12 +66,31 @@ export function RowanLogCard({ dishNames, onLog }) {
   return (
     <div style={{
       background: 'rgba(212,160,80,0.06)', border: `1px solid ${GOLD}`,
-      borderRadius: 12, padding: 12, marginBottom: 10,
+      borderRadius: 10, overflow: 'hidden', marginBottom: 10,
     }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 14.5, fontWeight: 700, color: GOLD }}>Rowan</div>
-        <div style={{ fontSize: 11.5, color: '#9aa5a0' }}>{age}</div>
-      </div>
+      <button
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        style={{
+          width: '100%', padding: '13px 14px', display: 'flex', alignItems: 'center',
+          justifyContent: 'space-between', cursor: 'pointer', background: 'none',
+          border: 'none', textAlign: 'left', color: '#e8e6df',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 14.5, fontWeight: 700, color: GOLD }}>Rowan</span>
+          <span style={{ fontSize: 11.5, color: '#9aa5a0' }}>
+            {saved ? 'logged' : (open ? age : `${age} \u00b7 log a dish`)}
+          </span>
+        </span>
+        <ChevronDown
+          size={18}
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', color: '#9aa5a0' }}
+        />
+      </button>
+
+      {!open ? null : (
+      <div style={{ padding: '0 12px 12px' }}>
 
       <select style={field} value={dish} onChange={e => setDish(e.target.value)}>
         <option value="">Which dish?</option>
@@ -115,6 +152,8 @@ export function RowanLogCard({ dishNames, onLog }) {
       >
         {saved ? 'Logged' : 'Log it'}
       </button>
+      </div>
+      )}
     </div>
   );
 }

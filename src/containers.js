@@ -53,14 +53,40 @@ export const CONTAINER_TYPES = {
   round8:  { label: '8 oz round',      cost: 0.29 },
   round16: { label: '16 oz round',     cost: 0.35 },
   round32: { label: '32 oz round',     cost: 0.58 },
+  // Added Jul 26. SOME braises need more volume than the 32 holds. Which ones
+  // is not knowable from the data — it is a per-dish fact Kevin holds, so it
+  // lands in DISH_CONTAINERS below rather than being inferred from a category.
+  round48: { label: '48 oz round',     cost: 1.38 },
+  // Cookies only, and that exclusivity is the point: it is not a general large
+  // rectangle and must not be reached for as one, or the packaging spend for a
+  // cookie order quietly lands on dinners.
+  rectXL:  { label: 'XL rectangle with lid (cookies)', cost: 1.49 },
   jar:     { label: 'Pint mason jar',  cost: 1.12 },
 };
-export const CONTAINER_TYPE_ORDER = ['rect38', 'round8', 'round16', 'round32', 'jar'];
+export const CONTAINER_TYPE_ORDER = ['rect38', 'round8', 'round16', 'round32', 'round48', 'rectXL', 'jar'];
+
+// Every zeroed tally in this file is built from the registry, never written out
+// by hand. Two hand-written literals used to seed the breakdown, so adding a
+// container type on Jul 26 produced `undefined` units for it, and
+// `undefined * cost` is NaN — which then propagated into the packaging total
+// without anything throwing. A tally that cannot go stale is worth the helper.
+export const emptyBreakdown = () => {
+  const out = {};
+  for (const t of CONTAINER_TYPE_ORDER) out[t] = 0;
+  out.bag = 0;
+  return out;
+};
 
 // Kevin's counts as of Jul 24 — stated as placeholders ("for now assume"),
 // so the app treats these as DEFAULTS for a fresh install and the real
 // numbers live in localStorage, editable in the Money tab's packaging card.
-export const DEFAULT_OWNED = { rect38: 5, round8: 5, round16: 5, round32: 5, jar: 12 };
+// The two Jul 26 additions default to 0 OWNED rather than to the 5 the others
+// carry. Kevin stated 5-of-each as a placeholder for the original four; he has
+// not said how many 48s or cookie rectangles he has. Defaulting them to 5 would
+// invent stock and could report "you have enough" when he has none, which is
+// the exact failure the shortage check exists to prevent. Zero is the honest
+// unknown, and it announces itself the first time either is needed.
+export const DEFAULT_OWNED = { rect38: 5, round8: 5, round16: 5, round32: 5, round48: 0, rectXL: 0, jar: 12 };
 
 export function normalizeContainerConfig(raw) {
   const owned = {};
@@ -201,7 +227,7 @@ export function containerTypesFor(it) {
 // there). tests/containers.mjs cross-checks this against buildLabelSheet on
 // the same order, so the two implementations cannot drift apart silently.
 export function orderContainerBreakdown(order) {
-  const out = { rect38: 0, round8: 0, round16: 0, round32: 0, jar: 0, bag: 0 };
+  const out = emptyBreakdown();
   for (const it of ((order && order.items) || [])) {
     if (!it || !it.name || it.omakase) continue; // omakase items are priced, not packed, until they become real lines
     const qty = Number(it.qty) || 1;
@@ -222,7 +248,7 @@ export function orderContainerBreakdown(order) {
 }
 
 export function sumBreakdowns(orders) {
-  const total = { rect38: 0, round8: 0, round16: 0, round32: 0, jar: 0, bag: 0 };
+  const total = emptyBreakdown();
   for (const o of orders || []) {
     const b = orderContainerBreakdown(o);
     for (const k of Object.keys(total)) total[k] += b[k];

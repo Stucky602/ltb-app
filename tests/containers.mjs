@@ -19,7 +19,7 @@ import {
   CONTAINER_TYPES, CONTAINER_TYPE_ORDER, DEFAULT_OWNED, MEAL_CONTAINER_EPOCH,
   normalizeContainerConfig, containerTypesFor, orderContainerBreakdown,
   sumBreakdowns, mealContainersOut, containerReport, packagingCost,
-  DISH_CONTAINERS, DEFAULT_DINNER_TYPE,
+  DISH_CONTAINERS, DEFAULT_DINNER_TYPE, emptyBreakdown,
 } from '../src/containers.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { DISHES, ALWAYS_ITEMS } from '../src/dishes.js';
@@ -199,5 +199,54 @@ ok(typeof pc.bags === 'number', 'bags are COUNTED (uncosted) so the number exist
   ok(rep.rows.find(r => r.type === 'jar').riskCeiling === rep.rows.find(r => r.type === 'jar').need,
     'jars carry NO audit risk, because the ledger tracks them exactly');
 }
+
+
+const SAMPLE_ORDERS = [
+  { id: 'c1', customer: 'Dave', createdAt: new Date(MEAL_CONTAINER_EPOCH + 86400000).toISOString(),
+    status: 'Delivered', archived: true,
+    items: [{ name: 'Bo Ssam', variant: 'Small (~4)', qty: 1 }, { name: 'Queso', qty: 1 }] },
+]; 
+
+
+// ── EVERY TALLY MUST COVER EVERY REGISTERED TYPE ────────────────────────────
+// Added Jul 26 after two hand-written accumulator literals went stale the
+// moment `round48` and `rectXL` were registered. The units for the new types
+// came back `undefined`, `undefined * cost` produced NaN, and the packaging
+// total silently became NaN without anything throwing. Nothing else in the
+// suite noticed, because every other assertion was about the OLD five.
+//
+// So: assert structurally rather than by count. These pass regardless of how
+// many types exist, which is the property the old `=== 5` lacked.
+{
+  const b = emptyBreakdown();
+  for (const t of CONTAINER_TYPE_ORDER) {
+    ok(b[t] === 0, `emptyBreakdown seeds ${t}`);
+  }
+  ok(b.bag === 0, 'emptyBreakdown seeds bag');
+
+  const summed = sumBreakdowns(SAMPLE_ORDERS);
+  for (const t of CONTAINER_TYPE_ORDER) {
+    ok(Number.isFinite(summed[t]), `sumBreakdowns returns a real number for ${t}`);
+  }
+
+  const pc = packagingCost(SAMPLE_ORDERS);
+  ok(Number.isFinite(pc.total), 'packaging total is finite across every registered type');
+  for (const t of CONTAINER_TYPE_ORDER) {
+    ok(pc.perType[t] && Number.isFinite(pc.perType[t].cost),
+      `packaging cost is finite for ${t}`);
+  }
+
+  // Every registered type must carry a label and a real cost, or the shortage
+  // banner renders "undefined" at Kevin on a Sunday.
+  for (const t of CONTAINER_TYPE_ORDER) {
+    ok(CONTAINER_TYPES[t] && typeof CONTAINER_TYPES[t].label === 'string' && CONTAINER_TYPES[t].label.length > 0,
+      `${t} has a label`);
+    ok(CONTAINER_TYPES[t] && Number.isFinite(CONTAINER_TYPES[t].cost) && CONTAINER_TYPES[t].cost > 0,
+      `${t} has a real cost`);
+    ok(Object.prototype.hasOwnProperty.call(DEFAULT_OWNED, t),
+      `${t} has a default owned count (0 is fine, missing is not)`);
+  }
+}
+
 
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

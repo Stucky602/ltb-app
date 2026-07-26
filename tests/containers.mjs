@@ -53,8 +53,14 @@ ok(normalizeContainerConfig({ mealAdjust: 2.9 }).mealAdjust === 2,
 ok(DEFAULT_DINNER_TYPE === 'round32', 'the 38 oz rectangle is NOT the dinner default; it is for awkward components');
 // The two compositions Kevin described, expanded per unit.
 const tea = 'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce';
-ok(DISH_CONTAINERS[tea] && containerTypesFor({ name: tea }).join() === 'rect38,round16,round8',
-  'the tea-smoked chicken occupies a rectangle (chicken), a 16 oz (polenta), and an 8 oz (white sauce)');
+// SUPERSEDED BY THE JUL 26 AUDIT. This asserted rect38 + round16 + round8,
+// which was the INFERRED mapping. Kevin's dish-by-dish audit says the polenta
+// goes in a BAG, not a 16 oz round: "r8 = alabama white, rect38 = chicken,
+// bag = polenta or grits". The audit is the authority; this assertion was
+// pinning a guess.
+const t = containerTypesFor({ name: tea, variant: 'Small (~4)' });
+ok(t.includes('rect38') && t.includes('round8') && t.includes('bag'),
+  'the tea-smoked chicken occupies a rectangle (chicken), an 8 oz (white sauce), and a bag (polenta)');
 ok(containerTypesFor({ name: DINNER }).length === 1, 'a dish with no composition entry is a single container');
 
 // ── THE LABELS CROSS-CHECK ──────────────────────────────────────────────────
@@ -73,26 +79,46 @@ const crossOrder = {
 };
 const sheet = buildLabelSheet([crossOrder]);
 const bd = orderContainerBreakdown(crossOrder);
-const bdTotal = bd.rect38 + bd.round8 + bd.round16 + bd.round32 + bd.jar + bd.bag;
+// Summed from the REGISTRY. This was a hand-written list of six types and
+// silently dropped round48 and rectXL the moment they were registered, which
+// made the invariant compare a partial total against a full one. Third time
+// this exact class of staleness has bitten in containers.js and its tests: if
+// you are typing out container type names by hand, you are writing tomorrow's
+// bug.
+const bdTotal = [...CONTAINER_TYPE_ORDER, 'bag'].reduce((n, t) => n + (bd[t] || 0), 0);
 // labels.js counts PACKAGES (one per line, per its packaging rule). This
 // module counts CONTAINERS, and a multi-component dinner is several
 // containers inside one package-line. So the totals are equal EXCEPT for the
 // extra containers contributed by DISH_CONTAINERS compositions — and that
 // difference must be exactly accountable, or the two have silently drifted.
+// Reads the mapping as COUNTS. This was `comp.length - 1`, which worked while
+// the mapping was an array of type names and silently returns undefined now
+// that it is an object of quantities — turning the whole sum into NaN, which
+// then compares false against everything without ever looking wrong.
 let expectedExtra = 0;
 for (const it of crossOrder.items) {
   const comp = DISH_CONTAINERS[it.name];
-  if (comp) expectedExtra += (comp.length - 1) * (Number(it.qty) || 1);
+  if (!comp) continue;
+  const units = containerTypesFor(it).length;
+  expectedExtra += (units - 1) * (Number(it.qty) || 1);
 }
 ok(bdTotal === sheet.containerTotal + expectedExtra,
   `breakdown (${bdTotal}) = labels containerTotal (${sheet.containerTotal}) + composition extras (${expectedExtra}) — the unit math cannot drift from the labels canon`);
-ok(bd.round32 >= 2, 'the two plain dinners produced two 32 oz rounds');
+// SUPERSEDED BY THE JUL 26 AUDIT. This asserted that two dinners with no
+// composition entry fell through to the round32 default. Both now HAVE audited
+// mappings, so nothing falls through — which is the point of the audit. The
+// invariant worth keeping is that they produced tracked containers at all.
+ok([...CONTAINER_TYPE_ORDER].reduce((n, t) => n + (bd[t] || 0), 0) >= 2,
+  'the dinners in the fixture produced tracked containers from their audited mappings');
 ok(bd.jar === 1, 'the jar item produced one jar');
 
 // A multi-component dinner expands into its real containers, per unit.
 const multi = orderContainerBreakdown({ items: [{ name: tea, variant: 'Small (~4 servings)', qty: 2 }] });
-ok(multi.rect38 === 2 && multi.round16 === 2 && multi.round8 === 2,
-  'two tea-smoked chickens occupy two of each of its three container types');
+// SUPERSEDED BY THE JUL 26 AUDIT, same correction as above: the polenta is a
+// BAG, not a 16 oz round. Quantities still multiply by order qty, which is the
+// property this was really testing.
+ok(multi.rect38 === 2 && multi.round8 === 2 && multi.bag === 2,
+  'two tea-smoked chickens occupy two of each of its audited components');
 
 // Omakase lines are priced, not packed, until they become real items.
 ok(orderContainerBreakdown({ items: [{ name: 'Omakase', omakase: true, qty: 1 }] }).rect38 === 0,
@@ -141,10 +167,15 @@ const week = [
   mk({ id: 'w3' }),
 ];
 const report = containerReport(week, [], null);
-const roundRow = report.rows.find(r => r.type === 'round32');
-ok(roundRow.need === 6 && roundRow.have === 5 && roundRow.short === 1,
-  'the Sunday check: 6 of the 32 oz rounds needed, 5 owned, shortage of 1 — surfaced Sunday, not Wednesday morning');
-ok(report.shortages.length === 1 && report.shortages[0].type === 'round32',
+// FOLLOWS THE JUL 26 AUDIT. The fixture dinner is a braise, so it resolves to a
+// round48 rather than the old round32 default. round48 defaults to ZERO owned
+// on purpose (Kevin has not stated a real count), so this now demonstrates the
+// exact situation he needs to see: a real shortage, surfaced on Sunday rather
+// than on Wednesday morning with the food already cooked.
+const roundRow = report.rows.find(r => r.type === 'round48');
+ok(roundRow.need === 6 && roundRow.have === 0 && roundRow.short === 6,
+  'the Sunday check: 6 of the 48 oz needed, 0 owned, shortage of 6 — surfaced Sunday, not Wednesday morning');
+ok(report.shortages.length === 1 && report.shortages[0].type === 'round48',
   'only the genuinely short type is flagged');
 ok(report.rows.find(r => r.type === 'jar').have === 12, 'jar availability starts from the 12 owned');
 
@@ -164,11 +195,15 @@ const costWeek = [
     items: [{ name: DINNER, variant: DINNER_VARIANT, qty: 2 }, { name: jarItem.name, qty: 1 }] },
 ];
 const pc = packagingCost(costWeek);
-ok(pc.perType.round32.units === 2 && pc.perType.round32.cost === 1.16,
-  'two 32 oz rounds cost $1.16 at $0.58 each');
+// Follows the audit: the fixture dinner is a braise and lands in a round48.
+ok(pc.perType.round48.units === 2 && pc.perType.round48.cost === 2.76,
+  'two 48 oz cost $2.76 at $1.38 each');
 ok(pc.perType.jar.units === 1 && pc.perType.jar.cost === 1.12, 'one jar costs $1.12');
-ok(pc.total === Math.round((1.16 + 1.12 + pc.perType.round8.cost + pc.perType.round16.cost + pc.perType.rect38.cost) * 100) / 100,
-  'the total is the sum of the per-type costs, rounded to cents');
+// Summed from the REGISTRY rather than a hand-listed subset. The old form
+// hardcoded two literals and three type names, so it drifted the instant the
+// fleet changed AND could not have caught a type being dropped from the total.
+ok(pc.total === Math.round(CONTAINER_TYPE_ORDER.reduce((n, t) => n + pc.perType[t].cost, 0) * 100) / 100,
+  'the total is the sum of every registered type, rounded to cents');
 ok(typeof pc.bags === 'number', 'bags are COUNTED (uncosted) so the number exists the day Kevin prices them');
 
 // ── THE AUDIT: what the model does NOT know ─────────────────────────────────
@@ -179,21 +214,41 @@ ok(typeof pc.bags === 'number', 'bags are COUNTED (uncosted) so the number exist
 {
   const { containerAuditStatus } = await import('../src/containers.js');
   const audit = containerAuditStatus();
-  ok(audit.confirmed.length >= 1, 'at least the dishes Kevin described are confirmed');
-  ok(audit.unconfirmed.length > 0, 'and the rest are honestly reported as unconfirmed');
-  ok(audit.complete === false, 'the audit knows it is not finished');
-  ok(audit.maxUndercount > 0, 'it quantifies how far off the Sunday check could be');
+  // THE GAP IS CLOSED. This used to assert that most dishes were UNCONFIRMED,
+  // which was correct and was the whole point of the function: make the
+  // undercount announce itself rather than let the Sunday check quietly say
+  // "you're fine" when it had guessed. Kevin audited all 27 dinners on Jul 26,
+  // so the honest assertion is now the opposite one.
+  ok(audit.confirmed.length >= 27, `every dinner is confirmed (${audit.confirmed.length})`);
+  ok(audit.unconfirmed.length === 0,
+    `nothing is left unconfirmed after the Jul 26 audit (${audit.unconfirmed.map(u => u.dish).join(', ')})`);
+  ok(audit.complete === true, 'the audit reports itself complete, so demand is a figure and not a floor');
+  ok(audit.maxUndercount === 0, 'there is no remaining undercount to warn about');
+  // The three assertions that used to sit here pinned the UNFINISHED state and
+  // are gone with it. The mechanism is kept, not deleted: if a new dish is
+  // added without a composition, unconfirmed goes non-empty again and the
+  // shortage check goes back to announcing its own uncertainty.
   ok(audit.unconfirmed.every(u => u.components.length > 1),
-    'only genuinely multi-component candidates are listed, so the list is worth reading');
+    'if anything ever goes unconfirmed again, only genuinely multi-component candidates are listed');
 
   // NOT auto-populated on purpose: "Orecchiette with Bitter Greens and
   // Anchovies" splits into three by name and is one bowl in reality. Nothing
   // in the data distinguishes it from a genuine three-container plate.
-  ok(!DISH_CONTAINERS['Orecchiette with Bitter Greens and Anchovies'],
-    'no inferred mapping is written — a guess that looks authoritative is worse than an obvious gap');
+  // This dish was the standing example of why nothing was auto-populated: it
+  // splits into three by NAME and is one bowl in reality, and nothing in the
+  // data distinguishes it from a genuine three-container plate. It now has a
+  // mapping because Kevin CONFIRMED it, and his answer was exactly the one a
+  // name-based guess would have got wrong: a single round16.
+  const orec = DISH_CONTAINERS['Orecchiette with Bitter Greens and Anchovies'];
+  ok(orec && Object.keys(orec).length === 1 && orec.round16 === 1,
+    'the audited answer for the one-bowl dish is one container, which name-splitting would have got wrong');
 
   const rep = containerReport(week, [], null);
-  ok(rep.demandIsFloor === true, 'while unconfirmed dishes remain, demand is reported as a FLOOR, not a figure');
+  // The whole reason demandIsFloor existed: while compositions were guessed,
+  // the shortage check had to say its demand was a lower bound. After the Jul 26
+  // audit it is a figure, so the honest assertion flipped. Keep the mechanism —
+  // adding an unmapped dish must turn it back on.
+  ok(rep.demandIsFloor === false, 'after the audit, demand is a FIGURE and no longer a floor');
   ok(Array.isArray(rep.atRisk), 'the report names types that are fine on paper but could be short after the audit');
   ok(rep.rows.every(r => r.riskCeiling >= r.need), 'the risk ceiling is never below the known demand');
   ok(rep.rows.find(r => r.type === 'jar').riskCeiling === rep.rows.find(r => r.type === 'jar').need,

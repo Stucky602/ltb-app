@@ -138,12 +138,103 @@ export function normalizeContainerConfig(raw) {
 // So the honest move is to make the gap VISIBLE and let the check say what it
 // does not know. containerAuditStatus() below is what the Record tab and the
 // Sunday warning read.
+// ── THE MAPPING ─────────────────────────────────────────────────────────────
+// All 27 dinners, audited with Kevin dish by dish on Jul 26 2026. Nothing here
+// is inferred. This replaces the two-dish seed and the category guessing that
+// stood in for it, and it corrects the model's founding assumption: round32 was
+// treated as the dinner workhorse and it is not. round48 is the braise
+// workhorse, and round16 is the single most-used container on the menu because
+// it is the rice container.
+//
+// VALUES ARE COUNTS, not a list of type names. The array form could not express
+// 3 bags for Steak au Poivre or 2 for the Bourguignon, which is why it changed.
+//
+// EVERY MAPPING IS FOR A SMALL PORTION. Scaling lives in containersForItem():
+// Large is 2x, and on a dish with three sizes Medium is 2x and Large is 3x.
+//
+// `bag` IS PRESENT BUT NOT TRACKED. Sous vide bags are covered by the existing
+// $2 bag charge, are not reusable, and there is nothing to keep count of. They
+// stay in the mapping because they describe the dish honestly; they are
+// excluded from owned counts, the Sunday shortage check, and the custody pool.
+//
+// Ambiguities are FLAGGED, not resolved — see CONTAINER_AMBIGUITIES below.
 export const DISH_CONTAINERS = {
-  // Kevin, verbatim: the rectangles are for "the charred broccolini that is
-  // not in a bag, or the chicken component of the tea smoked chicken."
-  'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce': ['rect38', 'round16', 'round8'],
-  'Pork Chop with Kabocha Purée and Charred Broccolini': ['rect38', 'round16'],
+  // Braises and stews: round48 is the container this menu actually runs on.
+  'Boeuf Bourguignon (Beef Stew)':                       { round48: 1, bag: 2 },
+  'Chili':                                               { round48: 1 },
+  'Brunswick Stew':                                      { round48: 1 },
+
+  // Rice dishes. The round16 here is TWO CUPS OF RICE, and that is a container
+  // holding an ingredient, not an ingredient itself — the rice belongs in the
+  // recipe, the round16 belongs here. Do not promote "2 cups rice" into a
+  // packaging line; that conflates two different objects that happen to get
+  // described in the same sentence.
+  'Leblanc Inspired Japanese Curry':                     { round16: 1, round48: 1 },
+  'Gumbo':                                               { round16: 1, round48: 1 },
+  'Indian Style Curry':                                  { round16: 1, round48: 1 },
+  'Mapo Eggplant':                                       { round16: 1, round48: 1 },
+  'Thai Basil Chicken (Pad Krapow Gai)':                 { round16: 1, bag: 1 },
+  'Texas Gulf Shrimp or Tofu and Chinese Broccoli':      { round16: 1, bag: 1 },
+  'Shrimp or Tofu with Asparagus in Black Bean Sauce':   { round16: 1, bag: 1 },
+  'Stir Fried Long Beans with Ground Pork or Tofu':      { round16: 1, bag: 1 },
+  'Pecan Mole-Fesenjan, Beef and Kabocha':               { round16: 1, round48: 1, bag: 1 },
+  // AMBIGUITY 6a: the round16 applies ONLY to the rice variants. The noodle
+  // variant is bag-only. Recorded as the rice build because that is the one
+  // that consumes a tracked container; see CONTAINER_AMBIGUITIES.
+  'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice': { round16: 1, bag: 1 },
+  'Bo Ssam':                                             { round8: 1, round16: 1, bag: 1 },
+
+  // Pasta sauces and lighter braises.
+  'Bolognese':                                           { round32: 1 },
+  'Mushroom Ragu':                                       { round32: 1 },
+  'Pasta with Homegrown Tomato Sauce':                   { round32: 1 },
+  'Saffron Pork Ragu':                                   { round32: 1 },
+  'Orecchiette with Bitter Greens and Anchovies':        { round16: 1 },
+
+  // Composed plates. The rectangles hold awkward solids that are not bagged,
+  // and two of the three are charred broccolini.
+  'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce': { round8: 1, rect38: 1, bag: 1 },
+  'Bone-In Pork Rib Chop with All the Fixings':          { round16: 1, rect38: 1, bag: 2 },
+  // AMBIGUITY 6b: Kevin confirmed bag x1, but his own note says "chop and purée
+  // in the bags", plural. Left at 1 pending his answer rather than rounded up.
+  'Pork Chop with Kabocha Purée and Charred Broccolini': { rect38: 1, bag: 1 },
+  'Steak au Poivre':                                     { round16: 1, bag: 3 },
+  'Pork with Mustard Tarragon Cream Sauce':              { round16: 1, bag: 1 },
+
+  // Zero tracked containers. Worth stating explicitly, because an empty mapping
+  // and a missing mapping used to look identical and the second one silently
+  // fell through to a default.
+  'Pappardelle with Vegetables and Mint':                { bag: 1 },
+  'Coriander Lamb Steak over Gigantes Beans':            { bag: 2 },
+
+  'Tex-Mex Kit':                                         { round16: 1, round32: 1, round48: 1 },
+
+  // Always-items, settled separately by Kevin.
+  'Chocolate Chip Cookies':                              { rectXL: 1 },
+  'Brownies':                                            { round48: 1 },
+  'Peanut Butter Fudge':                                 { rect38: 1 },
 };
+
+// Recorded so they are not rediscovered as new findings later. Each is a real
+// open question, and each is deliberately UNRESOLVED in the mapping above.
+export const CONTAINER_AMBIGUITIES = [
+  { id: '6a', dish: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    note: 'The round16 is the rice container and applies ONLY to the rice variants. The noodle variant should be bag-only. Branch on the variant if it is knowable at breakdown time.' },
+  { id: '6b', dish: 'Pork Chop with Kabocha Purée and Charred Broccolini',
+    note: 'Kevin confirmed one bag, but his note says "chop and purée in the bags", plural. Probably 2. Ask before changing.' },
+  { id: '6c', dish: 'Bo Ssam',
+    note: 'The ssam sauce would likely need its own round8, but that component does not exist in the app yet. Do NOT add it.' },
+  { id: '6d', dish: 'Chili',
+    note: 'Rice with chili is not part of the standard build. Kevin would give 2 cups in a round16 and "likely do it for free". Not modelled on purpose.' },
+  { id: '6e', dish: 'Mapo Eggplant',
+    note: 'A round32 could substitute for the round16 if needed. That is flexibility, not a second mapping. round16 stays canonical.' },
+];
+
+// The one type that never counts against the fleet. Kept separate from
+// CONTAINER_TYPES so every consumer asks the same question the same way.
+export const UNTRACKED_TYPES = new Set(['bag']);
+export const isTrackedType = (t) => !UNTRACKED_TYPES.has(t);
+
 
 // Category defaults for everything without an explicit composition above.
 export const CATEGORY_TYPE_DEFAULTS = {
@@ -177,7 +268,18 @@ export function containerAuditStatus(dishList) {
   const unconfirmed = [];
   for (const name of dishes) {
     const parts = nameComponents(name);
-    if (DISH_CONTAINERS[name]) { confirmed.push({ dish: name, containers: DISH_CONTAINERS[name].length }); continue; }
+    // Counts the TRACKED units, not the number of distinct types, and not the
+    // bags. `.length` used to work because the mapping was an array; it is now
+    // an object of counts, and a stale `.length` here returns undefined and
+    // poisons every sum downstream with NaN.
+    if (DISH_CONTAINERS[name]) {
+      const mix = DISH_CONTAINERS[name];
+      const units = Object.entries(mix)
+        .filter(([t]) => isTrackedType(t))
+        .reduce((n, [, q]) => n + (Number(q) || 0), 0);
+      confirmed.push({ dish: name, containers: units });
+      continue;
+    }
     if (parts.length > 1) unconfirmed.push({ dish: name, components: parts, assumed: 1 });
   }
   return {
@@ -207,11 +309,40 @@ function isJarItem(it) {
 
 // The container types ONE unit of this item occupies. Always an array:
 // a multi-component dinner genuinely occupies several.
+// Small is the authored baseline. A three-size dish reads Medium as 2x and
+// Large as 3x; a two-size dish reads Large as 2x. Anything unrecognised stays
+// at 1, because inventing a multiplier is how a shortage check starts lying.
+export function portionMultiplier(it) {
+  const v = String((it && it.variant) || '').toLowerCase();
+  if (!v) return 1;
+  if (/\bmedium\b|\bmed\b|\(~6\)/.test(v)) return 2;
+  if (/\blarge\b|\bl\b|\(~8\)|\(~12\)/.test(v)) {
+    // On a dish that offers Medium, Large is the third step and triples.
+    return /\(~12\)/.test(v) ? 3 : 2;
+  }
+  return 1;
+}
+
 export function containerTypesFor(it) {
   if (!it || !it.name) return [];
   if (isJarItem(it)) return ['jar'];
   if (it.perLb || isPerLbItem(it.name)) return ['bag'];
-  if (DISH_CONTAINERS[it.name]) return DISH_CONTAINERS[it.name].slice();
+  // The mapping now carries COUNTS. Expanded into a repeated array here so
+  // every existing caller keeps its contract (they count occurrences), while
+  // the source of truth gains the quantities the array form could never hold.
+  //
+  // SCALING. Every mapping is authored for a SMALL portion. Large doubles it,
+  // and on a three-size dish Medium doubles and Large triples. Applied here
+  // rather than in the mapping so the table stays readable and there is exactly
+  // one place the rule lives.
+  if (DISH_CONTAINERS[it.name]) {
+    const mult = portionMultiplier(it);
+    const out = [];
+    for (const [type, n] of Object.entries(DISH_CONTAINERS[it.name])) {
+      for (let k = 0; k < (Number(n) || 0) * mult; k++) out.push(type);
+    }
+    return out;
+  }
   if (CATEGORY_TYPE_OVERRIDES[it.name]) return [CATEGORY_TYPE_OVERRIDES[it.name]];
   const cat = CATEGORY_OF[it.name] || null;
   if (cat && CATEGORY_TYPE_OVERRIDES[cat]) return [CATEGORY_TYPE_OVERRIDES[cat]];
@@ -273,7 +404,15 @@ export function mealContainersOut(orders, config) {
   let outbound = 0;
   for (const o of delivered) {
     const b = orderContainerBreakdown(o);
-    outbound += b.rect38 + b.round8 + b.round16 + b.round32; // pool: non-jar, non-bag
+    // Summed from the REGISTRY, minus jars (their own ledger) and bags
+    // (untracked, not reusable, covered by the $2 charge). This was a
+    // hand-written list of four types, so the moment round48 was registered
+    // every braise container out in the field became INVISIBLE to the custody
+    // pool — and a braise is the most common thing on this menu. Nothing threw;
+    // the number was just quietly low.
+    outbound += CONTAINER_TYPE_ORDER
+      .filter(t => t !== 'jar' && isTrackedType(t))
+      .reduce((n, t) => n + (b[t] || 0), 0);
   }
 
   // Spillover: per customer group, credits beyond what the jar math could

@@ -27,7 +27,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, REGULARS_KEY, INVENTORY_KEY, PIPELINE_JOURNAL_KEY,
   JOURNAL_KEY, COPIES_NOTE_KEY, WEEK_LEDGER_KEY, CONTAINER_INVENTORY_KEY,
   INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY, HANDLED_PENDING_KEY,
-  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY,
+  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -131,6 +131,7 @@ export function buildBackupPayload(state) {
     // Written by hand over years and held nowhere else. Losing it is the one
     // loss in this app that could not be reconstructed from anything.
     rowanLog: state.rowanLog,
+    dishRankings: state.dishRankings,
     handledPending: state.handledPending,
   };
 }
@@ -194,7 +195,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -283,6 +284,10 @@ export async function applyBackupPayload(payload, deps) {
   // losing it on restore defeated the feature rather than degrading it.
   // Guarded on presence like the others, so restoring a backup taken before the
   // history existed cannot blank a good local one.
+  if (Array.isArray(payload.dishRankings)) {
+    setDishRankings(payload.dishRankings);
+    await saveJSON(DISH_RANKING_KEY, payload.dishRankings);
+  }
   if (Array.isArray(payload.rowanLog)) {
     setRowanLog(payload.rowanLog);
     await saveJSON(ROWAN_LOG_KEY, payload.rowanLog);

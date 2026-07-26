@@ -66,6 +66,9 @@ export const EQUIPMENT_KEY = 'ltb_equipment_v1';
 // see realDataEpoch.js.
 // The son's food log. Menu dishes only, by design — see rowan.js.
 export const ROWAN_LOG_KEY = 'ltb_rowan_log_v1';
+// Kevin's own ranking of the menu, kept as a dated SERIES rather than a single
+// list, because the whole reason he wanted it recorded is that it drifts.
+export const DISH_RANKING_KEY = 'ltb_dish_rankings_v1';
 export const REAL_DATA_EPOCH_KEY = 'ltb_real_data_epoch_v1';
 // The five below were declared inline in App.jsx rather than here, which meant
 // storage keys lived in two places and only one of them was findable. Moved

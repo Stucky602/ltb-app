@@ -20,7 +20,7 @@ import {
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
-  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -101,6 +101,9 @@ import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js'
 import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
 import { RowanLogCard } from './components/RowanLogCard.jsx';
 import { RowanTab } from './components/RowanTab.jsx';
+import { SEED_RANKING, addRanking, latest as latestRanking, drift as rankingDrift, tasteVsSales, tasteVsSon, staleness as rankingStaleness } from './dishRanking.js';
+import { dishOrderSignal } from './favorites.js';
+import { topDishes as sonTopDishes } from './rowan.js';
 // Menu dishes only, deliberately: he eats yoghurt and berries too and that is
 // not what the record is for. See the header comment in rowan.js.
 const ALL_MENU_DISH_NAMES = [
@@ -216,6 +219,16 @@ export default function LTBOrderTracker() {
   // Banner dismissals. Deliberately NOT persisted: these are warnings, and the
   // keys already scope them tightly (per-day for the deadline, per-shortage for
   // containers), so a reload restoring them is the right amount of insistence.
+  // Kevin's own ranking, a dated series. Seeded with the Jul 26 head-to-head so
+  // the record starts with real data instead of an empty state.
+  const [dishRankings, setDishRankings] = useState([SEED_RANKING]);
+  const saveRanking = useCallback((ranking) => {
+    setDishRankings(prev => {
+      const next = addRanking(prev || [], ranking);
+      saveJSON(DISH_RANKING_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
   const [dismissedBanners, setDismissedBanners] = useState({});
   const dismissBanner = useCallback((k) => {
     if (k) setDismissedBanners(prev => ({ ...prev, [k]: true }));
@@ -384,7 +397,7 @@ export default function LTBOrderTracker() {
       setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
       setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
       setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-      setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog,
+      setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings,
       handledPendingRef, pollWorkerPending,
     });
     return () => { mounted = false; };
@@ -626,9 +639,9 @@ export default function LTBOrderTracker() {
     orders, shopping, weekDishes, regulars, inventory, ingredientsDb,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
-    archiveHistory, equipment, realDataEpoch, rowanLog,
+    archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -769,7 +782,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 
@@ -1523,6 +1536,11 @@ export default function LTBOrderTracker() {
             archiveHistory={archiveHistory}
             equipment={equipment}
             onSaveEquipment={saveEquipment}
+            ranking={latestRanking(dishRankings)}
+            rankingDrift={rankingDrift(dishRankings)}
+            tasteVsSales={tasteVsSales(latestRanking(dishRankings), dishOrderSignal(orders || []))}
+            tasteVsSon={tasteVsSon(latestRanking(dishRankings), sonTopDishes(rowanLog))}
+            rankingStale={rankingStaleness(latestRanking(dishRankings), ALL_MENU_DISH_NAMES)}
             realDataEpoch={realDataEpoch}
             epochProposal={epochProposal}
             epochSummary={epochSummary(orders, realDataEpoch)}

@@ -50,6 +50,7 @@ export function RecordTab({
   weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit, archiveHistory, onArchiveDownloaded,
   equipment, onSaveEquipment,
   realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
+  ranking, rankingDrift, tasteVsSales, tasteVsSon, rankingStale,
 }) {
   const [msg, setMsg] = useState(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
@@ -416,6 +417,81 @@ export function RecordTab({
                 Reversible, and it hides nothing — orders before the line stay exactly where they are,
                 they just stop being counted in statistics.
               </div>
+            </>
+          )}
+        </div>
+      )}
+
+
+      {ranking && (
+        <div style={S.card}>
+          <div style={S.h}>Your own ranking</div>
+          <div style={S.faint}>
+            Taken {new Date(ranking.rankedAt).toLocaleDateString()} by head-to-head over all
+            {' '}{ranking.order.length} dinners. One question, asked ~90 times: which would you rather
+            eat tonight. Kept as a series, because the whole reason to record it is that it drifts.
+            {rankingStale && rankingStale.added.length > 0 && (
+              <> <b style={{ color: C.warn }}>{rankingStale.added.length} dish{rankingStale.added.length === 1 ? '' : 'es'} joined the menu since</b>, so this is due a re-run.</>
+            )}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {ranking.order.slice(0, 10).map((d, i) => (
+              <div key={d} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: 13.5 }}>
+                <span style={{ color: C.faint, minWidth: 18 }}>{i + 1}</span>
+                <span style={{ color: C.text }}>{d}</span>
+              </div>
+            ))}
+          </div>
+
+          {rankingDrift && rankingDrift.movers.length > 0 && (
+            <>
+              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>What moved since last time</div>
+              {rankingDrift.movers.slice(0, 6).map(m => (
+                <div key={m.dish} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                  <span style={{ color: m.delta > 0 ? C.good : C.bad, minWidth: 34 }}>
+                    {m.delta > 0 ? '\u2191' : '\u2193'}{Math.abs(m.delta)}
+                  </span>
+                  <span style={{ color: C.text, flex: 1 }}>{m.dish}</span>
+                  <span style={{ color: C.faint }}>{m.from} \u2192 {m.to}</span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* The disagreements, both directions. Neither is a failure: a dish he
+              loves that nobody orders is a fact about a friends-only menu that
+              exists to please him too. */}
+          {tasteVsSales && tasteVsSales.some(r => r.gap != null && Math.abs(r.gap) >= 6) && (
+            <>
+              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>Where you and your customers disagree</div>
+              {tasteVsSales
+                .filter(r => r.gap != null && Math.abs(r.gap) >= 6)
+                .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
+                .slice(0, 6)
+                .map(r => (
+                  <div key={r.dish} style={{ padding: '5px 0', fontSize: 12.5 }}>
+                    <span style={{ color: C.text }}>{r.dish}</span>
+                    <span style={{ color: C.faint }}>
+                      {' \u00b7 '}you {r.tasteRank}, they order it {r.salesRank}
+                      {r.gap > 0 ? ' \u00b7 sells better than you rate it' : ' \u00b7 you rate it higher than it sells'}
+                    </span>
+                  </div>
+                ))}
+            </>
+          )}
+
+          {tasteVsSon && tasteVsSon.length > 0 && (
+            <>
+              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>You and Rowan</div>
+              {tasteVsSon.slice(0, 8).map(r => (
+                <div key={r.dish} style={{ padding: '5px 0', fontSize: 12.5 }}>
+                  <span style={{ color: C.text }}>{r.dish}</span>
+                  <span style={{ color: r.agree ? C.good : C.faint }}>
+                    {' \u00b7 '}you {r.tasteRank}, him {r.sonRank}
+                    {r.agree ? ' \u00b7 agreed' : ''}
+                  </span>
+                </div>
+              ))}
             </>
           )}
         </div>

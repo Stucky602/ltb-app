@@ -20,7 +20,7 @@ import {
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
-  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -98,6 +98,14 @@ import * as ing from './ingredientOps.js';
 import * as pub from './publishWeek.js';
 import * as poll from './pendingPoll.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
+import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
+import { RowanLogCard } from './components/RowanLogCard.jsx';
+import { RowanTab } from './components/RowanTab.jsx';
+// Menu dishes only, deliberately: he eats yoghurt and berries too and that is
+// not what the record is for. See the header comment in rowan.js.
+const ALL_MENU_DISH_NAMES = [
+  ...Object.values(FULL_MENU).flat().map(d => (typeof d === 'string' ? d : d && d.name)),
+].filter(Boolean).filter((n, i, a) => a.indexOf(n) === i).sort();
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -127,7 +135,10 @@ export default function LTBOrderTracker() {
       if (!d || d.type !== 'sw-updated' || !d.version) return;
       // Silent on first install: there is nothing to reload INTO yet.
       loadJSON(SW_VERSION_KEY, null).then(seen => {
-        saveJSON(SW_VERSION_KEY, d.version);
+        // The other deliberate survivor: per-device service-worker bookkeeping, not
+    // Kevin's data. Nothing is lost if it fails, and the update prompt is
+    // self-correcting on the next boot.
+    saveJSON(SW_VERSION_KEY, d.version);
         if (seen && seen !== d.version) setSwUpdate(d.version);
       });
     };
@@ -198,15 +209,33 @@ export default function LTBOrderTracker() {
   // backup and survives on any device, instead of being recomputed from a date
   // that could later move.
   const [realDataEpoch, setRealDataEpoch] = useState(null);
+  // The son's food log. Append-only: a rating is never edited or replaced,
+  // because the series IS the record and overwriting it would erase the only
+  // thing this store exists to show.
+  const [rowanLog, setRowanLog] = useState([]);
+  // Banner dismissals. Deliberately NOT persisted: these are warnings, and the
+  // keys already scope them tightly (per-day for the deadline, per-shortage for
+  // containers), so a reload restoring them is the right amount of insistence.
+  const [dismissedBanners, setDismissedBanners] = useState({});
+  const dismissBanner = useCallback((k) => {
+    if (k) setDismissedBanners(prev => ({ ...prev, [k]: true }));
+  }, []);
+  const logRowan = useCallback((input) => {
+    setRowanLog(prev => {
+      const next = addRowanEntry(prev || [], makeRowanEntry(input));
+      saveJSON(ROWAN_LOG_KEY, next).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
   const epochProposal = useMemo(() => proposeEpoch(orders || []), [orders]);
   const confirmEpoch = useCallback((iso) => {
     const v = iso ? new Date(iso).toISOString() : null;
     setRealDataEpoch(v);
-    saveJSON(REAL_DATA_EPOCH_KEY, v).then(r => setError(saveError(r)));
+    saveJSON(REAL_DATA_EPOCH_KEY, v).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
     setOrders(prev => {
       const next = stampBackfilled(prev || [], v);
       if (next === prev) return prev;
-      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
+      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -216,21 +245,21 @@ export default function LTBOrderTracker() {
       .filter(e => e.name)
       .slice(0, 60);
     setEquipment(clean);
-    saveJSON(EQUIPMENT_KEY, clean).then(r => setError(saveError(r)));
+    saveJSON(EQUIPMENT_KEY, clean).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
   }, []);
   // Stamped each time an archive is downloaded, so the NEXT one knows where it
   // sits in the series.
   const recordArchive = useCallback((entryCount) => {
     setArchiveHistory(prev => {
       const next = [...prev, { generatedAt: new Date().toISOString(), entryCount }].slice(-40);
-      saveJSON(ARCHIVE_HISTORY_KEY, next);
+      saveJSON(ARCHIVE_HISTORY_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
   const saveCopiesNote = useCallback((text) => {
     const v = String(text || '').slice(0, 600);
     setCopiesNote(v);
-    saveJSON(COPIES_NOTE_KEY, v).then(r => setError(saveError(r)));
+    saveJSON(COPIES_NOTE_KEY, v).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
   }, []);
   // M1: owned container counts + meal-pool adjustment (containers.js).
   const [containerConfig, setContainerConfig] = useState(() => normalizeContainerConfig(null));
@@ -273,7 +302,7 @@ export default function LTBOrderTracker() {
   const [lastSeenWeek, setLastSeenWeek] = useState(null);
   const markWeekSeen = useCallback((stamp) => {
     setLastSeenWeek(stamp);
-    saveJSON(LAST_SEEN_WEEK_KEY, stamp);
+    saveJSON(LAST_SEEN_WEEK_KEY, stamp).then(r => setError(saveError(r)));
   }, []);
   const [showLabels, setShowLabels] = useState(false); // bag-labels print sheet
   const [formMode, setFormMode] = useState(null);
@@ -300,7 +329,7 @@ export default function LTBOrderTracker() {
     if (!entries || !entries.length) return;
     setAuditLog(prev => {
       const next = appendAudit(prev, entries);
-      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res)));
+      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -355,7 +384,7 @@ export default function LTBOrderTracker() {
       setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
       setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
       setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-      setAuditLog, setNotice, setEquipment, setRealDataEpoch,
+      setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog,
       handledPendingRef, pollWorkerPending,
     });
     return () => { mounted = false; };
@@ -371,7 +400,7 @@ export default function LTBOrderTracker() {
   // writer and no domain logic worth moving.
   const persistShopping = useCallback((next) => {
     setShopping(next);
-    saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
+    saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
   }, []);
 
   const saveOrder = useCallback((order) => ops.saveOrder(order, {
@@ -392,7 +421,7 @@ export default function LTBOrderTracker() {
   // `self` lets the two-minute reschedule re-enter through this wrapper rather
   // than the bare module function, which would lose the deps bag on tick two.
   const pollWorkerPending = React.useCallback(async (reschedule = true) => poll.pollWorkerPending(reschedule, {
-    setPendingOrders, handledPendingRef, workerPollRef,
+    setPendingOrders, handledPendingRef, workerPollRef, setError,
     self: (r) => pollWorkerPending(r),
   }), []);
 
@@ -414,7 +443,7 @@ export default function LTBOrderTracker() {
     [recordAudit]);
 
   const dismissPending = useCallback((pendingId) => ops.dismissPending(pendingId, {
-    setPendingOrders, handledPendingRef, setShowPendingIdx,
+    setPendingOrders, handledPendingRef, setShowPendingIdx, setError,
   }), []);
 
   const persistRegulars = useCallback((next) => ops.persistRegulars(next, { setRegulars, setError }), []);
@@ -597,9 +626,9 @@ export default function LTBOrderTracker() {
     orders, shopping, weekDishes, regulars, inventory, ingredientsDb,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
-    archiveHistory, equipment, realDataEpoch,
+    archiveHistory, equipment, realDataEpoch, rowanLog,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -673,6 +702,10 @@ export default function LTBOrderTracker() {
   const markBackupOk = useCallback(() => {
     lastOkAtRef.current = Date.now();
     setBackupFailing(false);
+    // Stays quiet deliberately, and it is one of only two. This records whether
+    // the BACKUP is healthy; raising a storage-failure banner from inside it
+    // would report the backup subsystem's own bookkeeping as a data problem,
+    // and a failure here already shows up as the red backup arrow.
     saveJSON(BACKUP_STATE_KEY, { lastOkAt: lastOkAtRef.current }).catch(() => {});
   }, []);
 
@@ -736,7 +769,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 
@@ -984,14 +1017,14 @@ export default function LTBOrderTracker() {
       const next = { ...prev, [key]: !prev[key] };
       const validKeys = new Set(cookingList.map(it => it.key));
       Object.keys(next).forEach(k => { if (!validKeys.has(k)) delete next[k]; });
-      saveJSON(CHECKS_KEY, next);
+      saveJSON(CHECKS_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, [cookingList]);
 
   const resetChecks = useCallback(() => {
     setCookChecks({});
-    saveJSON(CHECKS_KEY, {});
+    saveJSON(CHECKS_KEY, {}).then(r => setError(saveError(r)));
   }, []);
 
   const toggleDeliverCheck = useCallback((key) => {
@@ -1000,14 +1033,14 @@ export default function LTBOrderTracker() {
       const validKeys = new Set();
       deliverList.forEach(grp => grp.items.forEach(it => validKeys.add(it.key)));
       Object.keys(next).forEach(k => { if (!validKeys.has(k)) delete next[k]; });
-      saveJSON(DELIVER_CHECKS_KEY, next);
+      saveJSON(DELIVER_CHECKS_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, [deliverList]);
 
   const resetDeliverChecks = useCallback(() => {
     setDeliverChecks({});
-    saveJSON(DELIVER_CHECKS_KEY, {});
+    saveJSON(DELIVER_CHECKS_KEY, {}).then(r => setError(saveError(r)));
   }, []);
 
   const pullQuestions = useCallback(async () => {
@@ -1021,7 +1054,7 @@ export default function LTBOrderTracker() {
   const saveContainerConfig = useCallback((next) => {
     setContainerConfig(prev => {
       const cfg = normalizeContainerConfig(typeof next === 'function' ? next(prev) : next);
-      saveJSON(CONTAINER_INVENTORY_KEY, cfg).then(r => setError(saveError(r)));
+      saveJSON(CONTAINER_INVENTORY_KEY, cfg).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
       return cfg;
     });
   }, []);
@@ -1033,7 +1066,7 @@ export default function LTBOrderTracker() {
   const saveJournal = useCallback((next) => {
     setJournal(prev => {
       const j = normalizeJournal(typeof next === 'function' ? next(prev) : next);
-      saveJSON(JOURNAL_KEY, j).then(r => setError(saveError(r)));
+      saveJSON(JOURNAL_KEY, j).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
       return j;
     });
   }, []);
@@ -1043,7 +1076,7 @@ export default function LTBOrderTracker() {
   const savePipelineJournal = useCallback((nextEntries) => {
     setPipelineJournal(prev => {
       const next = { version: 1, entries: typeof nextEntries === 'function' ? nextEntries(prev.entries || {}) : nextEntries };
-      saveJSON(PIPELINE_JOURNAL_KEY, next);
+      saveJSON(PIPELINE_JOURNAL_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -1081,7 +1114,7 @@ export default function LTBOrderTracker() {
       const next = (prev || []).map(o => (o.id === orderId
         ? { ...o, items: (o.items || []).map(it => (it.omakase ? { ...it, priceConfirmed: true } : it)) }
         : o));
-      saveJSON(ORDERS_KEY, next);
+      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -1099,7 +1132,7 @@ export default function LTBOrderTracker() {
   const toggleWeekDish = useCallback((name) => {
     setWeekDishes(prev => {
       const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
-      saveJSON(WEEK_KEY, { selected: next }).then(res => setError(saveError(res)));
+      saveJSON(WEEK_KEY, { selected: next }).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -1107,7 +1140,7 @@ export default function LTBOrderTracker() {
   const generateShopping = useCallback((staples) => {
     setShopping(prev => {
       const next = buildAutoShoppingRows(activeOrders, staples, prev, uid);
-      saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
+      saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
       return next;
     });
   }, [activeOrders]);
@@ -1198,12 +1231,17 @@ export default function LTBOrderTracker() {
       <main style={styles.main}>
         {view === 'orders' && (
           <>
+            {/* Permanently first. Capture that takes three taps to reach gets
+                used twice; this sits where Kevin already is when the app opens. */}
+            <RowanLogCard dishNames={ALL_MENU_DISH_NAMES} onLog={logRowan} />
             <OrderBanners
               weekRollover={weekRollover}
               markWeekSeen={markWeekSeen}
               containerStatus={containerStatus}
               deadlineMs={deadlineMs}
               intake={intake}
+              dismissed={dismissedBanners}
+              onDismiss={dismissBanner}
             />
             <StatsBar stats={stats} />
 
@@ -1542,6 +1580,9 @@ export default function LTBOrderTracker() {
           </>
         )}
 
+        {view === 'rowan' && (
+          <RowanTab log={rowanLog} dishNames={ALL_MENU_DISH_NAMES} />
+        )}
         {view === 'ingredients' && (
           <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} aliases={receiptAliases} onSaveAliases={saveReceiptAliases} />
         )}

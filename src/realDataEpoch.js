@@ -5,11 +5,12 @@
 // When the app was built, Kevin entered past orders from memory. Those records
 // are real in the sense that the meals happened, and useless in the sense that
 // any COUNT over them measures data entry rather than reality. That single fact
-// has killed a whole category of features by itself: the passport's rare-dish
-// badge was removed for it, seasonal firsts never shipped for it, "first ever
-// cooked" is unusable for it, and dossierPrompts.js ignores order history
-// entirely and says so in its header. Each of those was the right call, and
-// each was a feature lost to a filter nobody could lift.
+// has killed a whole category of features by itself: seasonal firsts never
+// shipped for it, "first ever cooked" is unusable for it, and dossierPrompts.js
+// ignores order history entirely and says so in its header. Each of those was
+// the right call, and each was a feature lost to a filter nobody could lift.
+// (The passport's rare-dish badge was also blocked on this, and is staying dead
+// on its own merits — a badge for what does not sell is not an achievement.)
 //
 // Drawing a line fixes all of them at once. Anything after the line is real and
 // can be counted; anything before it is honest history and is simply excluded

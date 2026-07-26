@@ -22,7 +22,7 @@
 // as pending line items because their cost is unknown until Kevin shops.
 
 import { PENDING_POLL_URL, PUBLISH_TOKEN, PENDING_KEY } from './config.js';
-import { saveJSON, normalizeAddons } from './utils.js';
+import { saveJSON, saveError, normalizeAddons } from './utils.js';
 
 const POLL_INTERVAL_MS = 2 * 60 * 1000;
 
@@ -67,7 +67,7 @@ export function mergePending(prev, mapped, handledLedger) {
 }
 
 export async function pollWorkerPending(reschedule, deps) {
-  const { setPendingOrders, handledPendingRef, workerPollRef, self } = deps;
+  const { setPendingOrders, handledPendingRef, workerPollRef, self, setError } = deps;
   try {
     const res = await fetch(PENDING_POLL_URL, { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
     if (res.ok) {
@@ -78,9 +78,10 @@ export async function pollWorkerPending(reschedule, deps) {
         setPendingOrders(prev => {
           const updated = mergePending(prev, mapped, handledPendingRef.current);
           if (updated === prev) return prev;
-          // Unguarded like the original: the worker still holds these, so a
-          // failed local write costs a re-sync, never an order.
-          saveJSON(PENDING_KEY, updated);
+          // The worker still holds these so nothing is lost, but a silent
+          // failure here means the queue on screen and the queue on the server
+          // quietly disagree, which is worth a banner.
+          saveJSON(PENDING_KEY, updated).then(r => setError(saveError(r)));
           return updated;
         });
       }

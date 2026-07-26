@@ -73,7 +73,8 @@ const CASES = [
          audit: { unconfirmed: [{ dish: 'Bo Ssam', components: ['pork', 'rice'], assumed: 1 }] },
        },
        deadlineMs: 3 * 3600e3,
-       intake: { thisWeekCount: 4, median: 6, weeksSampled: 3, weekLabel: 'Week of Jul 20' } }`],
+       intake: { thisWeekCount: 4, median: 6, weeksSampled: 3, weekLabel: 'Week of Jul 20' },
+       dismissed: {}, onDismiss: () => {} }`],
   ['BulkActionBar', './src/components/BulkActionBar.jsx',
     `{ selectedCount: 0, selectableCount: 5, onSelectAll: () => {}, onClear: () => {},
        onMarkPaid: () => {}, onArchive: () => {} }`],
@@ -82,6 +83,25 @@ const CASES = [
        orderStatusFilter: 'all', setOrderStatusFilter: () => {},
        statuses: ['Ordered', 'Cooking', 'Ready', 'Delivered'],
        selectMode: true, onToggleSelectMode: () => {} }`],
+  // The son's food log. Both components get the POPULATED state, since the
+  // empty state is what app_render sees on a clean boot and the interesting
+  // branches (a dish he came around on, an excluded unfair test, a family note)
+  // only exist once there is history.
+  ['RowanLogCard', './src/components/RowanLogCard.jsx',
+    `{ dishNames: ['Bo Ssam', 'Pappardelle'], onLog: () => {} }`],
+  ['RowanTab', './src/components/RowanTab.jsx',
+    `{ dishNames: ['Bo Ssam', 'Pappardelle', 'Gumbo'],
+       log: [
+         { id:'a', dish:'Bo Ssam', dishId:'bo-ssam', rating:1, note:'pushed it away',
+           familyNote:'', fairTest:true, at:'2026-01-10T00:00:00Z', ageMonths:13 },
+         { id:'b', dish:'Bo Ssam', dishId:'bo-ssam', rating:5, note:'ate the lot',
+           familyNote:'he ate a whole bowl and I nearly cried', fairTest:true,
+           at:'2026-07-10T00:00:00Z', ageMonths:19 },
+         { id:'c', dish:'Bo Ssam', dishId:'bo-ssam', rating:1, note:'teething',
+           familyNote:'', fairTest:false, at:'2026-07-12T00:00:00Z', ageMonths:19 },
+         { id:'d', dish:'Pappardelle', dishId:'pappardelle', rating:4, note:'',
+           familyNote:'', fairTest:true, at:'2026-06-01T00:00:00Z', ageMonths:18 },
+       ] }`],
   ['PendingOrders', './src/components/PendingOrders.jsx',
     `{ pendingOrders: [
          { pendingId: 'p1', customer: 'Dave', timestamp: new Date().toISOString(), notes: 'gate code 1234',

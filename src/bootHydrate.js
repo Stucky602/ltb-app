@@ -32,7 +32,7 @@ import {
   ORDERS_KEY, CHECKS_KEY, SHOPPING_KEY, WEEK_KEY, DELIVER_CHECKS_KEY,
   DISH_NOTES_KEY, FEEDBACK_KEY, PIPELINE_JOURNAL_KEY, JOURNAL_KEY,
   LAST_SEEN_WEEK_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY,
-  ARCHIVE_HISTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY,
+  ARCHIVE_HISTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY,
   INVENTORY_KEY, INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY,
   AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -57,7 +57,7 @@ export async function hydrateFromStorage(deps) {
     setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
     setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
     setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setNotice, setEquipment, setRealDataEpoch,
+    setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog,
     handledPendingRef, pollWorkerPending,
   } = deps;
 
@@ -85,7 +85,7 @@ export async function hydrateFromStorage(deps) {
     await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
   }
 
-  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEquipment, loadedEpoch] = await Promise.all([
+  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEquipment, loadedEpoch, loadedRowan] = await Promise.all([
     loadJSON(ORDERS_KEY, []),
     loadJSON(CHECKS_KEY, {}),
     loadJSON(SHOPPING_KEY, []),
@@ -102,6 +102,7 @@ export async function hydrateFromStorage(deps) {
     loadJSON(ARCHIVE_HISTORY_KEY, []),
     loadJSON(EQUIPMENT_KEY, []),
     loadJSON(REAL_DATA_EPOCH_KEY, null),
+    loadJSON(ROWAN_LOG_KEY, []),
   ]);
   if (!isMounted()) return;
   const migrated = loadedOrders.map(o => ({
@@ -151,6 +152,7 @@ export async function hydrateFromStorage(deps) {
   setArchiveHistory(Array.isArray(loadedArchiveHistory) ? loadedArchiveHistory : []);
   setEquipment(Array.isArray(loadedEquipment) ? loadedEquipment : []);
   setRealDataEpoch(typeof loadedEpoch === 'string' ? loadedEpoch : null);
+  setRowanLog(Array.isArray(loadedRowan) ? loadedRowan : []);
   setDishFeedback(loadedDishFeedback || {});
   if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
     setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });

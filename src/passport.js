@@ -131,16 +131,13 @@ export function buildPassport(reg, allOrders, currentOrder) {
 
   // First-ever, computed across ALL orders.
   //
-  // NOTE: a "rare dish" badge used to live here and was REMOVED on purpose,
-  // because order history was typed in from memory when the app was built and a
-  // dish's eater count therefore measured data entry, not what people ate.
-  //
-  // realDataEpoch.js now provides the missing condition. Once Kevin confirms an
-  // epoch, realOrdersOnly() gives a countable history and the badge becomes
-  // honest for the period after the line. It is deliberately still NOT re-added
-  // here: this function does not receive the epoch, and re-adding it would mean
-  // threading it through every caller for a decoration. Do it when a caller
-  // actually wants it, not speculatively — and never over unfiltered orders.
+  // NOTE: a "rare dish" badge used to live here and is NOT coming back. It was
+  // first removed because order history was typed in from memory, so a dish's
+  // eater count measured data entry. realDataEpoch.js has since solved that,
+  // and the badge still stays dead — for a better reason, in Kevin's words:
+  // it is "basically just a badge for things that don't sell well." Rarity is
+  // not an achievement here, it is poor sales wearing a medal. Do not rebuild
+  // it on the epoch just because the epoch now makes it possible.
   const firstEverBy = {};   // dish -> earliest order timestamp anyone had it
   for (const o of everyone) {
     if (o.house) continue;

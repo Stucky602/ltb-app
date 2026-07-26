@@ -70,7 +70,25 @@ const scriptEl = window.document.createElement('script');
 scriptEl.textContent = readFileSync(out, 'utf8');
 window.document.body.appendChild(scriptEl);
 
-const flush = () => new Promise(r => setTimeout(r, 20));
+// Was a flat setTimeout(20), the same shape that made wakeLock.mjs flaky: under
+// full-gate load React's effect flush does not reliably finish inside a fixed
+// window, so this failed roughly one full run in ten while passing every time
+// it was run alone. That is the worst kind of failing test, because it looks
+// like an environment problem and teaches you to re-run.
+//
+// waitFor polls for the condition instead. The happy path settles in a few
+// milliseconds, and a genuine regression still FAILS rather than hanging,
+// because the budget is a ceiling and not a sleep.
+const flush = () => new Promise(r => setTimeout(r, 0));
+const waitFor = async (cond, label, budgetMs = 2000) => {
+  const started = Date.now();
+  while (Date.now() - started < budgetMs) {
+    if (cond()) return true;
+    await new Promise(r => setTimeout(r, 5));
+  }
+  console.log(`  (waitFor timed out after ${budgetMs}ms: ${label})`);
+  return false;
+};
 
 (async () => {
   const many = Array.from({ length: 40 }, (_, i) => i);
@@ -89,7 +107,7 @@ const flush = () => new Promise(r => setTimeout(r, 20));
   scrollY = 1200;
   window.__capture();          // Kevin taps something 1200px down
   window.__mount(many.slice(0, 38)); // the action re-renders the list
-  await flush();
+  await waitFor(() => scrollToCalls.length === 1, 'armed restore fires');
   ok(scrollToCalls.length === 1 && scrollToCalls[0] === 1200,
     'an armed action restores the exact scroll position Kevin was at');
 

@@ -104,6 +104,7 @@ export function AppHeader({
         ['orders', 'Orders'],
         ['cook', 'Cook'],
         ['shop', 'Shop'],
+        ['rowan', 'Rowan'],
         ['ingredients', 'Ingredients'],
       ].map(([key, label]) => (
         <button

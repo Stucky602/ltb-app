@@ -64,6 +64,8 @@ export const EQUIPMENT_KEY = 'ltb_equipment_v1';
 // in from memory when the app was built, so counts over it measure data entry.
 // Null until Kevin confirms a proposal, and while it is null nothing changes —
 // see realDataEpoch.js.
+// The son's food log. Menu dishes only, by design — see rowan.js.
+export const ROWAN_LOG_KEY = 'ltb_rowan_log_v1';
 export const REAL_DATA_EPOCH_KEY = 'ltb_real_data_epoch_v1';
 // The five below were declared inline in App.jsx rather than here, which meant
 // storage keys lived in two places and only one of them was findable. Moved

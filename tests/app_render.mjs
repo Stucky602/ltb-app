@@ -186,7 +186,7 @@ async function clickByText(label) {
   return true;
 }
 
-const TABS = ['Orders', 'Cook', 'Shop', 'Ingredients', 'Money', 'Regulars', 'Recipes', 'Record', 'Week'];
+const TABS = ['Orders', 'Cook', 'Shop', 'Rowan', 'Ingredients', 'Money', 'Regulars', 'Recipes', 'Record', 'Week'];
 for (const tab of TABS) {
   let err = null;
   let found = false;

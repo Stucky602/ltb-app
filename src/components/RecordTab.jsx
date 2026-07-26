@@ -400,7 +400,7 @@ export function RecordTab({
               <div style={S.faint}>
                 Order history was typed in from memory when the app was built, so counting over it
                 measures data entry rather than what people actually ate. That is why there is no
-                rare-dish badge and no "first ever cooked". Drawing a line brings those back.
+                "first ever cooked" and no seasonal firsts. Drawing a line brings those back.
                 <br /><br />
                 <b style={{ color: epochProposal.confidence === 'high' ? C.good : C.warn }}>
                   Best guess: {new Date(epochProposal.proposed).toLocaleDateString()}

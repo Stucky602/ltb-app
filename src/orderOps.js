@@ -17,10 +17,16 @@
 // A NOTE ON THE WRITE PATTERN
 // `persist` below is the shape that appeared thirty-five times in App.jsx:
 // save, then hand the result to setError. saveError(res) returns null on
-// success, so the same call both raises the banner and clears it. Deliberately
-// NOT applied to the writes that never surfaced errors in the first place —
-// those are marked at their call sites. Making them loud is a behaviour change
-// and belongs in its own commit, not smuggled in under a refactor.
+// success, so the same call both raises the banner and clears it.
+//
+// As of Jul 2026 EVERY data write in this module goes through it. It used to be
+// mixed — 46 of 81 writes app-wide were silent — and the reasoning for each
+// silent one was locally sound: the worker holds pending orders, the order write
+// already reported, and so on. Collectively it added up to an app that could
+// lose a tick, a note, or a decrement without saying anything, which is the
+// worst failure this thing can have. Kevin's call, and his reasoning was that
+// early noise is a one-off cost: "we'll figure them out quickly, not see them
+// much more if ever, and they will be past issues."
 
 import {
   ORDERS_KEY, REGULARS_KEY, INVENTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY,
@@ -84,10 +90,7 @@ export function saveOrder(order, deps) {
           setInventory(inv => {
             const current = Number(inv[invKey]) || 0;
             const updated = { ...inv, [invKey]: Math.max(0, current - (it.qty || 1)) };
-            // Deliberately unguarded, matching the original: this decrement
-            // rides inside the order write above, and a second error banner
-            // for the same failed save would say nothing new.
-            saveJSON(INVENTORY_KEY, updated);
+            persist(INVENTORY_KEY, updated, setError);
             return updated;
           });
         }
@@ -266,13 +269,14 @@ export function acceptPending(pending, deps) {
 }
 
 export function dismissPending(pendingId, deps) {
-  const { setPendingOrders, handledPendingRef, setShowPendingIdx } = deps;
+  const { setPendingOrders, handledPendingRef, setShowPendingIdx, setError } = deps;
   setPendingOrders(prev => {
     const next = prev.filter(p => p.pendingId !== pendingId);
-    // Unguarded in the original too: pending orders live on the worker, which
-    // is the durable queue, so a failed local write costs a dedup and not an
-    // order.
-    saveJSON(PENDING_KEY, next);
+    // The worker is the durable queue, so a failed write here costs a dedup
+    // rather than an order — but "costs a dedup" still means the card comes
+    // back on the next poll after Kevin already dealt with it, and he should
+    // know why.
+    persist(PENDING_KEY, next, setError);
     return next;
   });
   // This is where an order actually leaves the worker queue: Kevin accepted
@@ -291,7 +295,10 @@ export function dismissPending(pendingId, deps) {
     } else {
       handledPendingRef.current = ledger;
     }
-    saveJSON(HANDLED_PENDING_KEY, handledPendingRef.current);
+    // This ledger is the ONLY thing stopping a re-poll from resurrecting an
+    // order Kevin already handled. Losing it silently is exactly the class of
+    // failure that produces a duplicate order nobody can explain.
+    persist(HANDLED_PENDING_KEY, handledPendingRef.current, setError);
     fetch(WORKER_BASE + '/pending/clear', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

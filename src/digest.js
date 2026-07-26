@@ -1,7 +1,30 @@
 // digest.js — #6 the weekly business brain (engine, pure)
-// One Monday-morning read: what sold, money movement, quiet regulars, cost
-// alerts, and a proposed week — all synthesized from machinery that already
-// exists (books, regulars intel, portfolio, composer). No new data collection.
+// One Monday-morning read: what sold, what it made, what the reheat taps said,
+// and a proposed week. Synthesized from machinery that already exists (books,
+// portfolio, composer). No new data collection.
+//
+// SLIMMED Jul 26, and what came OUT is the interesting part. A weekly brief is
+// only read if it is worth reading, and three of its sections were alerts about
+// problems that do not exist at six households of friends:
+//
+//   - QUIET REGULARS. "No order in 3 weeks, maybe a nudge?" These are Kevin's
+//     friends. He knows. The section was software telling him something about
+//     his own social life that he already knew, in the register of a CRM.
+//   - COST MOVERS (drifters). He scans the receipts himself, so a price move is
+//     something he has already seen with his own eyes before this could report
+//     it. It was restating his own input back to him a week late.
+//   - THE MARGIN "WATCH" BAND. Dishes under 47% but above the 45% floor. A
+//     two-point band, and being inside it is not a problem — it is being near
+//     a threshold, which is not the same thing.
+//
+// KEPT: dishes UNDER THE FLOOR. That is a real rule of Kevin's being broken and
+// it is the one margin signal worth interrupting a Monday for. Expect it to
+// fire on several dishes now that wrap charges real packaging; that list IS the
+// repricing worklist, which is exactly what it should be.
+//
+// The engine functions below still compute everything, because the nav badge
+// and the Money tab use them. This is a decision about what the WEEKLY BRIEF
+// says, not about what the app knows.
 import { orderTotal, orderCostInfo, regularDisplayName, regularAllNames, isHouseOrder } from './utils.js';
 import { attachRates } from './regularsIntel.js';
 import { composeWeek } from './weekPlanner.js';
@@ -57,6 +80,11 @@ function windowStats(orders, from, to) {
   return { count, revenue: Math.round(revenue * 100) / 100, profit: Math.round((revenue - cost) * 100) / 100, top };
 }
 
+// NO LONGER IN THE BRIEF (Jul 26) — see the header. Kept rather than deleted
+// because it is correct code and this is a scale judgement, not a bug: at six
+// households Kevin knows who has gone quiet, and at sixty he would not. If the
+// customer base ever grows, this is ready.
+//
 // Regulars who used to order steadily but have gone quiet: last order 3+
 // weeks ago AND at least 3 lifetime orders (so one-timers aren't "quiet").
 function quietRegulars(regulars, orders, now) {
@@ -84,13 +112,10 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
   const prevWk = windowStats(orders, now - 2 * WEEK, now - WEEK);
 
   const port = buildPortfolioSummary(ctx);
-  const marginWatch = marginAlerts(port);
-
-  const drifters = port
-    .filter(r => Math.abs(r.maxDriftPct) >= 8)
-    .sort((a, b) => Math.abs(b.maxDriftPct) - Math.abs(a.maxDriftPct))
-    .slice(0, 4)
-    .map(r => ({ name: r.name, driftPct: r.maxDriftPct }));
+  // Only the floor breaches reach the brief. `watch` is still computed by
+  // marginAlerts for the Money tab, which is where you go when you have decided
+  // to think about margins, rather than being told to on a Monday.
+  const marginWatch = { underFloor: marginAlerts(port).underFloor, watch: [] };
 
   // Reheat report: customer taps from kitchen pages, aggregated by dish.
   // 'bad' verdicts on the same dish are a TECHNIQUE signal, not a customer one.
@@ -113,9 +138,12 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
     week: thisWk,
     prior: prevWk,
     revenueDeltaPct: prevWk.revenue > 0 ? Math.round(((thisWk.revenue - prevWk.revenue) / prevWk.revenue) * 100) : null,
-    quiet: quietRegulars(regulars, orders, now),
+    // `quiet` and `drifters` are gone; see the header. Kept as empty arrays
+    // rather than removed keys so nothing downstream has to null-check, and so
+    // the removal reads as a decision rather than an oversight.
+    quiet: [],
     marginWatch,
-    drifters,
+    drifters: [],
     proposal,
     reheatReport,
   };

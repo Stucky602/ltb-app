@@ -54,6 +54,7 @@ function Entry({ e }) {
         {/* Harvested vs written is the one provenance distinction that cannot be
             recovered later, so it is always on the face of the entry. */}
         {e.origin === 'harvested' && <span style={{ color: GOLD }}>harvested</span>}
+        {e.type === 'validation' && e.by && <span style={{ color: GOLD }}>— {e.by}</span>}
         {e.transferable && <span>holds beyond this dish</span>}
         {e.personal && <span style={{ color: GOLD }}>for Rowan</span>}
         {e.private && <span>private</span>}

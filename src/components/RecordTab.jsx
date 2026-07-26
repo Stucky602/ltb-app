@@ -48,9 +48,11 @@ const fmtDate = (ts) => { try { return new Date(ts).toLocaleDateString(); } catc
 export function RecordTab({
   journal, onSaveJournal, dishNames, weekDishes, orders, knownNames,
   weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit, archiveHistory, onArchiveDownloaded,
+  onAnswerQuestion,
   equipment, onSaveEquipment,
   realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
   ranking, rankingDrift, tasteVsSales, tasteVsSon, rankingStale,
+  patterns, tasteVsPractice,
 }) {
   const [msg, setMsg] = useState(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
@@ -61,6 +63,9 @@ export function RecordTab({
   const impSummary = useMemo(() => importSummary(candidates), [candidates]);
 
   const wk = useMemo(() => currentWeekInfo(), []);
+  const [answer, setAnswer] = useState('');
+  const [answerType, setAnswerType] = useState('technique');
+  const [answered, setAnswered] = useState(false);
   const question = useMemo(() => weeklyDossierPrompt(journal, weekDishes || [], wk.stamp), [journal, weekDishes, wk]);
   const coverage = useMemo(() => dossierCoverage(journal, dishNames || [], DISH_RENAMES), [journal, dishNames]);
   const composition = useMemo(() => dossierComposition(journal), [journal]);
@@ -93,6 +98,17 @@ export function RecordTab({
       {/* ══ WRITE ══════════════════════════════════════════════════════════ */}
       <div style={S.group}>Write</div>
 
+      {/* ── THE ANSWER LOOP ──
+           This card used to end with directions: "Recipes tab → dish → Dossier."
+           Three navigations between reading a question and answering it, and
+           the question is asked at the exact moment Kevin has the answer in his
+           head. Every step in between is a chance for the thought to go.
+
+           So the box is here. Answer it where you read it, and the entry files
+           itself against the right dish with the right type. The coverage
+           number above moves on submit, which is the part that closes the loop
+           — the point is not gamification for its own sake, it is that the
+           worklist visibly shrinks when you feed it. ── */}
       {question && (
         <div style={{ ...S.card, border: `1px solid ${C.good}` }}>
           <div style={S.h}>This week's question</div>
@@ -101,8 +117,58 @@ export function RecordTab({
             {question.kind === 'never' ? 'Nothing on record for it yet.'
               : question.kind === 'stale' ? 'Nothing written about it in months.'
               : `${question.entryCount} entr${question.entryCount === 1 ? 'y' : 'ies'} on record.`}
-            {' '}Recipes tab &rarr; {question.dish} &rarr; Dossier.
+            {' '}Filed against {question.dish}.
           </div>
+
+          {answered ? (
+            <div style={{ ...S.p, color: C.good, marginTop: 8 }}>
+              Filed against {question.dish}. Coverage updated.
+            </div>
+          ) : (
+            <>
+              <textarea
+                style={{ width: '100%', minHeight: 76, marginTop: 8, background: '#14201d',
+                  border: `1px solid ${C.border}`, borderRadius: 8, color: C.text,
+                  fontSize: 13.5, padding: 9, boxSizing: 'border-box', resize: 'vertical' }}
+                placeholder="Answer it here"
+                value={answer}
+                onChange={e => setAnswer(e.target.value)}
+              />
+              <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                {/* The type the prompt was ASKING for is preselected, because
+                    choosing a taxonomy is the other thing that stops people
+                    writing. Changeable in one tap if the answer went somewhere
+                    else, which it often will. */}
+                {(question.types || ['technique', 'doneCues', 'adjustment', 'provenance']).map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setAnswerType(t)}
+                    style={{ fontSize: 12, padding: '6px 10px', borderRadius: 7, cursor: 'pointer',
+                      background: answerType === t ? C.good : '#232d2a',
+                      color: answerType === t ? '#121a18' : C.text,
+                      border: `1px solid ${answerType === t ? C.good : C.border}` }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <button
+                disabled={!answer.trim()}
+                onClick={() => {
+                  onAnswerQuestion({ dish: question.dish, type: answerType, text: answer.trim() });
+                  setAnswer(''); setAnswered(true);
+                  setTimeout(() => setAnswered(false), 6000);
+                }}
+                style={{ width: '100%', marginTop: 8, minHeight: 40, borderRadius: 8,
+                  cursor: answer.trim() ? 'pointer' : 'default', fontSize: 14, fontWeight: 700,
+                  background: answer.trim() ? C.good : '#232d2a',
+                  color: answer.trim() ? '#121a18' : '#5c6b66',
+                  border: `1px solid ${answer.trim() ? C.good : C.border}` }}
+              >
+                File it
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -422,6 +488,72 @@ export function RecordTab({
         </div>
       )}
 
+
+
+      {patterns && (
+        <div style={S.card}>
+          <div style={S.h}>What you actually cook</div>
+          {patterns.unavailable ? (
+            <div style={S.faint}>{patterns.reason}</div>
+          ) : (
+            <>
+              <div style={S.faint}>
+                {patterns.units} portions across {patterns.weeks} week{patterns.weeks === 1 ? '' : 's'},
+                {' '}{patterns.distinct} different dishes, about {patterns.dishesPerWeek} a week.
+                {' '}Counted only since the real data starts, so this is cooking and not data entry.
+              </div>
+
+              <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>By technique</div>
+              {patterns.techniques.map(t => (
+                <div key={t.technique} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                  <span style={{ color: C.text, flex: 1, textTransform: 'capitalize' }}>{t.technique}</span>
+                  <span style={{ color: C.faint }}>{Math.round(t.share * 100)}% · {t.units}</span>
+                </div>
+              ))}
+
+              <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>Most cooked</div>
+              {patterns.rows.slice(0, 6).map(r => (
+                <div key={r.dish} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                  <span style={{ color: C.text, flex: 1 }}>{r.dish}</span>
+                  <span style={{ color: C.faint }}>{r.units} · {r.weeksRun}wk</span>
+                </div>
+              ))}
+
+              {/* Both directions are interesting and neither is a failure. Rated
+                  high and rarely cooked usually has a cost or effort reason he
+                  already knows. Rated low and cooked often is a workhorse. */}
+              {tasteVsPractice && tasteVsPractice.some(t => t.gap != null && Math.abs(t.gap) >= 4) && (
+                <>
+                  <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>Taste against practice</div>
+                  <div style={{ ...S.faint, marginBottom: 4 }}>
+                    Where what you rate highly and what you actually make pull apart.
+                  </div>
+                  {tasteVsPractice
+                    .filter(t => t.gap != null && Math.abs(t.gap) >= 4)
+                    .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
+                    .slice(0, 5)
+                    .map(t => (
+                      <div key={t.dish} style={{ padding: '4px 0', fontSize: 12.5 }}>
+                        <span style={{ color: C.text }}>{t.dish}</span>
+                        <span style={{ color: C.faint }}>
+                          {' \u00b7 '}you rate it {t.tasteRank}, you cook it {t.cookRank}
+                          {t.gap < 0 ? ' \u00b7 makes it less than he rates it' : ' \u00b7 a workhorse'}
+                        </span>
+                      </div>
+                    ))}
+                </>
+              )}
+
+              {patterns.neverRun.length > 0 && (
+                <div style={{ ...S.faint, marginTop: 10 }}>
+                  Not cooked at all in this window: {patterns.neverRun.length} dish
+                  {patterns.neverRun.length === 1 ? '' : 'es'}. Some are seasonal, some are new.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {ranking && (
         <div style={S.card}>

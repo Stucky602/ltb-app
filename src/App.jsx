@@ -42,7 +42,7 @@ import {
 // copies of the same guards live in backupRestore.js. Both of those are choke
 // points by design. If a third caller ever needs them, that is a signal to ask
 // why, not to re-add the import.
-import { emptyJournal, normalizeJournal } from './journal.js';
+import { emptyJournal, normalizeJournal, addEntry as addJournalEntry } from './journal.js';
 import { normalizeLedger } from './weekLedger.js';
 import { useWakeLock } from './useWakeLock.js';
 import { usePreserveScroll } from './usePreserveScroll.js';
@@ -101,6 +101,7 @@ import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js'
 import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
 import { RowanLogCard } from './components/RowanLogCard.jsx';
 import { RowanTab } from './components/RowanTab.jsx';
+import { cookingPatterns, tasteVsPractice } from './cookingPatterns.js';
 import { SEED_RANKING, addRanking, latest as latestRanking, drift as rankingDrift, tasteVsSales, tasteVsSon, staleness as rankingStaleness } from './dishRanking.js';
 import { dishOrderSignal } from './favorites.js';
 import { topDishes as sonTopDishes } from './rowan.js';
@@ -236,7 +237,7 @@ export default function LTBOrderTracker() {
   const logRowan = useCallback((input) => {
     setRowanLog(prev => {
       const next = addRowanEntry(prev || [], makeRowanEntry(input));
-      saveJSON(ROWAN_LOG_KEY, next).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+      saveJSON(ROWAN_LOG_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -244,11 +245,11 @@ export default function LTBOrderTracker() {
   const confirmEpoch = useCallback((iso) => {
     const v = iso ? new Date(iso).toISOString() : null;
     setRealDataEpoch(v);
-    saveJSON(REAL_DATA_EPOCH_KEY, v).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+    saveJSON(REAL_DATA_EPOCH_KEY, v).then(r => setError(saveError(r)));
     setOrders(prev => {
       const next = stampBackfilled(prev || [], v);
       if (next === prev) return prev;
-      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -258,7 +259,7 @@ export default function LTBOrderTracker() {
       .filter(e => e.name)
       .slice(0, 60);
     setEquipment(clean);
-    saveJSON(EQUIPMENT_KEY, clean).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+    saveJSON(EQUIPMENT_KEY, clean).then(r => setError(saveError(r)));
   }, []);
   // Stamped each time an archive is downloaded, so the NEXT one knows where it
   // sits in the series.
@@ -272,7 +273,7 @@ export default function LTBOrderTracker() {
   const saveCopiesNote = useCallback((text) => {
     const v = String(text || '').slice(0, 600);
     setCopiesNote(v);
-    saveJSON(COPIES_NOTE_KEY, v).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+    saveJSON(COPIES_NOTE_KEY, v).then(r => setError(saveError(r)));
   }, []);
   // M1: owned container counts + meal-pool adjustment (containers.js).
   const [containerConfig, setContainerConfig] = useState(() => normalizeContainerConfig(null));
@@ -342,7 +343,7 @@ export default function LTBOrderTracker() {
     if (!entries || !entries.length) return;
     setAuditLog(prev => {
       const next = appendAudit(prev, entries);
-      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
+      saveJSON(AUDIT_LOG_KEY, next).then(res => setError(saveError(res)));
       return next;
     });
   }, []);
@@ -413,7 +414,7 @@ export default function LTBOrderTracker() {
   // writer and no domain logic worth moving.
   const persistShopping = useCallback((next) => {
     setShopping(next);
-    saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
+    saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
   }, []);
 
   const saveOrder = useCallback((order) => ops.saveOrder(order, {
@@ -1067,7 +1068,7 @@ export default function LTBOrderTracker() {
   const saveContainerConfig = useCallback((next) => {
     setContainerConfig(prev => {
       const cfg = normalizeContainerConfig(typeof next === 'function' ? next(prev) : next);
-      saveJSON(CONTAINER_INVENTORY_KEY, cfg).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+      saveJSON(CONTAINER_INVENTORY_KEY, cfg).then(r => setError(saveError(r)));
       return cfg;
     });
   }, []);
@@ -1079,7 +1080,7 @@ export default function LTBOrderTracker() {
   const saveJournal = useCallback((next) => {
     setJournal(prev => {
       const j = normalizeJournal(typeof next === 'function' ? next(prev) : next);
-      saveJSON(JOURNAL_KEY, j).then(r => setError(saveError(r))).then(r => setError(saveError(r)));
+      saveJSON(JOURNAL_KEY, j).then(r => setError(saveError(r)));
       return j;
     });
   }, []);
@@ -1145,7 +1146,7 @@ export default function LTBOrderTracker() {
   const toggleWeekDish = useCallback((name) => {
     setWeekDishes(prev => {
       const next = prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name];
-      saveJSON(WEEK_KEY, { selected: next }).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
+      saveJSON(WEEK_KEY, { selected: next }).then(res => setError(saveError(res)));
       return next;
     });
   }, []);
@@ -1153,7 +1154,7 @@ export default function LTBOrderTracker() {
   const generateShopping = useCallback((staples) => {
     setShopping(prev => {
       const next = buildAutoShoppingRows(activeOrders, staples, prev, uid);
-      saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res))).then(r => setError(saveError(r)));
+      saveJSON(SHOPPING_KEY, next).then(res => setError(saveError(res)));
       return next;
     });
   }, [activeOrders]);

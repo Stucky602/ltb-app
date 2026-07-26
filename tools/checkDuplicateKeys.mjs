@@ -117,5 +117,34 @@ for (const file of walk('src')) {
 }
 
 if (failures === 0) console.log('  ✓ no duplicate object-literal keys in src/');
+
+// ── A SECOND CHECK, SAME DISEASE: chained save-error handlers ───────────────
+// `saveJSON(...).then(r => setError(saveError(r)))` is correct. Chaining a
+// SECOND identical handler onto it is not, and it fails in the worst possible
+// direction: `setError()` returns undefined, so the second handler receives
+// undefined, `saveError(undefined)` reports failure, and a SUCCESSFUL save
+// shows Kevin a red "Could not save" banner.
+//
+// It shipped. A regex pass that made silent saves loud appended the handler to
+// eleven call sites that already had one, and the first thing Kevin saw after
+// logging his son's first dish was a false storage error. A false alarm on the
+// happy path is worse than the silence it replaced, because it trains you to
+// ignore the one banner in the app that means real data loss.
+//
+// Cheap to check, so it is checked.
+{
+  const CHAIN = /\.then\(\s*(?:r|res)\s*=>\s*setError\(saveError\([^)]*\)\)\s*\)\s*\.then\(\s*(?:r|res)\s*=>\s*setError\(saveError/g;
+  for (const file of walk('src')) {
+    const src = readFileSync(file, 'utf8');
+    const hits = src.match(CHAIN);
+    if (!hits) continue;
+    failures += hits.length;
+    console.log(`  ✗ ${file}: ${hits.length} save(s) with a CHAINED error handler`);
+    console.log('    The second .then receives undefined, so a successful save reports failure.');
+    console.log('    Keep exactly one: .then(r => setError(saveError(r)))');
+  }
+  if (failures === 0) console.log('  ✓ no chained save-error handlers');
+}
+
 console.log(failures === 0 ? '\nDUPLICATE KEYS: ALL PASS' : `\nDUPLICATE KEYS: ${failures} FAILURES`);
 process.exit(failures ? 1 : 0);

@@ -46,7 +46,27 @@ import { isPerLbItem } from './menu.js';
 import { perLbBagCount, orderOutboundJars, jarsOutForRegular, JAR_LEDGER_EPOCH } from './utils.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
 
-export const MEAL_CONTAINER_EPOCH = Date.parse('2026-07-24');
+// RESET Jul 26, and the reset is the point rather than an accident.
+//
+// The pool counts containers out in the field: tracked units on delivered
+// orders, minus what has come back. It has to start SOMEWHERE, because there
+// was never a full history of returns to count from.
+//
+// It started Jul 24. That start line is now retired, because the two days of
+// data behind it were computed under the OLD composition model, where almost
+// every dinner fell through to a 32 oz round default. The TOTALS from that
+// window are roughly right and the TYPES are wrong — it would report round32s
+// in the field when round48s actually are. Per-type accuracy is the entire
+// reason this tracking exists, so inheriting numbers that are wrong in exactly
+// that dimension would have poisoned the thing it was built for.
+//
+// Kevin's call, and the right one: two days is a cheap thing to lose. Every
+// container counted from here is counted against the audited mapping.
+//
+// If this ever needs resetting again, the test is the same: has the way
+// containers are DERIVED changed? A pricing change or an owned-count change
+// does not need a new epoch. A mapping change does.
+export const MEAL_CONTAINER_EPOCH = Date.parse('2026-07-26');
 
 export const CONTAINER_TYPES = {
   rect38:  { label: '38 oz rectangle', cost: 0.52 },
@@ -442,6 +462,76 @@ export function sumBreakdowns(orders) {
 // way the jar ledger groups (per regular; orders with no regular stand
 // alone), so a return logged on a LATER invoice than the outbound still
 // nets out within the same customer.
+// PER-TYPE CUSTODY, added Jul 26.
+//
+// mealContainersOut() answers "how many of my containers are out there" as ONE
+// number. That was the right first answer and it is no longer enough: the fleet
+// is lopsided. Thirty-three 8 oz rounds serve two dishes, five 16 oz rounds
+// serve sixteen. A pooled figure of "twelve out" is compatible with being
+// completely fine and with being unable to cook Wednesday, and nothing in the
+// number tells you which.
+//
+// THE RETURNS PROBLEM, stated honestly rather than hidden.
+// Kevin logs container returns as a COUNT, not by type — the order carries
+// `containerReturns: 3`, not "two 16s and a 48". So the outbound side is known
+// exactly (it is derived from the audited mapping) and the inbound side is not.
+// Guessing which types came back would produce a per-type figure that looks
+// precise and is invented, which is the failure this whole container model has
+// been climbing out of all day.
+//
+// So returns are applied POOLED and the result says so. Each row reports what
+// went out by type, and the report carries a single `returned` count plus a
+// flag saying the per-type outstanding figures are UPPER BOUNDS. That is a
+// smaller claim than the pooled version made, and it is one that is true.
+//
+// If Kevin ever logs returns by type, `attributeReturns` below is the only
+// thing that needs to change.
+export function containerCustody(orders, config) {
+  const cfg = normalizeContainerConfig(config);
+  const since = (orders || []).filter(o =>
+    o && new Date(o.createdAt || 0).getTime() >= MEAL_CONTAINER_EPOCH);
+  const delivered = since.filter(o => o.status === 'Delivered' || o.archived);
+
+  const out = emptyBreakdown();
+  for (const o of delivered) {
+    const b = orderContainerBreakdown(o);
+    for (const t of CONTAINER_TYPE_ORDER) out[t] += (b[t] || 0);
+  }
+
+  // Credits logged against orders in the window. Jars have their own ledger, so
+  // only the meal-container side is counted here.
+  let returned = 0;
+  for (const o of since) returned += Number(o.containerReturns) || 0;
+
+  const rows = CONTAINER_TYPE_ORDER
+    .filter(t => t !== 'jar' && isTrackedType(t))
+    .map(t => ({
+      type: t,
+      label: CONTAINER_TYPES[t].label,
+      owned: cfg.owned[t] || 0,
+      out: out[t],
+      // UPPER BOUND. Returns are pooled, so the true figure for any one type is
+      // somewhere between this and (out - returned). Named so no caller can
+      // mistake it for an exact count.
+      outstandingMax: out[t],
+      onHandMin: Math.max(0, (cfg.owned[t] || 0) - out[t]),
+    }))
+    .filter(r => r.out > 0 || r.owned > 0);
+
+  const totalOut = rows.reduce((n, r) => n + r.out, 0);
+  return {
+    since: MEAL_CONTAINER_EPOCH,
+    rows,
+    totalOut,
+    returned,
+    // The pooled outstanding figure, which IS exact.
+    outstanding: Math.max(0, totalOut - returned + cfg.mealAdjust),
+    // Tells the UI to describe per-type numbers as "up to", because the return
+    // side is not typed. Flip this only when returns are logged by type.
+    perTypeIsUpperBound: returned > 0,
+  };
+}
+
 export function mealContainersOut(orders, config) {
   const cfg = normalizeContainerConfig(config);
   const since = (orders || []).filter(o =>

@@ -45,8 +45,24 @@ export const JOURNAL_TYPES = {
   // versioning every entry, and self-documenting to a reader who has no access
   // to whoever wrote it.
   revision:   { label: 'Recipe changed',  hint: 'The dish itself changed here. Everything written before this describes the older version.', privateDefault: false },
+  // GAP B: someone with a real claim on a dish confirmed it. Kevin's example is
+  // a Nigerian friend saying the suya meat reminded her of home.
+  //
+  // This is the RAREST and most perishable evidence in the record, and it had
+  // nowhere to live. It is not provenance (that is where a dish came from), not
+  // a done-cue (that is what Kevin looks for), and not an adjustment. It is an
+  // outside verdict from someone whose judgement on that specific dish outranks
+  // his own, and there is no other way to get one.
+  //
+  // Deliberately NOT a separate panel — Kevin's instruction. It sits in the
+  // dish's own dossier with everything else, because a validation only means
+  // anything next to the dish it validates.
+  //
+  // `by` carries who said it, because an unattributed validation is just a
+  // compliment. Not privateDefault: the whole value is that it can be shown.
+  validation: { label: 'Someone who would know', hint: 'A person with a real claim on this dish confirmed it. Say who — an unattributed validation is just a compliment.', privateDefault: false },
 };
-export const JOURNAL_TYPE_ORDER = ['decision', 'price', 'provenance', 'doneCues', 'adjustment', 'technique', 'mistake', 'retirement', 'revision'];
+export const JOURNAL_TYPE_ORDER = ['decision', 'price', 'provenance', 'validation', 'doneCues', 'adjustment', 'technique', 'mistake', 'retirement', 'revision'];
 
 // ── The taxonomy can GROW ──────────────────────────────────────────────────
 // The nine types above were designed top-down in a single afternoon, before a
@@ -242,6 +258,19 @@ export function stampEntry(partial, now, knownTypes) {
   // for his son. Same storage protection, opposite presentation: the archive
   // was rendering the warmest material with a lock icon, which reads as
   // redaction rather than intimacy.
+  // Who validated it. Only meaningful on a validation entry, so it is dropped
+  // elsewhere rather than left dangling on entries that never use it.
+  // The spread above lets unknown fields ride along, which is deliberate and
+  // non-destructive — but `by` is not unknown, it is OURS, and it means nothing
+  // on a type that is not a validation. Left alone it would sit on any entry
+  // that happened to be created from a form carrying the field, and a reader
+  // years later would have no way to tell a stray attribution from a real one.
+  if (type === 'validation') {
+    const by = String((partial && partial.by) || '').trim().slice(0, 80);
+    if (by) entry.by = by; else delete entry.by;
+  } else {
+    delete entry.by;
+  }
   entry.personal = !!(partial && partial.personal) || (type === 'provenance' && !partial?.hasOwnProperty('personal'));
   // GAP C: how sure you were. TWO states, deliberately, because a scale invites
   // agonising over 3 versus 4 and tells a reader nothing extra. Absent means

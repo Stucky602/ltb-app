@@ -47,6 +47,10 @@ function Entry({ e, onDelete, isSuperseded, isStale }) {
         <span style={{ color: e.type === 'retirement' ? C.bad : e.type === 'price' || e.type === 'decision' ? C.gold : C.good, fontWeight: 700 }}>{t.label}</span>
         <span>{e.undated ? 'undated' : fmtDate(e.ts)}</span>
         {e.private && <span style={{ color: C.gold }}>🔒 private</span>}
+        {/* Attribution rides ON the entry rather than in the body text. An
+            unattributed validation is just a compliment, and a reader in twenty
+            years has no way to recover who said it. */}
+        {e.type === 'validation' && e.by && <span style={{ color: C.gold, fontWeight: 700 }}>— {e.by}</span>}
         {e.transferable && <span style={{ color: C.good, fontWeight: 700 }}>↗ holds beyond this dish</span>}
         {e.confidence === 'firm' && <span style={{ color: C.good }}>firm</span>}
         {e.confidence === 'working' && <span style={{ color: C.dim }}>working idea</span>}

@@ -169,7 +169,7 @@ function journalSection(entries, renames, superseded) {
   <div class="meta">Anything above this point describes the earlier version.</div></div>`;
       }
       return `<div class="entry${e.private ? ' private' : ''}${superseded && superseded.has(e.id) ? ' stale' : ''}">
-  <span class="type">${esc(t.label)}</span> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>${e.private ? ' <span class="lock">private</span>' : ''}${e.transferable ? ' <span class="carries">holds beyond this dish</span>' : ''}${e.confidence === 'firm' ? ' <span class="carries">firm</span>' : ''}${e.confidence === 'working' ? ' <span class="meta">working idea</span>' : ''}${superseded && superseded.has(e.id) ? ' <span class="superseded">later replaced</span>' : ''}${e.migrated ? ' <span class="meta">(migrated cook note)</span>' : ''}
+  <span class="type">${esc(t.label)}</span> <span class="meta">${e.undated ? 'undated' : esc(fmtDate(e.ts))}</span>${e.private ? ' <span class="lock">private</span>' : ''}${e.type === 'validation' && e.by ? ` <span class="carries">\u2014 ${esc(e.by)}</span>` : ''}${e.transferable ? ' <span class="carries">holds beyond this dish</span>' : ''}${e.confidence === 'firm' ? ' <span class="carries">firm</span>' : ''}${e.confidence === 'working' ? ' <span class="meta">working idea</span>' : ''}${superseded && superseded.has(e.id) ? ' <span class="superseded">later replaced</span>' : ''}${e.migrated ? ' <span class="meta">(migrated cook note)</span>' : ''}
   <div>${esc(e.text)}</div>
 </div>`;
     });

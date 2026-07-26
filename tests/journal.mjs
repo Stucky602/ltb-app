@@ -392,4 +392,38 @@ console.log(`  (privacy wall walked the import graph from ${scanned} customer en
 }
 
 
+
+// ── GAP B: VALIDATION ENTRIES ───────────────────────────────────────────────
+// Someone with a real claim on a dish confirming it — Kevin's example is a
+// Nigerian friend saying the suya meat reminded her of home. This is the rarest
+// and most perishable evidence in the whole record and it had nowhere to live:
+// it is not provenance (where a dish came from), not a done-cue (what Kevin
+// looks for), not an adjustment. It is an outside verdict from someone whose
+// judgement on that dish outranks his own.
+{
+  const { JOURNAL_TYPES, JOURNAL_TYPE_ORDER } = await import('../src/journal.js');
+  ok(!!JOURNAL_TYPES.validation, 'validation is a real entry type');
+  ok(JOURNAL_TYPE_ORDER.includes('validation'), 'and it is in the ordered list, so it renders');
+  ok(JOURNAL_TYPES.validation.privateDefault === false,
+    'validation is NOT private by default — the entire value of one is that it can be shown');
+
+  const v = stampEntry({ subject: { kind: 'dish', dish: 'Bo Ssam' }, type: 'validation',
+    by: '  Adaeze  ', text: 'said it reminded her of home' }, new Date());
+  ok(v.by === 'Adaeze', 'attribution is kept and trimmed');
+
+  // Attribution rides ON the entry, not buried in the body, because a reader in
+  // twenty years cannot recover who said it from prose alone.
+  const blank = stampEntry({ subject: { kind: 'dish', dish: 'Bo Ssam' }, type: 'validation',
+    by: '   ', text: 'x' }, new Date());
+  ok(blank.by === undefined, 'a blank attribution is dropped rather than stored empty');
+
+  // stampEntry spreads the partial so unknown fields ride along, which is
+  // deliberate — but `by` is OURS and means nothing on another type. Left alone
+  // it would sit on any entry created from a form that carried the field, and
+  // nothing later could tell a stray attribution from a real one.
+  const other = stampEntry({ subject: { kind: 'dish', dish: 'Bo Ssam' }, type: 'technique',
+    by: 'somebody', text: 'x' }, new Date());
+  ok(other.by === undefined, 'by is dropped on every type that is not a validation');
+}
+
 console.log(`JOURNAL: ALL PASS (${pass} checks)`);

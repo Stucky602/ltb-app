@@ -1,21 +1,31 @@
 // checkPageSync.mjs — fails the build when the same logic diverges between the
-// hand-written customer pages.
+// customer pages.
 //
-// WHY THIS EXISTS INSTEAD OF A BUILD STEP
-// There are five customer pages, all hand-written ES5, and they share logic by
-// copy-paste. That has cost real money twice: the heads-up banner had to be
-// added to three pages separately, the order-window gate to three, and BOTH
-// duplications shipped bugs. The proper fix is a build step with one shared
-// source, and that is a one-to-two week job.
+// KEPT AFTER THE BUILD STEP LANDED (Jul 2026), on purpose. Read this before
+// deleting it.
 //
-// This is not that. It is the SAFETY NET the build step would have given,
-// available now: it cannot stop you copy-pasting, but it can stop the copies
-// drifting apart silently, which is the part that actually bit.
+// The original reason for this file is gone. All five pages are now generated
+// by tools/buildPages.mjs from shared partials in src/pages/_partials/, so
+// `esc`, `noticeHtml`, and `ordersOpen` CANNOT diverge: there is one copy of
+// each and the build stamps it into every page. checkPagesBuilt.mjs proves the
+// committed pages match that build.
 //
-// The failure mode it guards is specific and nasty. You fix `noticeHtml` in
-// menu.html because that is the page you were looking at, form.html keeps the
-// old version, and nothing anywhere reports that two pages now disagree about
-// how to render the same thing. It looks fine on the page you tested.
+// What this now guards is the way BACK. If someone hand-writes a page again,
+// drops a page out of the buildPages manifest, or pastes a second copy of one
+// of these blocks into a page shell, this fires and checkPagesBuilt does not,
+// because from the build's point of view a page with an extra hand-written
+// `esc` in it is a perfectly valid source file.
+//
+// It costs milliseconds and it is the only thing watching that direction.
+//
+// ── The history it exists because of ────────────────────────────────────────
+// Five hand-written ES5 pages shared logic by copy-paste. That cost real money
+// twice: the heads-up banner had to be added to three pages separately, the
+// order-window gate to three, and BOTH duplications shipped bugs. The failure
+// mode was specific and nasty. You fix `noticeHtml` in menu.html because that
+// is the page you were looking at, form.html keeps the old version, and
+// nothing anywhere reports that two pages now disagree about how to render the
+// same thing. It looks fine on the page you tested.
 //
 // WHAT IT CHECKS, and why it checks it this way
 // For each shared block, every page that HAS it must AGREE with the others. A
@@ -23,11 +33,11 @@
 //
 // For JavaScript it compares BEHAVIOUR, not source text. The first version of
 // this compared normalised source and immediately reported all five `esc`
-// functions as diverged. They are not: all five escape the same five characters
-// to the same entities, and differ only in quote style, whitespace, and the
-// parameter name. A check that fires on formatting is a check you turn off, and
-// then it is not protecting anything. So the JS blocks are evaluated and probed
-// with inputs designed to expose a real difference.
+// functions as diverged. They were not: all five escaped the same five
+// characters to the same entities, and differed only in quote style,
+// whitespace, and the parameter name. A check that fires on formatting is a
+// check you turn off, and then it is not protecting anything. So the JS blocks
+// are evaluated and probed with inputs designed to expose a real difference.
 //
 // For CSS it compares normalised text, because there is nothing to run.
 
@@ -74,6 +84,22 @@ const BLOCKS = {
   // than another IS the bug.
   esc: (src) => {
     const i = src.indexOf('function esc');
+    return i === -1 ? null : braceBlock(src, i);
+  },
+  // The order-window gate. Added to this list Jul 2026, when the page build
+  // step unified the last of FOUR copies in THREE shapes: `ordersOpen()` on
+  // form/menu/main-menu, an inline `day === 0 || day >= 3` on order.html, and
+  // a second inline `day >= 1 && day <= 2` buried in menu.html's render, in
+  // the same function that already called ordersOpen() two lines below. Only
+  // form.html carried the `?preview=1` bypass, so previewing on a Monday
+  // showed the form open and the weekly menu closed.
+  //
+  // No behaviour probe for this one, deliberately: it reads
+  // window.location.search and new Date(), neither of which exists inside the
+  // isolated eval, so it falls back to normalised-text comparison. That is
+  // sufficient now that all four pages include the same partial.
+  ordersOpen: (src) => {
+    const i = src.indexOf('function ordersOpen');
     return i === -1 ? null : braceBlock(src, i);
   },
 };

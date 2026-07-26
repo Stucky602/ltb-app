@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3a3a">
+<title>LTB — Place Your Order</title>
+<!-- @generate iconAppleTouch -->
+<!-- @generate iconLink -->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    --bg: #1a1a1a; --teal-dark: #1a3a3a; --teal-mid: #2d6a6a; --teal-light: #3fb8a0;
+    --gold: #c9a84c; --cream: #e8e2d4; --card: #232a28; --dim: #9aa5a0;
+  }
+  html, body {
+    background: var(--bg); color: var(--cream);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh; -webkit-font-smoothing: antialiased;
+  }
+  body { max-width: 520px; margin: 0 auto; padding: max(28px, env(safe-area-inset-top)) 20px max(40px, env(safe-area-inset-bottom)); }
+  .logo { width: 92px; height: 92px; border-radius: 50%; display: block; margin: 8px auto 14px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+  .brand { font-size: 21px; font-weight: 800; color: var(--gold); text-align: center; margin-bottom: 2px; }
+  .week { font-size: 13px; color: var(--teal-light); text-align: center; font-style: italic; margin-bottom: 22px; }
+  .section { background: var(--card); border: 1px solid var(--teal-mid); border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .section-title { font-size: 12px; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  label.field-label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 5px; margin-top: 12px; }
+  label.field-label:first-of-type { margin-top: 0; }
+  input[type=text], input[type=tel], textarea {
+    width: 100%; background: #1a1a1a; border: 1px solid #37403c; border-radius: 9px;
+    padding: 12px; font-size: 15px; color: var(--cream); font-family: inherit;
+  }
+  input::placeholder, textarea::placeholder { color: #5a625c; }
+  textarea { min-height: 70px; resize: vertical; }
+  .req { color: #e0828a; }
+  .rec { color: #7abf7a; font-size: 11px; font-weight: 400; }
+  .field-hint { font-size: 11px; color: #9aa5a0; font-style: italic; margin-top: 3px; margin-bottom: 2px; }
+  .dish { border-bottom: 1px solid #2d3a36; padding: 12px 0; }
+  .dish:last-child { border-bottom: none; }
+  .dish-name { font-size: 15px; font-weight: 600; color: var(--cream); margin-bottom: 8px; }
+  .variant-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; }
+  .variant-info { flex: 1; }
+  .variant-label { font-size: 13px; color: var(--cream); }
+  .variant-price { font-size: 13px; color: var(--gold); font-weight: 600; }
+  .variant-per-serving { display: block; font-size: 11px; color: var(--dim); font-style: italic; margin-top: 1px; }
+  .qty-control { display: flex; align-items: center; gap: 12px; }
+  .qty-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: 1px solid #37403c;
+    background: #1a1a1a; color: var(--cream); font-size: 18px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+  .qty-num { min-width: 22px; text-align: center; font-size: 15px; font-weight: 700; }
+  .qty-num.zero { color: #5a625c; }
+  .om-size { flex:1; padding:9px; border-radius:8px; border:1px solid #3a453f; background:#1a201d; color:var(--cream); font-size:13px; cursor:pointer; }
+  .om-size-on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .diet-filter { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:12px; }
+  .diet-filter-label { font-size:11px; color:var(--dim); letter-spacing:0.5px; }
+  .diet-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:var(--cream); font-size:12px; cursor:pointer; }
+  .diet-chip.on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; }
+  .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
+  .submit-btn {
+    width: 100%; background: var(--gold); color: var(--teal-dark); border: none;
+    border-radius: 14px; padding: 17px; font-size: 16px; font-weight: 800; cursor: pointer; margin-top: 6px;
+  }
+  .submit-btn:disabled { opacity: 0.5; }
+  .msg { text-align: center; font-size: 14px; padding: 14px; border-radius: 10px; margin-top: 14px; line-height: 1.4; }
+  .msg.error { background: #3a1a1f; color: #e0828a; border: 1px solid #5a2a3a; }
+  .msg.success { background: #1a2e1a; color: #7abf7a; border: 1px solid #3a6a3a; }
+  .loading { text-align: center; color: var(--dim); padding: 40px 0; font-style: italic; }
+  .menu-link { display: block; text-align: center; color: var(--teal-light); font-size: 13px; margin-bottom: 18px; text-decoration: none; }
+  .empty { text-align: center; color: var(--dim); padding: 30px 0; font-style: italic; line-height: 1.5; }
+  .sticky-back { position:fixed; top:max(14px,env(safe-area-inset-top)); left:14px; z-index:999; background:var(--teal-dark); border:1px solid var(--teal-mid); border-radius:10px; padding:8px 14px; color:var(--teal-light); font-size:13px; font-weight:600; text-decoration:none; box-shadow:0 2px 12px rgba(0,0,0,0.4); }
+
+  /* Heads-up banner published from the Week tab. Renders only when the week
+     actually has one; an unchecked publish clears it. */
+  .week-notice { background:rgba(201,168,76,0.12); border:1px solid var(--gold); border-radius:12px;
+    padding:13px 15px; margin:0 0 16px; font-size:14px; line-height:1.55; color:var(--cream); }
+  .week-notice b { color:var(--gold); display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.6px; margin-bottom:4px; }
+</style>
+</head>
+<body>
+<a class="sticky-back" href="order.html">← Start</a>
+  <!-- @generate logoImg -->
+  <div class="brand">Lettuce, Turnip, The Beet</div>
+  <div class="week" id="weekLabel">Place Your Order</div>
+  <a href="order.html" style="display:block;text-align:center;color:var(--teal-light);font-size:14px;margin-bottom:16px;text-decoration:none;">← Back to start</a>
+
+  <div id="content"><div class="loading">Loading this week's menu…</div></div>
+
+  <script>
+    <!-- @generate workerBase -->
+    // ── Order window (Wed-Sun), the AUTHORITATIVE gate ────────────────────
+    <!-- @include _partials/orderWindow.js -->
+
+    <!-- @include _partials/noticeHtml.js -->
+    var config = null;
+    var cart = {}; // key "dishIdx:variantIdx" -> qty
+    var spiceSelections = {};  // variantKey -> spice level (0-5; 0 = No spice)
+    var pastaSelections = {};  // variantKey -> pasta shape string
+    var parmSelections = {};   // variantKey -> true/false (parm block at cost)
+    var fixSelections = {};    // variantKey -> true/false (fixings yes/no)
+    var fixTexts = {};         // variantKey -> free text of requested fixings
+
+    // ── Cart draft (v9.25) ─────────────────────────────────────────────────
+    // Identity already survives a refresh; the cart did not. Someone builds a
+    // five-dish order, switches apps for ten seconds, and comes back to
+    // nothing. Everything the form knows lives in JS objects, so the whole
+    // in-progress order can be saved and restored.
+    //
+    // The cart is keyed by POSITION (gi_di_vi), so a draft is only valid for
+    // the exact menu it was built against: restoring last week's indexes under
+    // this week's menu would put the WRONG DISHES in someone's cart, which is
+    // far worse than losing the draft. Hence the weekLabel and age checks.
+    // ── Offline submit queue ────────────────────────────────────────────
+    // The last unprotected inch of order durability. Everything from the
+    // worker inward is durable, but a customer on bad signal who taps Submit
+    // and gets a thrown fetch loses the order with no trace on either side.
+    // Queued orders keep their ORIGINAL clientId, and the worker keys pending
+    // orders by clientId, so a retry overwrites itself and can never duplicate.
+    var QUEUE_KEY = "ltb-submit-queue";
+    var QUEUE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+    function readQueue() {
+      try {
+        var raw = localStorage.getItem(QUEUE_KEY);
+        var q = raw ? JSON.parse(raw) : [];
+        return Object.prototype.toString.call(q) === '[object Array]' ? q : [];
+      } catch (e) { return []; }
+    }
+    function writeQueue(q) {
+      try { localStorage.setItem(QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
+    }
+    function enqueueSubmit(payload) {
+      var q = readQueue();
+      q.push({ clientId: payload.clientId, payload: payload, queuedAt: Date.now() });
+      writeQueue(q);
+    }
+    function queueBanner(html) {
+      var el = document.getElementById('queueBanner');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'queueBanner';
+        el.style.cssText = 'margin:10px 0;padding:9px 11px;border-radius:8px;font-size:12.5px;line-height:1.5;';
+        var host = document.getElementById('content');
+        if (host && host.parentNode) host.parentNode.insertBefore(el, host);
+      }
+      el.innerHTML = html;
+    }
+    // Drain oldest-first. A 4xx from the worker is a real rejection, not a
+    // network failure, so that entry is dropped rather than retried forever.
+    function drainQueue() {
+      var q = readQueue();
+      if (!q.length) return;
+      var now = Date.now();
+      var fresh = [], expired = 0;
+      for (var i = 0; i < q.length; i++) {
+        if ((now - q[i].queuedAt) > QUEUE_MAX_AGE_MS) expired++;
+        else fresh.push(q[i]);
+      }
+      if (expired) {
+        writeQueue(fresh);
+        queueBanner('<div class="msg error">An order saved on this phone was more than a week old, so it was not sent. Sorry about that. Please reorder if you still want it.</div>');
+      }
+      if (!fresh.length) { if (!expired) writeQueue([]); return; }
+      var entry = fresh[0];
+      fetch(WORKER + "/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry.payload),
+      })
+        .then(function (r) { return r.json().then(function (res) { return { ok: r.ok, res: res }; }); })
+        .then(function (out) {
+          if (out.res && out.res.ok) {
+            var rest = readQueue().filter(function (e) { return e.clientId !== entry.clientId; });
+            writeQueue(rest);
+            var d = new Date(entry.queuedAt);
+            queueBanner('<div class="msg success">Your order from ' + esc(d.toLocaleDateString()) + ' just sent. You are all set.</div>');
+            if (rest.length) setTimeout(drainQueue, 400);
+          } else if (out.ok === false && out.res && out.res.error) {
+            // The worker understood it and said no. Retrying will not help.
+            var rest2 = readQueue().filter(function (e) { return e.clientId !== entry.clientId; });
+            writeQueue(rest2);
+            queueBanner('<div class="msg error">An order saved on this phone could not be sent: ' + esc(out.res.error) + '</div>');
+          }
+        })
+        .catch(function () { /* still offline; try again next load or online event */ });
+    }
+
+    var DRAFT_KEY = "ltb-cart-draft";
+    var DRAFT_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+    var draftReady = false; // no saving until the first render has happened
+    var draftTimer = null;
+    function saveDraftSoon() {
+      if (draftTimer) clearTimeout(draftTimer);
+      draftTimer = setTimeout(saveDraft, 250);
+    }
+    function saveDraft() {
+      if (!draftReady || !config || config.paused) return;
+      try {
+        var budEl = document.getElementById('omakaseBudget');
+        var noteEl = document.getElementById('omakaseNote');
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          weekLabel: config.weekLabel || '',
+          cart: cart,
+          spice: spiceSelections,
+          pasta: pastaSelections,
+          parm: parmSelections,
+          fix: fixSelections,
+          fixTexts: fixTexts,
+          omakase: {
+            budget: budEl ? budEl.value : '',
+            size: omakaseSize,
+            note: noteEl ? noteEl.value : ''
+          }
+        }));
+      } catch (e) { /* private mode: a lost draft is not worth an error */ }
+    }
+    function clearDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    }
+    function readDraft() {
+      try {
+        var raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return null;
+        var d = JSON.parse(raw);
+        if (!d || !d.savedAt) return null;
+        // Stale, or built against a different menu: discard rather than risk
+        // restoring positions that now point at other dishes.
+        if ((Date.now() - d.savedAt) > DRAFT_MAX_AGE_MS) { clearDraft(); return null; }
+        if ((d.weekLabel || '') !== ((config && config.weekLabel) || '')) { clearDraft(); return null; }
+        return d;
+      } catch (e) { return null; }
+    }
+    // Restore state BEFORE the first render so quantities and option pickers
+    // draw already-filled, then push the omakase values into the DOM after.
+    function restoreDraft() {
+      if (!config || config.paused) return;
+      var d = readDraft();
+      if (!d) return;
+      cart = d.cart || {};
+      spiceSelections = d.spice || {};
+      pastaSelections = d.pasta || {};
+      parmSelections = d.parm || {};
+      fixSelections = d.fix || {};
+      fixTexts = d.fixTexts || {};
+      if (d.omakase && d.omakase.size) omakaseSize = d.omakase.size;
+      return d;
+    }
+    function applyDraftToDom(d) {
+      if (!d || !d.omakase) return;
+      var budEl = document.getElementById('omakaseBudget');
+      var noteEl = document.getElementById('omakaseNote');
+      if (budEl && d.omakase.budget) budEl.value = d.omakase.budget;
+      if (noteEl && d.omakase.note) noteEl.value = d.omakase.note;
+      if (d.omakase.size) setOmakaseSize(d.omakase.size);
+      if (typeof omakaseBudgetInput === 'function') omakaseBudgetInput();
+    }
+
+    // Option pickers come from the PUBLISHED dish data (dish.options, declared
+    // in the app's registry) — no hardcoded dish-name lists here anymore.
+    // pastaAppliesTo: a pasta option hides for variants whose label contains
+    // any excludeVariants substring (Polenta replaces pasta; Egg Pappardelle
+    // IS the pasta) — so it only attaches to the variants it belongs to.
+    function dishOptions(dish) { return (dish && dish.options) || {}; }
+    // Picker state (spice/pasta) is keyed by DISH NAME, never by menu position.
+    // Position keys (gi_di) silently lost selections when the menu re-rendered
+    // in a different order between selecting and submitting (a spotlight or new
+    // dish shifting positions moved the key out from under the saved value).
+    // Name-based keys are stable across any re-render.
+    // Per-VARIANT option keys: "small chickpea at spice 1 + large chicken at
+    // spice 2" needs independent state per size row, so keys are dish+variant.
+    // Name-based (never position-based) so a menu re-render can't orphan them.
+    function variantKey(dish, v) {
+      return (String((dish && dish.name) || '') + '__' + String((v && v.label) || '')).replace(/[^a-zA-Z0-9]/g, '_');
+    }
+    // Split a free-text fixings request into discrete line items:
+    // "chips, sour cream and cheese" -> ["chips","sour cream","cheese"].
+    // Deterministic on purpose — the form knows what was asked; no guessing.
+    function splitRequests(txt) {
+      var parts = String(txt || '').split(/,|;|\n|\band\b|&|\+/i);
+      var out = [], seen = {};
+      for (var i = 0; i < parts.length && out.length < 8; i++) {
+        var p = parts[i].trim();
+        if (!p) continue;
+        var k = p.toLowerCase();
+        if (seen[k]) continue;
+        seen[k] = 1;
+        out.push(p);
+      }
+      return out;
+    }
+    function pastaAppliesTo(dish, variantLabel) {
+      var p = dishOptions(dish).pasta;
+      if (!p) return false;
+      var excl = p.excludeVariants || [];
+      for (var i = 0; i < excl.length; i++) {
+        if (String(variantLabel || '').indexOf(excl[i]) !== -1) return false;
+      }
+      return true;
+    }
+
+    function money(n) { return "$" + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ""); }
+    function parseServings(label) {
+      var m = label.match(/~(\d+)-(\d+)/);
+      if (m) return (parseInt(m[1]) + parseInt(m[2])) / 2;
+      m = label.match(/~(\d+)/);
+      if (m) return parseInt(m[1]);
+      return null;
+    }
+    function fmtLabel(label) {
+      if (/~\d/.test(label) && !/serving/.test(label)) {
+        return label.replace(/(~[\d]+-?[\d]*)/, '$1 servings');
+      }
+      return label;
+    }
+    function perServing(price, label) {
+      var s = parseServings(label);
+      if (!s || s <= 0) return '';
+      var pp = price / s;
+      return '~$' + pp.toFixed(2).replace(/\.00$/, '') + '/serving';
+    }
+
+    function loadConfig() {
+      fetch(WORKER + "/config")
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          config = cfg;
+          var draft = restoreDraft();
+          render();
+          applyDraftToDom(draft);
+          draftReady = true;
+          drainQueue();
+        })
+        .catch(function () {
+          document.getElementById("content").innerHTML =
+            '<div class="msg error">Could not load the menu. Please try again in a moment, or reach out directly.</div>';
+        });
+    }
+
+    function allGroups() {
+      var groups = [];
+      if (config.dishes && config.dishes.length) groups.push({ title: "This Week's Dinners", items: config.dishes });
+      if (config.spotlight && config.spotlight.length) groups.push({ title: "Spotlight Dinner of the Week", items: config.spotlight });
+      if (config.bag && config.bag.length) groups.push({ title: "Ready to Finish", items: config.bag });
+      if (config.sauces && config.sauces.length) groups.push({ title: "Finishing Sauces", items: config.sauces });
+      if (config.fruit && config.fruit.length) groups.push({ title: "Fresh Cut Fruit", items: config.fruit });
+      if (config.desserts && config.desserts.length) groups.push({ title: "Desserts", items: config.desserts });
+      if (config.addons && config.addons.length) groups.push({ title: "Add-Ons & Extras", items: config.addons });
+      return groups;
+    }
+
+    function render() {
+      if (config.weekLabel) document.getElementById("weekLabel").textContent = config.weekLabel;
+
+      // Week off: nothing to order, and the form should say so plainly
+      // rather than looking broken or empty.
+      if (config.paused) {
+        document.getElementById("content").innerHTML =
+          noticeHtml(config) +
+          '<div class="section" style="text-align:center;">' +
+          '<div class="section-title">Taking this week off</div>' +
+          '<div style="font-size:13px;color:var(--dim);line-height:1.6;">No menu this week. Back next week, same as always.' +
+          (config.pausedMsg ? '<br><br>' + esc(config.pausedMsg) : '') + '</div></div>';
+        return;
+      }
+
+      // Closed window: say so plainly and show NO form. The notice still
+      // renders above it, since a heads-up matters just as much on a day
+      // nobody can order.
+      if (!ordersOpen()) {
+        document.getElementById("content").innerHTML =
+          noticeHtml(config) +
+          '<div class="section" style="text-align:center;">' +
+          '<div class="section-title">Orders are closed right now</div>' +
+          '<div style="font-size:13px;color:var(--dim);line-height:1.6;">' +
+          'Orders are open <strong style="color:var(--gold)">Wednesday through Sunday</strong> for delivery the following Wednesday.' +
+          '<br><br>Need something outside that window? Just reach out directly and we will work it out.</div></div>';
+        return;
+      }
+
+      var groups = allGroups();
+      if (groups.length === 0) {
+        document.getElementById("content").innerHTML =
+          noticeHtml(config) +
+          '<div class="empty">No menu is published right now.<br>Check back soon or reach out directly.</div>';
+        return;
+      }
+
+      var html = noticeHtml(config);
+      if (config.menuPdfUrl) {
+        html += '<a class="menu-link" href="' + config.menuPdfUrl + '" target="_blank" rel="noopener">View the full menu PDF →</a>';
+      }
+
+      // Omakase - always present, not from the weekly config
+      html += '<div class="section">' +
+        '<div class="section-title">Omakase</div>' +
+        '<div style="font-size:12.5px;color:var(--dim);margin-bottom:10px;line-height:1.5;">Name a budget, pick a size, and I cook. You might even get something off the menu entirely if I spot something great at the store. The amount you enter is the <b>maximum</b>; the final charge may come in under it. Minor requests are welcome (a meal count, a hard no on an ingredient), but the point is you\'re trusting me to feed you.</div>' +
+        '<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;">' +
+          '<span style="color:var(--cream);font-size:13px;">Budget $</span>' +
+          '<input id="omakaseBudget" type="number" min="50" step="5" placeholder="50 min" oninput="omakaseBudgetInput()" style="width:100px;padding:8px;border-radius:8px;border:1px solid #3a453f;background:#1a201d;color:var(--cream);font-size:14px;" />' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+          '<button type="button" id="omSizeSmall" class="om-size om-size-on" onclick="setOmakaseSize(\'Small\')">Small (serves ~4)</button>' +
+          '<button type="button" id="omSizeLarge" class="om-size" onclick="setOmakaseSize(\'Large\')">Large (serves ~8)</button>' +
+        '</div>' +
+        '<div style="font-size:11.5px;color:var(--dim);margin-bottom:10px;">Depending on your budget you may get more than one meal. The size just tells me how big to make each one: Small is about 4 servings, Large is about 8.</div>' +
+        '<textarea id="omakaseNote" oninput="saveDraftSoon()" placeholder="Optional: 2 total meals please / absolutely no clams"></textarea>' +
+        '<div id="omakaseBigNote"></div>' +
+        '<div id="omakaseErr"></div>' +
+        '</div>';
+
+      // Menu groups
+      DINNER_BLOCKS = [];
+      groups.forEach(function (group, gi) {
+        html += '<div class="section"><div class="section-title">' + group.title + '</div>';
+        var isDinnerGroup = (group.title === "This Week's Dinners");
+        if (isDinnerGroup) html += dietChipsHtml();
+        group.items.forEach(function (dish, di) {
+          var opts = dishOptions(dish);
+          var blkId = 'dishblk_' + gi + '_' + di;
+          if (isDinnerGroup) DINNER_BLOCKS.push({ id: blkId, dish: dish, gi: gi, di: di });
+          html += '<div class="dish"' + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
+            + (dish.requested ? ' <span class="req-chip">by request</span>' : '')
+            + (dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '') + '</div>';
+          (dish.variants || []).forEach(function (v, vi) {
+            var key = gi + "_" + di + "_" + vi;
+            var qty = cart[key] || 0;
+            html += '<div class="variant-row">' +
+              '<div class="variant-info"><span class="variant-label">' + (dish.perLb ? 'Priced by weight &middot; order by the piece' : esc(fmtLabel(v.label))) + '</span> ' +
+              '<span class="variant-price">' + (dish.perLb ? money(v.price) + '/lb + $2.00 bag' : money(v.price)) + '</span>' +
+              (!dish.perLb && perServing(v.price, v.label) ? '<span class="variant-per-serving">' + perServing(v.price, v.label) + '</span>' : '') +
+              (dish.perLb && dish.avgWeightLb ? '<span class="variant-per-serving">approx. ' + (+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/, '') + ' lb per piece</span>' : '') +
+              '</div>' +
+              '<div class="qty-control">' +
+              '<button class="qty-btn" onclick="changeQty(\'' + key + '\', -1)">&minus;</button>' +
+              '<div style="display:flex;flex-direction:column;align-items:center;">' +
+              '<span class="qty-num' + (qty === 0 ? ' zero' : '') + '" id="qty_' + key + '">' + qty + '</span>' +
+              (dish.perLb ? '<span style="font-size:10px;color:var(--dim);line-height:1;">pieces</span>' : '') +
+              '</div>' +
+              '<button class="qty-btn" onclick="changeQty(\'' + key + '\', 1)">+</button>' +
+              '</div></div>';
+
+            // ── Per-variant option panel: renders directly under THIS size row
+            // and only while THIS variant is in the cart. Each variant keeps
+            // its own spice/pasta/parm/fixings state (independent line items).
+            var vk = variantKey(dish, v);
+            var panel = '';
+            if (opts.spice) {
+              var spiceVal = spiceSelections[vk] != null ? spiceSelections[vk] : -1;
+              var spMin = opts.spice.min || 1, spMax = opts.spice.max || 5;
+              panel += '<div id="spice_' + vk + '" style="margin-top:6px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Spice level (' + spMin + '\u2013' + spMax + ')</div>' +
+                '<div style="display:flex;gap:6px;">';
+              for (var sp = 0; sp <= spMax; sp++) {
+                if (sp !== 0 && sp < spMin) continue;
+                var slabel = sp === 0 ? 'No spice' : String(sp);
+                panel += '<button onclick="setSpice(\'' + vk + '\',' + sp + ')" data-lvl="' + sp + '" style="' + (sp === 0 ? 'flex:1.4;' : 'flex:1;') + 'padding:7px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-size:' + (sp === 0 ? '11' : '14') + 'px;' +
+                  (spiceVal === sp ? 'background:var(--teal-light);color:#1a1a1a;' : 'background:#2a2f2d;color:#c8cfc9;') + '">' + slabel + '</button>';
+              }
+              panel += '</div></div>';
+            }
+            if (opts.pasta && pastaAppliesTo(dish, v.label)) {
+              var pastaVal = pastaSelections[vk] || '';
+              var pastaPh = opts.pasta.placeholder || 'e.g. rigatoni, pappardelle';
+              panel += '<div style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Pasta shape (optional)</div>' +
+                '<input type="text" placeholder="' + esc(pastaPh) + '" value="' + esc(pastaVal) + '" oninput="setPasta(\'' + vk + '\', this.value)" style="margin-top:0;"></div>';
+            }
+            if (opts.parmOffer) {
+              panel += '<div id="parm_' + vk + '" style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Want me to grab a block of good parm for you at cost ($10\u201315 on avg)?</div>' +
+                '<div style="display:flex;gap:6px;">' +
+                yesNoBtn(vk, 'parm', true, parmSelections[vk] === true) +
+                yesNoBtn(vk, 'parm', false, parmSelections[vk] === false) +
+                '</div></div>';
+            }
+            if (opts.fixings) {
+              var fixOn = fixSelections[vk] === true;
+              panel += '<div id="fix_' + vk + '" style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">' + esc(opts.fixings.prompt || 'Need extras at cost?') + '</div>' +
+                '<div style="display:flex;gap:6px;">' +
+                yesNoBtn(vk, 'fix', true, fixOn) +
+                yesNoBtn(vk, 'fix', false, fixSelections[vk] === false) +
+                '</div>' +
+                '<input type="text" id="fixtext_' + vk + '" placeholder="' + esc(opts.fixings.placeholder || 'e.g. chips, sour cream') + '" value="' + esc(fixTexts[vk] || '') + '" oninput="setFixText(\'' + vk + '\', this.value)" style="margin-top:6px;' + (fixOn ? '' : 'display:none;') + '"></div>';
+            }
+            if (panel) {
+              html += '<div class="picker-wrap" id="opt_' + vk + '" style="' + (qty > 0 ? '' : 'display:none;') + 'margin:2px 0 10px;padding:8px 10px;background:#202623;border-radius:8px;border-left:2px solid var(--teal-light);">' + panel + '</div>';
+            }
+          });
+                    html += '</div>';
+        });
+        html += '</div>';
+      });
+
+      // Customer details
+      html += '<div class="section"><div class="section-title">Your Details</div>' +
+        '<div id="notYouRow" style="display:none;font-size:12px;color:var(--dim);margin-bottom:10px;"></div>' +
+        '<label class="field-label">Name <span class="req">*</span></label>' +
+        '<input type="text" id="custName" placeholder="First and last name" autocomplete="name">' +
+        '<label class="field-label">Address <span class="rec">(recommended)</span></label>' +
+        '<input type="text" id="custAddress" placeholder="Delivery address — highly recommended, especially first-timers" autocomplete="street-address"><div class="field-hint">How do I find you on delivery day?</div>' +
+        '<label class="field-label">Phone <span class="rec">(recommended)</span></label>' +
+        '<input type="tel" id="custPhone" placeholder="Phone number" autocomplete="tel">' +
+        '<label class="field-label">Notes (optional)</label>' +
+        '<textarea id="custNotes" placeholder="Spice level, substitutions, delivery notes, anything else"></textarea>' +
+        '</div>';
+
+      html += '<button class="submit-btn" id="reviewBtn" onclick="openReview()">Review Order</button>';
+      html += '<div id="msgArea"></div>';
+      html += '<div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;overflow-y:auto;padding:20px;box-sizing:border-box;">' +
+        '<div style="max-width:500px;margin:0 auto;background:#1e2422;border:1px solid var(--teal-mid);border-radius:14px;padding:20px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+            '<span style="font-size:17px;font-weight:700;color:#fff;">Review Your Order</span>' +
+            '<button onclick="closeReview()" style="background:none;border:none;color:#9aa5a0;font-size:22px;cursor:pointer;line-height:1;">&times;</button>' +
+          '</div>' +
+          '<div id="reviewSummary"></div>' +
+          '<button class="submit-btn" id="submitBtn" onclick="submitOrder()" style="margin-top:16px;">Submit Order</button>' +
+          '<div id="msgArea"></div>' +
+        '</div>' +
+      '</div>';
+
+      document.getElementById("content").innerHTML = html;
+      prefillIdentity();
+    }
+
+    function changeQty(key, delta) {
+      if (ACTIVE_DIET) setTimeout(applyDietFilter, 0);
+      saveDraftSoon();
+      var cur = cart[key] || 0;
+      var next = Math.max(0, cur + delta);
+      if (next === 0) delete cart[key]; else cart[key] = next;
+      var el = document.getElementById("qty_" + key);
+      if (el) { el.textContent = next; el.className = "qty-num" + (next === 0 ? " zero" : ""); }
+      // Show/hide THIS variant's option panel (per-variant, not per-dish).
+      var parts = key.split("_"); // gi_di_vi
+      var groups = allGroups();
+      var gi = +parts[0], di = +parts[1], vi = +parts[2];
+      var group = groups[gi];
+      var dish = group ? group.items[di] : null;
+      var v = dish ? (dish.variants || [])[vi] : null;
+      if (dish && v) {
+        var panelEl = document.getElementById('opt_' + variantKey(dish, v));
+        if (panelEl) panelEl.style.display = next > 0 ? '' : 'none';
+      }
+    }
+
+    // Yes/No toggle button HTML for parm + fixings prompts.
+    function yesNoBtn(vk, kind, yes, active) {
+      return '<button onclick="' + (kind === 'parm' ? 'setParm' : 'setFix') + '(\'' + vk + '\',' + (yes ? 'true' : 'false') + ')" style="flex:1;padding:7px 4px;border-radius:6px;border:none;cursor:pointer;font-weight:700;font-size:13px;' +
+        (active ? 'background:var(--teal-light);color:#1a1a1a;' : 'background:#2a2f2d;color:#c8cfc9;') + '">' + (yes ? 'Yes' : 'No') + '</button>';
+    }
+    function restyleToggle(containerId, activeYes) {
+      var el = document.getElementById(containerId);
+      if (!el) return;
+      var btns = el.querySelectorAll('button');
+      if (btns.length < 2) return;
+      // btns[0] = Yes, btns[1] = No
+      btns[0].style.background = activeYes === true ? 'var(--teal-light)' : '#2a2f2d';
+      btns[0].style.color = activeYes === true ? '#1a1a1a' : '#c8cfc9';
+      btns[1].style.background = activeYes === false ? 'var(--teal-light)' : '#2a2f2d';
+      btns[1].style.color = activeYes === false ? '#1a1a1a' : '#c8cfc9';
+    }
+
+    function setSpice(vk, level) {
+      spiceSelections[vk] = level;
+      saveDraftSoon();
+      var wrap = document.getElementById('spice_' + vk);
+      if (!wrap) return;
+      var btns = wrap.querySelectorAll('button');
+      btns.forEach(function (btn) {
+        var l = Number(btn.getAttribute('data-lvl'));
+        btn.style.background = (l === level) ? 'var(--teal-light)' : '#2a2f2d';
+        btn.style.color = (l === level) ? '#1a1a1a' : '#c8cfc9';
+      });
+    }
+
+    function setPasta(vk, val) {
+      saveDraftSoon();
+      pastaSelections[vk] = val;
+    }
+
+    function setParm(vk, yes) {
+      parmSelections[vk] = yes;
+      restyleToggle('parm_' + vk, yes);
+      saveDraftSoon();
+    }
+
+    function setFix(vk, yes) {
+      fixSelections[vk] = yes;
+      saveDraftSoon();
+      restyleToggle('fix_' + vk, yes);
+      var input = document.getElementById('fixtext_' + vk);
+      if (input) input.style.display = yes ? '' : 'none';
+      if (yes && input) input.focus();
+    }
+
+    function setFixText(vk, val) {
+      fixTexts[vk] = val;
+      saveDraftSoon();
+    }
+
+    <!-- @include _partials/esc.js -->
+
+    var ACTIVE_DIET = null; // null | 'veg' | 'vegan' | 'pesc'
+    var DINNER_BLOCKS = []; // [{ id, dish, gi, di }] for the dinners group only
+    // Ported verbatim from menu.html so the two pages filter identically.
+    function dietMatch(dish, diet){
+      if (!dish || !diet || !dish.diet) return 'none';
+      var tag = dish.diet, variants = dish.variants || [];
+      function labelsFor(key){
+        if (tag[key] === true) return variants.map(function(v){ return v.label; });
+        if (Object.prototype.toString.call(tag[key]) === '[object Array]') return tag[key];
+        return [];
+      }
+      var qualifying;
+      if (diet === 'veg') qualifying = labelsFor('veg').concat(labelsFor('vegan')).concat(labelsFor('veganOnRequest'));
+      else if (diet === 'vegan') qualifying = labelsFor('vegan').concat(labelsFor('veganOnRequest'));
+      else if (diet === 'pesc') qualifying = labelsFor('veg').concat(labelsFor('vegan')).concat(labelsFor('veganOnRequest')).concat(labelsFor('pesc'));
+      else return 'none';
+      if (!qualifying.length) return 'none';
+      var set = {}; qualifying.forEach(function(l){ set[l] = 1; });
+      if (variants.length && variants.every(function(v){ return set[v.label]; })) return 'all';
+      return 'some';
+    }
+    function dietChipsInner(){
+      function chip(diet, label){
+        var on = ACTIVE_DIET === diet;
+        return '<button type="button" class="diet-chip' + (on ? ' on' : '') + '" onclick="setDiet(\'' + diet + '\')">' + label + '</button>';
+      }
+      return '<span class="diet-filter-label">Show:</span>' + chip('veg','Vegetarian') + chip('vegan','Vegan') + chip('pesc','Pescatarian');
+    }
+    function dietChipsHtml(){ return '<div class="diet-filter" id="dietChips">' + dietChipsInner() + '</div>'; }
+    function dishHasCart(gi, di){
+      var pre = gi + '_' + di + '_';
+      for (var k in cart) { if (cart.hasOwnProperty(k) && k.indexOf(pre) === 0 && cart[k] > 0) return true; }
+      return false;
+    }
+    // Show/hide instead of re-render: a re-render would wipe the omakase
+    // budget and note and the customer details, which live in the DOM.
+    function applyDietFilter(){
+      for (var i = 0; i < DINNER_BLOCKS.length; i++) {
+        var b = DINNER_BLOCKS[i], el = document.getElementById(b.id);
+        if (!el) continue;
+        var show = !ACTIVE_DIET || dietMatch(b.dish, ACTIVE_DIET) !== 'none' || dishHasCart(b.gi, b.di);
+        el.style.display = show ? '' : 'none';
+      }
+    }
+    function setDiet(diet){
+      ACTIVE_DIET = (ACTIVE_DIET === diet) ? null : diet;
+      var wrap = document.getElementById('dietChips');
+      if (wrap) wrap.innerHTML = dietChipsInner();
+      applyDietFilter();
+    }
+    var omakaseSize = 'Small';
+    function setOmakaseSize(sz) {
+      omakaseSize = sz;
+      saveDraftSoon();
+      var sEl = document.getElementById('omSizeSmall'), lEl = document.getElementById('omSizeLarge');
+      if (sEl) sEl.className = 'om-size' + (sz === 'Small' ? ' om-size-on' : '');
+      if (lEl) lEl.className = 'om-size' + (sz === 'Large' ? ' om-size-on' : '');
+    }
+    function clearOmakaseErr() { var e = document.getElementById('omakaseErr'); if (e) e.innerHTML = ''; }
+    // Never advertised. Only appears once a budget clears $300, and only to
+    // ask for a hint about which way Kevin should spend it.
+    window.addEventListener('online', function () { drainQueue(); });
+
+    function omakaseBudgetInput() {
+      clearOmakaseErr();
+      saveDraftSoon();
+      var b = document.getElementById('omakaseBudget'), n = document.getElementById('omakaseBigNote');
+      if (!b || !n) return;
+      if (parseFloat(b.value) > 300) {
+        n.innerHTML = '<div style="margin:2px 0 10px;padding:9px 11px;border:1px solid var(--gold);border-radius:8px;background:rgba(212,160,80,0.08);font-size:12.5px;color:var(--cream);line-height:1.5;">A budget this size is my cue to either make you several dishes or go after very nice ingredients, prime filet mignon territory, on fewer of them. Both are good nights. If you have a preference, drop a word in the notes below and I will lean that way.</div>';
+      } else {
+        n.innerHTML = '';
+      }
+    }
+    function omakaseBudgetInvalid() {
+      var b = document.getElementById('omakaseBudget');
+      return !!(b && b.value.trim() !== '' && !(parseFloat(b.value) >= 50));
+    }
+    function gatherOmakase() {
+      var budEl = document.getElementById('omakaseBudget');
+      if (!budEl) return null;
+      var bud = parseFloat(budEl.value);
+      if (!(bud >= 50)) return null;
+      var note = (document.getElementById('omakaseNote').value || '').trim();
+      return { name: 'Omakase', variant: omakaseSize, price: bud, cost: 0, qty: 1, note: note, omakase: true, budgetMax: bud };
+    }
+    function gatherItems() {
+      var items = [];
+      var groups = allGroups();
+      Object.keys(cart).forEach(function (key) {
+        var parts = key.split("_");
+        var gi = +parts[0], di = +parts[1], vi = +parts[2];
+        var group = groups[gi];
+        if (!group) return;
+        var dish = group.items[di];
+        if (!dish) return;
+        var v = (dish.variants || [])[vi];
+        if (!v) return;
+        var vk2 = variantKey(dish, v); // per-variant: each size row keeps its own options
+        var opts2 = dishOptions(dish);
+        var itemOptions = {};
+        var noteparts = []; // note mirror — human-readable copy of every choice
+        if (opts2.spice && spiceSelections[vk2] != null) {
+          itemOptions.spice = spiceSelections[vk2];
+          noteparts.push("Spice: " + spiceSelections[vk2]);
+        }
+        if (opts2.pasta && pastaSelections[vk2] && pastaAppliesTo(dish, v.label)) {
+          itemOptions.pasta = pastaSelections[vk2];
+          noteparts.push("Pasta: " + pastaSelections[vk2]);
+        }
+        // At-cost add-on requests: structured line items, priced by Kevin
+        // after shopping (the app renders each as its own pending sub-charge).
+        var addons = [];
+        if (opts2.parmOffer && parmSelections[vk2] === true) {
+          addons.push({ request: "Block of good parm" });
+        }
+        if (opts2.fixings && fixSelections[vk2] === true) {
+          splitRequests(fixTexts[vk2]).forEach(function (r) { addons.push({ request: r }); });
+        }
+        if (addons.length) {
+          noteparts.push("Add-ons at cost: " + addons.map(function (a) { return a.request; }).join("; "));
+        }
+        var item = { name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb };
+        if (itemOptions.spice != null || itemOptions.pasta) item.options = itemOptions;
+        if (addons.length) item.addons = addons;
+        items.push(item);
+      });
+      var _om = gatherOmakase();
+      if (_om) items.push(_om);
+      return items;
+    }
+
+    function openReview() {
+      var items = gatherItems();
+      var name = (document.getElementById("custName").value || "").trim();
+      var address = (document.getElementById("custAddress").value || "").trim();
+      var phone = (document.getElementById("custPhone").value || "").trim();
+      var notes = (document.getElementById("custNotes").value || "").trim();
+      var msgArea = document.getElementById("msgArea");
+
+      if (!name) {
+        msgArea.innerHTML = '<div class="msg error">Please enter your name before reviewing.</div>';
+        return;
+      }
+      if (omakaseBudgetInvalid()) {
+        msgArea.innerHTML = '<div class="msg error">Omakase minimum is $50 (or leave the budget blank).</div>';
+        return;
+      }
+      if (items.length === 0) {
+        msgArea.innerHTML = '<div class="msg error">Please add at least one item to your order.</div>';
+        return;
+      }
+      msgArea.innerHTML = "";
+
+      // Build summary HTML
+      var total = 0;
+      var hasPerLb = false;
+      var summaryHtml = '<div style="margin-bottom:14px;">';
+      summaryHtml += '<div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Items</div>';
+      items.forEach(function(it) {
+        var isPerLb = !!it.perLb;
+        var lineTotal;
+        var variantLabel;
+        if (isPerLb) {
+          hasPerLb = true;
+          var avgW = it.avgWeightLb || 0;
+          lineTotal = (it.price * avgW + 2.00) * it.qty;
+          variantLabel = it.qty + ' piece' + (it.qty === 1 ? '' : 's') + ' &middot; priced by weight';
+        } else if (it.omakase) {
+          lineTotal = it.price * it.qty;
+          variantLabel = esc(it.variant) + ' &middot; chef\'s choice';
+        } else {
+          lineTotal = it.price * it.qty;
+          variantLabel = esc(it.variant);
+        }
+        total += lineTotal;
+        var lineTotalStr = (lineTotal % 1 === 0 ? lineTotal : lineTotal.toFixed(2));
+        summaryHtml += '<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--cream);padding:4px 0;border-bottom:1px solid #2d3a36;">' +
+          '<div>' + esc(it.qty) + '× ' + esc(it.name) + '<br><span style="font-size:12px;color:var(--dim);">' + variantLabel + ((it.note && !it.omakase) ? ' \u2014 ' + esc(it.note) : '') + '</span></div>' +
+          '<div style="font-weight:700;color:var(--gold);white-space:nowrap;padding-left:12px;">' + (isPerLb ? '~' : '') + '$' + lineTotalStr + (it.omakase ? ' max' : '') + '</div>' +
+          '</div>' +
+          ((it.omakase && it.note) ? '<div style="margin:6px 0 10px;padding:8px 10px;border:1px solid var(--gold);border-radius:8px;background:rgba(212,160,80,0.08);">' +
+            '<div style="font-size:10.5px;color:var(--gold);font-weight:700;letter-spacing:0.5px;margin-bottom:3px;">YOUR NOTE TO THE CHEF</div>' +
+            '<div style="font-size:13px;color:var(--cream);line-height:1.5;">' + esc(it.note) + '</div></div>' : '');
+      });
+      var totalStr = (total % 1 === 0 ? total : total.toFixed(2));
+      // M4: container space, Kevin's exact thresholds — 4+ Large portions or
+      // 8+ Smalls, and BELOW that nobody needs warning, so below that this
+      // block renders nothing at all. A friendly heads-up, never a blocker:
+      // the submit button is untouched. Per-lb cuts are vacuum bags, not
+      // containers, so they never count toward either threshold.
+      var largeCount = 0, smallCount = 0;
+      items.forEach(function (it) {
+        if (it.perLb) return;
+        var v = it.variant || "";
+        if (/large/i.test(v)) largeCount += it.qty;
+        else if (/small/i.test(v)) smallCount += it.qty;
+      });
+      if (largeCount >= 4 || smallCount >= 8) {
+        summaryHtml += '<div class="container-space-note" style="margin:10px 0 4px;padding:9px 11px;border:1px solid var(--gold);border-radius:8px;background:rgba(212,160,80,0.08);font-size:12.5px;color:var(--cream);line-height:1.5;">' +
+          '<span style="color:var(--gold);font-weight:700;">A note on fridge space:</span> that\u2019s ' +
+          (largeCount >= 4 ? largeCount + ' large containers' : smallCount + ' containers') +
+          ' arriving Wednesday \u2014 worth clearing a shelf before delivery day.</div>';
+      }
+      summaryHtml += '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--gold);padding:10px 0 4px;">' +
+        '<span>Total' + (hasPerLb ? ' (est.)' : '') + '</span><span>' + (hasPerLb ? '~' : '') + '$' + totalStr + '</span></div>';
+      if (hasPerLb) {
+        summaryHtml += '<div style="font-size:11px;color:var(--dim);font-style:italic;padding-top:2px;">Items priced by weight are estimated at typical piece sizes. Final price settles at the actual weight of your cuts.</div>';
+      }
+      summaryHtml += '</div>';
+
+      summaryHtml += '<div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Your Details</div>';
+      summaryHtml += '<div style="font-size:14px;color:var(--cream);line-height:1.7;">';
+      summaryHtml += '<strong>Name:</strong> ' + esc(name) + '<br>';
+      if (address) summaryHtml += '<strong>Address:</strong> ' + esc(address) + '<br>';
+      if (phone) summaryHtml += '<strong>Phone:</strong> ' + esc(phone) + '<br>';
+      if (notes) summaryHtml += '<strong>Notes:</strong> ' + esc(notes) + '<br>';
+      summaryHtml += '</div>';
+
+      document.getElementById("reviewSummary").innerHTML = summaryHtml;
+      document.getElementById("reviewModal").style.display = "block";
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeReview() {
+      document.getElementById("reviewModal").style.display = "none";
+      document.body.style.overflow = "";
+    }
+
+    // ── Idempotency (v9.23) ────────────────────────────────────────────────
+    // The button disables on submit, which only stops a FAST double-tap. The
+    // case that actually duplicates an order is the slow one: the request is
+    // in flight, fetch times out, .catch re-enables the button, the customer
+    // taps again — and the first request landed after all. Two orders, one
+    // customer, both real as far as the books are concerned.
+    //
+    // So the key must survive the retry. Generated ONCE per order attempt and
+    // reused for every retry of that same order; the worker uses it as the KV
+    // key, so a retry overwrites itself instead of queueing twice. Cleared
+    // only on success, when the next order legitimately becomes a new order.
+    //
+    // Must match the worker's /^[A-Za-z0-9_-]{8,64}$/ exactly. A key that
+    // fails that regex is silently ignored and the worker generates its own
+    // id — which would look like this worked while deduping nothing.
+    // ES5 only, and no crypto.randomUUID: this page loads on whatever phone
+    // a friend happens to own, and randomUUID needs a secure context.
+    var pendingClientId = null;
+    function orderAttemptId() {
+      if (pendingClientId) return pendingClientId;
+      var s = "";
+      while (s.length < 24) {
+        s += Math.random().toString(36).slice(2);
+      }
+      pendingClientId = ("c" + Date.now().toString(36) + s).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+      return pendingClientId;
+    }
+
+    function submitOrder() {
+      var name = (document.getElementById("custName").value || "").trim();
+      var address = (document.getElementById("custAddress").value || "").trim();
+      var phone = (document.getElementById("custPhone").value || "").trim();
+      var notes = (document.getElementById("custNotes").value || "").trim();
+      var items = gatherItems();
+      var msgArea = document.getElementById("msgArea");
+
+      if (!name) {
+        msgArea.innerHTML = '<div class="msg error">Please enter your name.</div>';
+        return;
+      }
+      if (omakaseBudgetInvalid()) {
+        msgArea.innerHTML = '<div class="msg error">Omakase minimum is $50 (or leave the budget blank).</div>';
+        return;
+      }
+      if (items.length === 0) {
+        msgArea.innerHTML = '<div class="msg error">Please add at least one item to your order.</div>';
+        return;
+      }
+
+      var btn = document.getElementById("submitBtn");
+      btn.disabled = true; btn.textContent = "Submitting…";
+
+      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId() };
+
+      fetch(WORKER + "/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(submitPayload),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res.ok) {
+            // Success: this order is done. The next one is a new order and
+            // must get its own key, or it would overwrite this one.
+            pendingClientId = null;
+            // Persist identity (name/address/phone) for next week's prefill.
+            saveIdentity(name, address, phone);
+            recordOrderPlaced();
+            clearDraft();
+            document.getElementById("content").innerHTML =
+              '<div class="msg success">Thanks, ' + esc(name) + '! Your order is in.<br>' +
+              'You will get a confirmation directly once it is reviewed.</div>' +
+              '<div class="section"><div class="section-title">Your order</div>' +
+              buildReceiptHtml(items) +
+              '<div style="font-size:12px;color:var(--dim);font-style:italic;text-align:center;margin-top:2px;">Screenshot this if you want a record.</div>' +
+              '</div>' +
+              '<a href="order.html" style="display:block;text-align:center;margin-top:16px;padding:12px 20px;background:var(--teal-mid);color:var(--cream);font-weight:700;font-size:14px;border-radius:10px;text-decoration:none;">← Back to start</a>';
+            window.scrollTo(0, 0);
+          } else {
+            msgArea.innerHTML = '<div class="msg error">' + esc(res.error || "Something went wrong.") + ' Please try again.</div>';
+            btn.disabled = false; btn.textContent = "Submit Order";
+          }
+        })
+        .catch(function () {
+          // Network failure, not a rejection. Keep the order on the phone and
+          // tell the truth: it is saved and will send itself.
+          enqueueSubmit(submitPayload);
+          pendingClientId = null;
+          saveIdentity(name, address, phone);
+          recordOrderPlaced();
+          clearDraft();
+          document.getElementById("content").innerHTML =
+            '<div class="msg success">Thanks, ' + esc(name) + '! Your order is saved on this phone.<br>' +
+            'Your signal dropped, so it has not reached me yet. It will send automatically the next time you have service, and you do not need to do anything.</div>' +
+            '<div class="section"><div class="section-title">Your order</div>' +
+            buildReceiptHtml(items) +
+            '<div style="font-size:12px;color:var(--dim);font-style:italic;text-align:center;margin-top:2px;">Screenshot this if you want a record.</div>' +
+            '</div>' +
+            '<a href="order.html" style="display:block;text-align:center;margin-top:16px;padding:12px 20px;background:var(--teal-mid);color:var(--cream);font-weight:700;font-size:14px;border-radius:10px;text-decoration:none;">← Back to start</a>';
+          window.scrollTo(0, 0);
+        });
+    }
+
+    // ── Identity memory (v9.24) ────────────────────────────────────────────
+    // Regulars re-type the same name, address, and phone every single week.
+    // Those three fields never change, so persist them on a successful submit
+    // and prefill on the next visit. Identity only: never the cart, never the
+    // notes, nothing menu-dependent. One "Not you?" link clears it. ES5 only,
+    // and wrapped in try/catch because localStorage throws in private mode on
+    // some phones.
+    var IDENTITY_KEY = "ltb-order-identity";
+    // Proof-of-order, written on every successful submit. pipeline.html reads
+    // it (same origin) to weight a regular's vote. Deliberately not a login:
+    // this is a friends-only shop and the stakes of a miscounted vote are a
+    // dish running a week later than it might have.
+    var ORDER_HISTORY_KEY = "ltb-order-history";
+    function recordOrderPlaced() {
+      try {
+        var raw = localStorage.getItem(ORDER_HISTORY_KEY);
+        var h = raw ? JSON.parse(raw) : { count: 0, first: null, last: null };
+        h.count = (h.count || 0) + 1;
+        h.first = h.first || new Date().toISOString();
+        h.last = new Date().toISOString();
+        localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(h));
+      } catch (e) {}
+    }
+    function loadIdentity() {
+      try {
+        var raw = localStorage.getItem(IDENTITY_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) { return null; }
+    }
+    function saveIdentity(name, address, phone) {
+      try {
+        localStorage.setItem(IDENTITY_KEY, JSON.stringify({ name: name, address: address, phone: phone }));
+      } catch (e) {}
+    }
+    function clearIdentity() {
+      try { localStorage.removeItem(IDENTITY_KEY); } catch (e) {}
+      var n = document.getElementById("custName"); if (n) { n.value = ""; }
+      var a = document.getElementById("custAddress"); if (a) { a.value = ""; }
+      var p = document.getElementById("custPhone"); if (p) { p.value = ""; }
+      var row = document.getElementById("notYouRow"); if (row) { row.style.display = "none"; }
+      if (n) { n.focus(); }
+    }
+    function prefillIdentity() {
+      var id = loadIdentity();
+      if (!id) return;
+      var n = document.getElementById("custName");
+      var a = document.getElementById("custAddress");
+      var p = document.getElementById("custPhone");
+      if (n && !n.value && id.name) n.value = id.name;
+      if (a && !a.value && id.address) a.value = id.address;
+      if (p && !p.value && id.phone) p.value = id.phone;
+      var row = document.getElementById("notYouRow");
+      if (row && id.name) {
+        row.innerHTML = 'Saved as <b>' + esc(id.name) + '</b>. ' +
+          '<a href="#" onclick="clearIdentity();return false;" style="color:var(--teal-light);">Not you?</a>';
+        row.style.display = "block";
+      }
+    }
+
+    // ── Success receipt ────────────────────────────────────────────────────
+    // Renders what the customer just ordered, with the estimated total, on the
+    // success screen so they can screenshot a record instead of texting to ask
+    // what they picked. Mirrors the review modal's item + total math (per-lb
+    // aware); kept as its own function so the working review path is untouched.
+    function buildReceiptHtml(items) {
+      var total = 0, hasPerLb = false, rows = "";
+      items.forEach(function (it) {
+        var isPerLb = !!it.perLb, lineTotal, variantLabel;
+        if (isPerLb) {
+          hasPerLb = true;
+          var avgW = it.avgWeightLb || 0;
+          lineTotal = (it.price * avgW + 2.00) * it.qty;
+          variantLabel = it.qty + ' piece' + (it.qty === 1 ? '' : 's') + ' &middot; priced by weight';
+        } else if (it.omakase) {
+          lineTotal = it.price * it.qty;
+          variantLabel = esc(it.variant) + ' &middot; chef\'s choice';
+        } else {
+          lineTotal = it.price * it.qty;
+          variantLabel = esc(it.variant);
+        }
+        total += lineTotal;
+        var lineTotalStr = (lineTotal % 1 === 0 ? lineTotal : lineTotal.toFixed(2));
+        rows += '<div style="display:flex;justify-content:space-between;font-size:14px;color:var(--cream);padding:4px 0;border-bottom:1px solid #2d3a36;">' +
+          '<div>' + esc(it.qty) + '× ' + esc(it.name) + '<br><span style="font-size:12px;color:var(--dim);">' + variantLabel + '</span></div>' +
+          '<div style="font-weight:700;color:var(--gold);white-space:nowrap;padding-left:12px;">' + (isPerLb ? '~' : '') + '$' + lineTotalStr + (it.omakase ? ' max' : '') + '</div>' +
+          '</div>' +
+          ((it.omakase && it.note) ? '<div style="margin:6px 0 10px;padding:8px 10px;border:1px solid var(--gold);border-radius:8px;background:rgba(212,160,80,0.08);">' +
+            '<div style="font-size:10.5px;color:var(--gold);font-weight:700;letter-spacing:0.5px;margin-bottom:3px;">YOUR NOTE TO THE CHEF</div>' +
+            '<div style="font-size:13px;color:var(--cream);line-height:1.5;">' + esc(it.note) + '</div></div>' : '');
+      });
+      var totalStr = (total % 1 === 0 ? total : total.toFixed(2));
+      var html = '<div style="text-align:left;margin:14px 0 6px;">' + rows +
+        '<div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;color:var(--gold);padding:10px 0 4px;">' +
+        '<span>Total' + (hasPerLb ? ' (est.)' : '') + '</span><span>' + (hasPerLb ? '~' : '') + '$' + totalStr + '</span></div>';
+      if (hasPerLb) {
+        html += '<div style="font-size:11px;color:var(--dim);font-style:italic;padding-top:2px;">Items priced by weight settle at the actual weight of your cuts.</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    loadConfig();
+  </script>
+</body>
+</html>

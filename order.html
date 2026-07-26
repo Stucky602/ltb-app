@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!-- GENERATED FILE — DO NOT EDIT.
+     Built from src/pages/order.page.html by tools/buildPages.mjs.
+     Edit the source, then run: node tools/buildPages.mjs --write
+     tools/checkPagesBuilt.mjs fails the build if this file is hand-edited. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -195,22 +199,53 @@
 
 </div>
 <script>
+  var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
+
+  // HTML escaping for anything that reaches a customer's screen. Shared because
+  // a page that escapes LESS than its neighbours is the bug, not a style
+  // difference — and that is invisible until someone publishes a notice with an
+  // apostrophe in it.
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // The week's heads-up banner. Absent or empty renders nothing at all, so
+  // publishing an unchecked week clears it and a stale message can never linger.
+  // This had to be added to three pages by hand and one copy was missed, which
+  // is half the reason the build step exists.
+  function noticeHtml(cfg) {
+    var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
+    if (!t) return "";
+    return '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
+  }
+
+  // Sun(0) and Wed-Sat(3-6) open, Mon and Tue closed. The other half of the
+  // reason this build step exists: this rule was added to three pages
+  // separately, one copy was missed, and someone ordered on a Monday.
+  // `?preview=1` bypasses it so Kevin can check any page on any day.
+  function ordersOpen() {
+    if (/[?&]preview=1/.test(window.location.search)) return true;
+    var d = new Date().getDay();
+    return d === 0 || d >= 3;
+  }
+
   // Save-to-home-screen toggle
   document.getElementById('saveToggle').addEventListener('click', function () {
     document.getElementById('savePanel').classList.toggle('open');
   });
 
-  // Order window: Wed(3) Thu(4) Fri(5) Sat(6) Sun(0) = active. Mon-Tue = inactive.
+  // Outside the order window the button greys out and says why. The RULE
+  // itself lives in _partials/orderWindow.js, so this page and form.html can
+  // never disagree about which days are open.
   (function () {
-    var day = new Date().getDay();
-    var active = day === 0 || day >= 3;
-    if (!active) {
-      var btn = document.getElementById('orderBtn');
-      btn.classList.add('btn-inactive');
-      btn.removeAttribute('href');
-      btn.onclick = function(e){ e.preventDefault(); };
-      document.getElementById('orderMsg').style.display = 'block';
-    }
+    if (ordersOpen()) return;
+    var btn = document.getElementById('orderBtn');
+    btn.classList.add('btn-inactive');
+    btn.removeAttribute('href');
+    btn.onclick = function(e){ e.preventDefault(); };
+    document.getElementById('orderMsg').style.display = 'block';
   })();
 
   // Desktop panel handling: open menu/form in the right panel iframe instead of new tab
@@ -252,19 +287,13 @@
   // fetch is strictly additive: any failure leaves the page exactly as it was
   // and the customer never sees an error for a banner that may not exist.
   (function () {
-    var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
-    function esc(s) {
-      return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-    }
     try {
       fetch(WORKER + "/config")
         .then(function (r) { return r.json(); })
         .then(function (cfg) {
-          var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
-          if (!t) return; // nothing published: the slot stays empty
-          document.getElementById("weekNotice").innerHTML =
-            '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
+          // An absent or empty notice renders "", which leaves the slot
+          // exactly as it started.
+          document.getElementById("weekNotice").innerHTML = noticeHtml(cfg);
         })
         .catch(function () { /* offline or worker down — the page is fine without it */ });
     } catch (e) { /* no fetch at all (very old browser) — same */ }

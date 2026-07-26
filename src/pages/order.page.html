@@ -195,22 +195,29 @@
 
 </div>
 <script>
+  <!-- @generate workerBase -->
+
+  <!-- @include _partials/esc.js -->
+
+  <!-- @include _partials/noticeHtml.js -->
+
+  <!-- @include _partials/orderWindow.js -->
+
   // Save-to-home-screen toggle
   document.getElementById('saveToggle').addEventListener('click', function () {
     document.getElementById('savePanel').classList.toggle('open');
   });
 
-  // Order window: Wed(3) Thu(4) Fri(5) Sat(6) Sun(0) = active. Mon-Tue = inactive.
+  // Outside the order window the button greys out and says why. The RULE
+  // itself lives in _partials/orderWindow.js, so this page and form.html can
+  // never disagree about which days are open.
   (function () {
-    var day = new Date().getDay();
-    var active = day === 0 || day >= 3;
-    if (!active) {
-      var btn = document.getElementById('orderBtn');
-      btn.classList.add('btn-inactive');
-      btn.removeAttribute('href');
-      btn.onclick = function(e){ e.preventDefault(); };
-      document.getElementById('orderMsg').style.display = 'block';
-    }
+    if (ordersOpen()) return;
+    var btn = document.getElementById('orderBtn');
+    btn.classList.add('btn-inactive');
+    btn.removeAttribute('href');
+    btn.onclick = function(e){ e.preventDefault(); };
+    document.getElementById('orderMsg').style.display = 'block';
   })();
 
   // Desktop panel handling: open menu/form in the right panel iframe instead of new tab
@@ -252,16 +259,13 @@
   // fetch is strictly additive: any failure leaves the page exactly as it was
   // and the customer never sees an error for a banner that may not exist.
   (function () {
-    <!-- @generate workerBase -->
-    <!-- @include _partials/esc.js -->
     try {
       fetch(WORKER + "/config")
         .then(function (r) { return r.json(); })
         .then(function (cfg) {
-          var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
-          if (!t) return; // nothing published: the slot stays empty
-          document.getElementById("weekNotice").innerHTML =
-            '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
+          // An absent or empty notice renders "", which leaves the slot
+          // exactly as it started.
+          document.getElementById("weekNotice").innerHTML = noticeHtml(cfg);
         })
         .catch(function () { /* offline or worker down — the page is fine without it */ });
     } catch (e) { /* no fetch at all (very old browser) — same */ }

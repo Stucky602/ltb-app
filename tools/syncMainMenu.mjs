@@ -7,7 +7,18 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
 
-const PATH = new URL('../main-menu.html', import.meta.url).pathname;
+// KEPT, NOT FOLDED INTO buildPages.mjs (Jul 2026, page build step). The build
+// generates main-menu.html from src/pages/main-menu.page.html, so this tool now
+// reads and writes the SOURCE. That matters: if it kept writing the generated
+// root file, the two would fight and checkPagesBuilt.mjs would fail on the next
+// run. Source in, source out; the build carries the change through.
+//
+// It stays a separate tool because it does something the build cannot. Cards in
+// main-menu.html are PLACED BY HAND under editorial section heads that are
+// coarser than canon cuisine, so the card LIST is authored. This tool rewrites
+// the FIELDS inside each authored card. Folding it in would mean generating the
+// card list, which would throw away that hand-ordering.
+const PATH = new URL('../src/pages/main-menu.page.html', import.meta.url).pathname;
 let html = readFileSync(PATH, 'utf8');
 const write = process.argv.includes('--write');
 
@@ -223,6 +234,6 @@ for (const b of (ALL_ALWAYS_ITEMS || [])) {
   else if (b.variants && b.variants.length) syncCard(b.name, b.variants.map(v => money(v.price)));
 }
 
-if (write && patched) { writeFileSync(PATH, html); console.log(`WROTE main-menu.html (${patched} cards patched)`); }
+if (write && patched) { writeFileSync(PATH, html); console.log(`WROTE src/pages/main-menu.page.html (${patched} cards patched) — run tools/buildPages.mjs --write to carry it into main-menu.html`); }
 else if (drift) { console.log(`${drift} drift(s) found${write ? '' : ' — run with --write to fix'}`); process.exit(1); }
 else console.log('main-menu.html prices and allergen lines in sync with dishes.js ✓');

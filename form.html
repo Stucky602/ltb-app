@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!-- GENERATED FILE — DO NOT EDIT.
+     Built from src/pages/form.page.html by tools/buildPages.mjs.
+     Edit the source, then run: node tools/buildPages.mjs --write
+     tools/checkPagesBuilt.mjs fails the build if this file is hand-edited. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -92,19 +96,20 @@
   <script>
     var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
     // ── Order window (Wed-Sun), the AUTHORITATIVE gate ────────────────────
-    // order.html greys out its button outside the window, but that is one link
-    // among several: menu.html and main-menu.html both linked straight here,
-    // so anyone following those could order on a Monday. Link-level gating is
-    // whack-a-mole; the only place a gate cannot be walked around is this page.
-    // Same rule as order.html: Sun(0) and Wed-Sat(3-6) open, Mon/Tue closed.
-    // `?preview=1` bypasses it so Kevin can still check the form any day.
+    // Sun(0) and Wed-Sat(3-6) open, Mon and Tue closed. The other half of the
+    // reason this build step exists: this rule was added to three pages
+    // separately, one copy was missed, and someone ordered on a Monday.
+    // `?preview=1` bypasses it so Kevin can check any page on any day.
     function ordersOpen() {
       if (/[?&]preview=1/.test(window.location.search)) return true;
       var d = new Date().getDay();
       return d === 0 || d >= 3;
     }
 
-    // The week's heads-up banner. Absent or empty renders nothing at all.
+    // The week's heads-up banner. Absent or empty renders nothing at all, so
+    // publishing an unchecked week clears it and a stale message can never linger.
+    // This had to be added to three pages by hand and one copy was missed, which
+    // is half the reason the build step exists.
     function noticeHtml(cfg) {
       var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
       if (!t) return "";
@@ -617,6 +622,10 @@
       saveDraftSoon();
     }
 
+    // HTML escaping for anything that reaches a customer's screen. Shared because
+    // a page that escapes LESS than its neighbours is the bug, not a style
+    // difference — and that is invisible until someone publishes a notice with an
+    // apostrophe in it.
     function esc(s) {
       return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];

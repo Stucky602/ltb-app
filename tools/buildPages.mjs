@@ -25,6 +25,12 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { WORKER_BASE } from '../src/config.js';
+import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
+import { DISHES } from '../src/dishes.js';
+import {
+  DINNER_BAGGED, MENU_ADDONS, MENU_BAG, MENU_SAUCES, MENU_STATIC, LIBRARY_COMMENT,
+  OFF_MENU_DISHES, DINNER_ORDER,
+} from '../src/menuLibrary.js';
 
 const ROOT = new URL('../', import.meta.url);
 const at = (p) => new URL(p, ROOT);
@@ -35,7 +41,29 @@ const at = (p) => new URL(p, ROOT);
 // alone, which is what makes a half-finished migration a shippable state
 // rather than a broken one. Add a page here in the same commit that adds its
 // src/pages/<name>.page.html, never before.
-export const PAGES = ['order.html'];
+export const PAGES = ['order.html', 'pipeline.html', 'menu.html', 'main-menu.html', 'form.html'];
+
+// Serialises exactly as the hand-written LIBRARY blob was written: one line,
+// a space after every colon and comma. JSON.stringify with no spacing omits
+// those spaces and JSON.stringify with an indent adds newlines, so neither
+// reproduces the file. Matching it byte for byte is what lets the migration be
+// verified rather than eyeballed.
+function looseJson(v) {
+  if (v === null) return 'null';
+  if (Array.isArray(v)) return `[${v.map(looseJson).join(', ')}]`;
+  if (typeof v === 'object') {
+    return `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${looseJson(x)}`).join(', ')}}`;
+  }
+  return JSON.stringify(v);
+}
+
+// Read once per build, not once per marker: six markers across two pages, and
+// the file is 90 KB.
+let _logo = null;
+function logoB64() {
+  if (_logo === null) _logo = readFileSync(at('src/pages/_partials/ltb-logo.b64'), 'utf8').trim();
+  return _logo;
+}
 
 // ── Generators ──────────────────────────────────────────────────────────────
 // A generator renders content that ALREADY HAS A SOURCE OF TRUTH elsewhere in
@@ -48,6 +76,107 @@ const GENERATORS = {
   // rename would have left the pages fetching a dead host with no error a
   // customer could see: the banner would just silently never appear.
   workerBase: () => `var WORKER = ${JSON.stringify(WORKER_BASE)};`,
+
+  // ── Pipeline voting cards ─────────────────────────────────────────────────
+  // pipelineDishes.js is already the FROZEN CONTRACT for every vote key:
+  // tools/syncPipeline.mjs fails the gate if worker.js or this page disagrees
+  // with it. So the page was already downstream of canon in every way except
+  // that a human retyped it. Now it is not.
+  //
+  // Nothing here is escaped, deliberately. The copy in canon carries HTML
+  // entities (&middot;, &Eacute;) that were authored as entities, and running
+  // them through esc() would render "&amp;middot;" on the page. That is the
+  // one place a generator must NOT escape, and it is worth stating out loud.
+  pipelineCards: () => {
+    const testing = PIPELINE_DISHES.filter((d) => !d.status || d.status === 'testing');
+    return testing.map((d) => {
+      const lines = [
+        `<div class="dish" data-dish="${d.key}"${d.diet ? ` data-diet="${d.diet}"` : ''}>`,
+        `  <div class="dish-name">${d.title}</div>`,
+        `  <div class="dish-origin">${d.origin}</div>`,
+        `  <div class="dish-desc">${d.desc}</div>`,
+      ];
+      // Note above allergens: the order all four cards carrying both used.
+      if (d.note) lines.push(`  <div class="dish-note">${d.note}</div>`);
+      if (d.contains) lines.push(`  <div class="contains">${d.contains}</div>`);
+      lines.push('</div>');
+      return lines.join('\n');
+    }).join('\n\n');
+  },
+
+  // The "All 30" filter label. A hand-typed count next to a generated list is
+  // a promise to update two things whenever you update one.
+  pipelineCount: () => {
+    const n = PIPELINE_DISHES.filter((d) => !d.status || d.status === 'testing').length;
+    return `<button class="filter-btn on" data-filter="all">All ${n}</button>`;
+  },
+
+  // ── The inline icon set ───────────────────────────────────────────────────
+  // form.html and main-menu.html each carry the LTB logo base64 THREE times,
+  // and all six payloads are byte-identical: one 90 KB image stored six times,
+  // 540 KB of the two pages' combined 695 KB.
+  //
+  // It stays INLINE in the output on purpose. A home-screen icon that 404s
+  // gives an install with no icon, and inlining removes that failure mode
+  // entirely. What changes is that the repo now stores it ONCE, in
+  // src/pages/_partials/ltb-logo.b64, instead of six times.
+  //
+  // Worth knowing: the third one is NOT an icon. It is an <img class="logo">,
+  // a content image, and order.html, menu.html, and pipeline.html all render
+  // the same thing from /ltb-logo.png. That inconsistency is reported, not
+  // fixed — changing it is a page-weight decision, not a refactor.
+  iconAppleTouch: () => `<link rel="apple-touch-icon" href="data:image/png;base64,${logoB64()}">`,
+  iconLink: () => `<link rel="icon" href="data:image/png;base64,${logoB64()}">`,
+  logoImg: () => `<img class="logo" src="data:image/png;base64,${logoB64()}" alt="LTB">`,
+
+  // ── menu.html's LIBRARY ───────────────────────────────────────────────────
+  // The 26 DINNER entries are built from dishes.js. They always had to match it
+  // verbatim — tests/library_sync.mjs enforced that field by field, because the
+  // Brunswick incident in Jul 2026 was three surfaces carrying three different
+  // texts while every presence check stayed green. A rule saying "these two
+  // must be identical" is a build step that has not been written yet.
+  //
+  // Everything else (add-ons, bag items, sauces, the standing prose, and the
+  // `bagged` flag) has no registry equivalent and lives in src/menuLibrary.js.
+  //
+  // library_sync.mjs's header says a serializer for this blob is a bigger
+  // hazard than a red test. That was true when the blob was hand-owned and
+  // nothing could prove a rewrite was faithful. checkPagesBuilt.mjs proves
+  // exactly that, so the reasoning no longer applies and the tool is safe.
+  menuLibrary: () => {
+    const off = new Set(OFF_MENU_DISHES);
+    const eligible = DISHES.filter((d) => !off.has(d.name) && d.copy && d.copy.desc);
+
+    // DINNER_ORDER first, then anything it does not mention. A new dish must
+    // never fall out of the menu because someone forgot to list it.
+    const rank = new Map(DINNER_ORDER.map((n, i) => [n, i]));
+    eligible.sort((a, b) => {
+      const ra = rank.has(a.name) ? rank.get(a.name) : Number.MAX_SAFE_INTEGER;
+      const rb = rank.has(b.name) ? rank.get(b.name) : Number.MAX_SAFE_INTEGER;
+      return ra - rb;
+    });
+
+    const dinners = {};
+    for (const d of eligible) {
+      const c = d.copy;
+      const e = { desc: c.desc, reheat: c.reheat, contains: c.contains };
+      if (c.note !== undefined) e.note = c.note;
+      if (c.spice !== undefined) e.spice = c.spice;
+      if (d.cuisine === 'Spotlight' || d.spotlight) e.spotlight = true;
+      e.bagged = !!DINNER_BAGGED[d.name];
+      e.pairings = c.pairings;
+      dinners[d.name] = e;
+    }
+    const library = {
+      _comment: LIBRARY_COMMENT,
+      dinners,
+      addons: MENU_ADDONS,
+      static: MENU_STATIC,
+      bag: MENU_BAG,
+      sauces: MENU_SAUCES,
+    };
+    return `var LIBRARY = ${looseJson(library)};`;
+  },
 };
 
 // ── The include mechanism ───────────────────────────────────────────────────
@@ -119,7 +248,23 @@ export function buildPage(name) {
       + '<!-- @generate name -->.',
     );
   }
-  return out;
+  return stampBanner(out, name);
+}
+
+// Added once ALL FIVE pages were generated, not before. The banner is the only
+// warning a person gets when they open a 365 KB file at the repo root and start
+// typing. checkPagesBuilt.mjs catches the edit either way, but it catches it
+// after the work is done; this catches it before.
+//
+// It goes AFTER the doctype, never before: a comment ahead of <!DOCTYPE> puts
+// old browsers into quirks mode, and these pages are read on whatever phone
+// somebody has.
+function stampBanner(html, name) {
+  const source = `src/pages/${name.replace(/\.html$/, '')}.page.html`;
+  const banner = `\n<!-- GENERATED FILE — DO NOT EDIT.\n     Built from ${source} by tools/buildPages.mjs.\n     Edit the source, then run: node tools/buildPages.mjs --write\n     tools/checkPagesBuilt.mjs fails the build if this file is hand-edited. -->`;
+  const i = html.indexOf('>', html.indexOf('<!DOCTYPE'));
+  if (i < 0) throw new Error(`${name}: no doctype to place the generated banner after`);
+  return html.slice(0, i + 1) + banner + html.slice(i + 1);
 }
 
 export function buildAll() {

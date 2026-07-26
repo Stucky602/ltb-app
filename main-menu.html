@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!-- GENERATED FILE — DO NOT EDIT.
+     Built from src/pages/main-menu.page.html by tools/buildPages.mjs.
+     Edit the source, then run: node tools/buildPages.mjs --write
+     tools/checkPagesBuilt.mjs fails the build if this file is hand-edited. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -146,10 +150,12 @@
   <a class="back-link" href="order.html">← Back to start</a>
   <div class="footer">Lettuce, Turnip, The Beet · Friends-only meal prep · Austin, TX</div>
 <script>
-  // Order window (Wed-Sun), mirroring order.html and form.html. A link that
-  // leads to a closed form is a worse experience than an honest "closed" line,
-  // so the CTA becomes plain text outside the window instead of a dead link.
+  // Sun(0) and Wed-Sat(3-6) open, Mon and Tue closed. The other half of the
+  // reason this build step exists: this rule was added to three pages
+  // separately, one copy was missed, and someone ordered on a Monday.
+  // `?preview=1` bypasses it so Kevin can check any page on any day.
   function ordersOpen() {
+    if (/[?&]preview=1/.test(window.location.search)) return true;
     var d = new Date().getDay();
     return d === 0 || d >= 3;
   }
@@ -174,9 +180,13 @@
     }
     var activeDiet = null, activeCuisine = null;
 
+    // HTML escaping for anything that reaches a customer's screen. Shared because
+    // a page that escapes LESS than its neighbours is the bug, not a style
+    // difference — and that is invisible until someone publishes a notice with an
+    // apostrophe in it.
     function esc(s) {
-      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
       });
     }
     function chip(kind, value, label, on) {

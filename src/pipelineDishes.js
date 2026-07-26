@@ -16,6 +16,11 @@
 // title, desc. The Big 3 — final description, reheat card, and margins — are
 // NEVER scaffolded; they're written with Kevin.
 //
+// CARD COPY (added Jul 2026 with the page build step): `note` and `contains`
+// are the two lines the pipeline.html cards carried that canon did not. They
+// live here now because tools/buildPages.mjs GENERATES those cards, and copy
+// that is authored on a generated page is copy that gets overwritten.
+//
 // `nature` drives conversion scaffolding: 'weight' | 'fluid' | 'each' | 'batch'.
 
 export const PIPELINE_DISHES = [
@@ -26,6 +31,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { peanut: true },
     desc: "Seared flank steak under a thick peanut crust: ground peanuts, ginger, and cayenne, toasted into a shell the way Nigerian street vendors do it. Coconut rice underneath, a sharp cucumber and red onion salad on the side, and a dark burnt-sugar and tamarind drizzle over the top.",
+    contains: "Contains: Peanuts, heavily. This one is a hard no if you have a peanut allergy.",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -36,6 +42,7 @@ export const PIPELINE_DISHES = [
     diet: "veg",
     allergenFlags: {},
     desc: "Kabocha squash roasted in wedges and lacquered with Chinese barbecue glaze, the same one that goes on char siu pork, with fennel, rosemary, and garlic worked in. Over rice cooked with a mushroom and seaweed packet, with pickles on the side to cut the sweetness. Vegetarian, and it carves and eats like a roast.",
+    note: "Still testing: the rice packet, and whether the lacquer holds three days in the bag.",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -46,6 +53,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { peanut: true, shellfish: true },
     desc: "Filipino oxtail stew in a toasted peanut sauce, thickened with ground peanuts and toasted rice, no flour or cream. The oxtail cooks down until it is glossy and falling apart. Long beans and eggplant in the pot, and a jar of XO on the side: a Hong Kong condiment of dried shrimp, ham, and chile for when you want the bowl louder. Over rice.",
+    contains: "Contains: Peanuts, Shellfish (dried shrimp in the XO).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -66,6 +74,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { treenut: true },
     desc: "Chicken braised in a sauce of ground walnuts and pomegranate molasses, cooked down until it goes nearly black. Sour, deep, and rich, closer to savory than sweet. This is made a day or two ahead on purpose, so yours arrives the way it is supposed to be. Over saffron rice.",
+    contains: "Contains: Tree nuts (walnuts).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -76,6 +85,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { dairy: true, gluten: true },
     desc: "Beef cheeks marinated four days in vinegar and red wine, then braised until they go to silk. The sauce is thickened with gingersnaps and studded with dried sour cherries. Braised red cabbage on the side, and potatoes with caraway and juniper. The long marinade is the recipe, not a shortcut.",
+    contains: "Contains: Gluten (gingersnaps), Dairy (butter, in the potato bag).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -86,6 +96,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { dairy: true, gluten: true },
     desc: "Lamb shoulder braised in yogurt until it falls apart into a thick, tangy sauce. Over chewy alkaline noodles, with charred scallions on top. At the table you pour hot brown butter with Aleppo pepper and dried mint over the whole plate.",
+    contains: "Contains: Dairy (yogurt, butter), Gluten (noodles).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -96,6 +107,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { fish: true, dairy: true },
     desc: "Grits made from lime-treated corn, the same process behind tortillas, which makes them rounder and deeper than regular grits. Braised collards and country ham through them, with cured fish roe grated over the top like parmesan. The roe reads as salt and depth, not fish.",
+    contains: "Contains: Fish (bottarga), Dairy (butter).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -106,6 +118,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: {},
     desc: "Smoked-then-seared chicken thighs with a sauce of Japanese pickled plum and Moroccan preserved lemon, the lemon charred hard in a wok until it turns dark and bitter. A burnt-lemon scallion oil over the top, blistered shishito peppers on the side, plain rice underneath.",
+    note: "Heads up: about one shishito in ten is genuinely hot. Fun or a problem, depending on you.",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -116,6 +129,7 @@ export const PIPELINE_DISHES = [
     diet: "pesc",
     allergenFlags: { shellfish: true, fish: true, gluten: true },
     desc: "Shrimp, garlic, chile, and olive oil over pasta, with a sauce built on two fermented fish sauces from opposite sides of the world: Italian colatura and Vietnamese nuoc mam. It does not taste like fish. It tastes like the best garlic-and-oil pasta you have had.",
+    contains: "Contains: Shellfish (shrimp), Fish (colatura, fish sauce), Gluten (pasta).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -126,6 +140,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { shellfish: true, dairy: true, gluten: true },
     desc: "Shrimp and grits done two ways at once: a Louisiana etouffee, a stock-and-roux sauce off the shrimp shells, folded together with XO, the Hong Kong condiment of dried shrimp and ham. Fresh shrimp and concentrated shrimp in the same bowl. The grits are cooked in dashi, which reads as grits that taste like more than grits.",
+    contains: "Contains: Shellfish (shrimp, dried shrimp), Gluten (roux), Dairy (butter).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -136,6 +151,7 @@ export const PIPELINE_DISHES = [
     diet: "veg",
     allergenFlags: { dairy: true },
     desc: "Punjabi saag made with collards instead of mustard greens, cooked down for hours with ginger, garlic, and chile until dark and silky. Seared halloumi on top instead of paneer: a brined, salty cheese you sear yourself, and it cannot melt or overcook. Over rice.",
+    contains: "Contains: Dairy (halloumi, ghee).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -146,6 +162,8 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { dairy: true },
     desc: "Pork tenderloin with a dark, sweet-sour onion sauce built on two aged vinegars, Italian balsamic and Chinese black vinegar, cooked down with onions until jammy. Underneath, polenta set overnight into a slab and cut into cakes that you sear crisp on the outside and molten in the middle.",
+    note: "Still testing: whether the polenta slab holds three days, and whether your pan really gets that molten center.",
+    contains: "Contains: Dairy (butter, parmesan).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -156,6 +174,7 @@ export const PIPELINE_DISHES = [
     diet: "pesc",
     allergenFlags: {},
     desc: "Octopus braised until spoon-tender in a liquid that splits the difference between Spain and Japan: soy, dashi, and mirin on one side, smoked paprika and olive oil on the other. Over baby gold potatoes. Warm it gently, or sear it hard for char, both are right.",
+    note: "Warm it gently for the tender Galician version, or sear it hard for char. Both are correct.",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -166,6 +185,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { fish: true, gluten: true, soy: true },
     desc: "Pork shoulder braised dark in burnt-sugar caramel and fish sauce, with fermented black beans and a pineapple edge. It follows one dish across three countries, from Chinese red-cooked pork to Vietnamese thit kho to Filipino humba, and uses all three in one pot. Over rice.",
+    contains: "Contains: Fish (fish sauce), Soy (fermented black beans), Gluten (shaoxing).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -176,6 +196,8 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { treenut: true },
     desc: "A large lamb-and-rice meatball with a hidden core of dried fruit, walnuts, and fried onion, poached in a light saffron broth. You find the treasure with a spoon. Persian by way of Sicily, which makes nearly the same thing. The rice is inside the meat, so the meatball is the whole dinner.",
+    note: "Grab a lavash or any flatbread on delivery day. It wants something to drag through the broth.",
+    contains: "Contains: Tree nuts (walnuts, pine nuts).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -186,6 +208,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { dairy: true },
     desc: "A thick pork chop with a sauce of garlic in two states: confit, cooked slow in oil until sweet and mellow, and black garlic, aged a month until it turns dark and tastes of molasses. Both made here, mashed into one sauce. Potatoes and peppery watercress alongside.",
+    contains: "Contains: Dairy (butter).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -196,6 +219,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: {},
     desc: "Santa Maria tri-tip, California ranch barbecue, with the smoke done indoors in a wok over oak and tea. Cooked sous vide first, then smoked and seared, sliced pink like a roast. Pinquito beans cooked with bacon and chile on the side, and a fresh salsa.",
+    note: "Still testing: whether the oak buries the tea. If it does, it goes back to straight oak.",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -206,6 +230,8 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { dairy: true, gluten: true },
     desc: "A Neapolitan onion sauce: four pounds of onions and a piece of beef cooked down most of a day until brown, sweet, and deep, closer to French onion soup than to red sauce. No tomato in it at all. The beef shreds back in, over rigatoni with a lot of cheese. Mild, start to finish.",
+    note: "Mild top to bottom. No heat anywhere in it.",
+    contains: "Contains: Dairy (parmesan, gruy&egrave;re), Gluten (pasta).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -216,6 +242,8 @@ export const PIPELINE_DISHES = [
     diet: "veg",
     allergenFlags: { dairy: true },
     desc: "Black lentils simmered for hours until creamy from their own starch, finished with butter, cream, and tomato. The butter and cream take a hit of wok smoke first, a stovetop version of the live-coal trick the dish traditionally uses. Mild, rich, deeply smoky. Over rice.",
+    note: "Still testing: how many minutes of smoke before the dairy tastes like an ashtray.",
+    contains: "Contains: Dairy (butter, cream).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -256,6 +284,7 @@ export const PIPELINE_DISHES = [
     diet: "pesc",
     allergenFlags: { shellfish: true, fish: true },
     desc: "A skillet version of the Gulf Coast boil Vietnamese shrimping families built out of the Louisiana crawfish boil: Gulf shrimp, andouille, potatoes, and smoked corn tossed through a butter loaded with garlic, fish sauce, cayenne, and lemon pepper. One pan, ninety seconds for the shrimp. Grab a baguette the day of, sopping the butter is half of it.",
+    contains: "Contains: Shellfish (shrimp), Fish (fish sauce).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -286,6 +315,7 @@ export const PIPELINE_DISHES = [
     diet: "veg",
     allergenFlags: { dairy: true, gluten: true },
     desc: "One onion family, three ways, folded into butter over fresh pappardelle: scallions charred black, leeks burned to a fine ash and dusted over the top like pepper, and sweet garlic confit made here. It's cacio e pepe's structure with alliums instead of cheese. Mild, dramatic to look at, vegetarian.",
+    contains: "Contains: Gluten (pasta), Dairy (butter, parmesan).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -296,6 +326,7 @@ export const PIPELINE_DISHES = [
     diet: null,
     allergenFlags: { fish: true, dairy: true, gluten: true },
     desc: "Lamb under a glaze of three voices: honey burned dark past sweet, Omani black lime for smoky sour, and fish sauce for a salty floor. Broiled until it lacquers. Underneath, freekeh, the green wheat that tastes faintly of fire, folded with mint. Cold lemon yogurt catches the burnt edges.",
+    contains: "Contains: Gluten (freekeh), Dairy (yogurt), Fish (fish sauce).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },
@@ -306,6 +337,7 @@ export const PIPELINE_DISHES = [
     diet: "veg",
     allergenFlags: { dairy: true },
     desc: "Mushrooms cooked and marinated in a sharp Spanish escabeche that only improves in the fridge for a week. Over polenta set overnight into a slab, cut into cakes you sear yourself: ninety seconds a side, crisp outside, molten center. The cool sharp mushrooms go over the hot cakes. Nothing needs reheating.",
+    contains: "Contains: Dairy (butter, parmesan).",
     openQuestions: [],
     ingredients: [], // names + nature only, filled as Kevin develops the dish
   },

@@ -1,4 +1,8 @@
 <!DOCTYPE html>
+<!-- GENERATED FILE — DO NOT EDIT.
+     Built from src/pages/menu.page.html by tools/buildPages.mjs.
+     Edit the source, then run: node tools/buildPages.mjs --write
+     tools/checkPagesBuilt.mjs fails the build if this file is hand-edited. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -106,20 +110,23 @@
 
 <script>
   var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
-  // Order window (Wed-Sun), mirroring order.html and form.html. A link that
-  // leads to a closed form is a worse experience than an honest "closed" line,
-  // so the CTA becomes plain text outside the window instead of a dead link.
+  // Sun(0) and Wed-Sat(3-6) open, Mon and Tue closed. The other half of the
+  // reason this build step exists: this rule was added to three pages
+  // separately, one copy was missed, and someone ordered on a Monday.
+  // `?preview=1` bypasses it so Kevin can check any page on any day.
   function ordersOpen() {
+    if (/[?&]preview=1/.test(window.location.search)) return true;
     var d = new Date().getDay();
     return d === 0 || d >= 3;
   }
   var CLOSED_LINE = '<span class="closed-note">Orders open Wednesday</span>';
 
-  // The week's heads-up banner. Empty string (or absent) renders nothing at
-  // all — publishing an unchecked week clears it, so a stale message can
-  // never linger here.
-  function noticeHtml(config) {
-    var t = (config && config.notice) ? String(config.notice).trim() : "";
+  // The week's heads-up banner. Absent or empty renders nothing at all, so
+  // publishing an unchecked week clears it and a stale message can never linger.
+  // This had to be added to three pages by hand and one copy was missed, which
+  // is half the reason the build step exists.
+  function noticeHtml(cfg) {
+    var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
     if (!t) return "";
     return '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
   }
@@ -145,7 +152,15 @@
     if (!s || s <= 0) return null;
     return '~$' + (price / s).toFixed(2).replace(/\.00$/, '') + '/serving';
   }
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+  // HTML escaping for anything that reaches a customer's screen. Shared because
+  // a page that escapes LESS than its neighbours is the bug, not a style
+  // difference — and that is invisible until someone publishes a notice with an
+  // apostrophe in it.
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
 
   function lookupCopy(name, kind){
     var pool = kind === "addon" ? LIBRARY.addons : LIBRARY.dinners;
@@ -519,8 +534,9 @@
     html += '<div class="loop"><h4>The Loop</h4><p>'+esc(LIBRARY.static.loop)+'</p></div>';
 
     // Order CTA — blocked Mon/Tue
-    var day = new Date().getDay(); // 0=Sun,1=Mon,2=Tue,3=Wed,4=Thu,5=Fri,6=Sat
-    if (day >= 1 && day <= 2) {
+    // Was a THIRD hand-written copy of the order-window rule, inline, in the
+    // same function that already calls ordersOpen() two lines below.
+    if (!ordersOpen()) {
       html += '<div class="order-cta" style="background:var(--teal-mid);cursor:default;opacity:0.6;">Ordering opens Wednesday →</div>';
     } else {
       html += ordersOpen()

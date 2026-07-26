@@ -215,7 +215,7 @@ console.log('form.html');
 // gate cannot be walked around. Clock is frozen so this never flakes by weekday.
 {
   const CFG2 = { weekLabel: 'Week of Jul 22', dishes: [{ name: 'Gumbo', variants: [{ label: 'Small (~4)', price: 40, cost: 20 }] }] };
-  const bootAt = (html, cfg, dayISO) => new JSDOM(html, { runScripts: 'dangerously', url: 'https://x.test/', beforeParse(w) {
+  const bootAt = (html, cfg, dayISO, url) => new JSDOM(html, { runScripts: 'dangerously', url: url || 'https://x.test/', beforeParse(w) {
     const Real = w.Date;
     const Fake = function (...a) { return a.length ? new Real(...a) : new Real(dayISO); };
     Fake.now = () => new Real(dayISO).getTime(); Fake.parse = Real.parse; Fake.UTC = Real.UTC;
@@ -246,6 +246,30 @@ console.log('form.html');
     check('main-menu.html on a MONDAY offers no "Go order" link', !g6.window.document.querySelector('a[href="form.html"]'));
     let g7 = bootAt(mainMenu, CFG2, WED); await sleep(250);
     check('main-menu.html on a WEDNESDAY offers "Go order"', !!g7.window.document.querySelector('a[href="form.html"]'));
+  }
+
+  // order.html's own gate. It greys the button rather than hiding a link, and
+  // NOTHING covered it until the rule moved into _partials/orderWindow.js —
+  // the page whose gate was written first was the only one not asserted on.
+  if (landing) {
+    const btnOf = (dom) => dom.window.document.getElementById('orderBtn');
+    let o1 = bootAt(landing, CFG2, MON); await sleep(200);
+    check('order.html on a MONDAY greys its order button and says why',
+      /btn-inactive/.test(btnOf(o1).className)
+      && !btnOf(o1).getAttribute('href')
+      && o1.window.document.getElementById('orderMsg').style.display === 'block');
+
+    let o2 = bootAt(landing, CFG2, WED); await sleep(200);
+    check('order.html on a WEDNESDAY leaves the button live',
+      !/btn-inactive/.test(btnOf(o2).className)
+      && btnOf(o2).getAttribute('href') === 'form.html');
+
+    // ?preview=1 is Kevin's, not a customer's. A customer never has it in
+    // their URL, so this cannot change what anyone else sees.
+    let o3 = bootAt(landing, CFG2, MON, 'https://x.test/order.html?preview=1'); await sleep(200);
+    check('order.html on a MONDAY with ?preview=1 stays orderable for Kevin',
+      !/btn-inactive/.test(btnOf(o3).className)
+      && btnOf(o3).getAttribute('href') === 'form.html');
   }
 }
 

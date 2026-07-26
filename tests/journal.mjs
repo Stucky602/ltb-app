@@ -212,6 +212,10 @@ const CUSTOMER_ENTRY_POINTS = [
   'src/companion.js',
   'form.html', 'menu.html', 'main-menu.html', 'order.html', 'pipeline.html',
   'tools/syncMainMenu.mjs', 'tools/syncPipeline.mjs',
+  // buildPages.mjs GENERATES customer pages, so anything it can reach can end
+  // up rendered on one. It is as much a customer surface as the pages are, and
+  // more dangerous, because a leak there lands on every page at once.
+  'tools/buildPages.mjs',
   'worker.js', 'sw.js',
 ];
 const PROTECTED = 'src/journal.js';

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LTB">
+<meta name="theme-color" content="#1a3a3a">
+<link rel="manifest" href="/manifest-order.json">
+<title>Lettuce, Turnip, The Beet</title>
+<link rel="apple-touch-icon" href="/ltb-logo.png">
+<link rel="icon" href="/ltb-logo.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --bg:#1a1a1a; --teal-dark:#1a3a3a; --teal-mid:#2d6a6a; --teal-light:#3fb8a0;
+    --gold:#c9a84c; --cream:#e8e2d4; --card:#232a28; --dim:#9aa5a0;
+  }
+  html,body { background:var(--bg); color:var(--cream); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; min-height:100vh; -webkit-font-smoothing:antialiased; }
+
+  /* ── Mobile (default): single column ─────────────────────────────────── */
+  .layout { display:flex; flex-direction:column; min-height:100vh; }
+  .sidebar {
+    display:flex; flex-direction:column; align-items:center;
+    padding:max(28px,env(safe-area-inset-top)) 22px 28px;
+    max-width:480px; margin:0 auto; width:100%;
+  }
+  .main-panel { display:none; } /* hidden on mobile */
+
+  /* ── Desktop (≥900px): sidebar left, main panel right ────────────────── */
+  @media (min-width:900px) {
+    .layout { flex-direction:row; height:100vh; overflow:hidden; }
+    .sidebar {
+      width:300px; min-width:280px; max-width:300px; flex-shrink:0;
+      height:100vh; overflow-y:auto; border-right:1px solid var(--teal-mid);
+      padding:36px 24px 36px; margin:0; align-items:flex-start;
+      background:linear-gradient(180deg, var(--teal-dark) 0%, #161616 100%);
+    }
+    .save-toggle, .save-panel { display:none; }
+    .sidebar .logo { width:70px; height:70px; margin:0 0 12px 0; }
+    .sidebar .brand { font-size:17px; text-align:left; }
+    .sidebar .week { text-align:left; margin-bottom:28px; }
+    .sidebar .blurb { text-align:left; }
+    .main-panel {
+      display:flex; flex:1; align-items:center; justify-content:center;
+      height:100vh; overflow:hidden; position:relative;
+    }
+    .main-logo {
+      width:min(480px,70%); height:auto; opacity:0.18;
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      pointer-events:none; border-radius:50%;
+    }
+    .main-content {
+      position:relative; z-index:1; width:100%; height:100%;
+      display:flex; align-items:center; justify-content:center;
+    }
+    iframe.panel-frame {
+      width:100%; height:100%; border:none;
+      background:var(--bg);
+    }
+    .main-placeholder {
+      text-align:center; color:var(--dim); font-size:15px; line-height:1.6;
+      padding:40px;
+    }
+    .main-placeholder strong { color:var(--gold); display:block; font-size:22px; margin-bottom:8px; }
+  }
+
+  /* ── Shared sidebar styles ─────────────────────────────────────────────── */
+  .logo { width:120px; height:120px; border-radius:50%; display:block; margin:0 auto 16px; box-shadow:0 4px 20px rgba(0,0,0,0.4); }
+  .brand { font-size:22px; font-weight:800; color:var(--gold); text-align:center; margin-bottom:3px; width:100%; }
+  .week { font-size:13px; color:var(--teal-light); text-align:center; font-style:italic; margin-bottom:22px; width:100%; }
+  .blurb { background:var(--card); border:1px solid var(--teal-mid); border-radius:14px; padding:16px; font-size:14px; line-height:1.55; color:var(--cream); text-align:center; margin-bottom:22px; width:100%; }
+  .blurb b { color:var(--gold); }
+  .btn {
+    width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    border:none; border-radius:14px; padding:17px; font-size:15px; font-weight:700;
+    cursor:pointer; text-decoration:none; margin-bottom:13px; transition:opacity 0.15s, filter 0.15s;
+  }
+  .btn:active { opacity:0.85; }
+  .new-prompt { background:rgba(63,184,160,0.1); border:1px solid var(--teal-light); border-radius:12px; padding:12px 14px; font-size:13px; line-height:1.5; color:var(--cream); text-align:center; margin-bottom:16px; width:100%; }
+  .new-prompt b { color:var(--teal-light); }
+  .btn-main-menu { background:var(--teal-mid); color:var(--cream); }
+  .btn-menu { background:var(--gold); color:var(--teal-dark); }
+  .btn-order { background:var(--teal-light); color:#04342C; }
+  .btn-pipeline { background:transparent; border:1px solid var(--teal-mid); color:var(--teal-light); }
+  .btn-inactive {
+    opacity:0.42; text-decoration:line-through; text-decoration-thickness:3px;
+    filter:grayscale(60%); cursor:default;
+  }
+  .btn-icon { font-size:18px; }
+  .order-msg {
+    display:none; text-align:center; margin-top:-4px; margin-bottom:14px;
+    font-size:12.5px; color:var(--dim); line-height:1.5;
+    background:var(--card); border:1px solid #37403c; border-radius:10px; padding:11px 14px; width:100%;
+  }
+  .save-toggle {
+    margin-top:10px; background:transparent; border:1px solid #37403c; color:var(--dim);
+    border-radius:12px; padding:12px 16px; font-size:13px; font-weight:600;
+    cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .save-panel { width:100%; max-height:0; overflow:hidden; transition:max-height 0.3s ease; }
+  .save-panel.open { max-height:520px; }
+  .save-inner { background:var(--card); border:1px solid var(--teal-mid); border-radius:12px; padding:15px; margin-top:10px; font-size:13px; line-height:1.5; }
+  .save-inner h3 { color:var(--gold); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px; margin-top:11px; }
+  .save-inner h3:first-child { margin-top:0; }
+  .save-inner p { color:var(--cream); margin-bottom:3px; }
+  .save-inner .step { color:var(--dim); padding-left:5px; }
+  .week-notice { background:rgba(201,168,76,0.12); border:1px solid var(--gold); border-radius:12px;
+    padding:13px 15px; margin:0 0 18px; font-size:13.5px; line-height:1.55; color:var(--cream);
+    text-align:left; width:100%; }
+  .week-notice b { color:var(--gold); display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.6px; margin-bottom:4px; }
+  .footer { margin-top:24px; font-size:11px; color:#6a726c; text-align:center; line-height:1.5; width:100%; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar (full page on mobile, left panel on desktop) ── -->
+  <div class="sidebar">
+    <img class="logo" src="/ltb-logo.png" alt="LTB logo">
+    <div class="brand">Lettuce, Turnip, The Beet</div>
+    <div class="week">meal prep, delivered fresh</div>
+
+    <!-- Heads-up banner for the week, published from the Week tab. Stays
+         empty (and invisible) unless a notice is actually published. -->
+    <div id="weekNotice"></div>
+
+    <div class="blurb">
+      Orders are generally needed by <b>Sunday</b> to ensure delivery the following <b>Wednesday</b>.
+      Need something outside that window? Just reach out directly and we will work it out.
+    </div>
+
+    <div class="new-prompt">
+      New here? <b>Check out the full menu first</b> to see everything we make and how it all works.
+    </div>
+
+    <!-- Full/main menu button: the evergreen catalog -->
+    <a class="btn btn-main-menu" id="mainMenuBtn" href="main-menu.html">
+      <span class="btn-icon">&#9733;</span> Full Menu &amp; How It Works
+    </a>
+
+    <!-- Menu button: opens in panel on desktop, direct link on mobile -->
+    <a class="btn btn-menu" id="menuBtn" href="menu.html">
+      <span class="btn-icon">&#9776;</span> This Week's Menu
+    </a>
+
+    <!-- Pipeline button: coming-soon dishes, nothing orderable -->
+    <a class="btn btn-pipeline" id="pipelineBtn" href="pipeline.html">
+      <span class="btn-icon">&#9781;</span> In the Works
+    </a>
+
+    <!-- Order button: disabled Mon-Wed -->
+    <a class="btn btn-order" id="orderBtn" href="form.html">
+      <span class="btn-icon">&#9998;</span> Place Your Order
+    </a>
+    <div class="order-msg" id="orderMsg">
+      Orders are open <strong style="color:var(--gold)">Wednesday through Sunday</strong>.<br>
+      Outside that window, reach out directly and we will work something out.
+    </div>
+
+    <button class="save-toggle" id="saveToggle">
+      <span>&#128241; Save this page to your home screen</span>
+    </button>
+    <div class="save-panel" id="savePanel">
+      <div class="save-inner">
+        <h3>iPhone (Safari)</h3>
+        <p class="step">1. Tap the Share button (the square with an arrow)</p>
+        <p class="step">2. Scroll down and tap "Add to Home Screen"</p>
+        <p class="step">3. Tap "Add" in the top right</p>
+        <h3>Android (Chrome)</h3>
+        <p class="step">1. Tap the three-dot menu in the top right</p>
+        <p class="step">2. Tap "Add to Home screen" or "Install app"</p>
+        <p class="step">3. Confirm</p>
+        <p style="margin-top:10px;color:var(--teal-light);font-style:italic;">
+          It installs with the LTB logo and opens straight to this page, just like an app.
+        </p>
+      </div>
+    </div>
+
+    <div class="footer">Lettuce, Turnip, The Beet &middot; Friends-only meal prep &middot; Austin, TX</div>
+  </div>
+
+  <!-- ── Main panel (desktop only): shows logo or iframe content ── -->
+  <div class="main-panel">
+    <img class="main-logo" src="/ltb-logo.png" alt="">
+    <div class="main-content" id="mainContent">
+      <div class="main-placeholder">
+        <strong>Lettuce, Turnip, The Beet</strong>
+        Select an option on the left to get started.
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+  // Save-to-home-screen toggle
+  document.getElementById('saveToggle').addEventListener('click', function () {
+    document.getElementById('savePanel').classList.toggle('open');
+  });
+
+  // Order window: Wed(3) Thu(4) Fri(5) Sat(6) Sun(0) = active. Mon-Tue = inactive.
+  (function () {
+    var day = new Date().getDay();
+    var active = day === 0 || day >= 3;
+    if (!active) {
+      var btn = document.getElementById('orderBtn');
+      btn.classList.add('btn-inactive');
+      btn.removeAttribute('href');
+      btn.onclick = function(e){ e.preventDefault(); };
+      document.getElementById('orderMsg').style.display = 'block';
+    }
+  })();
+
+  // Desktop panel handling: open menu/form in the right panel iframe instead of new tab
+  function isDesktop() { return window.innerWidth >= 900; }
+
+  function openInPanel(url) {
+    var mc = document.getElementById('mainContent');
+    mc.innerHTML = '<iframe class="panel-frame" src="' + url + '" title="LTB Content"></iframe>';
+  }
+
+  document.getElementById('menuBtn').addEventListener('click', function (e) {
+    if (isDesktop()) {
+      e.preventDefault();
+      openInPanel(this.getAttribute('href'));
+    }
+  });
+
+  document.getElementById('mainMenuBtn').addEventListener('click', function (e) {
+    if (isDesktop()) {
+      e.preventDefault();
+      openInPanel(this.getAttribute('href'));
+    }
+  });
+
+  document.getElementById('pipelineBtn').addEventListener('click', function (e) {
+    if (isDesktop()) {
+      e.preventDefault();
+      openInPanel(this.getAttribute('href'));
+    }
+  });
+
+  var orderBtn = document.getElementById('orderBtn');
+  orderBtn.addEventListener('click', function (e) {
+    // form.html always navigates directly (never in panel) to avoid nesting order.html inside itself
+    // default href behavior on both mobile and desktop
+  });
+
+  // Heads-up banner for the week. This page was fully static before, so the
+  // fetch is strictly additive: any failure leaves the page exactly as it was
+  // and the customer never sees an error for a banner that may not exist.
+  (function () {
+    <!-- @generate workerBase -->
+    <!-- @include _partials/esc.js -->
+    try {
+      fetch(WORKER + "/config")
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          var t = (cfg && cfg.notice) ? String(cfg.notice).trim() : "";
+          if (!t) return; // nothing published: the slot stays empty
+          document.getElementById("weekNotice").innerHTML =
+            '<div class="week-notice"><b>Heads up this week</b>' + esc(t) + '</div>';
+        })
+        .catch(function () { /* offline or worker down — the page is fine without it */ });
+    } catch (e) { /* no fetch at all (very old browser) — same */ }
+  })();
+
+  // If this page is ever loaded inside an iframe (e.g. after form submit redirects here), break out
+  if (window.top !== window.self) {
+    window.top.location.href = window.location.href;
+  }
+</script>
+</body>
+</html>

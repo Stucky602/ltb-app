@@ -1546,6 +1546,11 @@ export default function LTBOrderTracker() {
             epochProposal={epochProposal}
             epochSummary={epochSummary(orders, realDataEpoch)}
             onConfirmEpoch={confirmEpoch}
+            patterns={cookingPatterns(orders || [], realDataEpoch)}
+            tasteVsPractice={tasteVsPractice(cookingPatterns(orders || [], realDataEpoch), latestRanking(dishRankings))}
+            onAnswerQuestion={({ dish, type, text }) => saveJournal(prev => addJournalEntry(prev, {
+              subject: { kind: 'dish', dish }, type, text, origin: 'written',
+            }))}
             onArchiveDownloaded={recordArchive}
           />
         )}

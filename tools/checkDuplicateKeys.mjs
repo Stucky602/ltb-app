@@ -54,7 +54,13 @@ function duplicatesIn(src) {
     // Look back: a key is a quoted string at the start of a line (possibly
     // after whitespace or a comma) followed by a colon.
     const rest = src.slice(i);
-    const m = rest.match(/^(['"])([^'"\n]+)\1\s*:/);
+    // Quoted OR bare-identifier keys. This matched quoted only, which meant it was
+    // blind to `dishes.js`, `recipes.js`, and every other object in the codebase
+    // written the normal way — and it missed a real duplicate `rice: true` that
+    // esbuild had been warning about on every build. A checker that only sees
+    // one of the two ways people write keys is a checker with a hole in it the
+    // size of the codebase.
+    const m = rest.match(/^(['"])([^'"\n]+)\1\s*:/) || rest.match(/^([A-Za-z_$][\w$]*)\s*:(?!:)/);
     if (!m) return null;
     let j = i - 1;
     while (j >= 0 && (src[j] === ' ' || src[j] === '\t')) j--;
@@ -79,10 +85,11 @@ function duplicatesIn(src) {
       const m = isKeyStart();
       if (m) {
         const id = stack[stack.length - 1];
+        const key = m[2] !== undefined ? m[2] : m[1];
         const bucket = seen.get(id) || new Map();
-        const prior = bucket.get(m[2]);
-        if (prior) dups.push({ key: m[2], first: prior, second: line });
-        else bucket.set(m[2], line);
+        const prior = bucket.get(key);
+        if (prior) dups.push({ key, first: prior, second: line });
+        else bucket.set(key, line);
         seen.set(id, bucket);
       }
       // skip the string body either way
@@ -98,6 +105,26 @@ function duplicatesIn(src) {
       i++;
       while (i < src.length && src[i] !== '`') { if (src[i] === '\\') i++; if (src[i] === '\n') line++; i++; }
       i++; continue;
+    }
+
+    // Bare-identifier keys. The scanner only tested for a key when it hit a
+    // QUOTE, so widening the regex alone did nothing — the branch was never
+    // reached for `cuisine:` or `rice:`. Both halves had to change, which is
+    // why the first attempt passed its own negative test and still missed a
+    // real duplicate esbuild had been warning about for weeks.
+    if (/[A-Za-z_$]/.test(c)) {
+      const m = isKeyStart();
+      if (m) {
+        const key = m[2] !== undefined ? m[2] : m[1];
+        const id = stack[stack.length - 1];
+        const bucket = seen.get(id) || new Map();
+        const prior = bucket.get(key);
+        if (prior) dups.push({ key, first: prior, second: line });
+        else bucket.set(key, line);
+        seen.set(id, bucket);
+      }
+      while (i < src.length && /[\w$]/.test(src[i])) i++;
+      continue;
     }
 
     if (c === '{') { stack.push(nextId++); i++; continue; }

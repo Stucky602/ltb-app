@@ -205,6 +205,15 @@ check('Cook → Deliver renders', !deliverErr, deliverErr && deliverErr.message)
 
 check('no order card fell into its error boundary', caught.length === 0, caught[0]);
 
+// The epoch card renders ONLY from the Record tab, and it was invisible for a
+// week because its render condition required a proposal the detector will not
+// make on a young order history. Assert it is on the page.
+await clickByText('Record');
+const recordText = container.textContent || '';
+check('the Record tab shows the real-data epoch card',
+  recordText.includes('Where the real data starts'),
+  `Record tab has ${recordText.length} chars and does not mention it`);
+
 await act(async () => { root.unmount(); });
 console.error = realError;
 rmSync(dir, { recursive: true, force: true });

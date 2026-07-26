@@ -1,3 +1,4 @@
+import { DISH_CONTAINERS, isTrackedType } from '../src/containers.js';
 // ═══════════════════════════════════════════════════════════════════════════
 // LTB INVARIANT SUITE (Approach B)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -417,17 +418,47 @@ for (const d of DISHES) {
   }
 }
 
-// ─── 10. Packaging (wrap) per the rules ─────────────────────────────────────
-const wrapExpect = (rec) => rec.packaging === 'none' ? 0 : rec.packaging === 'jar' ? 2 : 1;
+// ─── 10. Packaging (wrap) per the AUDIT ─────────────────────────────────────
+// REWRITTEN Jul 26. This used to assert a flat one generic `wrap` unit per
+// dish, two for jarred, zero for `packaging: 'none'`. That was the proxy model,
+// and it was correct until the real per-dish packaging was known. Kevin audited
+// all 27 dinners, so the assertion is now about the AUDITED containers.
+//
+// What is still pinned, and why each one matters:
+//   - a mapped dish resolves to real container lines, not the generic proxy
+//   - packaging lines are always FIXED, so they contribute cost without
+//     dragging a dish's drift ratio around
+//   - packaging lines are never STAPLES, which is what keeps them off the
+//     shopping list — Kevin's hard requirement for wrap
+//   - `packaging: 'none'` items still get nothing, because their container is
+//     already a real recipe line and charging again would double
+//   - an UNMAPPED dish still falls back to the proxy rather than to zero, so a
+//     missing mapping reads as "unknown", not as "free"
 for (const rec of [...DISHES, ...ALL_ALWAYS_ITEMS]) {
   if (!rec.recipe) continue; // no recipe → engine can't resolve → wrap moot
   const v = rec.variants[0];
   const resolved = resolveDishVariant(rec.name, v.label) || [];
-  const wrap = resolved.find(r => r.id === 'wrap');
-  const got = wrap ? wrap.qty : 0;
-  const expected = wrapExpect(rec);
-  if (got !== expected) F('wrap', `"${rec.name}" wrap units ${got}, expected ${expected} (packaging: ${rec.packaging || 'default'})`);
-  if (wrap && !wrap.fixed) F('wrap-fixed', `"${rec.name}" wrap line is drifting — it must be fixed`);
+  const pack = resolved.filter(r => r.id === 'wrap' || String(r.id).startsWith('ctn_'));
+  const mapped = !!DISH_CONTAINERS[rec.name];
+
+  if (rec.packaging === 'none') {
+    if (pack.length) F('wrap', `"${rec.name}" is packaging:'none' but still carries ${pack.length} packaging line(s) — its container is already a recipe line`);
+  } else if (mapped) {
+    const tracked = Object.entries(DISH_CONTAINERS[rec.name]).filter(([t]) => isTrackedType(t));
+    if (pack.length !== tracked.length) {
+      F('wrap', `"${rec.name}" resolved ${pack.length} packaging line(s), audit says ${tracked.length}`);
+    }
+    if (pack.some(pl => pl.id === 'wrap')) {
+      F('wrap', `"${rec.name}" is audited but still carries the generic wrap proxy — that is the double-charge`);
+    }
+  } else if (pack.length !== 1) {
+    F('wrap', `"${rec.name}" has no audited mapping, so it must fall back to exactly one generic wrap unit (got ${pack.length})`);
+  }
+
+  for (const pl of pack) {
+    if (!pl.fixed) F('wrap-fixed', `"${rec.name}" packaging line ${pl.id} is drifting — it must be fixed`);
+    if (pl.staple) F('wrap-staple', `"${rec.name}" packaging line ${pl.id} is a staple — wrap must never reach the shopping list`);
+  }
 }
 
 // ─── 11+13. menu.html LIBRARY: entry per dinner, no orphans ─────────────────

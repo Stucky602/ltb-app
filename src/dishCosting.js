@@ -20,6 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { dishIdFor, dishNameFor } from './dishIdentity.js';
+import { DISH_CONTAINERS, portionMultiplier, isTrackedType } from './containers.js';
 import { ALL_DINNERS, ALWAYS_MENU } from './menu.js';
 import { ALL_ALWAYS_ITEMS } from './dishes.js';
 import { RECIPES, RICE_DISHES } from './recipes.js';
@@ -475,10 +476,42 @@ export const LINE_MAP = {
 // absent → default $1 (dinners/desserts). Set per-item in dishes.js.
 const JARRED = new Set(ALL_ALWAYS_ITEMS.filter(it => it.packaging === 'jar').map(it => it.name));
 const NO_WRAP = new Set(ALL_ALWAYS_ITEMS.filter(it => it.packaging === 'none').map(it => it.name));
-function wrapUnits(dishName) {
-  if (NO_WRAP.has(dishName)) return 0;
-  if (JARRED.has(dishName)) return 2;
-  return 1;
+// RETIRED Jul 26. This returned a flat 1 unit of the generic `wrap` ingredient
+// for every dish, 2 for jarred always-items, 0 for a few. It was a PROXY, and a
+// defensible one while the real per-dish packaging was unknown — but Kevin
+// audited all 27 dinners on Jul 26, so the real figures exist and a flat $1 is
+// now simply the wrong number. It was most wrong on the braises, which take a
+// $1.38 round48 plus bags, and on Pappardelle, which takes no tracked container
+// at all.
+//
+// Replaced by wrapLines() below, which reads the audited mapping. Deleting it
+// rather than leaving it live alongside the audit is the point: two answers to
+// "what does this dish cost to package" means every dish double-charges, and
+// margins move for a reason that is not real.
+//
+// JARRED / NO_WRAP still drive it, because an always-item's `packaging` field
+// is how the registry says "this ships in a jar" and that is still true.
+function wrapLines(dishName, variant) {
+  // Always-items flagged `none` carry their container as a real recipe line
+  // (the Queso passthrough jar), so charging them again here would double.
+  if (NO_WRAP.has(dishName)) return [];
+  const mix = DISH_CONTAINERS[dishName];
+  if (mix) {
+    const mult = portionMultiplier({ name: dishName, variant });
+    const out = [];
+    for (const [type, n] of Object.entries(mix)) {
+      // Bags are covered by the customer-facing $1.50 bag charge and by the
+      // sv_bag recipe lines. Charging them here would be the third path for one
+      // consumable.
+      if (!isTrackedType(type)) continue;
+      const qty = (Number(n) || 0) * mult;
+      if (qty > 0) out.push({ id: 'ctn_' + type, qty, fixed: true, staple: false });
+    }
+    return out;
+  }
+  // Unmapped: fall back to the generic wrap unit rather than to zero. A missing
+  // mapping should read as "we do not know yet", not as "this is free."
+  return [{ id: 'wrap', qty: JARRED.has(dishName) ? 2 : 1, fixed: true, staple: false }];
 }
 
 // Rice + wrap surcharge: $1.146/unit via the 'rice' ingredient baseline
@@ -541,9 +574,11 @@ export function resolveDishVariant(dishName, variant) {
     if (!byId.has(res.id)) byId.set(res.id, { id: res.id, qty: 0, fixed: res.fixed, staple: res.staple });
     byId.get(res.id).qty += qty;
   }
-  // Packaging (wrap) as a resolved, fixed line
-  const wu = wrapUnits(dishName);
-  if (wu > 0) byId.set('wrap', { id: 'wrap', qty: wu, fixed: true, staple: false });
+  // Packaging as resolved, fixed lines — one per audited container type.
+  for (const line of wrapLines(dishName, variant)) {
+    const prev = byId.get(line.id);
+    byId.set(line.id, { ...line, qty: (prev ? prev.qty : 0) + line.qty });
+  }
   // Rice container surcharge as a resolved, fixed line (doesn't drift —
   // it's a flat per-order container cost, not a market-priced ingredient)
   const ru = riceUnits(dishName, variant);

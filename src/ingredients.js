@@ -132,7 +132,13 @@ export const INGREDIENT_SEED = [
   { id: 'peanut_butter', name: 'Peanut butter', unit: 'oz', baseline: 0.141, category: 'pantry' }, // Peter Pan Creamy 40 oz = $5.64 (receipt IMG_9660, Jul 15) -> $0.141/oz. Was 'half-jar' @ $0.70, a unit that predated the universal unit layer and could never resolve from a receipt: he buys whatever jar size is there. Per-oz + the scan's oz prompt handles every size.
   { id: 'vanilla', name: 'Vanilla (imitation)', unit: 'tbs', baseline: 0.07, category: 'pantry' },
   { id: 'vanilla_extract', name: 'Vanilla extract (homemade)', unit: 'tbs', baseline: 1.5, category: 'pantry' },
-  { id: 'rice', name: 'Rice', unit: 'batch', baseline: 1.146, category: 'pantry' }, // Small rice bag: $0.50 wrap + 2 cups white rice @ $0.323/cup ($0.646) = $1.146. Large = 2 units = $2.292. Was a made-up $1.00 flat.
+  // RICE IS NOW RICE. Its baseline was 1.146, which bundled $0.50 of rice-bag
+  // wrap with 2 cups of white rice at $0.323/cup. The Jul 26 container audit
+  // gives every rice dish a 16 oz round, so leaving the bag inside here would
+  // charge $0.85 of container for one container on eleven dishes — a margin
+  // drop with no visible cause. Now 0.646 = 2 cups of rice, and the container
+  // comes from the audit like every other container.
+  { id: 'rice', name: 'Rice', unit: 'batch', baseline: 0.646, category: 'pantry' }, // Small rice bag: $0.50 wrap + 2 cups white rice @ $0.323/cup ($0.646) = $1.146. Large = 2 units = $2.292. Was a made-up $1.00 flat.
   { id: 'pasta', name: 'Pasta (dry)', unit: 'lb', baseline: 2.0, category: 'pantry', passthrough: true }, // store-bought, sold at cost
   { id: 'orecchiette', name: 'Orecchiette', unit: 'lb', baseline: 2.78, category: 'pantry', passthrough: true },
   { id: 'lemon_herb_butter', name: 'Lemon herb butter (2oz)', unit: 'each', baseline: 0.488, category: 'dairy' }, // composed: 1lb butter+1 lemon+10 garlic+thyme, batch of 10. Thyme term repriced to $0.1993/sprig (Jul 14): 0.485 → 0.488.
@@ -230,6 +236,27 @@ export const INGREDIENT_SEED = [
   { id: 'mitad_tortillas', name: 'Mitad-y-mitad tortillas (flour+corn)', unit: '10ct', baseline: 2.98, category: 'pantry' },
   { id: 'pickled_onion', name: 'Pickled onion (house)', unit: 'container', baseline: 2.0, category: 'produce' },
   { id: 'pomegranate_seeds', name: 'Pomegranate seeds', unit: 'oz', baseline: 1.0, category: 'produce' },
+  // ── Containers, added Jul 26 ──────────────────────────────────────────────
+  // The fleet as INGREDIENTS, so a receipt scan can update what a container
+  // actually costs. That is the whole reason they live here rather than only in
+  // containers.js: CONTAINER_TYPES carries a static price, and static prices go
+  // stale silently. These carry the same figures today and can drift with the
+  // market like anything else Kevin buys.
+  //
+  // `fixed: true` on every one. A container is not a market-priced ingredient
+  // whose movement should drag a dish's drift ratio around; it is a flat
+  // per-order cost. Fixed lines contribute cost and are excluded from drift,
+  // which is exactly right for packaging.
+  //
+  // They are NOT staples, so they never reach the shopping list. Kevin's
+  // instruction: wrap "will never be added to ingredient lists when SHOPPING."
+  { id: 'ctn_round8',  name: 'Container: 8 oz round',      unit: 'each', baseline: 0.29, fixed: true, wrap: true },
+  { id: 'ctn_round16', name: 'Container: 16 oz round',     unit: 'each', baseline: 0.35, fixed: true, wrap: true },
+  { id: 'ctn_round32', name: 'Container: 32 oz round',     unit: 'each', baseline: 0.58, fixed: true, wrap: true },
+  { id: 'ctn_round48', name: 'Container: 48 oz round',     unit: 'each', baseline: 1.38, fixed: true, wrap: true },
+  { id: 'ctn_rect38',  name: 'Container: 38 oz rectangle', unit: 'each', baseline: 0.52, fixed: true, wrap: true },
+  { id: 'ctn_rectXL',  name: 'Container: XL rectangle',    unit: 'each', baseline: 1.49, fixed: true, wrap: true },
+  { id: 'ctn_jar',     name: 'Container: pint mason jar',  unit: 'each', baseline: 1.12, fixed: true, wrap: true },
 ];
 
 // Conversion anchors for mapping recipe quantities to purchase units (phase 2 dish linkage)
@@ -239,7 +266,8 @@ export const CONVERSIONS = {
   onion:   { lbPerEach: 0.6 },                          // 1 onion ~ 0.6 lb
 };
 
-export const CATEGORY_ORDER = ['produce','protein','dairy','pantry','spice','frozen'];
+export const CATEGORY_ORDER = ['produce','protein','dairy','pantry','spice','frozen'
+];
 export const CATEGORY_LABELS_ING = {
   produce: 'Produce', protein: 'Proteins', dairy: 'Dairy & Eggs',
   pantry: 'Pantry & Dry', spice: 'Spices & Aromatics', frozen: 'Frozen',

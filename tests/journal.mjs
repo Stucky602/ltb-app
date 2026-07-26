@@ -329,4 +329,67 @@ console.log(`  (privacy wall walked the import graph from ${scanned} customer en
   ok(stampEntry({ type: 'provenance', text: 'x', personal: false }, NOW).personal === false, 'and it can be turned off');
 }
 
+
+
+// ── GENERAL CHAPTERS + the harvested seed (Jul 26) ──────────────────────────
+// Chapters exist because most of Kevin's past tense is not dish-shaped. Before
+// them, `subject.kind === 'general'` was supported by the data model, renderable
+// by the archive, and creatable by nothing — so the content had a home and no
+// door. These pin the door.
+{
+  const { GENERAL_CHAPTERS, entriesForChapter, chapterCounts } = await import('../src/journal.js');
+  const { DOSSIER_SEED } = await import('../src/dossierSeed.js');
+
+  const e = stampEntry({ subject: { kind: 'general', chapter: 'before-ltb' }, type: 'provenance', text: 'x' }, new Date());
+  ok(e.subject.kind === 'general' && e.subject.chapter === 'before-ltb', 'a general entry keeps a known chapter');
+
+  // A typo must not silently mint a chapter nothing renders.
+  const bad = stampEntry({ subject: { kind: 'general', chapter: 'not-a-chapter' }, type: 'provenance', text: 'y' }, new Date());
+  ok(bad.subject.kind === 'general' && !bad.subject.chapter, 'an unknown chapter is dropped, not stored');
+
+  const dish = stampEntry({ subject: { kind: 'dish', dish: 'Bo Ssam' }, type: 'provenance', text: 'z' }, new Date());
+  ok(dish.subject.kind === 'dish' && !dish.subject.chapter, 'dish subjects are untouched by chapters');
+
+  // Seeding, run twice. Idempotent by TEXT, because a "seeded" flag goes stale
+  // the moment the seed list grows and this list grows every harvest.
+  let store = { version: 1, entries: [] };
+  const seed = () => {
+    const have = new Set(store.entries.map(x => String(x.text || '').trim()));
+    const fresh = DOSSIER_SEED.filter(sd => !have.has(String(sd.text || '').trim()))
+      .map(sd => stampEntry(sd, new Date()));
+    store = normalizeJournal({ ...store, entries: [...store.entries, ...fresh] });
+    return fresh.length;
+  };
+  const first = seed();
+  ok(first === DOSSIER_SEED.length, 'the whole seed lands on a fresh journal');
+  ok(seed() === 0, 'seeding twice adds nothing — idempotent by text');
+
+  // FIDELITY. These are the properties that make the record trustworthy about
+  // its own provenance, and they are easy to break with a well-meaning edit.
+  ok(store.entries.every(x => x.origin === 'harvested'),
+    'every seeded entry is marked harvested, never written');
+  ok(store.entries.some(x => x.personal), 'personal entries survive seeding');
+
+  // The hedges. Claude previously inflated the Bottega uncertainty into a claim
+  // about Kevin's palate and was corrected; an uncertain memory recorded as
+  // certain is worse than no record, because nothing later can tell.
+  const bottega = store.entries.find(x => /is this dude for real/.test(x.text));
+  ok(!!bottega, 'the Bottega entry seeded');
+  ok(/I do not actually know that the plate was off/.test(bottega.text),
+    'the Bottega hedge is intact — do not resolve it');
+  const kitchens = store.entries.find(x => /walk to my car with my knife out/.test(x.text));
+  ok(/around 22 to 24/.test(kitchens.text), 'the age hedge is intact — he is not sure');
+  ok(store.entries.some(x => /until I just didn't/.test(x.text)),
+    'his phrasing survives — do not tidy it');
+
+  const counts = chapterCounts(store);
+  ok(GENERAL_CHAPTERS.every(c => typeof counts[c.id] === 'number'), 'every chapter reports a count');
+  ok(counts['before-ltb'] > 0, 'the kitchens chapter has content');
+  ok(entriesForChapter(store, 'before-ltb').every(x => x.subject.chapter === 'before-ltb'),
+    'a chapter returns only its own entries');
+  ok(entriesForChapter(store, 'how-he-picks').length === 0,
+    'an empty chapter returns empty rather than throwing');
+}
+
+
 console.log(`JOURNAL: ALL PASS (${pass} checks)`);

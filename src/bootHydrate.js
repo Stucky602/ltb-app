@@ -42,7 +42,8 @@ import {
   loadJSON, saveJSON, stampItemCosts, cleanupPhotos,
   regularMatchType, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
-import { normalizeJournal, migrateDishNotes, purgeTombstones } from './journal.js';
+import { normalizeJournal, migrateDishNotes, purgeTombstones, stampEntry } from './journal.js';
+import { DOSSIER_SEED } from './dossierSeed.js';
 import { normalizeLedger } from './weekLedger.js';
 import { normalizeContainerConfig } from './containers.js';
 import { reconcileIngredients, pruneCostHistory, summarizeReconcile } from './seedReconcile.js';
@@ -145,6 +146,22 @@ export async function hydrateFromStorage(deps) {
   }
   // Drop journal entries whose 30-day undo window has closed.
   bootJournal = purgeTombstones(bootJournal);
+  // Seed harvested dossier content. Idempotent by TEXT rather than by a
+  // "seeded" flag: a flag goes out of step the moment the seed list grows, and
+  // this list is expected to grow after every harvest conversation. Matching on
+  // text means a re-run adds only what is new and can never duplicate something
+  // Kevin has already read. Runs AFTER purgeTombstones so a seeded entry he
+  // deleted does not immediately return.
+  {
+    const have = new Set((bootJournal.entries || []).map(e => String(e.text || '').trim()));
+    const fresh = DOSSIER_SEED
+      .filter(sd => !have.has(String(sd.text || '').trim()))
+      .map(sd => stampEntry(sd, new Date()));
+    if (fresh.length) {
+      bootJournal = normalizeJournal({ ...bootJournal, entries: [...(bootJournal.entries || []), ...fresh] });
+      await saveJSON(JOURNAL_KEY, bootJournal);
+    }
+  }
   setJournal(bootJournal);
   setLastSeenWeek(loadedLastSeenWeek ?? null);
   setContainerConfig(normalizeContainerConfig(loadedContainerCfg));

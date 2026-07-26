@@ -122,6 +122,50 @@ export function normalizeJournal(raw) {
 // but the UI must show "undated" — a backfilled date would measure when the
 // migration ran, not when the note was true. Same principle that killed the
 // rare badge.
+// ── General chapters ────────────────────────────────────────────────────────
+// Headings for everything that belongs to no single dish. Chosen for what will
+// KEEP filling rather than what fits today's content: each of these is a bucket
+// that a harvest conversation naturally produces more of.
+//
+// Titled partly toward his son, which Kevin sanctioned explicitly. These are
+// the entries most likely to be read by someone who was not there, and a
+// heading like "general/misc" tells that reader nothing about why it was kept.
+//
+// READ-ONLY IN THE APP, on purpose. Kevin's instruction for the Record tab was
+// "no entries allowed here, this is only records as the tab says." General
+// entries arrive by HARVEST: they come out of a conversation, get drafted, and
+// are seeded. That is deliberate rather than a missing feature — correcting a
+// draft is far lower friction than facing a blank textarea, which is the whole
+// reason the harvest practice exists.
+export const GENERAL_CHAPTERS = [
+  { id: 'before-ltb', title: 'Before all this',
+    blurb: 'The professional kitchens, and why he left them.' },
+  { id: 'learning-to-taste', title: 'Learning to taste',
+    blurb: 'How the palate got built, and what he read to build it.' },
+  { id: 'never-on-the-menu', title: 'Never on the menu',
+    blurb: 'Things he cooks that LTB will never sell, and why not.' },
+  { id: 'how-he-picks', title: 'How he picks what is good',
+    blurb: 'The gate a dish has to clear, and the part that runs on instinct.' },
+  { id: 'who-taught-him', title: 'Who taught him',
+    blurb: 'People, kitchens, and the odd stranger across a room.' },
+];
+
+export function entriesForChapter(journal, chapterId) {
+  const j = normalizeJournal(journal);
+  return j.entries
+    .filter(e => e.subject && e.subject.kind === 'general' && e.subject.chapter === chapterId)
+    .sort((a, b) => Date.parse(a.ts || 0) - Date.parse(b.ts || 0));
+}
+
+// Counts per chapter, so the Record tab can show which are filled and which are
+// still empty. An empty chapter is shown rather than hidden: at zero it is the
+// worklist, the same reasoning that keeps the coverage card visible.
+export function chapterCounts(journal) {
+  const out = {};
+  for (const c of GENERAL_CHAPTERS) out[c.id] = entriesForChapter(journal, c.id).length;
+  return out;
+}
+
 export function stampEntry(partial, now, knownTypes) {
   const types = knownTypes || JOURNAL_TYPES;
   const type = types[partial && partial.type] ? partial.type : 'technique';
@@ -129,7 +173,16 @@ export function stampEntry(partial, now, knownTypes) {
   // id from now on. The name stays because readers that have not migrated yet
   // still resolve by it; the id is what survives a rename. An unresolvable
   // name gets no id rather than a guessed one.
+  // A general subject may carry a CHAPTER. Most of Kevin's past tense is not
+  // dish-shaped — why he left kitchens, learning to taste, the risotto that can
+  // never ship — and before chapters those entries had a data model and no way
+  // to be found. An unknown chapter id is dropped rather than kept, so a typo
+  // cannot quietly create a chapter nothing renders.
   let subject = { kind: 'general' };
+  if (partial && partial.subject && partial.subject.kind === 'general' && partial.subject.chapter
+      && GENERAL_CHAPTERS.some(c => c.id === partial.subject.chapter)) {
+    subject = { kind: 'general', chapter: partial.subject.chapter };
+  }
   if (partial && partial.subject && partial.subject.kind === 'dish' && partial.subject.dish) {
     const dish = String(partial.subject.dish);
     const dishId = partial.subject.dishId || dishIdFor(dish);

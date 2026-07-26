@@ -105,6 +105,18 @@ const CASES = [
          { id:'d', dish:'Pappardelle', dishId:'pappardelle', rating:4, note:'',
            familyNote:'', fairTest:true, at:'2026-06-01T00:00:00Z', ageMonths:18 },
        ] }`],
+  // Read-only surface, so the interesting states are a filled chapter and an
+  // empty one side by side. app_render only ever sees it collapsed.
+  ['DossierRecord', './src/components/DossierRecord.jsx',
+    `{ dishNames: ['Bo Ssam', 'Gumbo'],
+       journal: { version: 1, entries: [
+         { id:'g1', type:'provenance', text:'Worked years to land it and quit after a day.',
+           subject:{kind:'general',chapter:'before-ltb'}, origin:'harvested', personal:true,
+           ts:'2026-07-26T00:00:00Z' },
+         { id:'d1', type:'provenance', text:'Fully David Chang.',
+           subject:{kind:'dish',dish:'Bo Ssam',dishId:'bo-ssam'}, origin:'harvested',
+           ts:'2026-07-26T00:00:00Z' },
+       ] } }`],
   ['PendingOrders', './src/components/PendingOrders.jsx',
     `{ pendingOrders: [
          { pendingId: 'p1', customer: 'Dave', timestamp: new Date().toISOString(), notes: 'gate code 1234',

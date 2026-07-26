@@ -66,6 +66,7 @@ export function RecordTab({
   const [answer, setAnswer] = useState('');
   const [answerType, setAnswerType] = useState('technique');
   const [answered, setAnswered] = useState(false);
+  const [manualEpoch, setManualEpoch] = useState('');
   const question = useMemo(() => weeklyDossierPrompt(journal, weekDishes || [], wk.stamp), [journal, weekDishes, wk]);
   const coverage = useMemo(() => dossierCoverage(journal, dishNames || [], DISH_RENAMES), [journal, dishNames]);
   const composition = useMemo(() => dossierComposition(journal), [journal]);
@@ -447,7 +448,13 @@ export function RecordTab({
       </div>
 
 
-      {(epochProposal?.proposed || realDataEpoch) && (
+      {/* ALWAYS RENDERS. This used to be hidden unless the detector had a
+          proposal, which meant that on a young or continuous order history the
+          card vanished entirely and Kevin had no way to tell whether the
+          feature was missing, broken, or just quiet. A panel that disappears
+          when it has nothing to propose is indistinguishable from one that was
+          never built. It now always says which of the three states it is in. */}
+      {true && (
         <div style={S.card}>
           <div style={S.h}>Where the real data starts</div>
           {realDataEpoch ? (
@@ -461,6 +468,41 @@ export function RecordTab({
               <button style={{ ...S.btn(C.border), marginTop: 8 }} onClick={() => onConfirmEpoch(null)}>
                 Unset
               </button>
+            </>
+          ) : !epochProposal?.proposed ? (
+            <>
+              {/* The detector found nothing, which is a legitimate answer and not
+                  a failure. Two very different situations produce it and the
+                  reason text distinguishes them: too little history to see a
+                  seam, or a history with no seam in it because none of it was
+                  typed in. Either way Kevin may simply KNOW the date, so the
+                  manual entry is the escape hatch rather than a dead end. */}
+              <div style={S.faint}>
+                Order history typed in from memory can't be counted honestly, so this draws a line
+                between what was entered and what actually happened.
+                <br /><br />
+                <b style={{ color: C.text }}>No line proposed.</b> {epochProposal?.reason}
+              </div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, alignItems: 'center' }}>
+                <input
+                  type="date"
+                  value={manualEpoch}
+                  onChange={e => setManualEpoch(e.target.value)}
+                  style={{ flex: 1, background: '#14201d', border: `1px solid ${C.border}`,
+                    borderRadius: 8, color: C.text, fontSize: 13.5, padding: 9, boxSizing: 'border-box' }}
+                />
+                <button
+                  disabled={!manualEpoch}
+                  onClick={() => onConfirmEpoch(new Date(manualEpoch + 'T00:00:00').toISOString())}
+                  style={{ ...S.btn(manualEpoch ? C.good : C.border), flex: '0 0 auto', padding: '0 14px' }}
+                >
+                  Set it
+                </button>
+              </div>
+              <div style={{ ...S.faint, marginTop: 6 }}>
+                Only set this if you know roughly when you stopped typing in old orders. Leaving it
+                unset changes nothing, which is the safe default.
+              </div>
             </>
           ) : (
             <>

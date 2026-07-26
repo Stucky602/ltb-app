@@ -430,6 +430,10 @@ export function RecordTab({
             Taken {new Date(ranking.rankedAt).toLocaleDateString()} by head-to-head over all
             {' '}{ranking.order.length} dinners. One question, asked ~90 times: which would you rather
             eat tonight. Kept as a series, because the whole reason to record it is that it drifts.
+            <br /><br />
+            <b style={{ color: C.text }}>Last place is not a bad dish.</b> Everything here already
+            cleared the reheat gate, so this is preference spread across a set that is uniformly
+            good. 27th means least favourite of 27 things you would happily eat.
             {rankingStale && rankingStale.added.length > 0 && (
               <> <b style={{ color: C.warn }}>{rankingStale.added.length} dish{rankingStale.added.length === 1 ? '' : 'es'} joined the menu since</b>, so this is due a re-run.</>
             )}
@@ -464,6 +468,10 @@ export function RecordTab({
           {tasteVsSales && tasteVsSales.some(r => r.gap != null && Math.abs(r.gap) >= 6) && (
             <>
               <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>Where you and your customers disagree</div>
+              <div style={{ ...S.faint, marginBottom: 4 }}>
+                Neither direction is a problem. A dish you rate highly that few people order is a
+                fact about a friends-only menu that exists to please you too.
+              </div>
               {tasteVsSales
                 .filter(r => r.gap != null && Math.abs(r.gap) >= 6)
                 .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))

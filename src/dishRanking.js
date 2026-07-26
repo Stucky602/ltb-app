@@ -16,6 +16,24 @@
 // eat, and mixing the others in produces a muddier answer to a question that
 // already has a source.
 //
+// WHAT A LOW RANK DOES NOT MEAN — read this before building anything on top
+// Every dish in this list already cleared the REHEAT GATE, which is the hardest
+// constraint on the menu: a dish only qualifies if it reheats or finishes as
+// good as or better than freshly made. So the set being ranked has already been
+// filtered for quality, and what remains is preference spread inside a set that
+// is uniformly good. Kevin, on seeing his own results: "the big key among all of
+// them though is that all of them are FUCKING DELICIOUS. This includes the
+// braises and things like the au poivre."
+//
+// Twenty-seventh place therefore means "my least favourite of twenty-seven
+// things I would happily eat", NOT "weak dish". A numbered list running to 27
+// reads like a scoreboard to anyone who has forgotten that, so:
+//   - never label the bottom of this list as underperforming
+//   - never feed it into a retire-this-dish suggestion
+//   - never surface it to a customer in any form
+// The one place rank SHOULD influence anything is menu variety, and even then
+// as a nudge and not a rule.
+//
 // WHAT IT IS FOR
 // Three comparisons, and the third is the one that could not exist before:
 //   1. taste vs SALES — what he likes against what people actually order

@@ -32,9 +32,9 @@ import {
   ORDERS_KEY, CHECKS_KEY, SHOPPING_KEY, WEEK_KEY, DELIVER_CHECKS_KEY,
   DISH_NOTES_KEY, FEEDBACK_KEY, PIPELINE_JOURNAL_KEY, JOURNAL_KEY,
   LAST_SEEN_WEEK_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY,
-  ARCHIVE_HISTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY,
+  ARCHIVE_HISTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY,
   INVENTORY_KEY, INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY,
-  AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY, USE_LEGACY_CSV,
+  AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, SCHEMA_VERSION_KEY, assessForwardCompat, REFUSE_MESSAGE } from './migrations.js';
 import { ALL_DINNERS, DEFAULT_WEEK, FULL_MENU } from './menu.js';
@@ -57,8 +57,8 @@ export async function hydrateFromStorage(deps) {
     setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
     setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
     setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setNotice,
-    handledPendingRef, pollFormOrders, pollWorkerPending,
+    setAuditLog, setNotice, setEquipment, setRealDataEpoch,
+    handledPendingRef, pollWorkerPending,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -85,7 +85,7 @@ export async function hydrateFromStorage(deps) {
     await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
   }
 
-  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory] = await Promise.all([
+  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEquipment, loadedEpoch] = await Promise.all([
     loadJSON(ORDERS_KEY, []),
     loadJSON(CHECKS_KEY, {}),
     loadJSON(SHOPPING_KEY, []),
@@ -100,6 +100,8 @@ export async function hydrateFromStorage(deps) {
     loadJSON(WEEK_LEDGER_KEY, null),
     loadJSON(COPIES_NOTE_KEY, ''),
     loadJSON(ARCHIVE_HISTORY_KEY, []),
+    loadJSON(EQUIPMENT_KEY, []),
+    loadJSON(REAL_DATA_EPOCH_KEY, null),
   ]);
   if (!isMounted()) return;
   const migrated = loadedOrders.map(o => ({
@@ -147,6 +149,8 @@ export async function hydrateFromStorage(deps) {
   setWeekLedger(normalizeLedger(loadedLedger));
   setCopiesNote(typeof loadedCopiesNote === 'string' ? loadedCopiesNote : '');
   setArchiveHistory(Array.isArray(loadedArchiveHistory) ? loadedArchiveHistory : []);
+  setEquipment(Array.isArray(loadedEquipment) ? loadedEquipment : []);
+  setRealDataEpoch(typeof loadedEpoch === 'string' ? loadedEpoch : null);
   setDishFeedback(loadedDishFeedback || {});
   if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
     setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });
@@ -290,9 +294,7 @@ export async function hydrateFromStorage(deps) {
 
   setLoading(false);
   cleanupPhotos(migrated);
-  if (USE_LEGACY_CSV) {
-    pollFormOrders(migrated, savedPending || []);
-  } else {
-    pollWorkerPending();
-  }
+  // The legacy Google-Forms CSV branch that used to sit here was removed with
+  // the rest of that path. The worker queue is the only intake now.
+  pollWorkerPending();
 }

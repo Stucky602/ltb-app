@@ -14,7 +14,7 @@
 //   - Regulars only. A one-off customer has no history worth a passport.
 import { DISHES } from './dishes.js';
 import { ALWAYS_MENU } from './menu.js';
-import { DISH_RENAMES } from './utils.js';
+import { resolveDishId, dishNameFor } from './dishIdentity.js';
 
 // Desserts have no cuisine of their own and do not want one; they get their
 // own chapter at the back of the book.
@@ -76,11 +76,18 @@ export function ordersForRegular(reg, allOrders) {
 //      person, an order placed before the app existed, a name change that
 //      predates DISH_RENAMES. `reg.passportGrants` is a plain list of dish
 //      names he has granted by hand, and `reg.passportRevokes` takes one back.
-function canonicalName(name) {
-  let n = String(name || '');
-  // Renames can chain, but the map is tiny and acyclic; cap it anyway.
-  for (let i = 0; i < 5 && DISH_RENAMES[n]; i++) n = DISH_RENAMES[n];
-  return n;
+// Was a fourth private copy of rename-following, alongside journal.canonDishName,
+// dishIdentity.dishIdFor, and raw DISH_RENAMES consumers. Now delegates to the
+// identity module: resolve the item to a stable id (stored id wins, name is the
+// fallback), then ask what that id is called today. Behaviour for a renamed dish
+// is the same; the difference is that an order item carrying a `dishId` no
+// longer depends on its name being recognisable at all.
+function canonicalName(record) {
+  const id = resolveDishId(typeof record === 'string' ? { name: record } : record);
+  if (id) return dishNameFor(id, typeof record === 'string' ? record : (record && record.name));
+  // Unresolvable: fall back to the raw name so an off-registry item still
+  // groups with itself rather than collapsing every orphan into one bucket.
+  return typeof record === 'string' ? String(record || '') : String((record && record.name) || '');
 }
 
 // `currentOrder` is the delivery this page belongs to. Anything stamped by it
@@ -104,7 +111,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
   for (const o of mine) {
     const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
     for (const it of (o.items || [])) {
-      const name = canonicalName(it.name);
+      const name = canonicalName(it);
       if (!name || !stampableNames.has(name)) continue; // retired/bag/addon: no stamp
       ever.add(name);
       if (when && (!firstHad[name] || when < firstHad[name])) firstHad[name] = when;
@@ -116,7 +123,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
   const timesHad = {};
   for (const o of mine) {
     for (const it of (o.items || [])) {
-      const name = canonicalName(it.name);
+      const name = canonicalName(it);
       if (!stampableNames.has(name)) continue;
       timesHad[name] = (timesHad[name] || 0) + (Number(it.qty) || 1);
     }
@@ -124,18 +131,23 @@ export function buildPassport(reg, allOrders, currentOrder) {
 
   // First-ever, computed across ALL orders.
   //
-  // NOTE: a "rare dish" badge used to live here too and was REMOVED on purpose.
-  // Order history was backfilled when the app was built, so a dish's eater
-  // count measures what got typed in, not what people actually ate. A badge
-  // resting on that is decoration over a wrong number. Do not re-add it unless
-  // the history it depends on becomes trustworthy.
+  // NOTE: a "rare dish" badge used to live here and was REMOVED on purpose,
+  // because order history was typed in from memory when the app was built and a
+  // dish's eater count therefore measured data entry, not what people ate.
+  //
+  // realDataEpoch.js now provides the missing condition. Once Kevin confirms an
+  // epoch, realOrdersOnly() gives a countable history and the badge becomes
+  // honest for the period after the line. It is deliberately still NOT re-added
+  // here: this function does not receive the epoch, and re-adding it would mean
+  // threading it through every caller for a decoration. Do it when a caller
+  // actually wants it, not speculatively — and never over unfiltered orders.
   const firstEverBy = {};   // dish -> earliest order timestamp anyone had it
   for (const o of everyone) {
     if (o.house) continue;
     const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
     const who = o.regularId || String(o.customer || '').toLowerCase();
     for (const it of (o.items || [])) {
-      const name = canonicalName(it.name);
+      const name = canonicalName(it);
       if (!stampableNames.has(name)) continue;
       if (when && (!firstEverBy[name] || when < firstEverBy[name].when)) firstEverBy[name] = { when, who };
     }
@@ -151,7 +163,7 @@ export function buildPassport(reg, allOrders, currentOrder) {
   for (const o of mine) {
     const when = o.createdAt ? new Date(o.createdAt).getTime() : 0;
     for (const it of (o.items || [])) {
-      const name = canonicalName(it.name);
+      const name = canonicalName(it);
       if (!name || stampableNames.has(name)) continue;
       if (it.omakase) continue;              // omakase earns a visa, not a stamp
       if (NON_DISH.has(name)) continue;      // never a dish in the first place

@@ -8,18 +8,26 @@
 // and cost that were true when it was placed, so a repricing shows up as a real
 // step change. Recomputing old orders against today's registry would erase
 // exactly the signal this is trying to measure.
+import { resolveDishId, dishIdFor } from './dishIdentity.js';
 import { SOURCES } from './auditLog.js';
 
 const DAY = 86400000;
 
 function windowStats(orders, dish, variant, from, to) {
   let units = 0, revenue = 0, margin = 0;
+  // Resolve the target ONCE, outside the loop. Matching on identity rather than
+  // on the display string means orders placed under a previous name still count
+  // toward this dish's trend — before this, a rename silently truncated the
+  // history a repricing recommendation was drawn from, which is the worst place
+  // in the app to be quietly missing data.
+  const wantId = dishIdFor(dish);
   for (const o of orders) {
     if (o.house) continue;
     const t = new Date(o.createdAt || 0).getTime();
     if (!(t >= from && t < to)) continue;
     for (const it of (o.items || [])) {
-      if (it.name !== dish) continue;
+      const sameDish = wantId ? resolveDishId(it) === wantId : it.name === dish;
+      if (!sameDish) continue;
       if (variant && it.variant !== variant) continue;
       const qty = Number(it.qty) || 1;
       const price = Number(it.price) || 0;

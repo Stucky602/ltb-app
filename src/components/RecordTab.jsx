@@ -48,6 +48,8 @@ const fmtDate = (ts) => { try { return new Date(ts).toLocaleDateString(); } catc
 export function RecordTab({
   journal, onSaveJournal, dishNames, weekDishes, orders, knownNames,
   weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit, archiveHistory, onArchiveDownloaded,
+  equipment, onSaveEquipment,
+  realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
 }) {
   const [msg, setMsg] = useState(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
@@ -296,7 +298,7 @@ export function RecordTab({
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
           <button style={S.btn(C.good)} onClick={() => downloadDoc(
-            buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory }),
+            buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory, equipment }),
             `LTB_ARCHIVE_${new Date().getFullYear()}_${new Date().toISOString().slice(5, 10)}.html`,
             'The archive', () => onArchiveDownloaded && onArchiveDownloaded((journal && journal.entries ? journal.entries.length : 0)))}>
             Download the yearly archive
@@ -330,6 +332,94 @@ export function RecordTab({
           </button>
         )}
       </div>
+
+
+      <div style={S.card}>
+        <div style={S.h}>The equipment these assume</div>
+        <div style={S.faint}>
+          The record keeps saying "the siphon" and "the sous vide" without ever saying what they
+          are. Someone reading this in twenty years has no idea what was on your counter. This
+          list prints INTO the archive, right before the recipes that depend on it.
+          <br />
+          Not the same as a dish's equipment tags, which are for cook-day conflicts. This is what
+          you actually own.
+        </div>
+        {(equipment || []).map((eq, i) => (
+          <div key={i} style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <input
+              style={{ flex: '0 0 38%', background: '#14201d', border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 13, padding: 8, boxSizing: 'border-box' }}
+              placeholder="Thing"
+              value={eq.name || ''}
+              onChange={e => onSaveEquipment((equipment || []).map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+            />
+            <input
+              style={{ flex: 1, background: '#14201d', border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, fontSize: 13, padding: 8, boxSizing: 'border-box' }}
+              placeholder="What it is for"
+              value={eq.note || ''}
+              onChange={e => onSaveEquipment((equipment || []).map((x, j) => (j === i ? { ...x, note: e.target.value } : x)))}
+            />
+            <button
+              style={{ ...S.btn(C.border), flex: '0 0 auto', padding: '0 10px' }}
+              onClick={() => onSaveEquipment((equipment || []).filter((x, j) => j !== i))}
+            >
+              &times;
+            </button>
+          </div>
+        ))}
+        <button
+          style={{ ...S.btn(C.good), marginTop: 8 }}
+          onClick={() => onSaveEquipment([...(equipment || []), { name: '', note: '' }])}
+        >
+          Add equipment
+        </button>
+        {(equipment || []).length === 0 && (
+          <div style={{ ...S.faint, marginTop: 6 }}>
+            Empty, so the archive currently skips this section entirely.
+          </div>
+        )}
+      </div>
+
+
+      {(epochProposal?.proposed || realDataEpoch) && (
+        <div style={S.card}>
+          <div style={S.h}>Where the real data starts</div>
+          {realDataEpoch ? (
+            <>
+              <div style={S.faint}>
+                Confirmed as {new Date(realDataEpoch).toLocaleDateString()}. Counts that would be
+                misleading over typed-in history now use {epochSummary?.real ?? 0} real order
+                {(epochSummary?.real ?? 0) === 1 ? '' : 's'} and set aside{' '}
+                {epochSummary?.backfilled ?? 0} entered from memory. Nothing was deleted.
+              </div>
+              <button style={{ ...S.btn(C.border), marginTop: 8 }} onClick={() => onConfirmEpoch(null)}>
+                Unset
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={S.faint}>
+                Order history was typed in from memory when the app was built, so counting over it
+                measures data entry rather than what people actually ate. That is why there is no
+                rare-dish badge and no "first ever cooked". Drawing a line brings those back.
+                <br /><br />
+                <b style={{ color: epochProposal.confidence === 'high' ? C.good : C.warn }}>
+                  Best guess: {new Date(epochProposal.proposed).toLocaleDateString()}
+                  {epochProposal.confidence === 'low' ? ' (uncertain)' : ''}
+                </b>
+                <br />
+                {epochProposal.reason}
+              </div>
+              <button style={{ ...S.btn(C.good), marginTop: 8 }} onClick={() => onConfirmEpoch(epochProposal.proposed)}>
+                Yes, real orders start here
+              </button>
+              <div style={{ ...S.faint, marginTop: 6 }}>
+                Reversible, and it hides nothing — orders before the line stay exactly where they are,
+                they just stop being counted in statistics.
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {containerAudit && !containerAudit.complete && (
         <div style={{ ...S.card, border: `1px solid ${C.warn}` }}>

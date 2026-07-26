@@ -64,7 +64,23 @@ const scriptEl = window.document.createElement('script');
 scriptEl.textContent = readFileSync(out, 'utf8');
 window.document.body.appendChild(scriptEl);
 
-const flush = () => new Promise(r => setTimeout(r, 20));
+// Was a flat `setTimeout(r, 20)`, which lost the race under load roughly one
+// run in five: React's effect flush plus the async wake-lock request do not
+// reliably finish inside a fixed 20ms on a busy machine. A gate that fails
+// intermittently is worse than no gate, because it teaches you to re-run
+// instead of investigate. Poll for the condition instead, with a generous
+// ceiling — the happy path now settles in a few milliseconds AND the failure
+// path still fails rather than hanging.
+const flush = () => new Promise(r => setTimeout(r, 0));
+const waitFor = async (cond, label, budgetMs = 2000) => {
+  const started = Date.now();
+  while (Date.now() - started < budgetMs) {
+    if (cond()) return true;
+    await new Promise(r => setTimeout(r, 5));
+  }
+  console.log(`  (waitFor timed out after ${budgetMs}ms: ${label})`);
+  return false;
+};
 
 (async () => {
   // Mount inactive: no request should fire.
@@ -74,7 +90,7 @@ const flush = () => new Promise(r => setTimeout(r, 20));
 
   // Go active: exactly one request.
   window.__mount(true);
-  await flush();
+  await waitFor(() => requests === 1, 'first wake lock request');
   ok(requests === 1, 'active view requests the wake lock exactly once');
   ok(lastLock && !lastLock.released, 'the lock is held while active');
 
@@ -92,12 +108,12 @@ const flush = () => new Promise(r => setTimeout(r, 20));
   await flush();
   Object.defineProperty(window.document, 'visibilityState', { value: 'visible', writable: true, configurable: true });
   window.document.dispatchEvent(new window.Event('visibilitychange'));
-  await flush();
+  await waitFor(() => requests === 2, 're-acquisition after visibility round-trip');
   ok(requests === 2, 're-acquires after a visibility round-trip once the held lock was released');
 
   // Leave the view: the CURRENT lock releases.
   window.__mount(false);
-  await flush();
+  await waitFor(() => releases >= 1, 'release on leaving the view');
   ok(releases >= 1, 'leaving the view releases the lock');
 
   // Unsupported browser: no navigator.wakeLock at all must never throw.

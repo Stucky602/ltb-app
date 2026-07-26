@@ -38,7 +38,6 @@ export const ARCHIVE_HISTORY_KEY = 'ltb-archive-history';
 // registry facts, not per-device state); this key holds only what varies:
 // how many Kevin OWNS, and his correction to the outstanding-pool math.
 export const CONTAINER_INVENTORY_KEY = 'ltb-container-inventory';
-export const SEEN_ROWS_KEY = 'ltb-seen-rows';
 export const REGULARS_KEY = 'ltb-regulars';
 export const INVENTORY_KEY = 'ltb-inventory';
 // Backup health: { lastOkAt } — the last time the ring CONFIRMED it holds this
@@ -55,6 +54,17 @@ export const AUDIT_LOG_KEY = 'ltb-audit-log';
 // DEPLOY, so nothing in the running app can witness the edit. Diffing this
 // fingerprint on boot is the only way the app notices a deploy moved a number.
 export const MENU_FINGERPRINT_KEY = 'ltb-menu-fingerprint';
+// What Kevin actually OWNS. Distinct from the per-dish `equipment` field in the
+// registry, which is a scheduling vocabulary (ovenLow, largePot, dutch, wok)
+// used for cook-day conflict detection. This is a plain list of real objects,
+// because the archive kept referring to "the siphon" and "the sous vide"
+// without ever saying what they were.
+export const EQUIPMENT_KEY = 'ltb_equipment_v1';
+// The confirmed start of REAL order data. Everything dated before it was typed
+// in from memory when the app was built, so counts over it measure data entry.
+// Null until Kevin confirms a proposal, and while it is null nothing changes —
+// see realDataEpoch.js.
+export const REAL_DATA_EPOCH_KEY = 'ltb_real_data_epoch_v1';
 // The five below were declared inline in App.jsx rather than here, which meant
 // storage keys lived in two places and only one of them was findable. Moved
 // verbatim (same strings, so no device sees a migration) when backupRestore.js
@@ -87,5 +97,3 @@ export const PUBLISH_TOKEN = 'ltb-publish-2026';
 export const VAPID_PUBLIC_KEY = 'BD96MjYlJ5dAdlTEzTMLi1hAlDmy-s2d6eO5B2aavlXFdueX9jSH4BOKJpDLE2MdOKvttlwOdSrs0tjFEio3EU8';
 
 // Legacy Google Forms CSV polling — inactive (kept as fallback).
-export const USE_LEGACY_CSV = false;
-export const FORM_CSV_URL = 'https://ltb-proxy.strickland-kevinj.workers.dev/sheet';

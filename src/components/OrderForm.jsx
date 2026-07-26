@@ -17,9 +17,9 @@ import {
 } from '../recipes.js';
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
-  PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
+  PUBLISH_TOKEN, VAPID_PUBLIC_KEY,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
-  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
+  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -31,7 +31,7 @@ import {
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
-  parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  parseFormNotes,
   itemOptions, noteWithoutOptions,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';

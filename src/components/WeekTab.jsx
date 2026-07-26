@@ -17,9 +17,9 @@ import {
 } from '../recipes.js';
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
-  PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
+  PUBLISH_TOKEN, VAPID_PUBLIC_KEY,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY, WEEK_NOTICE_KEY,
-  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
+  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -31,7 +31,7 @@ import {
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
-  parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { costDishVariant, driftBorder } from '../dishCosting.js';
@@ -498,19 +498,6 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
           {publishMsg && (
             <div style={publishMsg.ok ? styles.publishOk : styles.publishErr}>{publishMsg.text}</div>
           )}
-        </div>
-      )}
-
-      {USE_LEGACY_CSV && selected.length > 0 && (
-        <div style={styles.genCard}>
-          <div style={styles.genTitle}>Google Form dropdown options</div>
-          <div style={styles.genHint}>
-            Copy these and paste them into your Google Form question options for the week.
-            Each dish gets a "No thanks" option first, then each size and price.
-          </div>
-          <button style={{ ...styles.saveBtn, marginTop: '8px', background: copied ? '#1D9E75' : undefined }} onClick={copyDropdown}>
-            {copied ? '✓ Copied to clipboard!' : 'Copy form options'}
-          </button>
         </div>
       )}
 

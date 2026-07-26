@@ -197,25 +197,76 @@ ok(stampEntry({ type: 'technique', text: 'x', confidence: 4 }, REV_NOW).confiden
 ok(normalizeJournal(undefined).entries.length === 0, 'undefined store normalizes clean');
 ok(normalizeJournal({ entries: [null, { text: 'ok' }, 'junk'] }).entries.length === 1, 'junk entries are dropped, real ones kept');
 
-// ── THE PRIVACY WALL: customer surfaces must not import the journal ─────────
-// Scans every surface that composes customer-facing output. A file absent
-// from this scratch checkout is skipped (partial uploads are normal); a file
-// PRESENT and importing journal.js is a build-stopping failure.
-const CUSTOMER_SURFACES = [
+// ── THE PRIVACY WALL: journal.js must be UNREACHABLE from customer surfaces ──
+// This used to be an allowlist: a hardcoded list of files, each checked for a
+// direct `import ... journal`. Two holes in that. First, a NEW customer surface
+// was unguarded until somebody remembered to add it to the list, and nothing
+// reminded them. Second, it only saw DIRECT imports — a customer page importing
+// a helper that imports journal.js passed cleanly while shipping diary material.
+//
+// This walks the import graph instead. From each customer entry point, follow
+// every relative import transitively and fail if journal.js is reachable at any
+// depth. The list below is now only where the walk STARTS, so forgetting to add
+// a surface no longer silently disables the guard for the files it does reach.
+const CUSTOMER_ENTRY_POINTS = [
   'src/companion.js',
   'form.html', 'menu.html', 'main-menu.html', 'order.html', 'pipeline.html',
   'tools/syncMainMenu.mjs', 'tools/syncPipeline.mjs',
   'worker.js', 'sw.js',
 ];
-let scanned = 0;
-for (const f of CUSTOMER_SURFACES) {
-  if (!existsSync(new URL('../' + f, import.meta.url))) continue;
-  scanned++;
-  const src = readFileSync(new URL('../' + f, import.meta.url), 'utf8');
-  ok(!/journal(\.js)?['"]/.test(src) || !/import[^;]*journal/.test(src),
-    `PRIVACY WALL: ${f} must never import journal.js — diary material stays off customer surfaces`);
+const PROTECTED = 'src/journal.js';
+
+function resolveRel(fromFile, spec) {
+  const dir = fromFile.split('/').slice(0, -1);
+  const parts = spec.split('/');
+  const out = [...dir];
+  for (const part of parts) {
+    if (part === '.') continue;
+    else if (part === '..') out.pop();
+    else out.push(part);
+  }
+  return out.join('/');
 }
-console.log(`  (privacy wall scanned ${scanned} customer surface${scanned === 1 ? '' : 's'} present in this checkout)`);
+
+// Returns the chain from entry to journal.js, or null if unreachable.
+function pathToJournal(entry) {
+  const seen = new Set();
+  const queue = [[entry, [entry]]];
+  while (queue.length) {
+    const [file, chain] = queue.shift();
+    if (seen.has(file)) continue;
+    seen.add(file);
+    const url = new URL('../' + file, import.meta.url);
+    if (!existsSync(url)) continue;
+    const src = readFileSync(url, 'utf8');
+    // static imports, side-effect imports, dynamic import(), and require()
+    const specs = [
+      ...[...src.matchAll(/import[^'"()]*['"](\.[^'"]+)['"]/g)].map(m => m[1]),
+      ...[...src.matchAll(/import\s*\(\s*['"](\.[^'"]+)['"]/g)].map(m => m[1]),
+      ...[...src.matchAll(/require\s*\(\s*['"](\.[^'"]+)['"]/g)].map(m => m[1]),
+      ...[...src.matchAll(/from\s+['"](\.[^'"]+)['"]/g)].map(m => m[1]),
+    ];
+    for (const spec of specs) {
+      const target = resolveRel(file, spec);
+      const next = [...chain, target];
+      if (target === PROTECTED) return next;
+      queue.push([target, next]);
+    }
+  }
+  return null;
+}
+
+let scanned = 0;
+for (const entry of CUSTOMER_ENTRY_POINTS) {
+  if (!existsSync(new URL('../' + entry, import.meta.url))) continue;
+  scanned++;
+  const chain = pathToJournal(entry);
+  ok(chain === null,
+    `PRIVACY WALL: journal.js is reachable from ${entry}` +
+    (chain ? ` via ${chain.join(' -> ')}` : '') +
+    ' — diary material stays off customer surfaces');
+}
+console.log(`  (privacy wall walked the import graph from ${scanned} customer entry point${scanned === 1 ? '' : 's'})`);
 
 
 // ── The taxonomy can GROW ───────────────────────────────────────────────────

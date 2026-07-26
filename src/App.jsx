@@ -15,12 +15,12 @@ import {
 } from './recipes.js';
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL,
-  PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
+  PUBLISH_TOKEN, VAPID_PUBLIC_KEY,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
-  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY,
+  SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
-  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -29,11 +29,11 @@ import {
   buildInsights, insightStamp, loadHtml2Canvas,
   discountAmount, itemsUpchargeTotal, customChargesTotal, itemsBaseTotal,
   orderTotal, repricePerLbItem, itemCost, orderCostInfo,
-  optionsSummary, noteWithoutOptions, normalizeAddons, itemAddons,
+  optionsSummary, noteWithoutOptions, itemAddons,
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, photoStorageBytes,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
-  parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  parseFormNotes,
   houseOrderPatch, isHouseOrder, HOUSE_DISCOUNT_PERCENT,
 } from './utils.js';
 // migrations.js, seedReconcile.js, and INGREDIENT_SEED are no longer imported
@@ -55,7 +55,7 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { ImportModal } from './components/ImportModal.jsx';
 import { LinkRegularPrompt, RegularsTab, RegularForm, RegularProfile } from './components/RegularsTab.jsx';
 import { WeekTab } from './components/WeekTab.jsx';
-import { StatsBar, QtyControl, PasteOrderCard, AmendOrderCard, CsvImportCard, ReviewModal } from './components/OrderInputs.jsx';
+import { StatsBar, QtyControl, PasteOrderCard, AmendOrderCard, ReviewModal } from './components/OrderInputs.jsx';
 import { OrderForm } from './components/OrderForm.jsx';
 import { InvoiceModal, ReheatModal, WeightPhotoModal } from './components/Modals.jsx';
 import { OrderCard } from './components/OrderCard.jsx';
@@ -96,6 +96,8 @@ import * as ops from './orderOps.js';
 import * as fb from './feedbackSync.js';
 import * as ing from './ingredientOps.js';
 import * as pub from './publishWeek.js';
+import * as poll from './pendingPoll.js';
+import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
 
 export default function LTBOrderTracker() {
   React.useEffect(() => {
@@ -185,6 +187,37 @@ export default function LTBOrderTracker() {
   // by someone who does not have Kevin to ask.
   const [copiesNote, setCopiesNote] = useState('');
   const [archiveHistory, setArchiveHistory] = useState([]);
+  // The equipment inventory. buildArchiveHtml has always accepted this and
+  // rendered a whole "The equipment these assume" section for it; nothing ever
+  // passed one, so the section could not render and the archive kept naming
+  // tools it never described. This is the missing half.
+  const [equipment, setEquipment] = useState([]);
+  // The real-data epoch. Null means unconfirmed, which is the safe default:
+  // every dependent feature stays exactly where it is today rather than acting
+  // on a guess. Confirming it STAMPS the affected orders so the flag rides the
+  // backup and survives on any device, instead of being recomputed from a date
+  // that could later move.
+  const [realDataEpoch, setRealDataEpoch] = useState(null);
+  const epochProposal = useMemo(() => proposeEpoch(orders || []), [orders]);
+  const confirmEpoch = useCallback((iso) => {
+    const v = iso ? new Date(iso).toISOString() : null;
+    setRealDataEpoch(v);
+    saveJSON(REAL_DATA_EPOCH_KEY, v).then(r => setError(saveError(r)));
+    setOrders(prev => {
+      const next = stampBackfilled(prev || [], v);
+      if (next === prev) return prev;
+      saveJSON(ORDERS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveEquipment = useCallback((next) => {
+    const clean = (Array.isArray(next) ? next : [])
+      .map(e => ({ name: String(e.name || '').slice(0, 80), note: String(e.note || '').slice(0, 200) }))
+      .filter(e => e.name)
+      .slice(0, 60);
+    setEquipment(clean);
+    saveJSON(EQUIPMENT_KEY, clean).then(r => setError(saveError(r)));
+  }, []);
   // Stamped each time an archive is downloaded, so the NEXT one knows where it
   // sits in the series.
   const recordArchive = useCallback((entryCount) => {
@@ -246,7 +279,6 @@ export default function LTBOrderTracker() {
   const [formMode, setFormMode] = useState(null);
   const [showPaste, setShowPaste] = useState(false);
   const [showAmend, setShowAmend] = useState(false);
-  const [showCsv, setShowCsv] = useState(false);
   const [pendingOrders, setPendingOrders] = useState([]);
   // Ledger of worker pending ids already accepted/rejected (see HANDLED_PENDING_KEY).
   const handledPendingRef = useRef({});
@@ -323,8 +355,8 @@ export default function LTBOrderTracker() {
       setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
       setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
       setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-      setAuditLog, setNotice,
-      handledPendingRef, pollFormOrders, pollWorkerPending,
+      setAuditLog, setNotice, setEquipment, setRealDataEpoch,
+      handledPendingRef, pollWorkerPending,
     });
     return () => { mounted = false; };
   }, []);
@@ -346,158 +378,27 @@ export default function LTBOrderTracker() {
     regulars, setOrders, setInventory, setError, setFormMode,
   }), [regulars]);
 
-  const importOrders = useCallback((parsedOrders) => ops.importOrders(parsedOrders, {
-    setOrders, setError, setShowCsv, setExportMsg,
+  // The Google-Forms CSV path was removed in full. It had been dead for months
+  // (USE_LEGACY_CSV was false) and was also BROKEN: checkFormNow and
+  // pollFormOrders both called fetchFormRows(), which utils.js declares without
+  // `export` and App.jsx never imported. Turning the flag back on would have
+  // thrown a ReferenceError on the first call. Orders arrive via the worker's
+  // /pending queue below, which is the durable path and has been for a long time.
+
+  // ── Worker intake ─────────────────────────────────────────────────────────
+  // Body in pendingPoll.js. The rule worth knowing from here: polling NEVER
+  // clears the worker queue. An order leaves it only via dismissPending.
+  const workerPollRef = React.useRef(null);
+  // `self` lets the two-minute reschedule re-enter through this wrapper rather
+  // than the bare module function, which would lose the deps bag on tick two.
+  const pollWorkerPending = React.useCallback(async (reschedule = true) => poll.pollWorkerPending(reschedule, {
+    setPendingOrders, handledPendingRef, workerPollRef,
+    self: (r) => pollWorkerPending(r),
   }), []);
 
-  const checkFormNow = React.useCallback(async () => {
-    setCheckingForm(true);
-    try {
-      alert('Fetching from: ' + FORM_CSV_URL);
-      const rows = await fetchFormRows();
-      alert('Done. rows=' + (rows === null ? 'null' : Array.isArray(rows) ? rows.length : typeof rows));
-      if (!rows) { setCheckingForm(false); return; }
-      const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
-      const seen = seenRaw || {};
-      const newPending = [];
-      rows.forEach(row => {
-        const ts = row['Timestamp'] || row['timestamp'] || '';
-        if (!ts || seen[ts]) return;
-        const { customer, items, notes } = parseFormRow(row);
-        if (items.length === 0 && !notes) return;
-        newPending.push({
-          pendingId: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2),
-          timestamp: ts,
-          customer,
-          items,
-          notes,
-        });
-        seen[ts] = true;
-      });
-      if (newPending.length > 0) {
-        setPendingOrders(prev => {
-          const updated = [...prev, ...newPending];
-          saveJSON(PENDING_KEY, updated);
-          return updated;
-        });
-        await saveJSON(SEEN_ROWS_KEY, seen);
-      } else {
-        await saveJSON(SEEN_ROWS_KEY, seen);
-      }
-    } catch(e) { alert('ERROR: ' + e.message); }
-    setCheckingForm(false);
-  }, []);
-
-  const resetRecentSeenRows = React.useCallback(async () => {
-    const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
-    const seen = seenRaw || {};
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    let removed = 0;
-    const updated = {};
-    Object.entries(seen).forEach(([ts, val]) => {
-      const parsed = new Date(ts);
-      if (!isNaN(parsed.getTime()) && parsed.getTime() >= cutoff) {
-        removed++;
-      } else {
-        updated[ts] = val;
-      }
-    });
-    await saveJSON(SEEN_ROWS_KEY, updated);
-    alert('Reset ' + removed + ' recent order' + (removed !== 1 ? 's' : '') + ' from seen history. Tap "Check for new orders" to re-import them.');
-  }, []);
-
-  const pollFormOrders = React.useCallback(async (existingOrders, existingPending) => {
-    const rows = await fetchFormRows();
-    if (!rows) return;
-    const seenRaw = await loadJSON(SEEN_ROWS_KEY, {});
-    const seen = seenRaw || {};
-    const newPending = [];
-    rows.forEach(row => {
-      const ts = row['Timestamp'] || row['timestamp'] || '';
-      if (!ts || seen[ts]) return;
-      const { customer, items, notes } = parseFormRow(row);
-      if (items.length === 0 && !notes) return;
-      newPending.push({
-        pendingId: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2),
-        timestamp: ts,
-        customer,
-        items,
-        notes,
-      });
-      seen[ts] = true;
-    });
-    if (newPending.length > 0) {
-      const updated = [...existingPending, ...newPending];
-      setPendingOrders(updated);
-      await saveJSON(PENDING_KEY, updated);
-      await saveJSON(SEEN_ROWS_KEY, seen);
-    } else {
-      await saveJSON(SEEN_ROWS_KEY, seen);
-    }
-    setTimeout(() => pollFormOrders(existingOrders, existingPending), 5 * 60 * 1000);
-  }, []);
-
-  const workerPollRef = React.useRef(null);
-  const pollWorkerPending = React.useCallback(async (reschedule = true) => {
-    try {
-      const res = await fetch(PENDING_POLL_URL, { cache: 'no-store', headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
-      if (res.ok) {
-        const data = await res.json();
-        const submissions = (data && data.pending) || [];
-        if (submissions.length > 0) {
-          const mapped = submissions.map(s => ({
-            pendingId: s.id,
-            timestamp: s.submittedAt || new Date().toISOString(),
-            customer: s.customer || 'Unknown',
-            address: s.address || '',
-            phone: s.phone || '',
-            items: Array.isArray(s.items) ? s.items.map(it => ({
-              name: it.name, variant: it.variant, qty: it.qty || 1,
-              price: it.price, cost: it.cost || 0,
-              note: it.note || '', hasPhoto: false,
-              // Preserve customer-selected options (spice level, pasta shape).
-              // These were being dropped here, so spice/pasta never reached the
-              // order card even though the form sent them correctly.
-              ...(it.options ? { options: it.options } : {}),
-              // At-cost add-on requests (parm block, fixings): normalize to
-              // pending line items — cost unknown until Kevin shops, exactly
-              // like the weight system. normalizeAddons dedupes + sanitizes.
-              ...((() => { const a = normalizeAddons(it.addons); return a ? { addons: a } : {}; })()),
-              ...(it.perLb ? { perLb: it.perLb } : {}),
-              ...(it.avgWeightLb != null ? { avgWeightLb: it.avgWeightLb } : {}),
-            })) : [],
-            notes: s.notes || '',
-          }));
-          setPendingOrders(prev => {
-            const have = new Set((prev || []).map(p => p.pendingId));
-            const handled = handledPendingRef.current || {};
-            const fresh = mapped.filter(m => !have.has(m.pendingId) && !handled[m.pendingId]);
-            if (fresh.length === 0) return prev;
-            const updated = [...(prev || []), ...fresh];
-            saveJSON(PENDING_KEY, updated);
-            return updated;
-          });
-          // Do NOT clear the worker here. The worker is the durable queue; an
-          // order leaves it only when Kevin accepts or rejects it (see
-          // dismissPending). Poll is a pure idempotent sync, so a failed local
-          // save, a reload, or a restore-over-pending can no longer lose an
-          // order the worker had already deleted. Re-syncing a still-queued
-          // order is harmless: dedup skips anything already in local pending or
-          // in the handled ledger.
-        }
-      }
-    } catch (e) {}
-    if (reschedule) {
-      if (workerPollRef.current) clearTimeout(workerPollRef.current);
-      workerPollRef.current = setTimeout(() => pollWorkerPending(true), 2 * 60 * 1000);
-    }
-  }, []);
-
-  const checkWorkerNow = React.useCallback(async () => {
-    setCheckingForm(true);
-    await pollWorkerPending(false);
-    setCheckingForm(false);
-  }, [pollWorkerPending]);
+  const checkWorkerNow = React.useCallback(async () => poll.checkWorkerNow({
+    setCheckingForm, pollWorkerPending,
+  }), [pollWorkerPending]);
 
   // ── Publishing ────────────────────────────────────────────────────────────
   // Bodies in publishWeek.js. Two rules live in there and are worth knowing
@@ -511,19 +412,6 @@ export default function LTBOrderTracker() {
         setWeekLedger, setNotice, recordAudit,
       }),
     [recordAudit]);
-
-  // ── Auto-fill regular contact info from incoming order ─────────────────────
-  // Called after linking an order to a regular. If the regular has no address
-  // or phone and the order does, fills in the blank fields and shows a banner.
-  const autoFillRegularContact = useCallback((reg, order) => ops.autoFillRegularContact(reg, order, {
-    updateRegular, setExportMsg,
-  }), []);
-
-  const acceptPending = useCallback((pending) => ops.acceptPending(pending, {
-    handledPendingRef, regulars, setOrders, setError, adjustInventory,
-    linkOrderToRegular, autoFillRegularContact, setLinkPrompt, dismissPending,
-    setShowPendingIdx,
-  }), [regulars, autoFillRegularContact]);
 
   const dismissPending = useCallback((pendingId) => ops.dismissPending(pendingId, {
     setPendingOrders, handledPendingRef, setShowPendingIdx,
@@ -557,6 +445,31 @@ export default function LTBOrderTracker() {
   const adjustInventory = useCallback((key, delta) => ops.adjustInventory(key, delta, { setInventory, setError }), []);
 
   const setInventoryCount = useCallback((key, value) => ops.setInventoryCount(key, value, { setInventory, setError }), []);
+
+  // ORDER MATTERS HERE. These two sit BELOW the regulars and inventory
+  // callbacks on purpose: both name those callbacks in their dependency
+  // arrays, and a dependency array is evaluated at declaration time. Declared
+  // any earlier, `[updateRegular]` reads a const that does not exist yet and
+  // the whole app dies on mount with a temporal dead zone error. That is not
+  // hypothetical; it is what happened the moment the empty array that used to
+  // sit on autoFillRegularContact was replaced with an honest one.
+  // ── Auto-fill regular contact info from incoming order ─────────────────────
+  // Called after linking an order to a regular. If the regular has no address
+  // or phone and the order does, fills in the blank fields and shows a banner.
+  // updateRegular is itself a []-dep useCallback, so its identity never moves
+  // and the old empty array here was not actually producing a stale closure.
+  // It was still a lie: this DOES depend on updateRegular, and the next person
+  // to give updateRegular a real dependency would have broken this silently.
+  // Naming it costs nothing at runtime and makes the dependency true.
+  const autoFillRegularContact = useCallback((reg, order) => ops.autoFillRegularContact(reg, order, {
+    updateRegular, setExportMsg,
+  }), [updateRegular]);
+
+  const acceptPending = useCallback((pending) => ops.acceptPending(pending, {
+    handledPendingRef, regulars, setOrders, setError, adjustInventory,
+    linkOrderToRegular, autoFillRegularContact, setLinkPrompt, dismissPending,
+    setShowPendingIdx,
+  }), [regulars, autoFillRegularContact]);
 
   // ── Ingredient cost writers ──────────────────────────────────────────────
   // Bodies in ingredientOps.js. These are the money-writing paths, and all
@@ -684,9 +597,9 @@ export default function LTBOrderTracker() {
     orders, shopping, weekDishes, regulars, inventory, ingredientsDb,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
-    archiveHistory,
+    archiveHistory, equipment, realDataEpoch,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -823,7 +736,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 
@@ -1097,10 +1010,6 @@ export default function LTBOrderTracker() {
     saveJSON(DELIVER_CHECKS_KEY, {});
   }, []);
 
-  // Journal writer: accepts the next store OR an updater fn, same contract as
-  // savePipelineJournal. Writes surface quota failures through saveError —
-  // this is the knowledge base, and a silent lost entry is the exact failure
-  // the record exists to prevent.
   const pullQuestions = useCallback(async () => {
     const r = await fetch(WORKER_BASE + '/ask-log?token=' + encodeURIComponent(PUBLISH_TOKEN));
     if (!r.ok) throw new Error('ask-log ' + r.status);
@@ -1117,6 +1026,10 @@ export default function LTBOrderTracker() {
     });
   }, []);
 
+  // Journal writer: accepts the next store OR an updater fn, same contract as
+  // savePipelineJournal. Writes surface quota failures through saveError —
+  // this is the knowledge base, and a silent lost entry is the exact failure
+  // the record exists to prevent.
   const saveJournal = useCallback((next) => {
     setJournal(prev => {
       const j = normalizeJournal(typeof next === 'function' ? next(prev) : next);
@@ -1294,7 +1207,7 @@ export default function LTBOrderTracker() {
             />
             <StatsBar stats={stats} />
 
-            {!formMode && !showPaste && !showAmend && !showCsv && (
+            {!formMode && !showPaste && !showAmend && (
               <div style={styles.topActions}>
                 <button style={styles.newOrderBtn} onClick={() => setFormMode('new')}>
                   <Plus size={18} />
@@ -1308,29 +1221,6 @@ export default function LTBOrderTracker() {
                   <Pencil size={16} />
                   Amend via text
                 </button>
-                {USE_LEGACY_CSV && (
-                  <button style={styles.csvBtn} onClick={() => setShowCsv(true)}>
-                    <FileText size={16} />
-                    Import from sheet
-                  </button>
-                )}
-                {USE_LEGACY_CSV && (
-                  <button
-                    style={styles.checkFormBtn}
-                    onClick={checkFormNow}
-                    onContextMenu={(e) => { e.preventDefault(); resetRecentSeenRows(); }}
-                    onTouchStart={(e) => {
-                      const t = setTimeout(() => resetRecentSeenRows(), 700);
-                      e.currentTarget._ltbLongPress = t;
-                    }}
-                    onTouchEnd={(e) => { clearTimeout(e.currentTarget._ltbLongPress); }}
-                    onTouchMove={(e) => { clearTimeout(e.currentTarget._ltbLongPress); }}
-                    disabled={checkingForm}
-                  >
-                    <RotateCcw size={16} style={checkingForm ? styles.spinning : undefined} />
-                    {checkingForm ? 'Checking...' : 'Check for new orders'}
-                  </button>
-                )}
               </div>
             )}
 
@@ -1348,14 +1238,6 @@ export default function LTBOrderTracker() {
                 orders={activeOrders}
                 onAmended={(draft) => { setShowAmend(false); setFormMode(draft); }}
                 onCancel={() => setShowAmend(false)}
-              />
-            )}
-
-            {showCsv && (
-              <CsvImportCard
-                menu={menu}
-                onImport={importOrders}
-                onCancel={() => setShowCsv(false)}
               />
             )}
 
@@ -1380,7 +1262,7 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
-            {pendingFeedback.length > 0 && !formMode && !showPaste && !showCsv && (
+            {pendingFeedback.length > 0 && !formMode && !showPaste && (
               <div style={styles.pendingSection}>
                 <div style={styles.pendingSectionHeader}>
                   <span style={{ ...styles.pendingBadge, background: GOLD, color: '#1a1a1a' }}>{pendingFeedback.length}</span>
@@ -1392,7 +1274,7 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
-            {pendingOrders.length > 0 && !formMode && !showPaste && !showCsv && (
+            {pendingOrders.length > 0 && !formMode && !showPaste && (
               <PendingOrders
                 pendingOrders={pendingOrders}
                 showPendingIdx={showPendingIdx} setShowPendingIdx={setShowPendingIdx}
@@ -1601,6 +1483,12 @@ export default function LTBOrderTracker() {
             onSaveCopiesNote={saveCopiesNote}
             containerAudit={containerStatus.audit}
             archiveHistory={archiveHistory}
+            equipment={equipment}
+            onSaveEquipment={saveEquipment}
+            realDataEpoch={realDataEpoch}
+            epochProposal={epochProposal}
+            epochSummary={epochSummary(orders, realDataEpoch)}
+            onConfirmEpoch={confirmEpoch}
             onArchiveDownloaded={recordArchive}
           />
         )}

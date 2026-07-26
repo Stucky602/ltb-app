@@ -18,6 +18,7 @@
 //   - Nothing qualifies on thin evidence. A dish that ran once and got one
 //     nice comment is not a favorite yet, and saying so would cheapen the
 //     badge everywhere else it appears.
+import { resolveDishId, dishNameFor } from './dishIdentity.js';
 import { isHouseOrder } from './utils.js';
 
 // A dish must clear BOTH a volume floor and a quality floor. The thresholds
@@ -41,13 +42,23 @@ export function dishOrderSignal(orders) {
     if (!who) continue;
     for (const it of (o.items || [])) {
       if (!it.name || it.omakase) continue;
-      const e = out[it.name] || (out[it.name] = { orders: 0, households: new Map() });
+      // Group by stable id, not display string. An order placed under a dish's
+      // old name used to count as a separate dish here, splitting its household
+      // count and its repeat rate across two entries and understating both.
+      // Unresolvable items keep their raw name so an off-registry item still
+      // groups with itself instead of collapsing every orphan together.
+      const id = resolveDishId(it);
+      const key = id || it.name;
+      const e = out[key] || (out[key] = { orders: 0, households: new Map(), display: dishNameFor(id, it.name) });
       e.orders += Number(it.qty) || 1;
       e.households.set(who, (e.households.get(who) || 0) + 1);
     }
   }
+  // Keyed by CURRENT display name on the way out, so every caller that still
+  // thinks in names keeps working. The merge above already happened.
   const shaped = {};
-  for (const [name, e] of Object.entries(out)) {
+  for (const e of Object.values(out)) {
+    const name = e.display;
     const households = e.households.size;
     const repeaters = [...e.households.values()].filter(n => n > 1).length;
     shaped[name] = {

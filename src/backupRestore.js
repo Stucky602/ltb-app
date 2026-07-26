@@ -27,7 +27,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, REGULARS_KEY, INVENTORY_KEY, PIPELINE_JOURNAL_KEY,
   JOURNAL_KEY, COPIES_NOTE_KEY, WEEK_LEDGER_KEY, CONTAINER_INVENTORY_KEY,
   INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY, HANDLED_PENDING_KEY,
-  AUDIT_LOG_KEY,
+  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -122,6 +122,12 @@ export function buildBackupPayload(state) {
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
+    // The equipment inventory. Typed in by hand, held nowhere else, and the
+    // thing the archive's "equipment these assume" section is built from.
+    equipment: state.equipment,
+    // Confirmed once, by hand, from evidence. Recomputing it on another device
+    // could land somewhere else, so it travels.
+    realDataEpoch: state.realDataEpoch,
     handledPending: state.handledPending,
   };
 }
@@ -185,7 +191,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -266,6 +272,25 @@ export async function applyBackupPayload(payload, deps) {
   if (payload.receiptAliases && typeof payload.receiptAliases === 'object') {
     setReceiptAliases(payload.receiptAliases);
     await saveJSON(RECEIPT_ALIASES_KEY, payload.receiptAliases);
+  }
+  // The archive series history. This rode the payload from the day it was added
+  // and was never read back, so every restore silently reset the counter to
+  // zero — and on a fresh device it stayed there. That is the one field whose
+  // whole purpose is continuity ("the ninth year, kept since July 2026"), so
+  // losing it on restore defeated the feature rather than degrading it.
+  // Guarded on presence like the others, so restoring a backup taken before the
+  // history existed cannot blank a good local one.
+  if (typeof payload.realDataEpoch === 'string' || payload.realDataEpoch === null) {
+    setRealDataEpoch(payload.realDataEpoch);
+    await saveJSON(REAL_DATA_EPOCH_KEY, payload.realDataEpoch);
+  }
+  if (Array.isArray(payload.equipment)) {
+    setEquipment(payload.equipment);
+    await saveJSON(EQUIPMENT_KEY, payload.equipment);
+  }
+  if (Array.isArray(payload.archiveHistory)) {
+    setArchiveHistory(payload.archiveHistory);
+    await saveJSON(ARCHIVE_HISTORY_KEY, payload.archiveHistory);
   }
   // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
   // state back to the backup point, so the ledger of what was handled THEN is

@@ -15,9 +15,9 @@ import {
 } from '../recipes.js';
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
-  PUBLISH_TOKEN, VAPID_PUBLIC_KEY, USE_LEGACY_CSV, FORM_CSV_URL,
+  PUBLISH_TOKEN, VAPID_PUBLIC_KEY,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY,
-  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, SEEN_ROWS_KEY, REGULARS_KEY, INVENTORY_KEY,
+  SHOPPING_KEY, WEEK_KEY, PENDING_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -29,7 +29,7 @@ import {
   groupKeyFor, formatDate, orderToText, copyText, loadJSON, saveJSON, saveError,
   photoKey, savePhoto, loadPhoto, deletePhoto, photoStorageBytes, cleanupPhotos,
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment, diffOrders,
-  parseFormRow, parseDelimited, rowToOrderText, parseFormNotes,
+  parseFormNotes,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 
@@ -298,149 +298,6 @@ export function AmendOrderCard({ menu, orders, onAmended, onCancel }) {
               {parsing ? 'Reading the change...' : 'Preview the change'}
             </button>
           )}
-        </>
-      )}
-    </div>
-  );
-}
-
-// ─── Import orders from a Google Sheet / CSV paste ──────────────────────────
-export function CsvImportCard({ menu, onImport, onCancel }) {
-  const [text, setText] = useState('');
-  const [parsing, setParsing] = useState(false);
-  const [progress, setProgress] = useState(null); // { done, total }
-  const [results, setResults] = useState(null); // [{ customer, order, error, raw }]
-  const [parseError, setParseError] = useState(null);
-
-  const run = async () => {
-    setParseError(null);
-    const rows = parseDelimited(text);
-    if (rows.length < 2) {
-      setParseError('Need a header row plus at least one order row. Copy the rows from your Sheet including the header.');
-      return;
-    }
-    const headers = rows[0].map(h => h.trim());
-    const dataRows = rows.slice(1);
-    setParsing(true);
-    setProgress({ done: 0, total: dataRows.length });
-
-    const out = [];
-    for (let r = 0; r < dataRows.length; r++) {
-      const cells = dataRows[r];
-      const headerMap = {};
-      headers.forEach((h, i) => { headerMap[h] = cells[i] || ''; });
-      const { customer, text: orderText } = rowToOrderText(headerMap);
-      if (!orderText.trim()) {
-        setProgress({ done: r + 1, total: dataRows.length });
-        continue;
-      }
-      try {
-        const parsed = await parseOrderText(orderText, null, menu);
-        // CSV orders save directly (no per-order review modal), so prompted
-        // actions fold into reviewReasons — they surface on the row flag and
-        // again if the order is opened for editing. Auto-applied results
-        // (options/notes) are already executed on the items.
-        const foldedReasons = [
-          ...(parsed.reviewReasons || []),
-          ...(parsed.pendingActions || []).map(a =>
-            a.type === 'custom-charge' ? `Custom request: "${a.label}" — price it or skip it`
-            : a.type === 'set-option' ? `They asked "${a.source}" — set the spice level on ${(parsed.items[a.itemIdx] || {}).name || 'the item'}`
-            : `They asked "${a.text}" on ${(parsed.items[a.itemIdx] || {}).name || 'an item'} — add as a prep note?`),
-        ];
-        const { pendingActions: _pa, autoApplied: _aa, ...rest } = parsed;
-        out.push({
-          customer: customer || `Row ${r + 1}`,
-          order: { ...rest, reviewReasons: foldedReasons, customer: customer || `Row ${r + 1}` },
-          error: null,
-        });
-      } catch (e) {
-        out.push({
-          customer: customer || `Row ${r + 1}`,
-          order: null,
-          error: (e && e.message) || 'parse failed',
-        });
-      }
-      setProgress({ done: r + 1, total: dataRows.length });
-    }
-    setResults(out);
-    setParsing(false);
-  };
-
-  const importAll = () => {
-    const good = results.filter(r => r.order && r.order.items.length > 0);
-    onImport(good.map(r => r.order));
-  };
-
-  const goodCount = results ? results.filter(r => r.order && r.order.items.length > 0).length : 0;
-
-  return (
-    <div style={styles.formCard}>
-      <div style={styles.formHeader}>
-        <div style={styles.formTitle}>Import from Google Sheet</div>
-        <button style={styles.iconBtn} onClick={onCancel} aria-label="Cancel"><X size={18} /></button>
-      </div>
-
-      {!results ? (
-        <>
-          <div style={styles.pasteHint}>
-            In your Google Sheet, select the order rows <strong>including the header row</strong>, copy, and paste below. Each row becomes an order you can review before saving.
-          </div>
-          <textarea
-            style={{ ...styles.textarea, minHeight: '120px', fontSize: '12px' }}
-            placeholder={'Paste your copied spreadsheet rows here...'}
-            value={text}
-            onChange={e => setText(e.target.value)}
-          />
-          {parseError && <div style={styles.parseError}>{parseError}</div>}
-          {parsing && progress && (
-            <div style={styles.csvProgress}>Reading orders... {progress.done}/{progress.total}</div>
-          )}
-          <button
-            style={{ ...styles.saveBtn, ...((!text.trim() || parsing) ? styles.saveBtnDisabled : {}) }}
-            onClick={run}
-            disabled={!text.trim() || parsing}
-          >
-            {parsing ? 'Reading...' : 'Read orders'}
-          </button>
-        </>
-      ) : (
-        <>
-          <div style={styles.pasteHint}>
-            {goodCount} order{goodCount !== 1 ? 's' : ''} ready to import{results.length - goodCount > 0 ? `, ${results.length - goodCount} with issues` : ''}.
-          </div>
-          <div style={styles.csvResultsList}>
-            {results.map((r, i) => (
-              <div key={i} style={styles.csvResultRow}>
-                <div style={styles.csvResultName}>{r.customer}</div>
-                {r.order && r.order.items.length > 0 ? (
-                  <div style={styles.csvResultItems}>
-                    {r.order.items.map((it, j) => (
-                      <span key={j} style={styles.csvResultItem}>
-                        {it.qty}× {it.name}{j < r.order.items.length - 1 ? ',' : ''}
-                      </span>
-                    ))}
-                    {r.order.reviewReasons && r.order.reviewReasons.length > 0 && (
-                      <span style={styles.csvResultFlag}> · {r.order.reviewReasons.length} to review</span>
-                    )}
-                  </div>
-                ) : (
-                  <div style={styles.csvResultError}>
-                    {r.error ? 'Could not read this row' : 'No items matched'}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <button
-            style={{ ...styles.saveBtn, ...(goodCount === 0 ? styles.saveBtnDisabled : {}) }}
-            onClick={importAll}
-            disabled={goodCount === 0}
-          >
-            Import {goodCount} order{goodCount !== 1 ? 's' : ''}
-          </button>
-          <button style={styles.csvBackBtn} onClick={() => { setResults(null); setText(''); }}>
-            Start over
-          </button>
         </>
       )}
     </div>

@@ -15,24 +15,32 @@ export function attachRates(orders, customerName) {
   const nameSet = toNameSet(customerName);
   const dishWeeks = new Map();   // dish -> Set(weeks anyone ordered it)
   const custWeeks = new Map();   // dish -> Set(weeks THIS customer ordered it)
+  const dishNames = new Map();   // key -> current display name
   for (const o of (orders || [])) {
     if (!o.createdAt) continue;
     const k = weekKey(o.createdAt);
     const mine = nameSet.has(String(o.customer || o.name || '').trim().toLowerCase());
     for (const it of (o.items || [])) {
-      if (!dishWeeks.has(it.name)) dishWeeks.set(it.name, new Set());
-      dishWeeks.get(it.name).add(k);
+      // Keyed by stable id. Attach rate is a ratio of two counts over the same
+      // dish, so a rename splitting one dish into two keys corrupted BOTH the
+      // numerator and the denominator, and in different weeks. Unresolvable
+      // items keep their raw name rather than collapsing together.
+      const key = resolveDishId(it) || it.name;
+      if (!key) continue;
+      if (!dishNames.has(key)) dishNames.set(key, dishNameFor(resolveDishId(it), it.name));
+      if (!dishWeeks.has(key)) dishWeeks.set(key, new Set());
+      dishWeeks.get(key).add(k);
       if (mine) {
-        if (!custWeeks.has(it.name)) custWeeks.set(it.name, new Set());
-        custWeeks.get(it.name).add(k);
+        if (!custWeeks.has(key)) custWeeks.set(key, new Set());
+        custWeeks.get(key).add(k);
       }
     }
   }
   const out = [];
-  for (const [dish, cw] of custWeeks) {
-    const appearances = dishWeeks.get(dish).size;
+  for (const [key, cw] of custWeeks) {
+    const appearances = dishWeeks.get(key).size;
     out.push({
-      dish,
+      dish: dishNames.get(key) || key,
       ordered: cw.size,
       appearances,
       attachPct: Math.round((cw.size / appearances) * 100),
@@ -49,8 +57,11 @@ export function usualOrder(orders, customerName, limit = 4) {
   for (const o of (orders || [])) {
     if (!nameSet.has(String(o.customer || o.name || '').trim().toLowerCase())) continue;
     for (const it of (o.items || [])) {
-      const key = it.name + '||' + (it.variant || '');
-      const c = counts.get(key) || { name: it.name, variant: it.variant || '', times: 0, qtySum: 0 };
+      // Same reasoning as above: prefill should offer "you usually get X" even
+      // when half those orders were placed under the dish's previous name.
+      const id = resolveDishId(it);
+      const key = (id || it.name) + '||' + (it.variant || '');
+      const c = counts.get(key) || { name: dishNameFor(id, it.name), variant: it.variant || '', times: 0, qtySum: 0 };
       c.times++; c.qtySum += Number(it.qty) || 1;
       counts.set(key, c);
     }
@@ -67,6 +78,7 @@ export function usualOrder(orders, customerName, limit = 4) {
 // that it was scattered across order history, the regular record, and omakase
 // notes, so "what is this person like" meant reading three places. Most useful
 // when Kevin is deciding what to cook someone who did not choose a dish.
+import { resolveDishId, dishNameFor } from './dishIdentity.js';
 import { DISHES } from './dishes.js';
 import { omakaseItemsOf, pastOmakasesFor } from './omakase.js';
 

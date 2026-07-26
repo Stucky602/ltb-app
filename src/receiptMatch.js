@@ -970,14 +970,8 @@ function groupClassified(classified) {
 export const ALIAS_SEED = {
   // ── Jul 14 batch: verified receipt strings from the task doc, Kevin-approved.
   // Keys are NORMALIZED via normalizeIngredientName (lowercased, singularized).
-  'kitch basic real chkn st': { ingredientId: 'chicken_stock' },
-  'hcf bnls sknl thigh': { ingredientId: 'chicken_thighs' },
-  'pk nat bnl tenderloin cov': { ingredientId: 'pork_tenderloin' },   // the C.3 tenderloin trio
-  'graza x vrgn olive oil si': { ingredientId: 'olive_oil_cooking' }, // SI = Sizzle = COOKING oil (Kevin, Jul 14 — task doc said good olive oil, corrected). Drizzle likely prints a different suffix; add when seen.
   'cm egg taglierini nest': { ingredientId: 'egg_taglierini' },
   'cm organic br orecchiette': { ingredientId: 'orecchiette' },
-  'heb si unsaltd butter qtr': { ingredientId: 'butter' },
-  'la vaquita oaxaca': { ingredientId: 'oaxaca' },                    // cheese, NOT a tomato
   'heb whole peeled tomatoe': { ingredientId: 'tomato_can' },         // Kevin buys 14oz AND 28oz of the same tomato; mapped to the usual 28oz — a 14oz's $1.08 fails the price-outlier band vs the $3.54 baseline and lands in review instead of auto-applying (Kevin, Jul 14)
   'carnation evaporated milk': { ingredientId: 'evaporated_milk' },
 
@@ -999,7 +993,7 @@ export const ALIAS_SEED = {
   'kadoya pure sesame oil': { ingredientId: 'toasted_sesame' },
   'gulf shrimp': { ingredientId: 'shrimp' },
   'shrimp gulf': { ingredientId: 'shrimp' },
-  'heb si unsaltd butter qtr': { ingredientId: 'butter' },       // QTR box = 1 lb = 4 sticks (name-size + override)
+  'heb si unsaltd butter qtr': { ingredientId: 'butter' },  // QTR box = 1 lb = 4 sticks (name-size + override)
   'heb si unsalted butter qtr': { ingredientId: 'butter' },
   'heb unsaltd butter qtr': { ingredientId: 'butter' },
   'boston butt pork roast': { ingredientId: 'pork_butt' },
@@ -1089,7 +1083,7 @@ export const ALIAS_SEED = {
   // ── Jul 14 batch (Kevin-approved D2 seeds) ────────────────────────────────
   // Kitchen Basics CHICKEN carton (the beef variants were already seeded).
   // 32 oz carton = 4 cups; packQty converts the carton price → per-cup.
-  'kitch basic real chkn st': { ingredientId: 'chicken_stock', packQty: 4 },
+  'kitch basic real chkn st': { ingredientId: 'chicken_stock', packQty: 4 },  // 4-pack of cartons
   'kitch basic chkn st': { ingredientId: 'chicken_stock', packQty: 4 },
   // HEB boneless skinless chicken, both cuts. Keys are the NORMALIZED forms:
   // BNLS is 4 chars so the singularizer leaves it; SKNLS/THIGHS/BREASTS drop
@@ -1098,16 +1092,18 @@ export const ALIAS_SEED = {
   'hcf bnl sknl thigh': { ingredientId: 'chicken_thighs' },
   'hcf bnls sknl breast': { ingredientId: 'chicken_breast' },
   'hcf bnl sknl breast': { ingredientId: 'chicken_breast' },
-  'pk nat bnl tenderloin cov': { ingredientId: 'pork_tenderloin' },
+  'pk nat bnl tenderloin cov': { ingredientId: 'pork_tenderloin' },  // the C.3 tenderloin trio
   'pk nat bnl tenderloin': { ingredientId: 'pork_tenderloin' },
   // Graza rings up as "GRAZA X VRGN OLIVE OIL SI" — the trailing SI marks the
   // SIZZLE bottle (Kevin, Jul 14). No bare-name seed: without the SI the
   // string is ambiguous between the two bottles, and the Drizzle's ring-up is
   // unknown until Kevin buys one. 750 ml = 25.4 fl oz.
+  // SI = Sizzle = COOKING oil (Kevin, Jul 14 — task doc said good olive oil,
+  // corrected). Drizzle likely prints a different suffix; add when seen.
   'graza x vrgn olive oil si': { ingredientId: 'olive_oil_cooking', packQty: 25.4 },
   // Queso cheese #2. ALWAYS a 10 oz package (Kevin) = 0.625 lb, costed /lb.
   // Also corrects the prior misfire where this string bound to a tomato id.
-  'la vaquita oaxaca': { ingredientId: 'oaxaca', packQty: 0.625 },
+  'la vaquita oaxaca': { ingredientId: 'oaxaca', packQty: 0.625 },  // cheese, NOT a tomato
 };
 
 export function buildReviewPlan(extracted, seed, aliases) {

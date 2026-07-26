@@ -16,6 +16,11 @@
 // order history. Every one of them reads (a) which dishes are on THIS week's
 // menu and (b) the timestamps of entries KEVIN HIMSELF WROTE. Both are real.
 //
+// This is now liftable rather than permanent: realDataEpoch.js draws a
+// confirmed line, and realOrdersOnly(orders, epoch) returns a countable
+// history. A trigger that wants order history may use it THROUGH that filter.
+// Reading raw `orders` here is still wrong and always will be.
+//
 // SELF-CLEARING BY CONSTRUCTION: the prompt is computed from current state, so
 // answering it moves the target to the next-thinnest dish automatically. There
 // is no dismissal flag, no "asked on" ledger, nothing to persist and nothing

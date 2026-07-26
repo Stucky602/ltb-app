@@ -12,9 +12,13 @@
 // operations brain; serving him a stale bundle to save a few hundred
 // milliseconds would be a bad trade. Do not "optimize" this to cache-first.
 //
-// Bump SW_VERSION whenever app.js ships. The activate handler deletes every
-// cache that does not match, then tells open clients a new version landed.
-const SW_VERSION = 'ltb-v9.24';
+// SW_VERSION MUST TRACK package.json. The activate handler only deletes stale
+// caches and only posts 'sw-updated' when this string CHANGES, so a version
+// left behind means devices are never told a new build shipped. It sat at
+// v9.24 while package.json said 10.0.0, which is exactly that failure.
+// tools/checkSwVersion.mjs now fails the gate if the two disagree; bump both
+// together or the build stops.
+const SW_VERSION = 'ltb-v10.0';
 const SHELL = ['/', '/index.html', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', (event) => {

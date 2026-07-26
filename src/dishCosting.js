@@ -19,6 +19,7 @@
 // passes in the live ingredient map; this returns numbers ready to render.
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { dishIdFor, dishNameFor } from './dishIdentity.js';
 import { ALL_DINNERS, ALWAYS_MENU } from './menu.js';
 import { ALL_ALWAYS_ITEMS } from './dishes.js';
 import { RECIPES, RICE_DISHES } from './recipes.js';
@@ -520,7 +521,14 @@ function resolveLine(line) {
 // Build the resolved ingredient list for a dish variant (purchase-unit qty per id).
 // Returns [{ id, qty, fixed, staple }] aggregated by id.
 export function resolveDishVariant(dishName, variant) {
-  const r = RECIPES[dishName];
+  // RECIPES is keyed by CURRENT registry name. Most callers pass a name straight
+  // out of the registry, so this was fine in practice — but OrderCard resolves
+  // a name off a stored order item, and a stored item can carry a historical
+  // name the registry no longer knows. That returned null, which reads as "this
+  // dish has no recipe" and silently zeroes its cost. Canonicalize through the
+  // identity module first so a renamed dish still finds its recipe.
+  const canon = dishNameFor(dishIdFor(dishName), dishName);
+  const r = RECIPES[canon] || RECIPES[dishName];
   if (!r) return null;
   const factor = r.factors?.[variant] ?? 1;
   const lines = [...(r.base || []), ...((r.extras || {})[variant] || [])];

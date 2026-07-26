@@ -185,3 +185,24 @@ ok(!/<link[^>]/i.test(rec) && /@media print/.test(rec), 'records file is self-co
 }
 
 console.log(`ARCHIVE: ALL PASS (${pass} checks)`);
+
+// ── The equipment section ───────────────────────────────────────────────────
+// buildArchiveHtml has always accepted `equipment` and always had a section
+// written for it, and for its entire life nothing passed one — so the section
+// was unreachable and untested. Now that RecordTab holds an inventory and
+// passes it, both states are pinned.
+{
+  const withEq = buildArchiveHtml({
+    journal: emptyJournal(), orders: [], generatedAt: NOW.toISOString(),
+    equipment: [{ name: 'iSi siphon', note: 'the "siphon" the record keeps mentioning' }],
+  });
+  ok(/The equipment these assume/.test(withEq),
+    'the archive renders an equipment section when given one');
+  ok(/iSi siphon/.test(withEq), 'the equipment name reaches the archive');
+  ok(/the &quot;siphon&quot; the record keeps mentioning/.test(withEq) || /the "siphon" the record/.test(withEq),
+    'the equipment note reaches the archive, escaped');
+
+  const withoutEq = buildArchiveHtml({ journal: emptyJournal(), orders: [], generatedAt: NOW.toISOString() });
+  ok(!/The equipment these assume/.test(withoutEq),
+    'an empty inventory omits the section rather than printing an empty table');
+}

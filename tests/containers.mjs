@@ -19,7 +19,7 @@ import {
   CONTAINER_TYPES, CONTAINER_TYPE_ORDER, DEFAULT_OWNED, MEAL_CONTAINER_EPOCH,
   normalizeContainerConfig, containerTypesFor, orderContainerBreakdown,
   sumBreakdowns, mealContainersOut, containerReport, packagingCost,
-  DISH_CONTAINERS, DEFAULT_DINNER_TYPE, emptyBreakdown,
+  DISH_CONTAINERS, DEFAULT_DINNER_TYPE, emptyBreakdown, shortageWarningDue,
 } from '../src/containers.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { DISHES, ALWAYS_ITEMS } from '../src/dishes.js';
@@ -172,12 +172,31 @@ const report = containerReport(week, [], null);
 // on purpose (Kevin has not stated a real count), so this now demonstrates the
 // exact situation he needs to see: a real shortage, surfaced on Sunday rather
 // than on Wednesday morning with the food already cooked.
+// Owned counts are Kevin's REAL inventory as of Jul 26, so this now asserts
+// against six 48 oz rather than the zero placeholder.
 const roundRow = report.rows.find(r => r.type === 'round48');
-ok(roundRow.need === 6 && roundRow.have === 0 && roundRow.short === 6,
-  'the Sunday check: 6 of the 48 oz needed, 0 owned, shortage of 6 — surfaced Sunday, not Wednesday morning');
-ok(report.shortages.length === 1 && report.shortages[0].type === 'round48',
-  'only the genuinely short type is flagged');
-ok(report.rows.find(r => r.type === 'jar').have === 12, 'jar availability starts from the 12 owned');
+ok(roundRow.need === 6 && roundRow.have === 6 && roundRow.short === 0,
+  'six 48 oz needed against six owned is exactly break-even, not a shortage');
+ok(report.shortages.length === 0,
+  'a week that fits inside the real fleet reports no shortage at all');
+
+// ── THE WARNING IS HELD UNTIL MONDAY ────────────────────────────────────────
+// Kevin's rule, Jul 26. The demand figure is not finished on Sunday because
+// orders close Sunday at 23:59, so a Sunday warning is computed against a
+// half-full order book. It is wrong in BOTH directions there: it can cry
+// shortage over orders that never arrive, and stay quiet while the orders that
+// would cause a real one are still coming in.
+{
+  const day = (n) => new Date(2026, 6, 26 + n); // Jul 26 2026 is a Sunday
+  ok(!shortageWarningDue(day(0)), 'Sunday stays quiet — the order book is still filling');
+  ok(shortageWarningDue(day(1)), 'Monday warns — the first moment the requirement is a fact');
+  ok(shortageWarningDue(day(2)), 'Tuesday still warns');
+  ok(shortageWarningDue(day(3)), 'Wednesday still warns — delivery day is when he least wants to find out');
+  ok(!shortageWarningDue(day(4)) && !shortageWarningDue(day(5)) && !shortageWarningDue(day(6)),
+    'Thu-Sat are quiet — that week is done and the next one has no orders yet');
+}
+ok(report.rows.find(r => r.type === 'jar').have === DEFAULT_OWNED.jar,
+  'jar availability starts from the owned count in the registry');
 
 // Jars held by a regular reduce jar availability.
 const jarWeek = [
@@ -186,8 +205,12 @@ const jarWeek = [
 ];
 const jarReport = containerReport(jarWeek, [{ id: 'rr' }], null);
 const jarRow = jarReport.rows.find(r => r.type === 'jar');
-ok(jarRow.have === 9 && jarRow.need === 10 && jarRow.short === 1,
-  'jars: 12 owned − 3 held = 9 available against 10 needed → short 1 (the ledger feeds the Sunday check)');
+// The ARITHMETIC is what this pins, not the literals — owned moved from a
+// placeholder 12 to Kevin's real 23 and would move again the day he buys more.
+// Written against the registry so the next inventory update does not break it.
+const jarOwned = DEFAULT_OWNED.jar;
+ok(jarRow.have === jarOwned - 3 && jarRow.need === 10 && jarRow.short === Math.max(0, 10 - (jarOwned - 3)),
+  `jars: ${jarOwned} owned minus 3 held = ${jarRow.have} available against 10 needed (the ledger feeds the check)`);
 
 // ── M2: packaging cost, display-only ────────────────────────────────────────
 const costWeek = [
@@ -303,5 +326,55 @@ const SAMPLE_ORDERS = [
   }
 }
 
+
+
+// ── THE RICE CONTAINER AND THE RICE MUST AGREE ──────────────────────────────
+// Ambiguity 6a, resolved Jul 26. The cumin dish is two plates in one registry
+// entry: Beef and Lamb come with rice, Mushroom does not. The 16 oz round IS
+// the rice container, so it has to follow the rice exactly.
+//
+// The failure this guards is silent and expensive in both directions: charge a
+// Mushroom order for a container it never got, or fail to count a container a
+// Beef order really consumed. Both distort the Sunday check AND the margin, and
+// neither throws.
+{
+  const CUMIN = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
+  const has16 = (variant) => containerTypesFor({ name: CUMIN, variant }).includes('round16');
+
+  ok(!has16('Mushroom, Small (~3-4)'), 'the mushroom variant gets NO rice container');
+  ok(!has16('Mushroom, Large (~6-8) + Asian Greens (1 lb)'), 'nor does the mushroom variant with greens');
+  ok(has16('Beef, Small (~3-4)'), 'the beef variant gets the rice container');
+  ok(has16('Lamb, Small (~3-4)'), 'so does the lamb variant');
+
+  // Scaling still applies on top of the branch.
+  const lg = containerTypesFor({ name: CUMIN, variant: 'Lamb, Large (~6-8)' });
+  ok(lg.filter(t => t === 'round16').length === 2, 'a large rice variant doubles the rice container');
+
+  // THE INVARIANT THAT MATTERS: the container and the recipe must never
+  // disagree about whether this plate has rice. They are computed in different
+  // files by different functions, and the only thing keeping them together is
+  // that they apply the same test.
+  const { resolveDishVariant } = await import('../src/dishCosting.js');
+  for (const v of ['Mushroom, Small (~3-4)', 'Beef, Small (~3-4)', 'Lamb, Large (~6-8)']) {
+    const resolved = resolveDishVariant(CUMIN, v) || [];
+    const hasRice = resolved.some(r => r.id === 'rice' && r.qty > 0);
+    ok(hasRice === has16(v),
+      `${v}: rice in the recipe (${hasRice}) matches the rice container (${has16(v)})`);
+  }
+}
+
+// ── THE FESENJAN GETS RICE ──────────────────────────────────────────────────
+// It carried a 16 oz round in the audit before its recipe carried any rice,
+// which is the mismatch that surfaced it. Kevin: small is 2 cups, large is 4.
+{
+  const FES = 'Pecan Mole-Fesenjan, Beef and Kabocha';
+  const { resolveDishVariant } = await import('../src/dishCosting.js');
+  const small = (resolveDishVariant(FES, 'Small (~4 servings)') || []).find(r => r.id === 'rice');
+  const large = (resolveDishVariant(FES, 'Large (~8 servings)') || []).find(r => r.id === 'rice');
+  ok(small && small.qty === 1, 'the fesenjan small carries one rice unit (2 cups)');
+  ok(large && large.qty === 2, 'the fesenjan large carries two (4 cups)');
+  ok(containerTypesFor({ name: FES, variant: 'Small (~4 servings)' }).includes('round16'),
+    'and it has the rice container the audit gave it');
+}
 
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

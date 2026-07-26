@@ -1743,6 +1743,12 @@ export const DISHES = [
     // half for a Small). Prices are FLOOR-HOLDING PLACEHOLDERS pending Kevin.
     id: 'pecan-mole-fesenjan-beef-and',
     name: 'Pecan Mole-Fesenjan, Beef and Kabocha',
+    // Rice added Jul 26 (Kevin): "the fesenjan will get rice, small is 2 cups,
+    // large is 4." Same 2-cup Small / 4-cup Large as every other rice dish, and
+    // it is why the container audit gives it a 16 oz round. The recipe carried
+    // the container in the audit before it carried the rice, which is the
+    // mismatch that surfaced this.
+    rice: true,
     copy: {
       desc: "A Persian fesenjan that walked west into mole. The sauce is built from toasted Texas pecans and pomegranate molasses, cooked down dark with dried chiles and a whisper of unsweetened chocolate until it is sour, bitter, and deep, and nobody guesses what is in it. Beef chuck in big chunks over kabocha squash cooked in the same warm spices, with cold pickled onion to cut it, pepitas for crunch, and charred tortillas for scooping. Made a day ahead on purpose.",
       reheat: "Comes as the braise and kabocha in a container, rice to cook fresh, tortillas, and the cold pickled onion and pepitas separately. Cook the rice. Warm the braise gently on the stove over medium-low until it loosens and comes back to a gloss, adding a splash of water if it has tightened. Char the tortillas straight over a burner or in a dry hot pan until they blister. Braise over rice, tortillas alongside, the pickled onion and pepitas cold over the top, and the pomegranate seeds if they came with it.",

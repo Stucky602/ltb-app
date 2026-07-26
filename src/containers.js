@@ -86,7 +86,21 @@ export const emptyBreakdown = () => {
 // invent stock and could report "you have enough" when he has none, which is
 // the exact failure the shortage check exists to prevent. Zero is the honest
 // unknown, and it announces itself the first time either is needed.
-export const DEFAULT_OWNED = { rect38: 5, round8: 5, round16: 5, round32: 5, round48: 0, rectXL: 0, jar: 12 };
+// REAL COUNTS, from Kevin Jul 26. These replace the 5-of-each placeholder that
+// had stood since the fleet was first modelled, and they change what the Sunday
+// check means: it was comparing real demand against invented stock.
+//
+// THE BINDING CONSTRAINT IS THE 16 OZ ROUND, and it is not close. Five owned
+// against SIXTEEN dishes that need one, because it is the rice container. Two
+// rice dinners plus a Large exhausts it. Nothing else on this list is close to
+// its limit — there are 33 of the 8 oz and only two dishes use them.
+//
+// rect38 RESOLVED Jul 26: Kevin's inventory said "32 oz rectangles" and he
+// confirmed that was his slip — it is the 38 oz. The count of 16 was always
+// correct and the label was correct too, so nothing moved. Recorded because the
+// next person to compare his inventory note against this table will spot the
+// same mismatch and should not have to re-ask.
+export const DEFAULT_OWNED = { rect38: 16, round8: 33, round16: 5, round32: 8, round48: 6, rectXL: 1, jar: 23 };
 
 export function normalizeContainerConfig(raw) {
   const owned = {};
@@ -178,9 +192,11 @@ export const DISH_CONTAINERS = {
   'Shrimp or Tofu with Asparagus in Black Bean Sauce':   { round16: 1, bag: 1 },
   'Stir Fried Long Beans with Ground Pork or Tofu':      { round16: 1, bag: 1 },
   'Pecan Mole-Fesenjan, Beef and Kabocha':               { round16: 1, round48: 1, bag: 1 },
-  // AMBIGUITY 6a: the round16 applies ONLY to the rice variants. The noodle
-  // variant is bag-only. Recorded as the rice build because that is the one
-  // that consumes a tracked container; see CONTAINER_AMBIGUITIES.
+  // AMBIGUITY 6a, RESOLVED Jul 26 by Kevin: "the rice is only for that variant.
+  // Same for the need of the container." The round16 is the rice container, so
+  // it follows the rice exactly — Beef and Lamb variants get it, Mushroom does
+  // not. Resolved at breakdown time in containerTypesFor, not here, because the
+  // mapping is keyed by DISH and this is the one dish that is really two.
   'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice': { round16: 1, bag: 1 },
   'Bo Ssam':                                             { round8: 1, round16: 1, bag: 1 },
 
@@ -219,7 +235,8 @@ export const DISH_CONTAINERS = {
 // open question, and each is deliberately UNRESOLVED in the mapping above.
 export const CONTAINER_AMBIGUITIES = [
   { id: '6a', dish: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
-    note: 'The round16 is the rice container and applies ONLY to the rice variants. The noodle variant should be bag-only. Branch on the variant if it is knowable at breakdown time.' },
+    resolved: true,
+    note: 'RESOLVED Jul 26. The round16 is the rice container, so it applies ONLY to the Beef and Lamb variants; Mushroom is bag-only. Enforced in containerTypesFor by the same test riceUnits uses, so the container and the rice can never disagree.' },
   { id: '6b', dish: 'Pork Chop with Kabocha Purée and Charred Broccolini',
     note: 'Kevin confirmed one bag, but his note says "chop and purée in the bags", plural. Probably 2. Ask before changing.' },
   { id: '6c', dish: 'Bo Ssam',
@@ -232,6 +249,29 @@ export const CONTAINER_AMBIGUITIES = [
 
 // The one type that never counts against the fleet. Kept separate from
 // CONTAINER_TYPES so every consumer asks the same question the same way.
+// ── WHEN THE SHORTAGE WARNING IS ALLOWED TO SPEAK ───────────────────────────
+// Monday onward, never Sunday. Kevin: "I only need the warning on monday not
+// sunday after the system compares total container requirements to the weekly
+// orders."
+//
+// The reason is that the demand figure is not FINISHED on Sunday. Orders close
+// Sunday at 23:59, so a Sunday warning is computed against a half-full order
+// book and is wrong in both directions: it can cry shortage over orders that
+// never arrive, and it can stay quiet while the orders that would cause a real
+// shortage are still coming in. A warning that is sometimes wrong in the
+// reassuring direction is worse than no warning.
+//
+// Monday is the first moment the week's requirement is a fact rather than a
+// forecast, and it still leaves two clear days before Wednesday delivery.
+//
+// Tuesday and Wednesday keep showing it: a shortage does not stop being true
+// because a day passed, and Wednesday morning with the food cooked is exactly
+// when Kevin least wants to discover it.
+export function shortageWarningDue(now = new Date()) {
+  const d = now.getDay(); // 0 Sun … 6 Sat
+  return d >= 1 && d <= 3; // Mon, Tue, Wed
+}
+
 export const UNTRACKED_TYPES = new Set(['bag']);
 export const isTrackedType = (t) => !UNTRACKED_TYPES.has(t);
 
@@ -338,7 +378,14 @@ export function containerTypesFor(it) {
   if (DISH_CONTAINERS[it.name]) {
     const mult = portionMultiplier(it);
     const out = [];
+    // The one dish that is really two plates in one entry. Its round16 is the
+    // rice container, so it appears only on the variants that come with rice.
+    // Deliberately the SAME test riceUnits uses in dishCosting.js, so a dish
+    // can never be charged for a rice container it did not get, or vice versa.
+    const skipRiceContainer = it.name === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice'
+      && !/^(beef|lamb),/i.test(String(it.variant || ''));
     for (const [type, n] of Object.entries(DISH_CONTAINERS[it.name])) {
+      if (type === 'round16' && skipRiceContainer) continue;
       for (let k = 0; k < (Number(n) || 0) * mult; k++) out.push(type);
     }
     return out;

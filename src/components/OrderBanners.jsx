@@ -17,6 +17,7 @@
 
 import React from 'react';
 import { formatCountdown } from '../timeBanners.js';
+import { shortageWarningDue } from '../containers.js';
 
 // The container and deadline strips are DISMISSIBLE, and dismissal is keyed
 // rather than permanent. The deadline strip is keyed to the week, so closing it
@@ -35,6 +36,9 @@ export function OrderBanners({
     : null;
   const deadlineKey = 'deadline:' + new Date().toISOString().slice(0, 10);
   const isDismissed = (k) => !!(k && dismissed && dismissed[k]);
+  // Held until Monday. On Sunday the order book is still filling, so a shortage
+  // figure is a forecast rather than a fact — see shortageWarningDue().
+  const shortagesDue = shortageWarningDue();
   const closeBtn = (k) => (
     <button
       onClick={(e) => { e.stopPropagation(); onDismiss(k); }}
@@ -67,7 +71,7 @@ export function OrderBanners({
     {/* M1: the Sunday check. Fires only on a genuine shortage —
         next week's pack needs more of a type than Kevin owns
         (jars: owns minus held). Silent otherwise. */}
-    {containerStatus.shortages.length === 0 && (containerStatus.atRisk || []).length > 0 && !isDismissed('containers:atrisk') && (
+    {shortagesDue && containerStatus.shortages.length === 0 && (containerStatus.atRisk || []).length > 0 && !isDismissed('containers:atrisk') && (
       <div style={{ position: 'relative', background: 'rgba(239,159,39,0.10)', border: '1px solid #EF9F27', borderRadius: 10, padding: '9px 26px 9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
         {closeBtn('containers:atrisk')}
         <b style={{ color: '#EF9F27' }}>Containers might be tight:</b>
@@ -77,7 +81,7 @@ export function OrderBanners({
         {' '}so this week's demand is a floor, not a figure. Record tab &rarr; Container audit.
       </div>
     )}
-    {containerStatus.shortages.length > 0 && !isDismissed(shortageKey) && (
+    {shortagesDue && containerStatus.shortages.length > 0 && !isDismissed(shortageKey) && (
       <div style={{ position: 'relative', background: 'rgba(224,130,138,0.10)', border: '1px solid #e0828a', borderRadius: 10, padding: '9px 26px 9px 12px', marginBottom: 10, fontSize: 12.5, color: '#e8ede9' }}>
         {closeBtn(shortageKey)}
         <b style={{ color: '#e0828a' }}>Short on containers for this pack:</b>

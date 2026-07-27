@@ -296,6 +296,9 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
                 ))}
               </>
             )}
+          </>}
+        </div>
+      )}
 
       {/* ── Single-dish ingredient list picker ───────────────────────────── */}
       <div style={styles.genCard}>
@@ -483,12 +486,6 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
             )}
           </div>
         </>
-      )}
-
-
-
-          </>}
-        </div>
       )}
     </div>
   );

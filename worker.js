@@ -51,8 +51,12 @@
  *         ballot JSON; metadata is a tally-speed mirror, not the storage.
  *   • GET /votes returns ONLY the top VOTE_TOP_N (currently 10, was 5). The
  *     full ranking is never exposed. Zero-vote dishes never appear at all.
- *   • PIPELINE_DISHES is the whitelist. It MUST stay in sync with the dish
- *     names in pipeline.html or a vote for a real dish will 400.
+ *   • PIPELINE_DISHES was the whitelist. It is now the FALLBACK: the roster
+ *     publishes from the app with the rest of the week config (see
+ *     CONFIG_FIELDS.pipeline) and votableKeys() prefers the published copy.
+ *     This constant is what answers before the first publish, and what keeps
+ *     voting alive if a publish ever lands empty. Keep it current anyway;
+ *     tools/syncPipeline.mjs still checks it against canon.
  *
  * ACTIVE endpoints:
  *   GET  /config              — returns the current published week config
@@ -111,10 +115,13 @@ const ASK_LOG_MAX     = 200;
 const CONFIG_HIST_MAX = 5;
 
 // ── Pipeline vote (v10) ────────────────────────────────────────────────────
-// Whitelist of votable dishes. These strings MUST match the data-dish
-// attributes in pipeline.html exactly. Cheesecake is deliberately absent: it
-// is not pipeline. Removing a dish here retires it from voting; old ballots
-// naming it are ignored at tally time, so no cleanup is needed.
+// FALLBACK whitelist of votable dishes. The live roster now arrives with the
+// week config (CONFIG_FIELDS.pipeline) and votableKeys() reads that first; this
+// list answers only when nothing has been published yet, which is also the
+// state this worker is in the moment it is pasted in. Cheesecake is
+// deliberately absent: it is not pipeline. Removing a dish here retires it from
+// voting; old ballots naming it are ignored at tally time, so no cleanup is
+// needed. Same for a dish dropped from the PUBLISHED roster.
 const PIPELINE_DISHES = [
   // RETIRED Jul 17: Tea-Smoked Chicken won the vote and shipped to the real
   // menu. Removing it here stops it tallying and 400s any new vote naming it.
@@ -166,6 +173,31 @@ const VOTE_MAX_PICKS   = 3;    // per ballot, per Kevin: "up to 3"
 // The tradeoff he accepted: more visible losers. Still a hard ceiling — the
 // full 21-dish ranking is never exposed.
 const VOTE_TOP_N       = 10;   // public board shows this many, never more
+
+// THE VOTE WHITELIST, resolved. Reads the roster the app published with the
+// week config and falls back to the constant above when nothing is published.
+//
+// The fallback is not politeness, it is the deploy model: this file is pasted
+// into the dashboard by hand, so there is always a window where the new worker
+// is live and the app has not published since. Without the fallback, voting
+// would go dark for exactly as long as that window lasts.
+//
+// A read failure falls back too. The worst case is that a brand-new dish
+// cannot be voted for until the next publish; the alternative is a 400 on
+// every ballot, and a silent board is worse than a slightly stale one.
+async function votableKeys(env) {
+  try {
+    const raw = await env.LTB_KV.get(KV_CONFIG);
+    if (raw) {
+      const cfg = JSON.parse(raw);
+      if (Array.isArray(cfg.pipeline) && cfg.pipeline.length) {
+        const keys = cfg.pipeline.map(d => (d && typeof d.key === 'string') ? d.key : '').filter(Boolean);
+        if (keys.length) return keys;
+      }
+    }
+  } catch (e) { /* unreadable config is not a reason to refuse every vote */ }
+  return PIPELINE_DISHES;
+}
 // ── Dish requests (Jul 18) ──────────────────────────────────────────────────
 // Customers ask for catalog dishes back next week. Same trust model as votes:
 // public, anonymous, no dedupe, single-put write path (the v10 lesson — a
@@ -177,6 +209,15 @@ const REQ_PREFIX       = 'req:';
 const REQ_TTL          = 60 * 60 * 24 * 14;  // 14 days; requests are a freshness signal
 const REQ_NOTE_MAX     = 200;                // note is stored, never rendered customer-facing
 const REQUESTABLE_KEY  = 'requestable-dishes'; // JSON string[] the app writes on publish
+// ── Kitchen feedback history (v11) ──────────────────────────────────────────
+// A copy of every page's verdicts that OUTLIVES /feedback/clear. Kevin only:
+// GET /feedback/history is token-gated and no customer surface reads it.
+// 30 days from the last tap on that page, which is Kevin's call and matches
+// the life of the companion page the feedback belongs to.
+const FBHIST_PREFIX   = 'fbhist:';
+const FBHIST_TTL      = 60 * 60 * 24 * 30;
+const FBHIST_MAX_PAGES = 200;                // bound on one history response
+
 const KV_PENDING      = 'pending-orders';    // LEGACY array key — read+cleared only, never written (drains, then dead)
 const PENDING_PREFIX  = 'pending:';          // one key per order: 'pending:<id>'
 const PENDING_CAP     = 200;                 // max queued submissions (spam bound on the open endpoint)
@@ -447,6 +488,23 @@ export default {
           list.push(entry);
         }
         await env.LTB_KV.put(key, JSON.stringify(list), { expirationTtl: 60 * 60 * 24 * 30 });
+        // ── The history mirror (v11) ────────────────────────────────────────
+        // Same list, second key, and this one is NOT deleted by
+        // /feedback/clear. Kevin's triage is destructive by design: Ignore
+        // erases an entry, "Save tally only" throws the note away, and the
+        // clear removes the KV record, so the only surviving trace of what
+        // somebody actually tapped was whatever he chose to keep. This is the
+        // unedited copy, and it is FOR KEVIN — served by a token-gated route
+        // and never rendered on a customer page.
+        //
+        // Writing the WHOLE deduped list rather than appending one entry is
+        // the important part. `list` is already latest-tap-wins, so a customer
+        // who corrected themselves leaves one verdict here, not two. An
+        // append-only log would resurrect the superseded one and make them
+        // look inconsistent, which is the opposite of what this is for.
+        // It also inherits the 20-entry cap for free rather than needing one.
+        await env.LTB_KV.put(FBHIST_PREFIX + id, JSON.stringify(list),
+          { expirationTtl: FBHIST_TTL });
         return json({ ok: true }, origin);
       }
       if (request.method === 'GET' && url.pathname === '/feedback/pending') {
@@ -486,6 +544,41 @@ export default {
         if (!id) return json({ seen: false }, origin);
         const at = await env.LTB_KV.get('companionfbread:' + id);
         return json({ seen: !!at, at: at || null }, origin);
+      }
+
+      // ── GET /feedback/history — the unedited copy, Kevin only ───────────
+      // TOKEN-GATED, unlike /feedback/seen next door. That route tells one
+      // customer whether their own page was read, which is nothing. This one
+      // returns every verdict everybody tapped, which is a different kind of
+      // thing entirely, so it is behind the token and stays off the customer
+      // pages. The privacy wall (tests/journal.mjs) means companion.js cannot
+      // reach the app's journal; this is the same instinct pointed the other
+      // way, keeping a Kevin-facing record off a public surface.
+      //
+      // `readAt` rides along from the existing read-receipt key, so the app can
+      // tell "I triaged this" from "this is still sitting there" without a
+      // second round trip or a second key.
+      if (request.method === 'GET' && url.pathname === '/feedback/history') {
+        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const listing = await env.LTB_KV.list({ prefix: FBHIST_PREFIX, limit: FBHIST_MAX_PAGES });
+        const pages = [];
+        for (const k of listing.keys) {
+          const raw = await env.LTB_KV.get(k.name);
+          if (!raw) continue;
+          let entries;
+          try { entries = JSON.parse(raw); } catch (e) { continue; }
+          if (!Array.isArray(entries) || !entries.length) continue;
+          const pageId = k.name.slice(FBHIST_PREFIX.length);
+          const readAt = await env.LTB_KV.get('companionfbread:' + pageId);
+          pages.push({ pageId, entries, readAt: readAt || null });
+        }
+        // Newest page first, by the newest tap it holds. KV lists keys
+        // alphabetically, which for page ids is meaningless ordering.
+        const newest = p => (p.entries || []).reduce((m, e) => (e.at > m ? e.at : m), '');
+        pages.sort((a, b) => String(newest(b)).localeCompare(String(newest(a))));
+        return json({ pages, truncated: !listing.list_complete }, origin);
       }
 
       // ── Content studio (v8): dish storytelling in Kevin's voice ─────────
@@ -682,7 +775,7 @@ export default {
       // concurrent write the way a counter would.
       if (request.method === 'GET' && url.pathname === '/votes') {
         const counts = {};
-        for (const d of PIPELINE_DISHES) counts[d] = 0;
+        for (const d of await votableKeys(env)) counts[d] = 0;
         let ballots = 0;
         let weightedBallots = 0;
         let cursor;
@@ -711,7 +804,8 @@ export default {
             ballots++;
             if (w > 1) weightedBallots++;
             for (const d of picks) {
-              // A dish retired from PIPELINE_DISHES silently stops counting.
+              // A dish dropped from the roster silently stops counting. Its
+              // ballots are NOT deleted, so restoring the dish restores them.
               if (Object.prototype.hasOwnProperty.call(counts, d)) counts[d] += w;
             }
           }
@@ -738,7 +832,7 @@ export default {
         if (tok !== env.PUBLISH_TOKEN) return json({ error: 'Unauthorized' }, origin, 401);
 
         const counts = {};
-        for (const d of PIPELINE_DISHES) counts[d] = 0;
+        for (const d of await votableKeys(env)) counts[d] = 0;
         let ballots = 0;
         const recent = [];
         let cursor;
@@ -781,11 +875,16 @@ export default {
         const raw = Array.isArray(body.picks) ? body.picks : [];
 
         // Validate against the whitelist, dedupe within the ballot, then cap.
+        // One KV read on the write path, which the v10 note above warns about.
+        // The rule it states is "no pre-flight LIST", and this is a single get
+        // of one small key, not a namespace scan. Do not turn it back into a
+        // list.
+        const allowed = await votableKeys(env);
         const seen = {};
         const picks = [];
         for (const item of raw) {
           if (typeof item !== 'string') continue;
-          if (!PIPELINE_DISHES.includes(item)) continue;
+          if (!allowed.includes(item)) continue;
           if (seen[item]) continue;
           seen[item] = 1;
           picks.push(item);
@@ -1216,7 +1315,51 @@ const CONFIG_FIELDS = {
   // One bottle for the week, stamped at publish from the registry's pairing
   // data. Absent publishes as null, which menu.html already treats as "none".
   oneBottle:  b => ((b.oneBottle && typeof b.oneBottle === 'object') ? b.oneBottle : null),
+  // The pipeline roster: the dishes pipeline.html shows and /votes accepts.
+  // Published from src/pipelineDishes.js, which is canon for every vote KEY.
+  // Before this existed, adding one pipeline dish meant editing canon, editing
+  // the constant in this file, rebuilding the page, pushing, and pasting the
+  // worker. Five steps across three systems for a dish that had not even been
+  // cooked yet.
+  //
+  // Empty is meaningful and safe: votableKeys() falls back to the constant, so
+  // a config written by an older app (which sends no roster) leaves voting
+  // exactly as it was rather than killing it.
+  pipeline:   b => coercePipeline(b.pipeline),
 };
+
+// Coerced hard, because this goes onto a customer page as markup. Every field
+// is bounded, unknown fields are dropped, duplicate keys are dropped, and the
+// list is capped. pipeline.html does NOT escape `&` when it renders these (the
+// copy carries authored entities like &middot;), so it escapes angle brackets
+// instead — the tag-injection door stays shut on the page side, and this side
+// keeps the payload a known shape rather than trusting whatever was sent.
+const PIPELINE_PUBLISH_MAX = 60;   // roster is 30 today; this is a bound, not a target
+function coercePipeline(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  const seen = {};
+  for (const d of v) {
+    if (!d || typeof d !== 'object') continue;
+    const key = String(d.key || '').trim().slice(0, 80);
+    // A dish with no key cannot be voted for, so it has no business on the
+    // board. Dropping it here is better than rendering a card whose button 400s.
+    if (!key || seen[key]) continue;
+    seen[key] = 1;
+    const entry = {
+      key,
+      title:  String(d.title || key).slice(0, 200),
+      origin: String(d.origin || '').slice(0, 200),
+      desc:   String(d.desc || '').slice(0, 1200),
+      diet:   (d.diet === 'veg' || d.diet === 'pesc') ? d.diet : null,
+    };
+    if (d.note)     entry.note     = String(d.note).slice(0, 300);
+    if (d.contains) entry.contains = String(d.contains).slice(0, 300);
+    out.push(entry);
+    if (out.length >= PIPELINE_PUBLISH_MAX) break;
+  }
+  return out;
+}
 
 function defaultConfig() {
   const out = { updatedAt: null, schema: CONFIG_SCHEMA };

@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, AlertTriangle, Check } from '../icons.jsx';
 import { styles } from '../styles.js';
-import { analyzeConflicts } from '../equipmentConflict.js';
+import { analyzeConflicts, weekEffortSummary } from '../equipmentConflict.js';
 
 // ─── Kitchen equipment conflict checker (producer-facing) ───────────────────
 // Runs analyzeConflicts on the checked dishes and shows red (hard jam) and
@@ -9,6 +9,7 @@ import { analyzeConflicts } from '../equipmentConflict.js';
 export function ConflictModal({ selected, onClose }) {
   const result = analyzeConflicts(selected);
   const { red, yellow, clear } = result;
+  const effort = weekEffortSummary(selected);
 
   return (
     <div style={styles.invoiceOverlay} onClick={onClose}>
@@ -21,6 +22,21 @@ export function ConflictModal({ selected, onClose }) {
           Based on the {selected.length} dish{selected.length !== 1 ? 'es' : ''} checked on this week.
           Sous vide isn't counted (it runs hands-off).
         </div>
+
+        {effort.heavy && (
+          <div style={styles.conflictRowYellow}>
+            <div style={styles.conflictRowHead}>
+              <AlertTriangle size={14} color="#EF9F27" />
+              <span style={styles.conflictResYellow}>Demanding week</span>
+            </div>
+            <div style={styles.conflictDishes}>{effort.demandingNames.join('  ·  ')}</div>
+            <div style={styles.conflictNote}>
+              {effort.demandingCount} dish{effort.demandingCount === 1 ? '' : 'es'} at 4 or 5 on your own
+              effort scale (total {effort.total} across the week). Not a conflict, just a heads-up
+              before Sunday locks it in.
+            </div>
+          </div>
+        )}
 
         {clear && (
           <div style={styles.conflictClear}>

@@ -76,6 +76,39 @@ ALL_ALWAYS_ITEMS.forEach(it => { if (it.equipment) DISH_EQUIPMENT[it.name] = it.
 //   • Oven is special: OVEN_NORMAL + OVEN_LOW both used the same week = RED temp
 //     clash (oven can't hold two temps). Two OVEN_LOW dishes coexist (fine).
 
+// ── Effort load for the week ────────────────────────────────────────────────
+// Kevin's own scale, walked and recorded Jul 27: 1 = fast/one-pot, 4-5 =
+// sustained attention (a roux) or many components. Distribution across the
+// menu is a BARBELL, not a bell curve — three 5s, six 4s, one 3, eleven 2s,
+// six 1s, almost nothing in the dead centre. That shape is why this exists as
+// its own summary rather than a single number: a six-dish week's real
+// difficulty depends entirely on which end of the barbell it draws from.
+// Three 5s plus three 1s totals 18; six 2s totals 12 — same dish count, very
+// different Tuesday, and a bare sum would treat them alike.
+//
+// `heavy` is a HEURISTIC, not a rule of Kevin's. Two or more dishes in the
+// sustained-attention tier (4-5) is worth a glance before Sunday locks the
+// week in. It flags nothing, blocks nothing, and is not itself a red or
+// yellow conflict — a demanding week is not a jam, it is a warning that the
+// week will be busy even with perfect scheduling.
+export function weekEffortSummary(selectedNames) {
+  const rows = (selectedNames || [])
+    .map(name => {
+      const d = DISHES.find(x => x.name === name) || ALL_ALWAYS_ITEMS.find(x => x.name === name);
+      return d && typeof d.effort === 'number' ? { name, effort: d.effort } : null;
+    })
+    .filter(Boolean);
+  const total = rows.reduce((n, r) => n + r.effort, 0);
+  const demanding = rows.filter(r => r.effort >= 4);
+  return {
+    total,
+    rows,
+    demandingCount: demanding.length,
+    demandingNames: demanding.map(r => r.name),
+    heavy: demanding.length >= 2,
+  };
+}
+
 export function analyzeConflicts(selectedNames) {
   const names = (selectedNames || []).filter(n => DISH_EQUIPMENT[n]);
   const red = [];

@@ -75,6 +75,13 @@ export const DISHES = [
       veg: 'The potatoes are the easy part here, and they do not need their own pot. Cut the bag open and discard the thyme and the liquid, but not down the drain since there is butter in it. Tip the potatoes straight into the stew and let everything come up to temperature together until heated through.',
     },
     cuisine: 'Southern',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['heartstrings'],
     reheat: 'stovetop',
     equipment: { flexible: ['dutch', 'largePot'], fixed: ['ovenLow'] },
     variants: [
@@ -115,7 +122,7 @@ export const DISHES = [
     copy: {
       desc: "A slow-built chili with a real chile backbone and a lot of depth. The kind that makes you wonder what's in it — and there's quite a bit going on under the hood. Rich, meaty, and better the next day.",
       reheat: "Comes in a container. Warm gently on the stove over medium.",
-      contains: "Gluten (soy sauce), Fish (anchovies), Soy, may contain Dairy. This chili contains some unconventional ingredients. If you have specific allergen concerns, always ask before ordering.",
+      contains: "Gluten (soy sauce, Marmite), Fish (anchovies), Soy, may contain Dairy. Unconventional ingredients — ask if concerned.",
       pairings: [
         { id: "shiner_bock", drink: "Shiner Bock", why: "the Texas answer; dark lager sweetness sits under chile heat without fighting it" },
         { id: "zinfandel", drink: "Zinfandel", why: "jammy fruit and enough body for beef and dried chiles" },
@@ -135,6 +142,13 @@ export const DISHES = [
     allergens: { gluten: { variants: true, unlisted: "soy sauce (wheat) inside the Marmite + soy + spices line, which resolves to spices_generic" }, fish: true, soy: { variants: true, unlisted: "soy sauce inside the Marmite + soy + spices line, which resolves to spices_generic" } },
     options: { fixings: { prompt: 'Need some fixings at cost? Chips, sour cream, cheese, etc.', placeholder: 'e.g. tortilla chips, sour cream, cheddar' } },
     cuisine: 'American',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved'],
     reheat: 'stovetop',
     equipment: { fixed: ['largePot'] },
     variants: [
@@ -187,6 +201,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { gluten: true, shellfish: true },
     cuisine: 'Southern',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 4,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved', 'heartstrings'],
     reheat: 'stovetop',
     rice: true,
     equipment: { fixed: ['dutch'] },
@@ -221,7 +242,7 @@ export const DISHES = [
     copy: {
       desc: "A build-your-own kit with your choice of protein — pulled pork or beef — slow simmered until it falls apart in a citrusy red chile sauce. Comes with refried beans (in a separate bag for easy reheating), pico de gallo, and HEB bakery flour tortillas (10-pack for small, 20-pack for large). Build tacos, bowls, or whatever you're in the mood for. Pairs great with the pickled onion add-on. Need extras like avocados or more tortillas? I can grab them at cost, there's a spot for it on the order form.",
       reheat: "Components travel separately with assembly notes. Warm the protein gently before building. Reheat the beans bag in simmering water or microwave sealed.",
-      contains: "Gluten (flour tortillas). May contain Dairy. Ask for specifics.",
+      contains: "Gluten (flour tortillas). May contain Dairy (butter). Ask for specifics.",
       pairings: [
         { id: "lager", drink: "Mexican lager with lime", why: "the taqueria answer; crisp, cold, and out of the way" },
         { id: "margarita", drink: "Margarita on the rocks", why: "lime and salt are already in the dish's logic; the classic for a reason" },
@@ -240,6 +261,13 @@ export const DISHES = [
     allergens: { gluten: true },
     options: { fixings: { prompt: 'Need extras at cost? Avocados, more tortillas, etc.', placeholder: 'e.g. 3 avocados, extra tortillas' } },
     cuisine: 'Tex-Mex',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 4,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved'],
     reheat: 'kit',
     equipment: { fixed: ['dutch', 'largePot', 'ovenLow'] },
     servings: { small: 5.5, large: 9.5, bound: true },
@@ -309,6 +337,13 @@ export const DISHES = [
     // served butter, which is the whole reason the tag is separate.
     diet: { veg: ['Chickpea, Small (~4-5)', 'Chickpea, Large (~8-10)'], veganOnRequest: ['Chickpea, Small (~4-5)', 'Chickpea, Large (~8-10)'], pesc: ['Shrimp, Small (~4-5)', 'Shrimp, Large (~8-10)'] },
     cuisine: 'Indian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved'],
     reheat: 'stovetop',
     rice: true,
     equipment: { flexible: ['dutch', 'largePot'] },
@@ -389,6 +424,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: { variants: true, unlisted: "butter in the veg bag line, which resolves to sv_bag" }, fish: true, gluten: { variants: true, unlisted: 'roux flour lives inside the Curry spice blend batch line, not its own recipe line' } },
     cuisine: 'Japanese',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 4,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'stovetop',
     rice: true,
     equipment: { fixed: ['dutch', 'ovenLow'] },
@@ -460,6 +502,13 @@ export const DISHES = [
       fish: { variants: true, unlisted: 'katsuobushi (bonito) in the dashi the polenta is cooked in; nothing on the plate announces it and the katsuobushi id does not match the fish pattern' },
     },
     cuisine: 'American',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 5,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'teaSmoked', // dedicated card: chicken in a CONTAINER (pulled from the bag to smoke), polenta bagged, sauce cold
     // 5-gallon pot on the back burner for the smoke; polenta is the back-burner
     // claim the `polenta` flag already models. Large pot is modeled as ONE
@@ -543,6 +592,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { soy: true, gluten: true },
     cuisine: 'Korean',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop', 'heartstrings'],
     // No shared reheat bucket — fully dedicated card logic in buildReheatBlocks
     rice: true,
     equipment: { fixed: ['ovenLow'] }, // pork shoulder roasts low and slow
@@ -607,6 +663,13 @@ export const DISHES = [
     allergens: { gluten: true, soy: { variants: true, unlisted: 'soy sauce lives inside the Cumin + spices batch line' }, sesame: { variants: true, unlisted: "house chili oil inside the Cumin + spices batch line, which resolves to spices_generic" } },
     diet: { veg: ['Mushroom, Small (~3-4)', 'Mushroom, Large (~6-8)', 'Mushroom, Small (~3-4) + Asian Greens (1/2 lb)', 'Mushroom, Large (~6-8) + Asian Greens (1 lb)'] },
     cuisine: 'Chinese',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'pasta',
     noodle: true, // the noodle variants; rice surcharge for Beef/Lamb variants
                   // is special-cased in dishCosting riceUnits (Beef|Lamb-prefix rule)
@@ -703,7 +766,7 @@ export const DISHES = [
     copy: {
       desc: "Chinese eggplant and ground chicken in a sauce built on doubanjiang and chili oil, cooked down until the eggplant goes silky and soaks up everything around it. Numbing, spicy, and savory all at once. Made for rice.",
       reheat: "Comes in a container, not a bag. To reheat, warm in a large saucepan over medium, and add a splash of water if it looks a little thick. Uncooked rice included.",
-      contains: "Gluten (soy sauce, doubanjiang), Soy (doubanjiang), Sesame (house chili oil).",
+      contains: "Gluten (soy sauce, doubanjiang), Soy (soy sauce, doubanjiang), Sesame (house chili oil).",
       pairings: [
         { id: "suanmeitang", drink: "Suanmeitang", why: "Chengdu's own answer to mala; sour plum against numbing heat" },
         { id: "jasmine_tea", drink: "Jasmine tea", why: "floral and cooling between bites of doubanjiang" },
@@ -722,6 +785,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { gluten: true, soy: true, sesame: { variants: true, unlisted: "house chili oil rides a composed line, which resolves to spices_generic" } },
     cuisine: 'Chinese',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 1,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'stovetop',
     rice: true,
     equipment: { fixed: ['dutch'] }, // no tofu
@@ -754,7 +824,7 @@ export const DISHES = [
     copy: {
       desc: "Asparagus and your choice of Texas Gulf shrimp or tofu in a savory sauce of soy, Shaoxing wine, fermented black beans, and aromatics. The fermented black beans give it a deep, funky-in-a-good-way backbone that makes it taste like it came out of a good Cantonese kitchen.",
       reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included, cook fresh for best results.",
-      contains: "Shellfish if ordering shrimp. Soy (tofu) if vegetarian. Gluten (soy sauce, Shaoxing wine).",
+      contains: "Shellfish if ordering shrimp. Soy (tofu, soy sauce) if vegetarian. Gluten (soy sauce, Shaoxing wine).",
       pairings: [
         { id: "jasmine_tea", drink: "Jasmine tea", why: "the Cantonese table default; light against a salty ferment" },
         { id: "riesling", drink: "Dry Riesling or Grüner Veltliner", why: "acid and minerality with shrimp, restraint with the black beans" },
@@ -773,6 +843,13 @@ export const DISHES = [
     allergens: { gluten: { variants: true, unlisted: "soy sauce and Shaoxing inside the black bean sauce composed line, which resolves to spices_generic" }, soy: true, shellfish: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     diet: { veg: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], vegan: ['Tofu, Small Batch (~3-4)', 'Tofu, Large Batch (~7-8)'], pesc: ['Shrimp, Small Batch (~3-4)', 'Shrimp, Large Batch (~7-8)'] },
     cuisine: 'Chinese',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'bagged',
     rice: true,
     equipment: { fixed: ['wok'], tofu: true },
@@ -813,7 +890,7 @@ export const DISHES = [
     copy: {
       desc: "Blistered long beans and ground pork in a savory sauce built on doubanjiang and garlic, with a little heat and a classic dry-fried texture on the beans. Deeply savory throughout. Available with ground pork or tofu at the same price.",
       reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included.",
-      contains: "Gluten (soy sauce, doubanjiang), Soy (doubanjiang, tofu if ordering tofu).",
+      contains: "Gluten (soy sauce, doubanjiang), Soy (soy sauce, doubanjiang, tofu if ordering).",
       pairings: [
         { id: "jasmine_tea", drink: "Jasmine tea", why: "the table answer; the dish is salty-savory and the tea is neither" },
         { id: "lager", drink: "Tsingtao or any lager", why: "wok food and cold beer, the oldest pairing there is" },
@@ -833,6 +910,13 @@ export const DISHES = [
     allergens: { gluten: true, soy: true },
     diet: { veg: ['Tofu, Small (~4)', 'Tofu, Large (~8)'], vegan: ['Tofu, Small (~4)', 'Tofu, Large (~8)'] },
     cuisine: 'Chinese',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'bagged',
     rice: true,
     equipment: { fixed: ['wok'], tofu: true }, // tofu is an option → back burner
@@ -873,7 +957,7 @@ export const DISHES = [
     copy: {
       desc: "Chinese broccoli (gai lan) and your choice of Texas Gulf shrimp or tofu in a savory sauce of garlic, soy, and oyster sauce with a hit of house chili oil. Clean and a little spicy. Chili oil can be omitted upon request. Not recommended...but we get it.",
       reheat: "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included.",
-      contains: "Shellfish (oyster sauce is in the base, plus shrimp if ordering shrimp) - the tofu version is NOT shellfish-free. Soy (soy sauce, and tofu if ordering tofu). Gluten (soy sauce). Sesame (house chili oil).",
+      contains: "Shellfish (oyster sauce, plus shrimp if ordering) — tofu version NOT shellfish-free (can omit, but must put it in notes). Soy. Gluten. Sesame.",
       pairings: [
         { id: "jasmine_tea", drink: "Jasmine tea", why: "light and floral over Gulf shrimp and greens" },
         { id: "albarino", drink: "Albariño", why: "the shrimp wine; salt air acid for a salt-air protein" },
@@ -900,6 +984,13 @@ export const DISHES = [
     // tofu variants, the flag can come back. Not before.
     diet: { pesc: ['Shrimp, Small Batch (~4)', 'Shrimp, Large Batch (~8)'] },
     cuisine: 'Chinese',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'bagged',
     rice: true,
     equipment: { fixed: ['wok'], tofu: true },
@@ -961,6 +1052,13 @@ export const DISHES = [
     // all four allergens ride the single Oyster + soy + fish sauce + sugar line
     allergens: { gluten: { variants: true, unlisted: "soy sauce (wheat) rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" }, fish: { variants: true, unlisted: "fish sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" }, shellfish: { variants: true, unlisted: "oyster sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" }, soy: { variants: true, unlisted: "soy sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic" } },
     cuisine: 'Thai',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 1,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'bagged',
     rice: true,
     equipment: { fixed: ['wok'] },
@@ -1012,6 +1110,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: true, gluten: true, egg: ['Small (split order, ~4) + Egg Pappardelle', 'Large (~8) + Egg Pappardelle'] },
     cuisine: 'Italian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved', 'heartstrings'],
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'] },
@@ -1058,7 +1163,7 @@ export const DISHES = [
     copy: {
       desc: "A slow-simmered tomato sauce made with homegrown tomatoes, good olive oil, and garlic. Nothing else needs to be there. Seasonal and in limited quantities — only on the menu when the garden says so.",
       reheat: "Uncooked pasta included, cook fresh. Warm the sauce gently on the stove.",
-      contains: "May contain Dairy. Gluten if including pasta.",
+      contains: "Gluten (in the pasta, not the sauce).",
       pairings: [
         { id: "sangiovese", drink: "Chianti or any Sangiovese", why: "tomato's oldest friend; matching acid, cherry fruit" },
         { id: "lambrusco", drink: "Lambrusco", why: "chilled sparkling red against a summer sauce" },
@@ -1078,6 +1183,13 @@ export const DISHES = [
     allergens: { gluten: true },
     diet: { veg: ['Base (~4)', 'With Mushrooms'] },
     cuisine: 'Italian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 1,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved', 'heartstrings'],
     reheat: 'pasta',
     pasta: true,
     equipment: { fixed: [] }, // saucier, exclusive — never conflicts
@@ -1136,6 +1248,13 @@ export const DISHES = [
     // Array form = "these variants qualify"; `true` = "the whole dish does."
     diet: { pesc: ['Small (~4-5)', 'Large (~8-10)'] },
     cuisine: 'Italian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 1,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'pasta',
     pasta: true,
     equipment: { fixed: ['wok'] }, // greens cooked down + sauce built in the wok
@@ -1197,6 +1316,13 @@ export const DISHES = [
     diet: { veg: true },
     options: { parmOffer: true }, // finished with parm; offer a block at cost
     cuisine: 'Italian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 1,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['heartstrings'],
     reheat: 'bagged',
     baggedPasta: true, // bagged dish finished by mixing with cooked pasta
     equipment: { fixed: ['wok'] },
@@ -1251,6 +1377,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: { variants: true, unlisted: 'parmesan in the base sauce, uncosted (Kevin confirmed Jul 16)' }, gluten: ['Small (~4 servings)', 'Large (~8 servings)'] },
     cuisine: 'Italian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'pasta',
     pasta: true,
     equipment: { flexible: ['dutch', 'largePot'], polenta: true }, // polenta → back burner
@@ -1296,7 +1429,7 @@ export const DISHES = [
     copy: {
       desc: "Sous vide pork tenderloin, seared and sliced, over fresh egg taglierini in a mustard, white wine, and tarragon cream sauce. Filed under German for the mustard-and-cream backbone, but the fresh egg pasta underneath pulls it toward Italian, so it lives happily in between. The classic move here would be spätzle, but spätzle does not reheat the way I want it to, so we're using an egg taglierini as a substitute.",
       reheat: "Three parts: the pork in a sealed bag, the sauce in a container, and the taglierini to cook fresh. For the pork, pat it very dry, then sear hard on each side in a blazing-hot pan just until deeply browned on each side. Cut it into half-inch to one-inch medallions after searing. Warm the sauce in a saucepan over medium-low, stirring now and then, while you boil your pasta in lightly salted water. Once the pasta is cooked and drained, toss it with the sauce, then plate with the pork on top.",
-      contains: "Dairy (cream, butter, in seasoning bag), Gluten (pasta), Egg (pasta), Mustard.",
+      contains: "Dairy (cream, butter). Gluten (pasta). Egg (pasta). Mustard. Soy (lecithin in the sauce).",
       pairings: [
         { id: "chardonnay", drink: "Chardonnay, lightly oaked", why: "cream sauce's oldest companion; body meeting body" },
         { id: "riesling", drink: "Dry Riesling", why: "acid to cut cream, fruit to sit with mustard" },
@@ -1314,6 +1447,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: true, gluten: true, egg: true, mustard: true },
     cuisine: 'German',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 1,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['heartstrings'],
     reheat: 'pasta',
     pasta: true,
     equipment: { backBurner: true }, // soft claim — quick sauce reduction, just be mindful (Kevin)
@@ -1379,6 +1519,13 @@ export const DISHES = [
     allergens: { dairy: true, gluten: true, egg: true },
     diet: { veg: true },
     cuisine: 'Spotlight',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 2,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     spotlight: true,
     reheat: 'pasta',
     pasta: true,
@@ -1459,6 +1606,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: true },
     cuisine: 'Spotlight',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 4,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     spotlight: true,
     reheat: 'lambSpotlight', // dedicated two-part card: sear the lamb, warm the beans
     chillOnly: true,
@@ -1517,6 +1671,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: true },
     cuisine: 'American',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 4,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'porkChopBase', // dedicated three-part card: sear pork, warm puree/broccolini bags
     chillOnly: true,
     equipment: { backBurner: true }, // sear + a couple of bags in water
@@ -1567,6 +1728,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: true, soy: { variants: true, unlisted: 'soy lecithin stabilizes the cider beurre blanc — uncosted, negligible quantity, real allergen' } },
     cuisine: 'Spotlight',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 5,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     spotlight: true,
     reheat: 'porkChopSpotlight', // dedicated four-part card: sear pork, warm purée/broccolini bags, gentle sauce
     chillOnly: true,
@@ -1636,6 +1804,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: true, soy: { variants: true, unlisted: 'soy lecithin stabilizes the peppercorn beurre blanc — uncosted, negligible quantity, real allergen' } },
     cuisine: 'Spotlight',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 5,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved'],
     spotlight: true,
     reheat: 'steakAuPoivreSpotlight', // four-part: sear filet (30 min warm), warm purée/asparagus bags, gentle sauce
     chillOnly: true,
@@ -1698,6 +1873,13 @@ export const DISHES = [
     // the reason on record.
     allergens: { dairy: { variants: true, unlisted: "butter in the veg bag line, which resolves to sv_bag" }, gluten: { variants: true, unlisted: 'a light roux thickens the stew at the end, uncosted (Kevin confirmed Jul 16)' } },
     cuisine: 'Spotlight',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 4,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['familiarBeloved', 'heartstrings'],
     spotlight: true, // (Kevin, Jul 10): expensive enough to warrant it — joins the spotlight group
     reheat: 'stovetop',
     equipment: { fixed: ['dutch', 'ovenLow'] },
@@ -1746,7 +1928,7 @@ export const DISHES = [
     copy: {
       desc: "A Persian fesenjan that walked west into mole. The sauce is built from toasted Texas pecans and pomegranate molasses, cooked down dark with dried chiles and a whisper of unsweetened chocolate until it is sour, bitter, and deep, and nobody guesses what is in it. Beef chuck in big chunks over kabocha squash cooked in the same warm spices, with cold pickled onion to cut it, pepitas for crunch, and charred tortillas for scooping. Made a day ahead on purpose.",
       reheat: "Comes as the braise and kabocha in a container, rice to cook fresh, tortillas, and the cold pickled onion and pepitas separately. Cook the rice. Warm the braise gently on the stove over medium-low until it loosens and comes back to a gloss, adding a splash of water if it has tightened. Char the tortillas straight over a burner or in a dry hot pan until they blister. Braise over rice, tortillas alongside, the pickled onion and pepitas cold over the top, and the pomegranate seeds if they came with it.",
-      contains: "Tree nuts (pecans). Gluten (the flour in the tortillas).",
+      contains: "Tree nuts (pecans). Gluten (flour in tortillas). Seeds (pepitas).",
       pairings: [
         { id: "tempranillo", drink: "Tempranillo or Rioja", why: "earthy Spanish red that meets the mole's chile-and-chocolate depth without fighting it" },
         { id: "zinfandel", drink: "Zinfandel", why: "jammy and high-toned enough to stand up to the sour-sweet braise and the beef" },
@@ -1758,6 +1940,13 @@ export const DISHES = [
     },
     allergens: { tree_nut: true, gluten: true },
     cuisine: 'Persian',
+    // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
+    // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
+    // components. Property to sort and sum, not prose to read.
+    effort: 3,
+    // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
+    // exclusive. See HANDOFF deep-dive for what each path means.
+    wowPath: ['unfamiliarPop'],
     reheat: 'stovetop',
     // Kevin, Jul 26: "the fesenjan will get rice, small is 2 cups, large is 4."
     // Which is what this flag already did — it has been here all along. A

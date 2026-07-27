@@ -22,6 +22,28 @@
 // that is authored on a generated page is copy that gets overwritten.
 //
 // `nature` drives conversion scaffolding: 'weight' | 'fluid' | 'each' | 'batch'.
+//
+// ── THE THREE GATES (Jul 27) ─────────────────────────────────────────────────
+// Kevin's own account of why 30 candidates got cut: they were dishes he'd love
+// to eat, rejected for too many components, or because they are things he
+// wants to EAT but not COOK. That is a distinct gate from the other two, and
+// naming it is the point:
+//
+//   1. REHEAT GATE — will it survive shipping (already enforced elsewhere)
+//   2. WOW GATE     — does it earn a menu spot
+//   3. COOK GATE    — does Kevin want to spend Tuesday actually making it
+//
+// A candidate can clear the first two and still fail the third. The
+// diagnostic value: a candidate Kevin is DRAWN TO but hesitant about is
+// usually failing the cook gate, not the wow gate. The two feel similar from
+// outside and need OPPOSITE fixes — a wow failure needs a different dish, a
+// cook-gate failure needs the SAME dish simplified.
+//
+// `status:'cut'` plus an optional `cutGate` records which one. No per-dish
+// data exists yet — the walk that would produce it (pipeline triage) has not
+// run against this framework — so the field is wired here and left unfilled
+// rather than guessed at. Fill it through the walk when it runs.
+export const CUT_GATES = { REHEAT: 'reheat', WOW: 'wow', COOK: 'cook' };
 
 export const PIPELINE_DISHES = [
   {
@@ -241,7 +263,7 @@ export const PIPELINE_DISHES = [
     origin: "Punjab &middot; Sichuan &middot; Vegetarian",
     diet: "veg",
     allergenFlags: { dairy: true },
-    desc: "Black lentils simmered for hours until creamy from their own starch, finished with butter, cream, and tomato. The butter and cream take a hit of wok smoke first, a stovetop version of the live-coal trick the dish traditionally uses. Mild, rich, deeply smoky. Over rice.",
+    desc: "Black lentils simmered for hours until creamy from their own starch, finished with butter, cream, and tomato. The butter and cream take a hit of stockpot smoke first, a stovetop version of the live-coal trick the dish traditionally uses. Mild, rich, deeply smoky. Over rice.",
     note: "Still testing: how many minutes of smoke before the dairy tastes like an ashtray.",
     contains: "Contains: Dairy (butter, cream).",
     openQuestions: [],

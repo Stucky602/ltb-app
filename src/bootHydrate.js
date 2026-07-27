@@ -44,6 +44,7 @@ import {
 } from './utils.js';
 import { normalizeJournal, migrateDishNotes, purgeTombstones, stampEntry } from './journal.js';
 import { DOSSIER_SEED } from './dossierSeed.js';
+import { SEED_EQUIPMENT } from './equipmentSeed.js';
 import { normalizeLedger } from './weekLedger.js';
 import { normalizeContainerConfig } from './containers.js';
 import { reconcileIngredients, pruneCostHistory, summarizeReconcile } from './seedReconcile.js';
@@ -168,7 +169,12 @@ export async function hydrateFromStorage(deps) {
   setWeekLedger(normalizeLedger(loadedLedger));
   setCopiesNote(typeof loadedCopiesNote === 'string' ? loadedCopiesNote : '');
   setArchiveHistory(Array.isArray(loadedArchiveHistory) ? loadedArchiveHistory : []);
-  setEquipment(Array.isArray(loadedEquipment) ? loadedEquipment : []);
+  // Seeded ONLY when nothing is stored yet — Kevin's own edits always win.
+  // Walked and recorded Jul 27: what he actually owns, so the archive's
+  // long-dead "The equipment these assume" section has real content instead
+  // of an empty box the first time someone reads it.
+  const eq = Array.isArray(loadedEquipment) && loadedEquipment.length ? loadedEquipment : SEED_EQUIPMENT;
+  setEquipment(eq);
   setRealDataEpoch(typeof loadedEpoch === 'string' ? loadedEpoch : null);
   setRowanLog(Array.isArray(loadedRowan) ? loadedRowan : []);
   // Null (never saved) keeps the seeded ranking. An empty ARRAY is a deliberate

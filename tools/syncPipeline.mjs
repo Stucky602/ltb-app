@@ -2,9 +2,23 @@
 //
 // pipelineDishes.js is CANON for every pipeline dish's vote key. This tool
 // checks that the two OTHER places the key lives agree with it:
-//   • worker.js  PIPELINE_DISHES  (the vote whitelist; deploys by paste but is
-//                                  versioned here, so this is pure source scan)
+//   • worker.js  PIPELINE_DISHES  (deploys by paste but is versioned here, so
+//                                  this is pure source scan)
 //   • pipeline.html  data-dish     (the customer voting cards)
+//
+// WHAT CHANGED WHEN THE ROSTER STARTED PUBLISHING (Jul 26)
+// Both of those are now FALLBACKS rather than the live truth. The roster ships
+// with the week config, the worker validates votes against the published copy,
+// and pipeline.html swaps its cards for it on load. So a stale worker constant
+// or a stale page no longer breaks voting the moment canon moves.
+//
+// That is precisely why this tool still runs. Both fallbacks are what answer
+// before the first publish and what answer when a fetch fails, and a fallback
+// nobody checks is a fallback that has quietly rotted by the time it is needed.
+// Rule 5 below adds the one thing the old rules could not see: that the publish
+// path still comes off canon, and that the worker still prefers what it was
+// sent. Neither can be checked against KV from here, so both are checked at
+// their source.
 //
 // Report-only: NO --write. pipeline.html and worker.js edits stay deliberate
 // (a card's copy and a whitelist retirement are human decisions). Exit 1 on any
@@ -23,7 +37,17 @@ import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const workerSrc = readFileSync(ROOT + 'worker.js', 'utf8');
-const pipelineHtml = readFileSync(ROOT + 'pipeline.html', 'utf8');
+const pipelineHtmlFull = readFileSync(ROOT + 'pipeline.html', 'utf8');
+
+// MARKUP ONLY. The page's runtime renderer builds cards as strings, so its
+// source contains a literal `data-dish="' + escAttr(d.key) + '"`, and scanning
+// the whole file reported that fragment as a dish key with no entry in canon.
+// A check that fires on the page's own source code is a check that gets
+// switched off, so the scan stops at the script block. Every card lives above
+// it; if that ever stops being true, this finds nothing and rule 1 fails loudly
+// rather than passing quietly.
+const scriptAt = pipelineHtmlFull.indexOf('<script>');
+const pipelineHtml = scriptAt > 0 ? pipelineHtmlFull.slice(0, scriptAt) : pipelineHtmlFull;
 
 let drift = 0;
 const F = (msg) => { console.log('  ✗ ' + msg); drift++; };
@@ -116,6 +140,40 @@ if (wStart < 0 || wEnd < 0) {
   }
 }
 
+// ── Rule 5: the publish path still exists and still comes off canon ──────────
+// The two checks below guard the two ways this feature dies quietly.
+//
+// The first: someone hand-types a roster into publishWeek.js instead of
+// deriving it, and canon stops being canon while every other rule here stays
+// green, because the worker constant and the page cards would still agree with
+// a file nobody publishes from.
+//
+// The second matters more, and it is specific to how this worker deploys.
+// worker.js is pasted into the Cloudflare dashboard by hand, so the way it
+// regresses is not an edit, it is an OLDER COPY being pasted back over it.
+// A worker without votableKeys() validates against its own frozen constant
+// again, and the symptom is a 400 on a dish Kevin published this morning.
+// These anchors are function and field names, not formatting, so they do not
+// fire on a reflow.
+{
+  const publishSrc = readFileSync(ROOT + 'src/publishWeek.js', 'utf8');
+  if (!/from '\.\/pipelineDishes\.js'/.test(publishSrc)) {
+    F('src/publishWeek.js no longer imports canon from pipelineDishes.js — the '
+      + 'published roster must be DERIVED from canon, never retyped');
+  } else if (!/^\s{4}pipeline:/m.test(publishSrc)) {
+    F('src/publishWeek.js imports canon but no longer sends a `pipeline` field, '
+      + 'so the roster stops publishing and every surface silently falls back');
+  }
+
+  if (!/async function votableKeys\(env\)/.test(workerSrc)) {
+    F('worker.js has no votableKeys() — it is validating votes against its own '
+      + 'frozen PIPELINE_DISHES again. An older copy was probably pasted back '
+      + 'over the dashboard; a dish published today would 400.');
+  } else if (!/const allowed = await votableKeys\(env\)/.test(workerSrc)) {
+    F('worker.js has votableKeys() but POST /votes is not using it to validate');
+  }
+}
+
 // ── Graduation wall ──────────────────────────────────────────────────────────
 // A dish carrying status:'shipped' made it from this page to the real menu.
 // pipeline.html shows those in a "Made the menu" section, driven by a
@@ -124,7 +182,7 @@ if (wStart < 0 || wEnd < 0) {
 // rewriting it, and prints the exact line to paste when it does not.
 {
   const gradKeys = PIPELINE_DISHES.filter(d => d.status === 'shipped').map(d => d.title || d.key);
-  const m = pipelineHtml.match(/var GRADUATED = (\[[^;]*\]);\s*\/\* SYNC:GRADUATED \*\//);
+  const m = pipelineHtmlFull.match(/var GRADUATED = (\[[^;]*\]);\s*\/\* SYNC:GRADUATED \*\//);
   if (!m) {
     F('pipeline.html is missing the GRADUATED array (marker: /* SYNC:GRADUATED */)');
   } else {

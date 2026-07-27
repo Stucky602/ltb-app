@@ -361,5 +361,104 @@ console.log('menu.html');
   check('a dish that has not earned it stays unmarked', !plain.window.document.querySelector('.fav-chip'));
 }
 
+// ── pipeline.html: the roster now arrives at runtime ────────────────────────
+// The 30 cards in this page are generated from src/pipelineDishes.js at build
+// time. Once the app publishes a roster, the page swaps them for it. Both
+// halves need proving: the swap, and the fallback that carries the page when
+// the swap does not happen, because the worker deploys by hand-paste and there
+// is always a window where it has not been pasted.
+//
+// This needs its own boot: the page fetches two different endpoints and the
+// shared one above answers every URL with the same config object.
+console.log('\npipeline.html');
+{
+  const pipeline = fs.readFileSync('pipeline.html', 'utf8');
+  const bootPipeline = (routes) => new JSDOM(pipeline, {
+    runScripts: 'dangerously',
+    url: 'https://x.test/',
+    beforeParse(w) {
+      w.fetch = (u) => {
+        const hit = Object.keys(routes).find(k => String(u).indexOf(k) >= 0);
+        return hit
+          ? Promise.resolve({ ok: true, json: () => Promise.resolve(routes[hit]) })
+          : Promise.reject(new Error('unrouted ' + u));
+      };
+      Object.defineProperty(w, 'localStorage', {
+        value: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
+        configurable: true,
+      });
+    },
+  });
+  const VOTES = { top: [{ dish: 'Fesenjan', votes: 3 }], ballots: 2 };
+
+  // Nothing published yet: exactly the page as it shipped.
+  {
+    const d = bootPipeline({ '/config': { pipeline: [] }, '/votes': VOTES }).window.document;
+    await sleep(150);
+    const cards = d.querySelectorAll('.dish[data-dish]');
+    check('an empty roster leaves the built-in cards alone', cards.length === 30, `got ${cards.length}`);
+    check('every built-in card has exactly one vote button',
+      d.querySelectorAll('.vote-btn').length === cards.length);
+    check('the All count matches the built-in cards',
+      /All 30/.test(d.querySelector('.filter-btn[data-filter="all"]').textContent));
+  }
+
+  // A published roster replaces them.
+  {
+    const roster = [
+      { key: 'Suya Flank Steak', title: 'Suya Flank Steak, Coconut Rice', origin: 'Nigeria &middot; Texas', desc: 'Peanut crust.', diet: null, contains: 'Contains: Peanuts.' },
+      { key: 'Brand New Thing', title: 'Brand New Thing', origin: 'Nowhere', desc: 'Green.', diet: 'veg', note: 'Still testing.' },
+    ];
+    const dom = bootPipeline({ '/config': { pipeline: roster }, '/votes': { top: [{ dish: 'Brand New Thing', votes: 5 }], ballots: 4 } });
+    await sleep(150);
+    const d = dom.window.document;
+    const cards = d.querySelectorAll('.dish[data-dish]');
+    check('a published roster replaces the built-in cards', cards.length === 2, `got ${cards.length}`);
+    check('a dish the build never knew about is on the page',
+      !!d.querySelector('[data-dish="Brand New Thing"]'));
+    check('the All count follows the published roster',
+      /All 2/.test(d.querySelector('.filter-btn[data-filter="all"]').textContent));
+    check('vote buttons are wired once, not twice',
+      d.querySelectorAll('.vote-btn').length === 2, `got ${d.querySelectorAll('.vote-btn').length}`);
+    check('the diet pill is re-applied to swapped-in cards',
+      d.querySelectorAll('.diet-pill').length === 1);
+    // Authored entities must survive. The generator does not escape them and
+    // neither does the runtime renderer, which is the one thing both must agree on.
+    check('an authored HTML entity still renders as its character',
+      d.querySelector('.dish-origin').textContent.includes('·'),
+      d.querySelector('.dish-origin').textContent);
+    check('the board re-labels itself from the new cards',
+      /Brand New Thing/.test(d.querySelector('.board-name').textContent));
+    check('cards stay siblings of the vote bar, with no wrapper element',
+      d.getElementById('voteBar').previousElementSibling.className === 'dish');
+    // The filter closed over a NodeList once. After a swap those nodes are
+    // detached, and hiding a detached node looks exactly like success.
+    d.querySelector('.filter-btn[data-filter="veg"]').click();
+    const visible = [...d.querySelectorAll('.dish[data-dish]')].filter(c => c.style.display !== 'none');
+    check('filtering still works on swapped-in cards', visible.length === 1
+      && visible[0].getAttribute('data-dish') === 'Brand New Thing', `${visible.length} visible`);
+  }
+
+  // The roster lands as markup, so a tag in it must not become an element.
+  {
+    const d = bootPipeline({
+      '/config': { pipeline: [{ key: 'X', title: '<img src=x onerror=boom>', origin: 'O', desc: 'D' }] },
+      '/votes': { top: [], ballots: 0 },
+    }).window.document;
+    await sleep(150);
+    check('a tag in the published roster is rendered as text, not injected',
+      d.querySelectorAll('.dish img').length === 0
+      && d.querySelector('.dish-name').textContent.includes('<img'));
+  }
+
+  // A worker that has not been pasted yet has no pipeline field at all.
+  {
+    const d = bootPipeline({ '/config': { weekLabel: 'Week of Jul 22' }, '/votes': VOTES }).window.document;
+    await sleep(150);
+    check('a config with no roster field at all leaves the page intact',
+      d.querySelectorAll('.dish[data-dish]').length === 30);
+  }
+}
+
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

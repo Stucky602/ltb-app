@@ -11,6 +11,7 @@ import {
   buildDishReport, buildPortfolioSummary, reportableDishes, buildServingAudit, dishSalesHistory,
 } from '../dishReport.js';
 import { PIPELINE_DISHES } from '../pipelineDishes.js';
+import { fetchFeedbackHistory, feedbackHistoryByDish } from '../feedbackSync.js';
 import { omakaseStats } from '../omakase.js';
 import { repricingScoreboard } from '../repricing.js';
 import { buildPromoteScaffold, newPromoteChecklist } from '../promoteScaffold.js';
@@ -69,15 +70,21 @@ const FB_META = [
   ['meh', 'A little off', '#D9B36C'],
   ['bad', 'Had trouble', '#d98a7e'],
 ];
-function FeedbackStrip({ fb, dish, onReset }) {
+function FeedbackStrip({ fb, dish, onReset, archive, archiveState }) {
   const [open, setOpen] = React.useState(false);
   const [histOpen, setHistOpen] = React.useState(false);
+  const [archOpen, setArchOpen] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
-  if (!fb || !fb.tally) return null;
-  const total = FB_META.reduce((n, [k]) => n + (fb.tally[k] || 0), 0);
-  const notes = Array.isArray(fb.notes) ? fb.notes : [];
-  const history = Array.isArray(fb.history) ? fb.history : [];
-  if (total === 0 && notes.length === 0 && history.length === 0) return null;
+  const tally = (fb && fb.tally) || null;
+  const notes = (fb && Array.isArray(fb.notes)) ? fb.notes : [];
+  const history = (fb && Array.isArray(fb.history)) ? fb.history : [];
+  const archiveList = Array.isArray(archive) ? archive : [];
+  const total = tally ? FB_META.reduce((n, [k]) => n + (tally[k] || 0), 0) : 0;
+  // This used to bail whenever the per-dish store was empty. It now also
+  // renders for a dish whose ONLY trace is in the worker archive, which is
+  // precisely the dish whose feedback got ignored at triage and therefore
+  // never reached the store at all.
+  if (total === 0 && notes.length === 0 && history.length === 0 && archiveList.length === 0) return null;
 
   const hasLive = total > 0 || notes.length > 0;
 
@@ -123,8 +130,8 @@ function FeedbackStrip({ fb, dish, onReset }) {
         <>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
             {FB_META.map(([k, label, color]) => (
-              <span key={k} style={{ color: (fb.tally[k] || 0) > 0 ? color : '#5a635e', fontWeight: 700 }}>
-                {label} ×{fb.tally[k] || 0}
+              <span key={k} style={{ color: (tally[k] || 0) > 0 ? color : '#5a635e', fontWeight: 700 }}>
+                {label} ×{tally[k] || 0}
               </span>
             ))}
           </div>
@@ -185,6 +192,45 @@ function FeedbackStrip({ fb, dish, onReset }) {
               </div>
             );
           })}
+        </div>
+      )}
+      {archiveState === 'unavailable' ? (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #2d3a36', fontSize: 11.5, color: '#5a635e', fontStyle: 'italic' }}>
+          Kitchen archive unreachable. It lives in the worker, so it arrives once the newest worker is pasted into Cloudflare.
+        </div>
+      ) : archiveState === 'loading' ? (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #2d3a36', fontSize: 11.5, color: '#5a635e' }}>
+          Loading the kitchen archive&hellip;
+        </div>
+      ) : archiveList.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid #2d3a36' }}>
+          <button
+            style={{ background: 'none', border: 'none', color: '#8a938e', fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: 0 }}
+            onClick={() => setArchOpen(o => !o)}
+          >
+            {archOpen ? '▾' : '▸'} Every tap ({archiveList.length})
+          </button>
+          {archOpen && (
+            <>
+              <div style={{ fontSize: 11, color: '#5a635e', margin: '6px 0 4px', lineHeight: 1.45 }}>
+                Straight off the kitchen pages, including taps you ignored and notes you did not keep. Last 30 days.
+              </div>
+              {archiveList.map((a, i) => {
+                const meta = FB_META.find(m => m[0] === a.verdict) || ['', a.verdict, '#c8cfc9'];
+                return (
+                  <div key={a.pageId + ':' + i} style={{ marginTop: 6, fontSize: 12.5, color: '#c8cfc9' }}>
+                    <span style={{ color: meta[2], fontWeight: 700 }}>●</span>{' '}
+                    <span style={{ color: meta[2] }}>{meta[1]}</span>
+                    {a.note && <span style={{ fontStyle: 'italic' }}> &ldquo;{a.note}&rdquo;</span>}
+                    <span style={{ color: '#5a635e', fontSize: 11 }}>
+                      {a.at ? ' · ' + new Date(a.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}
+                      {a.readAt ? ' · read' : ' · not triaged yet'}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -307,6 +353,24 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     else if (portSort === 'profit') arr.sort((a, b) => (b.profitContribution ?? 0) - (a.profitContribution ?? 0));
     return arr;
   }, [portfolio, portSort]);
+
+  // ── The kitchen archive ──────────────────────────────────────────────────
+  // Fetched once per visit, and only after a dish is picked, so opening
+  // Recipes to cost something does not hit the worker for feedback nobody
+  // asked to see. Same shape as the vote fetch above: one attempt, no retry,
+  // and a plain statement in the UI when it is not there.
+  const [fbHistory, setFbHistory] = useState(null);
+  useEffect(() => {
+    if (!dish || fbHistory) return;
+    let alive = true;
+    fetchFeedbackHistory().then(h => { if (alive) setFbHistory(h); });
+    return () => { alive = false; };
+  }, [dish]); // eslint-disable-line
+  const fbArchive = useMemo(
+    () => feedbackHistoryByDish(fbHistory && fbHistory.pages),
+    [fbHistory],
+  );
+  const fbArchiveState = !fbHistory ? 'loading' : (fbHistory.unavailable ? 'unavailable' : 'ready');
 
   // ── Pipeline section state ──────────────────────────────────────────────
   const [showPipeline, setShowPipeline] = useState(false); // collapsed by default
@@ -1061,7 +1125,8 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
       {report && (
         <>
           {/* ── Customer feedback (dish-linked, saved via the Orders-page triage) ── */}
-          <FeedbackStrip fb={(dishFeedback || {})[dish]} dish={dish} onReset={onResetDishFeedback} />
+          <FeedbackStrip fb={(dishFeedback || {})[dish]} dish={dish} onReset={onResetDishFeedback}
+            archive={fbArchive[dish]} archiveState={fbArchiveState} />
 
           {/* ── Flavor + size ── */}
           {(report.decomposition.groups.length > 1 || report.decomposition.hasSizeToggle) && (

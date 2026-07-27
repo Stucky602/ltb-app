@@ -85,6 +85,67 @@ export function ignoreFeedbackEntry(entry, deps) {
   });
 }
 
+// ── The kitchen archive (Jul 26) ────────────────────────────────────────────
+// Every verdict anybody tapped, INCLUDING the ones triage threw away.
+//
+// Triage is destructive on purpose and that is fine for a queue: Ignore drops
+// an entry, "Save tally only" keeps the count and discards the words, and
+// clearPageIfDone above deletes the worker's copy outright. What it means is
+// that the per-dish store holds what Kevin CHOSE to keep, which is a different
+// thing from what people actually said. The worker now mirrors each page's
+// verdicts into a key the clear does not touch, and this reads it back.
+//
+// FOR KEVIN ONLY. The endpoint is token-gated and nothing on a customer page
+// calls it. companion.js is untouched by this feature, so the privacy wall
+// (tests/journal.mjs) has nothing new to walk.
+//
+// An un-pasted worker 404s here, and that is not an error worth a red banner:
+// it is the normal state of a hand-pasted deploy for as long as it takes Kevin
+// to paste. It comes back as `unavailable` with a reason the UI can print.
+export async function fetchFeedbackHistory() {
+  let res;
+  try {
+    res = await fetch(WORKER_BASE + '/feedback/history?token=' + encodeURIComponent(PUBLISH_TOKEN));
+  } catch (e) {
+    return { pages: [], unavailable: true, reason: 'offline' };
+  }
+  if (res.status === 404) return { pages: [], unavailable: true, reason: 'the worker needs pasting' };
+  if (!res.ok) return { pages: [], unavailable: true, reason: 'worker returned ' + res.status };
+  try {
+    const j = await res.json();
+    return { pages: Array.isArray(j.pages) ? j.pages : [], truncated: !!j.truncated };
+  } catch (e) {
+    return { pages: [], unavailable: true, reason: 'unreadable response' };
+  }
+}
+
+// Flatten the per-page archive into one list per dish, newest first.
+//
+// NOT deduped across pages, deliberately. Two pages are two different orders,
+// so the same dish twice is two real verdicts from two real meals, and merging
+// them would hide the repetition that is the entire reason to look. The dedupe
+// that matters — one customer changing their mind about one order — already
+// happened in the worker, where each page's list is latest-tap-wins.
+export function feedbackHistoryByDish(pages) {
+  const out = {};
+  for (const p of pages || []) {
+    for (const e of (p.entries || [])) {
+      if (!e || !e.dish) continue;
+      (out[e.dish] = out[e.dish] || []).push({
+        verdict: e.verdict,
+        note: e.note || '',
+        at: e.at,
+        pageId: p.pageId,
+        readAt: p.readAt || null,
+      });
+    }
+  }
+  for (const k of Object.keys(out)) {
+    out[k].sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+  }
+  return out;
+}
+
 // Reset one dish's live tally (archives current tally+notes to history first).
 export function resetDishFeedbackTally(dish, { setDishFeedback, setError }) {
   setDishFeedback(prev => {

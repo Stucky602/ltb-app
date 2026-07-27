@@ -30,6 +30,7 @@ import {
   WORKER_BASE, PUBLISH_TOKEN, CONFIG_PUBLISH_URL, WEEK_LEDGER_KEY,
 } from './config.js';
 import { ALL_DINNERS, PER_LB_ITEMS, buildMenu } from './menu.js';
+import { PIPELINE_DISHES } from './pipelineDishes.js';
 import { saveJSON } from './utils.js';
 import { recordWeek } from './weekLedger.js';
 import { extractNotice } from './weekNotice.js';
@@ -106,6 +107,29 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
     ...(pausedOpts && pausedOpts.paused
       ? { paused: true, pausedMsg: String(pausedOpts.pausedMsg || '').slice(0, 200) }
       : { paused: false, pausedMsg: '' }),
+    // The pipeline roster, straight off canon. pipeline.html renders these
+    // cards and the worker validates /votes against them, so publishing the
+    // roster is what turns "add a pipeline dish" from five steps across three
+    // systems into the same one tap as everything else on the customer site.
+    //
+    // Testing dishes only. A dish carrying status:'shipped' has graduated to
+    // the real menu and must not be votable, which is the same rule
+    // tools/syncPipeline.mjs enforces against the worker and the page.
+    //
+    // `key` is the frozen contract: it is what a ballot in KV records. Never
+    // derive it from the title, never tidy it, never renumber it. Changing one
+    // orphans every vote already cast for that dish.
+    pipeline: PIPELINE_DISHES
+      .filter(d => !d.status || d.status === 'testing')
+      .map(d => ({
+        key: d.key,
+        title: d.title,
+        origin: d.origin,
+        desc: d.desc,
+        diet: d.diet || null,
+        ...(d.note ? { note: d.note } : {}),
+        ...(d.contains ? { contains: d.contains } : {}),
+      })),
     // The heads-up banner. This line is the fix for a feature that was
     // wired end to end EXCEPT here: WeekTab collected the message and
     // publishWeek dropped it on the floor, so it never reached the worker

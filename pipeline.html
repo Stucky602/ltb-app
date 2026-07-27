@@ -397,8 +397,13 @@
   // ── Leaderboard ──────────────────────────────────────────────────────────
   // The worker returns the top 5 and nothing else, so there is no full ranking
   // on this page to leak. Bars are scaled to the leader, not to the total.
+  var lastBoard = null;
   function renderBoard(data) {
     var body = document.getElementById('boardBody');
+    // Held so a roster swap can re-render it. The board labels come from
+    // DISPLAY_NAMES, which is read off the cards, so a board drawn before the
+    // swap is captioned from the OLD cards.
+    lastBoard = data;
     // NOT `var top` — `top` is window.top (the topmost browsing context) and is
     // read-only, so the assignment silently no-ops, `top.length` is undefined,
     // and the board renders "No votes yet" forever no matter what the API says.
@@ -466,10 +471,13 @@
     syncButtons();
   }
 
-  // Wire a button into every dish card.
-  (function () {
+  // Wire a button into every dish card. This runs a second time when a
+  // published roster replaces the cards, so it SKIPS any card that already
+  // carries its button instead of appending a duplicate.
+  function wireVoteButtons() {
     var cards = document.querySelectorAll('.dish[data-dish]');
     for (var i = 0; i < cards.length; i++) {
+      if (cards[i].querySelector('.vote-btn')) continue;
       var key = cards[i].getAttribute('data-dish');
       var b = document.createElement('button');
       b.className = 'vote-btn';
@@ -481,7 +489,7 @@
       cards[i].appendChild(b);
     }
     syncButtons();
-  })();
+  }
 
   document.getElementById('voteSubmit').addEventListener('click', function () {
     if (!picks.length) return;
@@ -528,16 +536,15 @@
     if (mode === 'pesc') return diet === 'veg' || diet === 'pesc';
     return true;
   }
-  (function () {
-    var btns = document.querySelectorAll('.filter-btn');
+  // A pill on each qualifying card, so the label survives once the filter is
+  // switched back to All and the grouping is no longer visible. Idempotent for
+  // the same reason wireVoteButtons is.
+  function wireDietPills() {
     var cards = document.querySelectorAll('.dish[data-dish]');
-    var note = document.getElementById('filterNote');
-
-    // A pill on each qualifying card, so the label survives once the filter is
-    // switched back to All and the grouping is no longer visible.
     for (var i = 0; i < cards.length; i++) {
       var diet = cards[i].getAttribute('data-diet');
       if (!diet) continue;
+      if (cards[i].querySelector('.diet-pill')) continue;
       var pill = document.createElement('div');
       pill.className = 'diet-pill';
       pill.textContent = diet === 'veg' ? 'Vegetarian' : 'Pescatarian';
@@ -546,31 +553,44 @@
       if (origin && origin.nextSibling) cards[i].insertBefore(pill, origin.nextSibling);
       else cards[i].insertBefore(pill, cards[i].firstChild);
     }
+  }
 
-    function apply(mode) {
-      var shown = 0;
-      for (var i = 0; i < cards.length; i++) {
-        var ok = matchesFilter(cards[i], mode);
-        cards[i].style.display = ok ? '' : 'none';
-        if (ok) shown++;
-      }
-      for (var j = 0; j < btns.length; j++) {
-        var on = btns[j].getAttribute('data-filter') === mode;
-        btns[j].className = on ? 'filter-btn on' : 'filter-btn';
-      }
-      var n = FILTER_NOTES[mode] || '';
-      note.textContent = mode === 'all' ? n : (shown + (shown === 1 ? ' dish. ' : ' dishes. ') + n);
-      // A pick that is now hidden STAYS picked. Dropping it silently because a
-      // card scrolled out of view would be worse than the mild oddity of the
-      // counter disagreeing with what is on screen.
+  // The cards are RE-QUERIED on every call, deliberately. This used to close
+  // over one NodeList taken at boot; after a roster swap those nodes are
+  // detached, and setting display:none on a detached node hides nothing while
+  // looking exactly like it worked.
+  var currentFilter = 'all';
+  function applyFilter(mode) {
+    currentFilter = mode;
+    var btns = document.querySelectorAll('.filter-btn');
+    var cards = document.querySelectorAll('.dish[data-dish]');
+    var note = document.getElementById('filterNote');
+    var shown = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var ok = matchesFilter(cards[i], mode);
+      cards[i].style.display = ok ? '' : 'none';
+      if (ok) shown++;
     }
+    for (var j = 0; j < btns.length; j++) {
+      var on = btns[j].getAttribute('data-filter') === mode;
+      btns[j].className = on ? 'filter-btn on' : 'filter-btn';
+    }
+    var n = FILTER_NOTES[mode] || '';
+    note.textContent = mode === 'all' ? n : (shown + (shown === 1 ? ' dish. ' : ' dishes. ') + n);
+    // A pick that is now hidden STAYS picked. Dropping it silently because a
+    // card scrolled out of view would be worse than the mild oddity of the
+    // counter disagreeing with what is on screen.
+  }
 
+  // The filter buttons are part of the page shell and are never replaced, so
+  // they are wired exactly once.
+  (function () {
+    var btns = document.querySelectorAll('.filter-btn');
     for (var k = 0; k < btns.length; k++) {
       btns[k].addEventListener('click', (function (m) {
-        return function () { apply(m); };
+        return function () { applyFilter(m); };
       })(btns[k].getAttribute('data-filter')));
     }
-    apply('all');
   })();
 
   // ── Board display names ──────────────────────────────────────────────────
@@ -581,17 +601,105 @@
   // full card title, read from the DOM so it can NEVER drift from the cards,
   // and render that on the board. Keys stay frozen; only the label changes.
   var DISPLAY_NAMES = {};
-  (function () {
+  function rebuildDisplayNames() {
     var cards = document.querySelectorAll('.dish[data-dish]');
     for (var i = 0; i < cards.length; i++) {
       var key = cards[i].getAttribute('data-dish');
       var nameEl = cards[i].querySelector('.dish-name');
       if (key && nameEl) DISPLAY_NAMES[key] = nameEl.textContent.trim();
     }
-  })();
+  }
   function displayName(key) { return DISPLAY_NAMES[key] || key; }
 
+  // ── The published roster ─────────────────────────────────────────────────
+  // The cards on this page are GENERATED from src/pipelineDishes.js at build
+  // time, and they are what a customer sees if the fetch below never lands: an
+  // un-pasted worker, an offline phone, a config that predates this field. The
+  // published roster REPLACES them when there is one, which is what lets Kevin
+  // add or retire a pipeline dish from the app in one tap instead of editing
+  // three files and pasting a worker.
+  //
+  // TWO ESCAPES, and the difference is the whole point. The copy in canon
+  // carries HTML entities that were AUTHORED as entities (&middot; between
+  // origins, &Eacute; in a title), so escaping & would put a literal
+  // "&amp;middot;" on the page. The build-time generator has this same rule
+  // written into it. Angle brackets are escaped instead, which is the thing
+  // that actually keeps a tag out, and the worker bounds every field on the
+  // way in.
+  function escTags(s) {
+    return String(s == null ? '' : s).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function escAttr(s) { return escTags(s).replace(/"/g, '&quot;'); }
+
+  function rosterCardHtml(d) {
+    var html = '<div class="dish" data-dish="' + escAttr(d.key) + '"'
+      + (d.diet ? ' data-diet="' + escAttr(d.diet) + '"' : '') + '>'
+      + '<div class="dish-name">' + escTags(d.title || d.key) + '</div>'
+      + '<div class="dish-origin">' + escTags(d.origin) + '</div>'
+      + '<div class="dish-desc">' + escTags(d.desc) + '</div>';
+    if (d.note) html += '<div class="dish-note">' + escTags(d.note) + '</div>';
+    if (d.contains) html += '<div class="contains">' + escTags(d.contains) + '</div>';
+    return html + '</div>';
+  }
+
+  function renderRoster(list) {
+    // NO wrapper element, deliberately. The cards sit as plain siblings
+    // between the filter note and the vote bar. Putting them in a container
+    // would make the last one match `.dish:last-child`, which today matches
+    // nothing, and silently drop its bottom border.
+    var anchor = document.getElementById('voteBar');
+    var old = document.querySelectorAll('.dish[data-dish]');
+    var holder = document.createElement('div');
+    var html = '';
+    for (var i = 0; i < list.length; i++) html += rosterCardHtml(list[i]);
+    holder.innerHTML = html;
+    for (var j = 0; j < old.length; j++) old[j].parentNode.removeChild(old[j]);
+    while (holder.firstChild) anchor.parentNode.insertBefore(holder.firstChild, anchor);
+
+    // A pick for a dish that is no longer on the board is dropped. The worker
+    // would reject it anyway, and a ballot that half-counts is worse than one
+    // that is honest about what it is carrying.
+    var live = {};
+    for (var k = 0; k < list.length; k++) live[list[k].key] = 1;
+    var kept = [];
+    for (var p = 0; p < picks.length; p++) if (live[picks[p]] === 1) kept.push(picks[p]);
+    picks = kept;
+
+    // The "All 30" count is derived at build time from the same canon. Once
+    // the roster is published it has to follow the published length instead.
+    var all = document.querySelector('.filter-btn[data-filter="all"]');
+    if (all) all.textContent = 'All ' + list.length;
+
+    wireVoteButtons();
+    wireDietPills();
+    rebuildDisplayNames();
+    applyFilter(currentFilter);
+    if (lastBoard) renderBoard(lastBoard);
+  }
+
+  function loadRoster() {
+    fetch(WORKER + '/config')
+      .then(function (r) { return r.json(); })
+      .then(function (cfg) {
+        var raw = (cfg && cfg.pipeline) || [];
+        var list = [];
+        for (var i = 0; i < raw.length; i++) {
+          // A card with no key has no vote button that could work, so it never
+          // reaches the page.
+          if (raw[i] && raw[i].key) list.push(raw[i]);
+        }
+        if (!list.length) return; // nothing published: the built-in cards stand
+        renderRoster(list);
+      })
+      .catch(function () { /* the built-in cards are already on the page */ });
+  }
+
+  wireVoteButtons();
+  wireDietPills();
+  rebuildDisplayNames();
+  applyFilter('all');
   renderGrads();
+  loadRoster();
   loadBoard();
 </script>
 </body>

@@ -26,6 +26,7 @@ const call = (method, path, body, headers = {}) =>
     body: body ? JSON.stringify(body) : undefined,
   }), env, ctx);
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 let failed = 0;
 const check = (name, cond, extra = '') => {
   console.log((cond ? '  ✓ ' : '  ✗ ') + name + (cond ? '' : '  ' + extra));
@@ -249,6 +250,151 @@ j = await r.json();
 const suya = (j.top || []).find(t => t.dish === someDish);
 check('the tally adds weights, not ballots', suya && suya.votes === 8, 'votes ' + (suya && suya.votes));
 check('weighted ballots are reported separately', j.weightedBallots === 2, 'got ' + j.weightedBallots);
+
+// ── Scenario 13: the pipeline roster publishes ──────────────────────────────
+// Adding a pipeline dish used to mean editing canon, editing the constant in
+// worker.js, rebuilding the page, pushing, and pasting the worker. The roster
+// now rides the week config. What has to hold: a published roster is what
+// /votes validates against, an UNPUBLISHED one falls back to the constant
+// rather than refusing every ballot, and the fields are bounded on the way in
+// because they land on a customer page as markup.
+const NEW_DISH = 'A Dish That Is Not In The Constant';
+r = await call('POST', '/votes', { picks: [NEW_DISH] });
+check('before publishing, a dish outside the constant is refused', r.status === 400, 'got ' + r.status);
+r = await call('POST', '/votes', { picks: ['Suya Flank Steak'] });
+check('and the constant still works as the fallback whitelist', (await r.json()).ok === true);
+
+r = await call('POST', '/config', {
+  token: 'test-token',
+  dishes: [{ name: 'A' }],
+  pipeline: [
+    { key: NEW_DISH, title: 'A Dish', origin: 'Nowhere', desc: 'New.', diet: 'veg', note: 'n', contains: 'c' },
+    { key: 'Fesenjan', title: 'Fesenjan', origin: 'Iran', desc: 'Walnuts.', diet: null },
+  ],
+});
+j = await r.json();
+check('the roster survives the publish whitelist', Array.isArray(j.config.pipeline) && j.config.pipeline.length === 2,
+  JSON.stringify(j.config.pipeline));
+check('and nothing was reported dropped', (j.dropped || []).length === 0, JSON.stringify(j.dropped));
+
+r = await call('POST', '/votes', { picks: [NEW_DISH] });
+check('a PUBLISHED dish is now votable with no worker paste', (await r.json()).ok === true);
+r = await call('POST', '/votes', { picks: ['Suya Flank Steak'] });
+check('a dish NOT on the published roster is refused', r.status === 400, 'got ' + r.status);
+r = await call('GET', '/votes');
+j = await r.json();
+check('the public board tallies the published roster', (j.top || []).some(t => t.dish === NEW_DISH), JSON.stringify(j.top));
+check('and drops a dish the roster no longer carries', !(j.top || []).some(t => t.dish === 'Suya Flank Steak'));
+r = await call('GET', '/votes/full', null, { 'X-LTB-Token': 'test-token' });
+j = await r.json();
+check('the full ranking is seeded from the published roster too',
+  j.ranking.length === 2 && j.ranking.some(x => x.dish === 'Fesenjan' && x.votes === 0), JSON.stringify(j.ranking));
+
+// Ballots for a dropped dish are NOT deleted, so restoring the dish restores
+// its history. This is the same graceful path retiring from the constant had.
+r = await call('POST', '/config', { token: 'test-token', dishes: [{ name: 'A' }], pipeline: [{ key: 'Suya Flank Steak', title: 'Suya' }] });
+r = await call('GET', '/votes');
+j = await r.json();
+const restored = (j.top || []).find(t => t.dish === 'Suya Flank Steak');
+check('a dish put back on the roster gets its old ballots back', restored && restored.votes >= 8,
+  'votes ' + (restored && restored.votes));
+
+// Coercion. This payload reaches a customer page, so a malformed roster must
+// be reshaped here rather than trusted there.
+r = await call('POST', '/config', {
+  token: 'test-token',
+  dishes: [{ name: 'A' }],
+  pipeline: [
+    { key: 'Keeper', title: 'T', origin: 'O', desc: 'D', diet: 'nonsense' },
+    { key: 'Keeper', title: 'Duplicate key' },
+    { title: 'No key at all' },
+    'not an object',
+    { key: 'Longwinded', desc: 'x'.repeat(5000) },
+  ],
+});
+j = await r.json();
+const P = j.config.pipeline;
+check('duplicate keys, keyless entries, and non-objects are dropped', P.length === 2, JSON.stringify(P.map(x => x.key)));
+check('an unknown diet becomes null rather than reaching the page', P[0].diet === null, JSON.stringify(P[0].diet));
+check('a title defaults to the key when absent', P[1].title === 'Longwinded');
+check('an oversized description is bounded', P[1].desc.length === 1200, 'len ' + P[1].desc.length);
+
+// An older app publishes no roster at all. That must leave voting alone, not
+// wipe the board: this is the exact window the hand-paste deploy model creates.
+r = await call('POST', '/config', { token: 'test-token', dishes: [{ name: 'A' }] });
+j = await r.json();
+check('a publish with no roster stores an empty one', Array.isArray(j.config.pipeline) && j.config.pipeline.length === 0);
+r = await call('POST', '/votes', { picks: ['Suya Flank Steak'] });
+check('EMPTY ROSTER FALLS BACK to the constant instead of killing voting', (await r.json()).ok === true);
+
+// ── Scenario 14: the kitchen archive survives triage ────────────────────────
+// Triage is destructive: Ignore drops an entry, "Save tally only" discards the
+// note, and /feedback/clear deletes the KV record. So the per-dish store holds
+// what Kevin CHOSE to keep, which is not the same as what people said. The
+// mirror key keeps the unedited copy. It is token-gated and Kevin-only; no
+// customer surface reads it.
+await call('POST', '/companion', { token: 'test-token', id: 'ord1', html: '<p>kitchen</p>' });
+await call('POST', '/feedback', { id: 'ord1', dish: 'Gumbo', verdict: 'good' });
+await call('POST', '/feedback', { id: 'ord1', dish: 'Chili', verdict: 'bad', note: 'too hot' });
+// The same customer changes their mind about the same dish on the same order.
+await call('POST', '/feedback', { id: 'ord1', dish: 'Gumbo', verdict: 'meh', note: 'a bit thin' });
+
+r = await call('GET', '/feedback/history');
+check('history without a token → 401', r.status === 401, 'got ' + r.status);
+r = await call('GET', '/feedback/history?token=wrong');
+check('history rejects a bad token', r.status === 401, 'got ' + r.status);
+
+r = await call('GET', '/feedback/history?token=test-token');
+j = await r.json();
+// The empty fallback is deliberate: without it a missing mirror throws on the
+// first dereference and the run reports ONE failure instead of the eight that
+// are actually broken.
+const EMPTY_PAGE = { entries: [], readAt: undefined };
+let page1 = (j.pages || []).find(p => p.pageId === 'ord1') || EMPTY_PAGE;
+check('history holds the page', !!page1 && page1.entries.length === 2, JSON.stringify(j.pages));
+check('NO SUPERSEDED VERDICT: a corrected tap leaves one entry, not two',
+  page1.entries.filter(e => e.dish === 'Gumbo').length === 1);
+check('and it is the latest one', (page1.entries.find(e => e.dish === 'Gumbo') || {}).verdict === 'meh');
+check('an untriaged page reports no read receipt', page1.readAt === null, JSON.stringify(page1.readAt));
+
+// Kevin triages and clears. This is the moment the old feature lost everything.
+r = await call('POST', '/feedback/clear', { token: 'test-token', pageIds: ['ord1'] });
+check('clear still succeeds', (await r.json()).ok === true);
+r = await call('GET', '/feedback/pending?token=test-token');
+j = await r.json();
+check('the triage queue is empty afterwards, as before', (j.feedback || []).length === 0, JSON.stringify(j.feedback));
+check('and the live key is really gone', (await env.LTB_KV.get('companionfb:ord1')) === null);
+
+r = await call('GET', '/feedback/history?token=test-token');
+j = await r.json();
+page1 = (j.pages || []).find(p => p.pageId === 'ord1') || EMPTY_PAGE;
+check('THE ARCHIVE SURVIVES THE CLEAR', !!page1 && page1.entries.length === 2, JSON.stringify(j.pages));
+check('the note survives too, even though triage could have dropped it',
+  (page1.entries.find(e => e.dish === 'Chili') || {}).note === 'too hot');
+check('and the archive now carries the read receipt',
+  typeof page1.readAt === 'string' && page1.readAt.length > 0, JSON.stringify(page1.readAt));
+
+// The read receipt the customer sees is untouched by any of this.
+r = await call('GET', '/feedback/seen?id=ord1');
+j = await r.json();
+check('THE CUSTOMER READ RECEIPT STILL WORKS', !!j.at, JSON.stringify(j));
+
+await sleep(5); // so the two pages cannot share a millisecond
+await call('POST', '/companion', { token: 'test-token', id: 'ord2', html: '<p>kitchen</p>' });
+await call('POST', '/feedback', { id: 'ord2', dish: 'Gumbo', verdict: 'good' });
+r = await call('GET', '/feedback/history?token=test-token');
+j = await r.json();
+check('a second order is a second page, not merged into the first', j.pages.length === 2);
+check('newest page first', j.pages[0].pageId === 'ord2', JSON.stringify(j.pages.map(p => p.pageId)));
+check('the same dish across two orders stays two verdicts',
+  j.pages.reduce((n, p) => n + p.entries.filter(e => e.dish === 'Gumbo').length, 0) === 2);
+check('the response says whether it was truncated', j.truncated === false);
+
+// A tap on a page that does not exist still 404s, so the mirror cannot be used
+// to write to arbitrary keys.
+r = await call('POST', '/feedback', { id: 'no-such-page', dish: 'Gumbo', verdict: 'good' });
+check('a tap on an unknown page is still refused', r.status === 404, 'got ' + r.status);
+check('and wrote nothing to the archive', (await env.LTB_KV.get('fbhist:no-such-page')) === null);
 
 console.log(failed === 0 ? '\nWORKER SIM: ALL PASS' : `\nWORKER SIM: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

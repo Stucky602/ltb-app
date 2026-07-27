@@ -228,11 +228,19 @@ export const INGREDIENT_SEED = [
   //   TOTAL   $0.8113
   // Everything bagged gets the butter and the thyme, so they belong to the bag
   // rather than to separate recipe lines.
-  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 0.8113, category: 'pantry', fixed: true },
+  // NOT `fixed`, unlike every container. Kevin, Jul 27: "using a sous vide bag
+  // takes time vs just dumping things into a container."
+  //
+  // A `fixed` line lands in raw cost and is excluded from the DRIFT ratio, and
+  // adjustedCost is the menu anchor scaled by that ratio — so a fixed line is
+  // visible and inert. That is correct for a container, which is where the food
+  // ends up. It is wrong for a bag, which is a real input with real labour
+  // attached and which should move a dish's margin like any other ingredient.
+  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 0.8113, category: 'pantry' },
   // LARGE: film scaled to 18 inches ($0.5618); butter and thyme do not change
   // with bag size. ASSUMPTION — Kevin gave 12 inches as the AVERAGE and did not
   // state a large. Ask before trusting this one.
-  { id: 'sv_bag_large', name: 'Sous vide bag + butter + herbs (large)', unit: 'each', baseline: 0.9986, category: 'pantry', fixed: true }, // longer bag + a little more seasoning for Large braises: one $3.00 bag, not two $2.00 bags
+  { id: 'sv_bag_large', name: 'Sous vide bag + butter + herbs (large)', unit: 'each', baseline: 0.9986, category: 'pantry' }, // longer bag + a little more seasoning for Large braises: one $3.00 bag, not two $2.00 bags
   { id: 'sodium_citrate', name: 'Sodium citrate', unit: 'g', baseline: 0.025, category: 'pantry' },
   { id: 'herb_generic', name: 'Herb (thyme/lavender)', unit: 'batch', baseline: 1.0, category: 'produce' },
   { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, category: 'pantry' },

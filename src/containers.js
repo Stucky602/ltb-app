@@ -301,7 +301,11 @@ export const isTrackedType = (t) => !UNTRACKED_TYPES.has(t);
 export const CATEGORY_TYPE_DEFAULTS = {
   sauces: 'round8',      // condiment scale, per the Alabama white sauce rule
   desserts: 'round16',
-  fruit: 'round16',
+  // Fresh cut fruit goes in the 38 oz RECTANGLE, not a round (Kevin, Jul 27).
+  // The cantaloupe and the pineapple are the whole category. This was round16,
+  // which is the tightest type in the fleet, so every fruit order was quietly
+  // competing with the rice dishes for a container it never needed.
+  fruit: 'rect38',
   breakfast: 'round16',
   // Add-ons go in JARS, per the Jul 26 audit: "every add-on Kevin can think of
   // → jar x1". They had no default, so they fell through to the round16
@@ -385,15 +389,47 @@ function isJarItem(it) {
 // Large as 3x; a two-size dish reads Large as 2x. Anything unrecognised stays
 // at 1, because inventing a multiplier is how a shortage check starts lying.
 export function portionMultiplier(it) {
-  const v = String((it && it.variant) || '').toLowerCase();
-  if (!v) return 1;
-  if (/\bmedium\b|\bmed\b|\(~6\)/.test(v)) return 2;
-  if (/\blarge\b|\bl\b|\(~8\)|\(~12\)/.test(v)) {
-    // On a dish that offers Medium, Large is the third step and triples.
-    return /\(~12\)/.test(v) ? 3 : 2;
-  }
-  return 1;
+  // THE SIZE WORD, RANKED AGAINST THE LADDER THAT DISH ACTUALLY OFFERS.
+  //
+  // Two earlier attempts got this wrong and tests/invariants.mjs caught both.
+  // Its rule is that variants of one dish must drift by the SAME percentage
+  // under a price shock, which is exactly the invariant a bad multiplier
+  // breaks.
+  //
+  //   v1 regexed the label for "large" and returned 2. A three-size dish came
+  //      out 1/2/2 while its ingredients scaled 1/2/3, so Steak au Poivre
+  //      drifted 8.5 / 8.5 / 8.0.
+  //   v2 used the variant's POSITION in the registry. That is right for a pure
+  //      size ladder and nonsense for the cumin dish, whose twelve variants are
+  //      protein x size x greens — "Beef, Small" is the fifth entry and is not
+  //      five times a small.
+  //
+  // So: read the SIZE WORD out of the label, and rank it against the sizes that
+  // dish actually offers. A dish with a Medium is a three-step ladder; one
+  // without is two-step. That is the same thing a person reading the menu
+  // would conclude.
+  const label = String((it && it.variant) || '').toLowerCase();
+  if (!label) return 1;
+
+  const sizeOf = (l) => (/\bmedium\b|\bmed\b/.test(l) ? 'medium'
+    : /\blarge\b/.test(l) ? 'large'
+    : /\bsmall\b/.test(l) ? 'small' : null);
+
+  const mine = sizeOf(label);
+  if (!mine || mine === 'small') return 1;
+
+  const name = it && it.name;
+  const dish = DISHES.find(d => d.name === name)
+    || Object.values(ALWAYS_ITEMS || {}).flat().find(d => d && d.name === name);
+  const sizes = new Set(((dish && dish.variants) || [])
+    .map(v => sizeOf(String(v.label).toLowerCase())).filter(Boolean));
+
+  if (mine === 'medium') return 2;
+  // Large is the third step only when a Medium exists to be the second.
+  return sizes.has('medium') ? 3 : 2;
 }
+
+
 
 export function containerTypesFor(it) {
   if (!it || !it.name) return [];

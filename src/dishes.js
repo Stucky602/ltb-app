@@ -100,8 +100,8 @@ export const DISHES = [
       // component). Per-variant + fixed so it never doubles under the ×2
       // Large factor: $2 bag on Small, one longer $3 bag on Large.
       extras: {
-        'Small (~4)': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Large (~8)': [{ ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Small (~4)': [I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Large (~8)': [I('Sous vide bag + butter + herbs (costed)', 2, '')],
       },
     },
   },
@@ -352,12 +352,12 @@ export const DISHES = [
         // shrimp (pesc) variants, chicken for the chicken ones. 32 oz on every
         // variant, and vegetable_stock is priceLinked to chicken_stock, so the
         // cost anchors are unchanged by this split.
-        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
-        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb'), I('Chicken stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb'), I('Chicken stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
-        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb'), I('Vegetable stock', 32, 'oz'), { ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Chickpea, Small (~4-5)': [I('Chickpeas', 2, 'lb'), I('Vegetable stock', 32, 'oz'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Chickpea, Large (~8-10)': [I('Chickpeas', 2, 'lb'), I('Vegetable stock', 32, 'oz'), I('Sous vide bag + butter + herbs (costed)', 2, '')],
+        'Chicken, Small (~4-5)': [I('Chicken thighs', 2, 'lb'), I('Chicken stock', 32, 'oz'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Chicken, Large (~8-10)': [I('Chicken thighs', 2, 'lb'), I('Chicken stock', 32, 'oz'), I('Sous vide bag + butter + herbs (costed)', 2, '')],
+        'Shrimp, Small (~4-5)': [I('Shrimp', 2, 'lb'), I('Vegetable stock', 32, 'oz'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Shrimp, Large (~8-10)': [I('Shrimp', 2, 'lb'), I('Vegetable stock', 32, 'oz'), I('Sous vide bag + butter + herbs (costed)', 2, '')],
       },
     },
   },
@@ -418,8 +418,8 @@ export const DISHES = [
       // ONE sous vide bag per dish (kabocha + carrots share one bag). Fixed +
       // per-variant: $2 on Small, one longer $3 bag on Large.
       extras: {
-        'Small (split order, ~4)': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Large (~8)': [{ ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Small (split order, ~4)': [I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Large (~8)': [I('Sous vide bag + butter + herbs (costed)', 2, '')],
       },
     },
     stewVegCopy: {
@@ -1280,8 +1280,8 @@ export const DISHES = [
         // never both. Pasta only applies to the non-Polenta variants.
         'Small (~4 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
         'Large (~8 servings)': [I('Pasta (ask customer for shape!)', 1, 'lb')],
-        'Small (~4 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Large (~8 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Small (~4 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Large (~8 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
       },
     },
   },
@@ -1343,8 +1343,8 @@ export const DISHES = [
       // of base and made per-variant + fixed: the old base line doubled to 2
       // bags on Large (factor 2). Now $2 on Small, one longer $3 bag on Large.
       extras: {
-        'Small (~3 servings)': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'Large (~6 servings)': [{ ...I('Sous vide bag + butter + herbs (costed, large)', 1, ''), fixed: true }],
+        'Small (~3 servings)': [I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Large (~6 servings)': [I('Sous vide bag + butter + herbs (costed)', 2, '')],
       },
     },
   },
@@ -1422,7 +1422,7 @@ export const DISHES = [
         // Polenta REPLACES the pasta, same as Saffron Ragu. Egg pappardelle is
         // required on the pasta variant (this dish isn't the same without it).
         'Small (~4-5 servings)': [I('Egg pappardelle', 2, 'pack')],
-        'Small (~4-5 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        'Small (~4-5 servings) + Polenta': [I('Polenta', 1, 'cup'), I('Good parm', 1, 'oz'), I('Butter', 0.25, 'stick'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
       },
     },
   },
@@ -1723,8 +1723,8 @@ export const DISHES = [
       // ~4-serving, factor 1), so both carry the $2 bag. If Kevin wants Boeuf
       // treated as a "large" dish with the $3 bag, swap the costed string.
       extras: {
-        '~4 servings': [{ ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
-        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb'), { ...I('Sous vide bag + butter + herbs (costed)', 1, ''), fixed: true }],
+        '~4 servings': [I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'With 1 lb mushrooms': [I('Mushrooms', 1, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')],
       },
     },
     // Dedicated 2-paragraph reheat card (main + veg bag) — never combined

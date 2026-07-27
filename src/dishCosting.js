@@ -515,7 +515,11 @@ function wrapLines(dishName, variant) {
       // is nothing to count. Untracked and uncharged are different things, and
       // conflating them is what caused this.
       if (!isTrackedType(type)) {
-        out.push({ id: 'sv_bag', qty, fixed: true, staple: false });
+        // fixed: FALSE, deliberately, and it is the one packaging line that is.
+        // Containers are passthrough — they cost money and change nothing about
+        // the work. A bag is labour: sealing, butter, herbs. So it drifts with
+        // its own price and reaches the margin like an ingredient.
+        out.push({ id: 'sv_bag', qty, fixed: false, staple: false });
         continue;
       }
       out.push({ id: 'ctn_' + type, qty, fixed: true, staple: false });

@@ -423,8 +423,11 @@ const SAMPLE_ORDERS = [
       for (let k = 0; k < qty; k++) tally[t] = (tally[t] || 0) + 1;
     }
   }
-  ok(tally.round16 === 6,
-    `that week needs SIX 16 oz rounds, not nineteen (got ${tally.round16})`);
+  // FIVE, not the nineteen the catch-all reported. The cantaloupe resolves to a
+  // rect38 of its own, so every one of these is a real dinner: Gumbo, the black
+  // bean, and three Thai Basil. Kevin owns five.
+  ok(tally.round16 === 5,
+    `that week needs FIVE 16 oz rounds, not nineteen (got ${tally.round16})`);
   ok(tally.jar === 5, 'the five quesos are five jars');
   ok(tally.bag === 16, 'and sixteen things are bagged');
   ok(!tally.rectXL, 'nothing wandered into the cookie container');

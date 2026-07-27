@@ -456,7 +456,12 @@ for (const rec of [...DISHES, ...ALL_ALWAYS_ITEMS]) {
     if (bagQty > 0) {
       const bagLine = resolved.find(r => r.id === 'sv_bag');
       if (!bagLine) F('wrap-bag', `"${rec.name}" carries ${bagQty} bag(s) in the audit and charges for none`);
-      else if (!bagLine.fixed) F('wrap-bag', `"${rec.name}" bag line is drifting — it must be fixed`);
+      // The bag line MUST drift, unlike every container. Kevin, Jul 27: using a
+      // sous vide bag takes time versus dumping into a container, so it is an
+      // input with labour attached rather than passthrough packaging. A fixed
+      // line lands in raw cost and is excluded from the drift ratio, which is
+      // right for a container and wrong for this.
+      else if (bagLine.fixed) F('wrap-bag', `"${rec.name}" bag line is FIXED — bags must drift, only containers are passthrough`);
     }
     if (pack.some(pl => pl.id === 'wrap')) {
       F('wrap', `"${rec.name}" is audited but still carries the generic wrap proxy — that is the double-charge`);

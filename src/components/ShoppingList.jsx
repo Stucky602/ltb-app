@@ -221,6 +221,82 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
         </>}
       </div>
 
+      {/* ── Container Inventory ────────────────────────────────────────────────
+          Sits at the very bottom, under the add-on tracker, because it is the
+          thing Kevin looks at least often and needs most on a Sunday.
+
+          THE OWNED COUNT IS THE ONLY EDITABLE NUMBER. `out` is derived from
+          delivered orders through the audited container mapping, so typing over
+          it would be inventing data the mapping already knows. Buying more
+          containers, losing one, or finding a stack in the garage are all
+          changes to OWNED, which is exactly what the override is for.
+
+          `on hand` is owned minus out and is deliberately shown as AT LEAST.
+          Returns are logged as a count and not by type, so the exact per-type
+          figure is somewhere between this and owned. Saying "at least" is the
+          honest version of a number the data cannot pin down. ── */}
+      {custody && (
+        <div style={styles.inventorySection}>
+          <button style={styles.collapsibleHeader} onClick={() => setContainersOpen(o => !o)}>
+            <span style={styles.inventoryTitle}>
+              Container Inventory
+              {custody.outstanding > 0 && ` \u00b7 ${custody.outstanding} out`}
+            </span>
+            <span style={styles.collapseChevron}>{containersOpen ? '\u25b2' : '\u25bc'}</span>
+          </button>
+          {containersOpen && <>
+            <div style={{ fontSize: 12, color: '#9aa5a0', lineHeight: 1.5, margin: '4px 0 10px' }}>
+              Out is counted from delivered orders using the audited container map, so it
+              moves on its own. Owned is yours to correct.
+            </div>
+
+            {custody.rows.map(r => (
+              <div key={r.type} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #2d3a36' }}>
+                <span style={{ flex: 1, fontSize: 13.5, color: '#e8e6df' }}>{r.label}</span>
+                <span style={{ fontSize: 12, color: r.out > 0 ? '#D4A050' : '#5c6b66', minWidth: 52, textAlign: 'right' }}>
+                  {r.out} out
+                </span>
+                <span style={{ fontSize: 12, color: r.onHandMin === 0 ? '#e0828a' : '#9aa5a0', minWidth: 76, textAlign: 'right' }}>
+                  {'\u2265'}{r.onHandMin} here
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  value={r.owned}
+                  onChange={e => onSetOwned(r.type, e.target.value)}
+                  style={{ width: 58, background: '#14201d', border: '1px solid #2d3a36', borderRadius: 7,
+                    color: '#e8e6df', fontSize: 13, padding: '6px 7px', textAlign: 'center' }}
+                />
+              </div>
+            ))}
+
+            <div style={{ fontSize: 11.5, color: '#5c6b66', marginTop: 6 }}>
+              The number on the right is how many you own. Sous vide bags are not tracked:
+              they are not reusable.
+            </div>
+
+            {custody.holders && custody.holders.length > 0 && (
+              <>
+                <div style={{ ...styles.inventoryTitle, marginTop: 14, fontSize: 13 }}>Who has them</div>
+                <div style={{ fontSize: 11.5, color: '#5c6b66', marginBottom: 4 }}>
+                  What went out to each person, less what they have brought back. Returns are
+                  logged as a count rather than by type, so the list is what they received.
+                </div>
+                {custody.holders.map(h => (
+                  <div key={h.customer} style={{ padding: '6px 0', borderTop: '1px solid #2d3a36' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <span style={{ flex: 1, fontSize: 13, color: '#e8e6df' }}>{h.customer}</span>
+                      <span style={{ fontSize: 12, color: '#D4A050' }}>{h.outstanding} out</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#9aa5a0', marginTop: 2 }}>
+                      {Object.entries(h.types).map(([t, n]) => `${n}\u00d7 ${t}`).join(' \u00b7 ')}
+                      {h.returned > 0 ? ` \u00b7 ${h.returned} returned` : ''}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
       {/* ── Single-dish ingredient list picker ───────────────────────────── */}
       <div style={styles.genCard}>
         <button style={styles.collapsibleHeader} onClick={() => { setDishPickerOpen(o => !o); setPickerDish(null); }}>
@@ -411,81 +487,6 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
 
 
 
-      {/* ── Container Inventory ────────────────────────────────────────────────
-          Sits at the very bottom, under the add-on tracker, because it is the
-          thing Kevin looks at least often and needs most on a Sunday.
-
-          THE OWNED COUNT IS THE ONLY EDITABLE NUMBER. `out` is derived from
-          delivered orders through the audited container mapping, so typing over
-          it would be inventing data the mapping already knows. Buying more
-          containers, losing one, or finding a stack in the garage are all
-          changes to OWNED, which is exactly what the override is for.
-
-          `on hand` is owned minus out and is deliberately shown as AT LEAST.
-          Returns are logged as a count and not by type, so the exact per-type
-          figure is somewhere between this and owned. Saying "at least" is the
-          honest version of a number the data cannot pin down. ── */}
-      {custody && (
-        <div style={styles.inventorySection}>
-          <button style={styles.collapsibleHeader} onClick={() => setContainersOpen(o => !o)}>
-            <span style={styles.inventoryTitle}>
-              Container Inventory
-              {custody.outstanding > 0 && ` \u00b7 ${custody.outstanding} out`}
-            </span>
-            <span style={styles.collapseChevron}>{containersOpen ? '\u25b2' : '\u25bc'}</span>
-          </button>
-          {containersOpen && <>
-            <div style={{ fontSize: 12, color: '#9aa5a0', lineHeight: 1.5, margin: '4px 0 10px' }}>
-              Out is counted from delivered orders using the audited container map, so it
-              moves on its own. Owned is yours to correct.
-            </div>
-
-            {custody.rows.map(r => (
-              <div key={r.type} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #2d3a36' }}>
-                <span style={{ flex: 1, fontSize: 13.5, color: '#e8e6df' }}>{r.label}</span>
-                <span style={{ fontSize: 12, color: r.out > 0 ? '#D4A050' : '#5c6b66', minWidth: 52, textAlign: 'right' }}>
-                  {r.out} out
-                </span>
-                <span style={{ fontSize: 12, color: r.onHandMin === 0 ? '#e0828a' : '#9aa5a0', minWidth: 76, textAlign: 'right' }}>
-                  {'\u2265'}{r.onHandMin} here
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  value={r.owned}
-                  onChange={e => onSetOwned(r.type, e.target.value)}
-                  style={{ width: 58, background: '#14201d', border: '1px solid #2d3a36', borderRadius: 7,
-                    color: '#e8e6df', fontSize: 13, padding: '6px 7px', textAlign: 'center' }}
-                />
-              </div>
-            ))}
-
-            <div style={{ fontSize: 11.5, color: '#5c6b66', marginTop: 6 }}>
-              The number on the right is how many you own. Sous vide bags are not tracked:
-              they are not reusable.
-            </div>
-
-            {custody.holders && custody.holders.length > 0 && (
-              <>
-                <div style={{ ...styles.inventoryTitle, marginTop: 14, fontSize: 13 }}>Who has them</div>
-                <div style={{ fontSize: 11.5, color: '#5c6b66', marginBottom: 4 }}>
-                  What went out to each person, less what they have brought back. Returns are
-                  logged as a count rather than by type, so the list is what they received.
-                </div>
-                {custody.holders.map(h => (
-                  <div key={h.customer} style={{ padding: '6px 0', borderTop: '1px solid #2d3a36' }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <span style={{ flex: 1, fontSize: 13, color: '#e8e6df' }}>{h.customer}</span>
-                      <span style={{ fontSize: 12, color: '#D4A050' }}>{h.outstanding} out</span>
-                    </div>
-                    <div style={{ fontSize: 11.5, color: '#9aa5a0', marginTop: 2 }}>
-                      {Object.entries(h.types).map(([t, n]) => `${n}\u00d7 ${t}`).join(' \u00b7 ')}
-                      {h.returned > 0 ? ` \u00b7 ${h.returned} returned` : ''}
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
           </>}
         </div>
       )}

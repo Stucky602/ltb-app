@@ -253,11 +253,20 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
             {custody.rows.map(r => (
               <div key={r.type} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #2d3a36' }}>
                 <span style={{ flex: 1, fontSize: 13.5, color: '#e8e6df' }}>{r.label}</span>
+                {/* THE HEDGE ONLY APPEARS WHEN IT MEANS SOMETHING.
+                    This used to read "{'\u2265'}5 here" unconditionally, which
+                    with nothing out is just the owned count wearing a symbol
+                    that implies doubt where there is none. Kevin read it as a
+                    random number rather than as his own inventory.
+
+                    Returns are logged as a count and not by type, so the exact
+                    per-type figure is only uncertain once something is out AND
+                    some of it has come back. Until then it is simply known. */}
                 <span style={{ fontSize: 12, color: r.out > 0 ? '#D4A050' : '#5c6b66', minWidth: 52, textAlign: 'right' }}>
-                  {r.out} out
+                  {r.out > 0 ? `${r.out} out` : 'none out'}
                 </span>
-                <span style={{ fontSize: 12, color: r.onHandMin === 0 ? '#e0828a' : '#9aa5a0', minWidth: 76, textAlign: 'right' }}>
-                  {'\u2265'}{r.onHandMin} here
+                <span style={{ fontSize: 12, color: r.onHandMin === 0 ? '#e0828a' : '#9aa5a0', minWidth: 82, textAlign: 'right' }}>
+                  {custody.perTypeIsUpperBound && r.out > 0 ? '\u2265' : ''}{r.onHandMin} on hand
                 </span>
                 <input
                   type="number"
@@ -271,8 +280,10 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
             ))}
 
             <div style={{ fontSize: 11.5, color: '#5c6b66', marginTop: 6 }}>
-              The number on the right is how many you own. Sous vide bags are not tracked:
-              they are not reusable.
+              The box on the right is how many you own — edit it any time. On hand is that
+              minus whatever is out.
+              {custody.perTypeIsUpperBound && ' Returns are logged as a count rather than by type, so where you see \u2265 the exact figure for that type is at least this.'}
+              {' '}Sous vide bags are not tracked: they are not reusable.
             </div>
 
             {custody.holders && custody.holders.length > 0 && (

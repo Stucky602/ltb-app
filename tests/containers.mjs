@@ -377,4 +377,57 @@ const SAMPLE_ORDERS = [
     'and it has the rice container the audit gave it');
 }
 
+
+// ── BAGGED ITEMS CONSUME NO TRACKED CONTAINER ───────────────────────────────
+// THE 19-VS-5 BUG, Jul 27. The type resolver ended in a catch-all that returned
+// round16 for anything with a category and no mapping. Every "stuff in a bag"
+// item hit it, so a real week reported needing NINETEEN sixteen-ounce rounds
+// when six were real, and the shortage banner fired on a number that was three
+// quarters invented.
+//
+// It was dangerous rather than merely wrong for two reasons: round16 is the
+// tightest type in the fleet, so the warning looked completely plausible; and
+// nothing threw, so the only way to catch it was for Kevin to read the number
+// and find it absurd.
+{
+  const bagged = ['Filet Mignon', 'Pork Tenderloin', 'Baby Gold Potatoes', 'Carrots',
+    'Corn (off the cob)', 'Garlic Confit', 'Asparagus', 'Kabocha Squash'];
+  for (const name of bagged) {
+    const t = containerTypesFor({ name, variant: 'By weight' });
+    ok(t.length === 1 && t[0] === 'bag', `${name} ships in a bag and consumes no tracked container`);
+  }
+
+  // Add-ons go in jars, per the audit. Queso had no default and fell to the
+  // catch-all, so five quesos read as five sixteen-ounce rounds.
+  ok(containerTypesFor({ name: 'Queso', variant: 'With jar swap' })[0] === 'jar',
+    'an add-on goes in a jar, not the catch-all container');
+
+  // The real week from Kevin's Cook tab on Jul 27, reproduced end to end.
+  const WEEK = [
+    ['Gumbo', 'Small (split order, ~4)', 1],
+    ['Saffron Pork Ragu', 'Small (~4 servings)', 2],
+    ['Shrimp or Tofu with Asparagus in Black Bean Sauce', 'Tofu, Small Batch (~3-4)', 1],
+    ['Thai Basil Chicken (Pad Krapow Gai)', 'Small (~3-4)', 3],
+    ['Seasonal Cantaloupe', 'Per Container', 1],
+    ['Queso', 'With jar swap', 5],
+    ['Baby Gold Potatoes', '~2 servings', 3],
+    ['Carrots', '~2 servings', 1],
+    ['Corn (off the cob)', '~2 servings', 3],
+    ['Filet Mignon', 'By weight', 2],
+    ['Garlic Confit', '6 oz bag', 1],
+    ['Pork Tenderloin', 'By weight', 2],
+  ];
+  const tally = {};
+  for (const [name, variant, qty] of WEEK) {
+    for (const t of containerTypesFor({ name, variant })) {
+      for (let k = 0; k < qty; k++) tally[t] = (tally[t] || 0) + 1;
+    }
+  }
+  ok(tally.round16 === 6,
+    `that week needs SIX 16 oz rounds, not nineteen (got ${tally.round16})`);
+  ok(tally.jar === 5, 'the five quesos are five jars');
+  ok(tally.bag === 16, 'and sixteen things are bagged');
+  ok(!tally.rectXL, 'nothing wandered into the cookie container');
+}
+
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

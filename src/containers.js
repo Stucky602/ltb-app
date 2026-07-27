@@ -45,6 +45,7 @@ import { itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
 import { perLbBagCount, orderOutboundJars, jarsOutForRegular, JAR_LEDGER_EPOCH } from './utils.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
+import { ALWAYS_MENU } from './menu.js';
 
 // RESET Jul 26, and the reset is the point rather than an accident.
 //
@@ -302,6 +303,11 @@ export const CATEGORY_TYPE_DEFAULTS = {
   desserts: 'round16',
   fruit: 'round16',
   breakfast: 'round16',
+  // Add-ons go in JARS, per the Jul 26 audit: "every add-on Kevin can think of
+  // → jar x1". They had no default, so they fell through to the round16
+  // catch-all — which meant five quesos read as five sixteen-ounce rounds and
+  // helped push a week's demand to 19 when the true figure was 6.
+  addons: 'jar',
 };
 // Per-dish single-type overrides, for dishes that need a non-default box but
 // are not multi-container. Cheaper to edit than DISH_CONTAINERS.
@@ -309,6 +315,12 @@ export const CATEGORY_TYPE_OVERRIDES = {
   // 'Some Dessert': 'round8',
 };
 export const DEFAULT_DINNER_TYPE = 'round32'; // the workhorse
+
+// Everything that ships in a sous vide bag, from the menu itself rather than a
+// second hand-typed list. Per-lb proteins, sous vide veg, and the confit.
+export const BAGGED_NAMES = new Set(
+  (ALWAYS_MENU.bag || []).map(d => (typeof d === 'string' ? d : d && d.name)).filter(Boolean),
+);
 
 // Dinners whose name suggests several components, per Kevin's own conventions:
 // `with` attaches accompaniments, `and` joins co-equal parts, `over` a base.
@@ -414,7 +426,31 @@ export function containerTypesFor(it) {
   const cat = CATEGORY_OF[it.name] || null;
   if (cat && CATEGORY_TYPE_OVERRIDES[cat]) return [CATEGORY_TYPE_OVERRIDES[cat]];
   if (cat && CATEGORY_TYPE_DEFAULTS[cat]) return [CATEGORY_TYPE_DEFAULTS[cat]];
+  // BAGGED ITEMS CONSUME NO TRACKED CONTAINER. ALWAYS_MENU.bag is the
+  // authoritative list — it is what the Cook tab groups under "Stuff in a bag"
+  // — and every one of them ships in a sous vide bag: the per-lb proteins, the
+  // sous vide veg, and the confit.
+  //
+  // THIS WAS THE 19-VS-5 BUG. The catch-all below used to return round16 for
+  // anything with a category and no mapping, so a week with a lot of bagged
+  // items reported needing 19 sixteen-ounce rounds when only 5 were real. The
+  // shortage banner fired on a number made almost entirely of items that use no
+  // container at all, and the one type it fired on is the type that is actually
+  // tight — so the warning looked plausible, which is what made it dangerous.
+  //
+  // Checked BEFORE the catch-all rather than added to CATEGORY_TYPE_DEFAULTS,
+  // because 'bag' is not a container type with a default: it is the absence of
+  // one, and it must never be reachable by a fallback that means "we do not
+  // know".
+  if (BAGGED_NAMES.has(it.name)) return ['bag'];
+
   if (DINNER_NAMES.has(it.name) || !cat) return [DEFAULT_DINNER_TYPE];
+
+  // The last resort. Reaching here means an item exists in a category with no
+  // default and no mapping, which is a REGISTRY GAP rather than a container
+  // decision. round16 is the least-wrong guess and it is also the tightest type
+  // in the fleet, so a gap shows up as a shortage rather than hiding. If this
+  // fires for something real, map it properly.
   return ['round16'];
 }
 
@@ -518,10 +554,40 @@ export function containerCustody(orders, config) {
     }))
     .filter(r => r.out > 0 || r.owned > 0);
 
+  // WHO HAS WHAT. Grouped by customer from delivered orders inside the window,
+  // minus the returns logged against those same orders. Returns are a COUNT and
+  // not typed, so a customer's per-type list is what went OUT to them; the
+  // `returned` figure on the row is how many of any type have come back.
+  //
+  // House orders are included, because the containers are just as gone.
+  const byCustomer = new Map();
+  for (const o of delivered) {
+    const who = String(o.customer || 'Unknown').trim() || 'Unknown';
+    const b = orderContainerBreakdown(o);
+    const rec = byCustomer.get(who) || { customer: who, types: {}, total: 0, returned: 0, orders: 0 };
+    let any = false;
+    for (const t of CONTAINER_TYPE_ORDER) {
+      if (t === 'jar' || !isTrackedType(t)) continue;
+      const n = b[t] || 0;
+      if (!n) continue;
+      rec.types[t] = (rec.types[t] || 0) + n;
+      rec.total += n;
+      any = true;
+    }
+    rec.returned += Number(o.containerReturns) || 0;
+    if (any) rec.orders += 1;
+    byCustomer.set(who, rec);
+  }
+  const holders = [...byCustomer.values()]
+    .map(r => ({ ...r, outstanding: Math.max(0, r.total - r.returned) }))
+    .filter(r => r.outstanding > 0)
+    .sort((a, b) => b.outstanding - a.outstanding);
+
   const totalOut = rows.reduce((n, r) => n + r.out, 0);
   return {
     since: MEAL_CONTAINER_EPOCH,
     rows,
+    holders,
     totalOut,
     returned,
     // The pooled outstanding figure, which IS exact.

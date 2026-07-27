@@ -97,6 +97,7 @@ import * as fb from './feedbackSync.js';
 import * as ing from './ingredientOps.js';
 import * as pub from './publishWeek.js';
 import * as poll from './pendingPoll.js';
+import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
 import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
 import { RowanLogCard } from './components/RowanLogCard.jsx';
@@ -227,6 +228,18 @@ export default function LTBOrderTracker() {
     setDishRankings(prev => {
       const next = addRanking(prev || [], ranking);
       saveJSON(DISH_RANKING_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  // Owned container counts are the ONE editable number in the inventory panel;
+  // `out` is derived from delivered orders through the audited map, so it is not
+  // something to type over. Buying more, losing one, or finding a stack in the
+  // garage are all changes to OWNED.
+  const setOwnedContainers = useCallback((type, value) => {
+    setContainerConfig(prev => {
+      const cur = normalizeContainerConfig(prev);
+      const next = { ...cur, owned: { ...cur.owned, [type]: Math.max(0, Number(value) || 0) } };
+      saveJSON(CONTAINER_INVENTORY_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -1499,6 +1512,9 @@ export default function LTBOrderTracker() {
 
         {view === 'shop' && (
           <ShoppingList
+            custody={containerCustody(orders || [], containerConfig)}
+            containerConfig={containerConfig}
+            onSetOwned={setOwnedContainers}
             items={shopping}
             onChange={persistShopping}
             onGenerate={generateShopping}

@@ -500,12 +500,25 @@ function wrapLines(dishName, variant) {
     const mult = portionMultiplier({ name: dishName, variant });
     const out = [];
     for (const [type, n] of Object.entries(mix)) {
-      // Bags are covered by the customer-facing $1.50 bag charge and by the
-      // sv_bag recipe lines. Charging them here would be the third path for one
-      // consumable.
-      if (!isTrackedType(type)) continue;
       const qty = (Number(n) || 0) * mult;
-      if (qty > 0) out.push({ id: 'ctn_' + type, qty, fixed: true, staple: false });
+      if (qty <= 0) continue;
+      // BAGS ARE CHARGED. This used to skip them, on the reasoning that they
+      // were "covered by the $1.50 bag charge" — which was WRONG and made
+      // margins on fifteen bagged dinners look better than they are.
+      //
+      // perLbBagCharge() applies only to per-lb PROTEIN items. A dinner that
+      // ships three bags never touches it, and dinner recipes carry no sv_bag
+      // lines either. So the bags on those fifteen dishes were free, and the
+      // old flat $1 wrap proxy had been crudely covering them.
+      //
+      // `bag` is still UNTRACKED for the fleet — it is not reusable and there
+      // is nothing to count. Untracked and uncharged are different things, and
+      // conflating them is what caused this.
+      if (!isTrackedType(type)) {
+        out.push({ id: 'sv_bag', qty, fixed: true, staple: false });
+        continue;
+      }
+      out.push({ id: 'ctn_' + type, qty, fixed: true, staple: false });
     }
     return out;
   }

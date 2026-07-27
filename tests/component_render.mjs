@@ -90,6 +90,25 @@ const CASES = [
   // Collapsed is the default and the only state app_render can reach, so this
   // pins that the header renders and the form is genuinely absent rather than
   // hidden with CSS (which would still be in the DOM and still be tabbable).
+  // The container inventory lives at the bottom of the Shop tab. app_render only
+  // ever sees it COLLAPSED on a clean boot, so the populated state is pinned here.
+  ['ShoppingList', './src/components/ShoppingList.jsx',
+    `{ items: [], onChange: () => {}, onGenerate: () => {}, activeCount: 2, estCost: 0,
+       weekDishes: [], inventory: {}, onAdjustInventory: () => {}, onSetInventory: () => {},
+       includeStaples: false, onToggleStaples: () => {},
+       onSetOwned: () => {},
+       containerConfig: { owned: { round16: 5, round48: 6 }, mealAdjust: 0 },
+       custody: {
+         since: Date.parse('2026-07-26'), totalOut: 4, returned: 1, outstanding: 3,
+         perTypeIsUpperBound: true,
+         rows: [
+           { type: 'round16', label: '16 oz round', owned: 5, out: 1, outstandingMax: 1, onHandMin: 4 },
+           { type: 'round48', label: '48 oz round', owned: 6, out: 3, outstandingMax: 3, onHandMin: 3 },
+         ],
+         holders: [
+           { customer: 'Mom', types: { round48: 3, round16: 1 }, total: 4, returned: 1, orders: 2, outstanding: 3 },
+         ],
+       } }`],
   ['RowanLogCard', './src/components/RowanLogCard.jsx',
     `{ dishNames: ['Bo Ssam', 'Pappardelle'], onLog: () => {} }`],
   ['RowanTab', './src/components/RowanTab.jsx',

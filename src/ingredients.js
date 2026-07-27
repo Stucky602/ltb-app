@@ -218,8 +218,21 @@ export const INGREDIENT_SEED = [
   { id: 'cider_vinegar', name: 'Apple cider vinegar', unit: 'oz', baseline: 0.0522, category: 'pantry' }, // Hill Country Fare 64oz $3.34 -> $0.0522/oz (HEB, Jul 17). Price cut is permanent, not a sale.
   { id: 'cornstarch', name: 'Cornstarch', unit: 'batch-use', baseline: 0.1, category: 'pantry' },
   { id: 'wrap', name: 'Packaging (wrap/jar)', unit: 'each', baseline: 1.0, category: 'pantry', fixed: true },
-  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 2.0, category: 'pantry', fixed: true }, // composed sous vide dishes: bag + seasoning cost tracked separately from packaging ($2.00 small; Large braises use sv_bag_large $3.00)
-  { id: 'sv_bag_large', name: 'Sous vide bag + butter + herbs (large)', unit: 'each', baseline: 3.0, category: 'pantry', fixed: true }, // longer bag + a little more seasoning for Large braises: one $3.00 bag, not two $2.00 bags
+  // BAG COST DERIVED Jul 27, replacing a made-up $2.00 that was 2.5x reality.
+  //   film    $0.3745  H-E-B Texas Tough, $14.98 for 2 rolls of 8in x 20ft.
+  //                    40 ft = 480 inches; ~12 inches a bag = 40 bags a box.
+  //   butter  $0.2375  2 tbsp of an 8-tbsp stick at $0.95.
+  //   thyme   $0.1993  one sprig, which IS one twentieth of a container —
+  //                    thyme_fresh is already priced per sprig and the two agree
+  //                    to a tenth of a cent, which is what says this is right.
+  //   TOTAL   $0.8113
+  // Everything bagged gets the butter and the thyme, so they belong to the bag
+  // rather than to separate recipe lines.
+  { id: 'sv_bag', name: 'Sous vide bag + butter + herbs', unit: 'each', baseline: 0.8113, category: 'pantry', fixed: true },
+  // LARGE: film scaled to 18 inches ($0.5618); butter and thyme do not change
+  // with bag size. ASSUMPTION — Kevin gave 12 inches as the AVERAGE and did not
+  // state a large. Ask before trusting this one.
+  { id: 'sv_bag_large', name: 'Sous vide bag + butter + herbs (large)', unit: 'each', baseline: 0.9986, category: 'pantry', fixed: true }, // longer bag + a little more seasoning for Large braises: one $3.00 bag, not two $2.00 bags
   { id: 'sodium_citrate', name: 'Sodium citrate', unit: 'g', baseline: 0.025, category: 'pantry' },
   { id: 'herb_generic', name: 'Herb (thyme/lavender)', unit: 'batch', baseline: 1.0, category: 'produce' },
   { id: 'chicken_stock', name: 'Chicken stock', unit: 'cup', baseline: 0.745, category: 'pantry' },

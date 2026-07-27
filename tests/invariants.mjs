@@ -448,6 +448,16 @@ for (const rec of [...DISHES, ...ALL_ALWAYS_ITEMS]) {
     if (pack.length !== tracked.length) {
       F('wrap', `"${rec.name}" resolved ${pack.length} packaging line(s), audit says ${tracked.length}`);
     }
+    // Bags must be CHARGED even though they are untracked for the fleet. Fifteen
+    // dinners carry them, and they were free for a day because "untracked" was
+    // conflated with "free". That inflated margins on every bagged dish.
+    const bagQty = Object.entries(DISH_CONTAINERS[rec.name]).filter(([t]) => !isTrackedType(t))
+      .reduce((n, [, q]) => n + (Number(q) || 0), 0);
+    if (bagQty > 0) {
+      const bagLine = resolved.find(r => r.id === 'sv_bag');
+      if (!bagLine) F('wrap-bag', `"${rec.name}" carries ${bagQty} bag(s) in the audit and charges for none`);
+      else if (!bagLine.fixed) F('wrap-bag', `"${rec.name}" bag line is drifting — it must be fixed`);
+    }
     if (pack.some(pl => pl.id === 'wrap')) {
       F('wrap', `"${rec.name}" is audited but still carries the generic wrap proxy — that is the double-charge`);
     }

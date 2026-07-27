@@ -24,12 +24,34 @@ const CFG = {
   ],
 };
 
-function boot(html, cfg, store) {
+// FROZEN TO A WEDNESDAY BY DEFAULT.
+//
+// This used to boot at the real current time, and several pages gate on the
+// order window (open Wednesday through Sunday). form.html returns EARLY when
+// orders are closed, so its omakase card does not exist on a Monday or a
+// Tuesday, and this whole suite failed two days in seven and passed the other
+// five.
+//
+// That is the worst shape a failing test can take: it fails on a schedule, so
+// it looks like whoever touched the code last broke it. It cost most of a
+// session being bisected as a regression before anyone checked the clock.
+//
+// None of the assertions here are ABOUT the order window — the three that are
+// use bootAt() with an explicit day. So the default is pinned to an open day
+// and these test what they mean to test.
+const DEFAULT_DAY = '2026-07-29T10:00:00'; // a Wednesday
+
+function boot(html, cfg, store, dayISO) {
   const s = store || {};
+  const day = dayISO || DEFAULT_DAY;
   return new JSDOM(html, {
     runScripts: 'dangerously',
     url: 'https://x.test/',
     beforeParse(w) {
+      const Real = w.Date;
+      const Fake = function (...a) { return a.length ? new Real(...a) : new Real(day); };
+      Fake.now = () => new Real(day).getTime(); Fake.parse = Real.parse; Fake.UTC = Real.UTC;
+      Fake.prototype = Real.prototype; w.Date = Fake;
       w.fetch = () => Promise.resolve({ json: () => Promise.resolve(cfg) });
       Object.defineProperty(w, 'localStorage', {
         value: {

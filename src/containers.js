@@ -575,20 +575,37 @@ export function containerCustody(orders, config) {
   let returned = 0;
   for (const o of since) returned += Number(o.containerReturns) || 0;
 
+  // EVERY TRACKED TYPE GETS A ROW, ALWAYS. Jars included — they are a real part
+  // of the fleet Kevin counts (23 of them) even though their OUTSTANDING side is
+  // tracked by the separate jar ledger rather than by containerReturns, which is
+  // why the outbound sum above skips them.
+  //
+  // THERE IS NO `.filter()` HERE AND THERE MUST NOT BE ONE. A filter on
+  // `owned > 0` was the original shape and it was a data-loss bug: backspacing
+  // the owned field to empty made the row evaluate to 0, which dropped it from
+  // this list, which unmounted the input mid-edit. The count was gone and there
+  // was no way to type it back, because the box you would type into had just
+  // been removed. A row is a property of the REGISTRY, not of its current
+  // value; a type you own zero of is exactly the row you most need visible in
+  // order to fix it.
   const rows = CONTAINER_TYPE_ORDER
-    .filter(t => t !== 'jar' && isTrackedType(t))
+    .filter(t => isTrackedType(t))
     .map(t => ({
       type: t,
       label: CONTAINER_TYPES[t].label,
       owned: cfg.owned[t] || 0,
-      out: out[t],
+      // Jars go out on orders too, but their return side lives in the jar
+      // ledger, so `out` here would be a half-truth. Reported as 0 rather than
+      // as a number that only counts one direction.
+      out: t === 'jar' ? 0 : out[t],
       // UPPER BOUND. Returns are pooled, so the true figure for any one type is
       // somewhere between this and (out - returned). Named so no caller can
       // mistake it for an exact count.
-      outstandingMax: out[t],
-      onHandMin: Math.max(0, (cfg.owned[t] || 0) - out[t]),
-    }))
-    .filter(r => r.out > 0 || r.owned > 0);
+      outstandingMax: t === 'jar' ? 0 : out[t],
+      onHandMin: Math.max(0, (cfg.owned[t] || 0) - (t === 'jar' ? 0 : out[t])),
+      // Tells the panel not to imply the outstanding figure is meaningful here.
+      outTrackedElsewhere: t === 'jar',
+    }));
 
   // WHO HAS WHAT. Grouped by customer from delivered orders inside the window,
   // minus the returns logged against those same orders. Returns are a COUNT and

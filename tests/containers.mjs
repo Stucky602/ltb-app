@@ -19,7 +19,7 @@ import {
   CONTAINER_TYPES, CONTAINER_TYPE_ORDER, DEFAULT_OWNED, MEAL_CONTAINER_EPOCH,
   normalizeContainerConfig, containerTypesFor, orderContainerBreakdown,
   sumBreakdowns, mealContainersOut, containerReport, packagingCost,
-  DISH_CONTAINERS, DEFAULT_DINNER_TYPE, emptyBreakdown, shortageWarningDue,
+  DISH_CONTAINERS, DEFAULT_DINNER_TYPE, emptyBreakdown, containerCustody, isTrackedType, shortageWarningDue,
 } from '../src/containers.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { DISHES, ALWAYS_ITEMS } from '../src/dishes.js';
@@ -431,6 +431,33 @@ const SAMPLE_ORDERS = [
   ok(tally.jar === 5, 'the five quesos are five jars');
   ok(tally.bag === 16, 'and sixteen things are bagged');
   ok(!tally.rectXL, 'nothing wandered into the cookie container');
+}
+
+
+// ── EVERY TRACKED TYPE ALWAYS GETS A ROW ────────────────────────────────────
+// THE ZERO-COUNT DATA-LOSS BUG, Jul 27. containerCustody used to end with
+// `.filter(r => r.out > 0 || r.owned > 0)`. Backspacing the owned box to empty
+// coerced to 0, which dropped the row from this list, which UNMOUNTED THE
+// INPUT MID-EDIT. The count was gone and could not be typed back, because the
+// box you would type into had just been removed from the page.
+//
+// A row is a property of the REGISTRY, not of its current value. A type you
+// own zero of is precisely the row you most need visible in order to fix it.
+{
+  const zeroed = containerCustody([], { owned: { round16: 0 }, mealAdjust: 0 });
+  ok(zeroed.rows.length === CONTAINER_TYPE_ORDER.filter(t => isTrackedType(t)).length,
+    'every tracked type has a row even when owned is zero');
+  const r16 = zeroed.rows.find(r => r.type === 'round16');
+  ok(!!r16 && r16.owned === 0,
+    'a type owned zero still has its row, so the input it lives in survives an edit');
+
+  // Jars are part of the fleet Kevin counts (23) and were excluded entirely.
+  const jar = zeroed.rows.find(r => r.type === 'jar');
+  ok(!!jar, 'jars get a row — they are part of the fleet');
+  ok(jar.outTrackedElsewhere === true,
+    'the jar row declares that its outstanding side lives in the jar ledger');
+  ok(jar.out === 0,
+    'and reports 0 out rather than a half-truth counting only one direction');
 }
 
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

@@ -121,9 +121,15 @@ const waitFor = async (cond, label, budgetMs = 2000) => {
   // ── 2. Clamping to a shortened list ───────────────────────────────────────
   scrollY = 4000;
   docHeight = 1000;            // the action removed most of the list
+  const clampCallsBefore = scrollToCalls.length;
   window.__capture();
   window.__mount(many.slice(0, 3));
-  await flush();
+  // Third assertion in this file to need polling rather than a bare flush().
+  // `got undefined` in the failure message was the tell: the array was still
+  // empty when the assertion read it, so this was a timing race, not a wrong
+  // clamp. Same ambient-timing shape as its two siblings here and the one in
+  // wakeLock.mjs.
+  await waitFor(() => scrollToCalls.length > clampCallsBefore, 'clamped restore fires');
   const last = scrollToCalls[scrollToCalls.length - 1];
   ok(last === 200,
     `clamps to the shortened page's real maximum (1000 - 800 = 200), not the stale 4000 — got ${last}`);
@@ -131,9 +137,15 @@ const waitFor = async (cond, label, budgetMs = 2000) => {
   // ── Never scrolls to a negative offset ────────────────────────────────────
   scrollY = 500;
   docHeight = 300;             // page now shorter than the viewport
+  const callsBefore = scrollToCalls.length;
   window.__capture();
   window.__mount(many.slice(0, 1));
-  await flush();
+  // Polls for the restore rather than sleeping. This used a bare flush() and
+  // failed roughly one FULL-GATE run in eight while passing every time it was
+  // run alone — the same ambient-timing shape as the two already fixed in this
+  // file and in wakeLock.mjs. Waiting for the CALL rather than for a duration
+  // is what makes it deterministic.
+  await waitFor(() => scrollToCalls.length > callsBefore, 'clamped restore fires');
   ok(scrollToCalls[scrollToCalls.length - 1] === 0,
     'a page shorter than the viewport clamps to 0, never a negative offset');
 

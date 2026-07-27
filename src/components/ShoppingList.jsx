@@ -43,6 +43,9 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
   const [dishPickerOpen, setDishPickerOpen] = useState(false); // collapsed by default
   const [inventoryOpen, setInventoryOpen] = useState(false); // collapsed by default
   const [containersOpen, setContainersOpen] = useState(false);
+  // In-flight text for the owned boxes, keyed by container type. Only holds a
+  // value while a box is being edited; see the comment at the input.
+  const [ownedDraft, setOwnedDraft] = useState({});
   const [pickerDish, setPickerDish] = useState(null);   // dish name selected in picker
   const [pickerVariant, setPickerVariant] = useState(''); // which variant/size
   const [pickerCount, setPickerCount] = useState(1);     // how many batches
@@ -263,16 +266,39 @@ export function ShoppingList({ items, onChange, onGenerate, activeCount, estCost
                     per-type figure is only uncertain once something is out AND
                     some of it has come back. Until then it is simply known. */}
                 <span style={{ fontSize: 12, color: r.out > 0 ? '#D4A050' : '#5c6b66', minWidth: 52, textAlign: 'right' }}>
-                  {r.out > 0 ? `${r.out} out` : 'none out'}
+                  {r.outTrackedElsewhere ? '' : (r.out > 0 ? `${r.out} out` : 'none out')}
                 </span>
                 <span style={{ fontSize: 12, color: r.onHandMin === 0 ? '#e0828a' : '#9aa5a0', minWidth: 82, textAlign: 'right' }}>
-                  {custody.perTypeIsUpperBound && r.out > 0 ? '\u2265' : ''}{r.onHandMin} on hand
+                  {r.outTrackedElsewhere
+                    ? 'jar ledger'
+                    : `${custody.perTypeIsUpperBound && r.out > 0 ? '\u2265' : ''}${r.onHandMin} on hand`}
                 </span>
+                {/* DRAFT STATE, and it is not optional. A fully controlled input
+                    reading straight from stored config cannot be cleared: the
+                    moment you backspace, the empty string coerces to 0, saves 0,
+                    and the box snaps back to "0" under your cursor — so there is
+                    no way to type a replacement number. Combined with the row
+                    filter that used to live in containerCustody, the row itself
+                    also vanished and the count was unrecoverable.
+
+                    So an empty box stays empty WHILE TYPING and commits nothing.
+                    A real number commits immediately; blur re-syncs to whatever
+                    is stored, so abandoning a half-typed edit restores the count
+                    rather than destroying it. */}
                 <input
                   type="number"
                   min="0"
-                  value={r.owned}
-                  onChange={e => onSetOwned(r.type, e.target.value)}
+                  value={ownedDraft[r.type] !== undefined ? ownedDraft[r.type] : r.owned}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    setOwnedDraft(d => ({ ...d, [r.type]: raw }));
+                    if (raw !== '' && Number.isFinite(Number(raw))) onSetOwned(r.type, raw);
+                  }}
+                  onBlur={() => setOwnedDraft(d => {
+                    const next = { ...d };
+                    delete next[r.type];
+                    return next;
+                  })}
                   style={{ width: 58, background: '#14201d', border: '1px solid #2d3a36', borderRadius: 7,
                     color: '#e8e6df', fontSize: 13, padding: '6px 7px', textAlign: 'center' }}
                 />

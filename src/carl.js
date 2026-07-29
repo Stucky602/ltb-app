@@ -53,24 +53,29 @@
 // loosen the pattern.
 // ═══════════════════════════════════════════════════════════════════════════
 
-// OPEN QUESTIONS FOR KEVIN — deliberately NOT decided in this file, because
-// each one is a guess about a product label and a wrong guess here reads as
-// fact. None of them changes a verdict today; all of them could later.
+// ANSWERED BY KEVIN, Jul 29. Kept on the record because each one was a guess
+// before he ruled, and the wrong guess would have read as fact.
 //
-//   chinkiang        — Chinese black vinegar. Many brands list wheat. If yours
-//                      does, it is a gluten carrier on the Chinese dishes and
-//                      belongs in CARL_PATTERNS.gluten.
-//   worcestershire   — the app files this under `fish`, correctly. Whether it
-//                      is ALSO gluten depends on the brand's vinegar base.
+//   chinkiang        — GLUTEN. In the pattern below.
+//   worcestershire   — GLUTEN. In the pattern below. The app also files it under
+//                      `fish`, which stays correct; it is both.
+//   ssamjang         — there is NONE in the Bo Ssam, so the coconut aminos swap
+//                      is the whole story there and the dish survives.
+//   the five sauces  — stay hard-excluded permanently. Kevin does not have the
+//                      recipes and is not planning to supply them, so this is a
+//                      settled decision rather than a pending one.
+//   Brunswick limas  — non-negotiable. Dish is dead.
+//   gigantes         — non-negotiable. Dish is dead.
+//
+// STILL OPEN, and moot today:
 //   guittard_*, valrhona, chocolate_100 — commercial chocolate almost always
-//                      carries soy lecithin, which is a legume and which Kevin
-//                      ruled counts at trace. Moot right now: every dessert
-//                      using them is already dead on gluten or egg.
-//   ssamjang         — if there is any in the Bo Ssam, it is fermented soybean
-//                      and the dish is dead regardless of the soy sauce swap.
+//                      carries soy lecithin, a legume, which Kevin ruled counts
+//                      at trace. Every dessert using them is already dead on
+//                      gluten or egg, so nothing turns on it yet.
 //   garlic_confit    — confit is traditionally oil, but Kevin says butter and
-//                      thyme go in every sous vide bag. If the confit is an
-//                      exception, its dairy tag is wrong (harmless for Carl).
+//                      thyme go in every sous vide bag. If the confit is the
+//                      exception its dairy tag is wrong, which is harmless for
+//                      Carl either way.
 
 // ── Categories, matched against RESOLVED ingredient ids (snake_case) ────────
 export const CARL_CATEGORIES = ['gluten', 'egg', 'legume', 'mushroom', 'sesame', 'potato'];
@@ -79,7 +84,12 @@ export const CARL_PATTERNS = {
   // Copied verbatim from tests/allergens.mjs so the two cannot drift. The
   // blunt /soy/ is intentional: US soy sauce carries wheat unless it is
   // labeled tamari, and nothing in this kitchen is tamari.
-  gluten: /flour|pasta|pappardelle|taglierini|orecchiette|noodle|tortilla|soy|doubanjiang|oyster_sauce|shaoxing|marmite|bread|panko/,
+  // chinkiang and worcestershire are BOTH gluten carriers in the brands Kevin
+  // buys (his ruling, Jul 29), so they are in the pattern rather than in the
+  // open-questions list where they started. Note they are also now in
+  // tests/allergens.mjs, because that is a fact about the bottles and it
+  // matters to every customer avoiding gluten, not only to Carl.
+  gluten: /flour|pasta|pappardelle|taglierini|orecchiette|noodle|tortilla|soy|doubanjiang|oyster_sauce|shaoxing|marmite|bread|panko|chinkiang|worcestershire/,
   // (^|_)eggs?(_|$) so chinese_eggplant never fires but egg_pappardelle does.
   // `mayonnaise` is added explicitly because the id contains no 'egg' string —
   // it is the Alabama white sauce on the Tea-Smoked Chicken, and only the
@@ -188,11 +198,20 @@ export const SWAPS = {
     cook: null,
     shop: 'Corn tortillas',
   },
-  rice_flour_roux: {
+  // NOT a rice flour roux. Rice flour thickens fine and browns badly — six or
+  // seven percent protein against wheat's ten to twelve, so it has far less to
+  // give Maillard and hits a chalky-then-burnt wall where wheat has a long
+  // usable range. That is survivable when the roux is only thickening, and it
+  // is why an earlier version of this file offered it for all three roux
+  // dishes. Kevin then ruled that Gumbo and Leblanc BOTH use a super dark roux,
+  // which rice flour cannot reach, and both are now dead rather than swapped.
+  // Bourguignon's roux is a light one added at the end for body only, so the
+  // flour comes out entirely instead.
+  xanthan_thickener: {
     clears: ['gluten'],
-    say: 'build the roux with rice flour',
-    cook: 'Rice flour browns faster and thickens less than wheat. Take it a shade darker than looks right and expect a looser body.',
-    shop: 'Rice flour',
+    say: 'thicken the stew with xanthan gum instead of a flour roux',
+    cook: 'Xanthan hydrates instantly and clumps if it is dumped in. Disperse it into a little cold liquid first, add it off the heat, and stop well short of what looks right — it keeps tightening as it sits.',
+    shop: null,   // already stocked for the stabilized butter platform
   },
   gf_oyster_sauce: {
     clears: ['gluten'],
@@ -241,9 +260,9 @@ export const SWAPS = {
 // the recipes to hand (Jul 29) and ruled them out of the filter entirely.
 // Miso Butter is obviously legume regardless. These never reach the Carl menu.
 export const CARL_EXCLUDED = {
-  chimichurri: 'no recipe lines in the registry — unscannable, not guessed',
-  romesco: 'no recipe lines in the registry — unscannable, not guessed',
-  chermoula: 'no recipe lines in the registry — unscannable, not guessed',
+  chimichurri: 'no recipe lines in the registry — unscannable, and permanently excluded by Kevin rather than guessed at',
+  romesco: 'no recipe lines in the registry — unscannable, and permanently excluded by Kevin rather than guessed at',
+  chermoula: 'no recipe lines in the registry — unscannable, and permanently excluded by Kevin rather than guessed at',
   'miso-butter-sauce': 'miso is fermented soybean; also unscannable',
   'whipped-lemon-garlic-herb': 'no recipe lines, and unknown whether it uses the soy lecithin platform',
 };
@@ -262,7 +281,7 @@ export const CARL_EXCLUDED = {
 export const CARL_RULINGS = {
   // ── Dinners ──────────────────────────────────────────────────────────────
   'brunswick-stew': {
-    legume: { dead: 'lima beans are named in the dish copy and are canonical to Brunswick stew' },
+    legume: { dead: 'the lima beans are non-negotiable (Kevin, Jul 29) — canonical to Brunswick and named in the dish copy' },
     potato: { swap: 'sweet_potato' },
   },
   chili: {
@@ -272,9 +291,12 @@ export const CARL_RULINGS = {
     legume: { swap: ['no_beans', 'coconut_aminos'] },
   },
   gumbo: {
-    // Rice flour roux is real in gluten-free Cajun cooking, but whether it is
-    // still Kevin's gumbo is his call, not this file's.
-    gluten: { swap: 'rice_flour_roux' },
+    // Kevin's ruling: this is a super dark roux, and that roux IS the dish —
+    // his own menu copy says cooked dark and slow. Rice flour cannot get there.
+    // A filé or okra gumbo would be a legitimate alternative rather than an
+    // imitation of this one (both are in gumbo's actual ancestry), but that is
+    // a different dish and would need its own record, not a swap on this one.
+    gluten: { dead: 'the dark roux is the backbone of the dish, not a thickener' },
   },
   'tex-mex-kit': {
     gluten: { swap: 'corn_tortillas' },
@@ -289,14 +311,15 @@ export const CARL_RULINGS = {
     },
   },
   'leblanc-inspired-japanese': {
-    gluten: { swap: 'rice_flour_roux' },
+    // Same ruling as Gumbo: Kevin takes this roux very dark too.
+    gluten: { dead: 'the roux is taken super dark, which rice flour cannot reach' },
   },
   'tea-smoked-chicken-with': {
     egg: { dead: 'Alabama white sauce is mayonnaise; the egg is the sauce and the sauce is in the name' },
   },
   'bo-ssam': {
-    // Open question for Kevin: if there is ssamjang anywhere in this, it is
-    // fermented soybean and the dish is dead regardless of the soy sauce.
+    // No ssamjang in this one (Kevin, Jul 29), so the soy sauce is the only
+    // legume and the swap carries the whole dish.
     gluten: { swap: 'coconut_aminos' },
     legume: { swap: 'coconut_aminos' },
   },
@@ -370,7 +393,7 @@ export const CARL_RULINGS = {
     mushroom: { dead: 'mushroom is the dish' },
   },
   'coriander-lamb-steak-over': {
-    legume: { dead: 'gigantes are in the name; without them it is a different dish' },
+    legume: { dead: 'the gigantes are non-negotiable (Kevin, Jul 29) — they are in the name, and without them it is a different dish' },
   },
   'pork-chop-with-kabocha-pur-e': {},   // clean, no swap needed
   'bone-in-pork-rib-chop-with': {
@@ -389,7 +412,7 @@ export const CARL_RULINGS = {
     // fresh sous vide veg anyway.
     mushroom: { dead: 'mushroom is the variant', variants: ['With 1 lb mushrooms'] },
     potato: { swap: 'sweet_potato' },
-    gluten: { swap: 'rice_flour_roux' },
+    gluten: { swap: 'xanthan_thickener' },
   },
   'pecan-mole-fesenjan-beef-and': {
     gluten: { swap: 'corn_tortillas' },

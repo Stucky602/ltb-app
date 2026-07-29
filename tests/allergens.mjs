@@ -57,7 +57,10 @@ const PATTERNS = {
   // soy sauce, doubanjiang, oyster sauce, Shaoxing, and Marmite all carry
   // wheat; the blunt /soy/ inside gluten is intentional (US soy sauce = wheat
   // unless labeled tamari, and nothing in this kitchen is tamari).
-  gluten: /flour|pasta|pappardelle|taglierini|orecchiette|noodle|tortilla|soy|doubanjiang|oyster_sauce|shaoxing|marmite|bread|panko/,
+  // chinkiang and worcestershire added Jul 29 on Kevin's ruling that both carry
+  // gluten in the brands he buys. worcestershire is already matched by the fish
+  // pattern; it is both, and a dish needs to declare both.
+  gluten: /flour|pasta|pappardelle|taglierini|orecchiette|noodle|tortilla|soy|doubanjiang|oyster_sauce|shaoxing|marmite|bread|panko|chinkiang|worcestershire/,
   // (^|_)egg(s)?(_|$) so 'chinese_eggplant' never fires but 'egg_pappardelle'
   // and a bare 'eggs' both do.
   egg: /(^|_)eggs?(_|$)/,
@@ -168,9 +171,9 @@ for (const dish of DISHES) {
 // one exemption: they carry no recipe lines anywhere in the registry, so there
 // is nothing to check them against and guessing at their contents is how a
 // confident wrong claim ships. They are excluded from the Carl menu entirely
-// (src/carl.js CARL_EXCLUDED) and stay listed here until Kevin supplies
-// recipes. Removing an id from this set without adding a recipe re-opens the
-// hole.
+// (src/carl.js CARL_EXCLUDED). Kevin ruled this PERMANENT on Jul 29 rather than
+// pending, so do not treat it as a blocked to-do. Removing an id from this set
+// without adding a recipe re-opens the hole.
 const NO_RECIPE_YET = new Set([
   'chimichurri', 'romesco', 'chermoula', 'miso-butter-sauce', 'whipped-lemon-garlic-herb',
 ]);
@@ -237,4 +240,4 @@ assert.ok(dishesChecked > 0 && tagsChecked > 0 && variantsChecked > 0,
   `sanity: expected to check some dishes, saw ${dishesChecked} dishes / ${tagsChecked} tags / ${variantsChecked} variants — did the allergens field change shape?`);
 
 console.log(`[allergens] ${tagsChecked} tags across ${dishesChecked} dinners + ${alwaysChecked} always-items / ${variantsChecked} variants match their recipes`);
-console.log(`[allergens] ${NO_RECIPE_YET.size} finishing sauces exempt pending recipes — excluded from the Carl menu`);
+console.log(`[allergens] ${NO_RECIPE_YET.size} finishing sauces permanently exempt (no recipe lines) — excluded from the Carl menu`);

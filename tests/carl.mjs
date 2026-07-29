@@ -106,6 +106,17 @@ ok('coconut_aminos does not re-trip gluten', CARL_ALLOW.gluten.has('coconut_amin
   ok('the one clean dinner comes back clean', clean.verdict === 'clean', clean.verdict);
   ok('a clean dinner has no yellow line', clean.sentence === null);
 
+  // Both roux dishes are dead by Kevin's ruling (Jul 29): he takes both rouxs
+  // very dark, and rice flour cannot brown that far. Asserted by name because
+  // an earlier version of this file offered a rice flour swap on both.
+  ok('Gumbo is dead on its dark roux', status('Gumbo', 'Large (~8)').verdict === 'dead');
+  ok('Leblanc curry is dead on its dark roux', status('Leblanc Inspired Japanese Curry', 'Large (~8)').verdict === 'dead');
+  {
+    const b = status('Boeuf Bourguignon (Beef Stew)', '~4 servings');
+    ok('Bourguignon thickens with xanthan rather than any flour', b.swaps.includes('xanthan_thickener'), b.swaps.join(','));
+    ok('and xanthan needs no shopping line, since it is already stocked', !b.shopping.includes('Rice flour'));
+  }
+
   const ragu = status('Mushroom Ragu', 'Small (~4-5 servings)');
   ok('Mushroom Ragu is dead', ragu.verdict === 'dead', ragu.verdict);
   ok('and it says why', ragu.blocked.some(b => b.category === 'mushroom' && b.reason.length > 0));
@@ -182,7 +193,7 @@ ok('no swaps means no sentence', carlSentence([]) === null);
   ok('shopping additions include the aminos', shop.includes('Coconut aminos'), shop.join(','));
 
   const dinnerNames = new Set(menu.filter(m => DISHES.some(d => d.id === m.item.id)).map(m => m.item.name));
-  ok('20 of the 27 dinners survive', dinnerNames.size === 20, String(dinnerNames.size));
+  ok('18 of the 27 dinners survive', dinnerNames.size === 18, String(dinnerNames.size));
 }
 
 console.log(f === 0 ? '\nCARL: ALL PASS' : `\nCARL: ${f} FAILURES`);

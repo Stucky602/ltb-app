@@ -43,12 +43,17 @@
 // forms match).
 
 import assert from 'node:assert/strict';
-import { DISHES } from '../src/dishes.js';
+import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
 import { resolveDishVariant } from '../src/dishCosting.js';
 
 // Matched against resolved ingredient IDS (snake_case, same as diet_flags).
 const PATTERNS = {
-  dairy: /butter|cream|milk|cheese|parm|yogurt|ghee|mascarpone|queso/,
+  // oaxaca and colby_jack are cheeses whose ids do not contain 'cheese', so the
+  // pattern missed both until the always-items were brought under this gate on
+  // Jul 29 and Queso's dairy tag came back unsupported. Same failure class as
+  // baby_bella in src/carl.js: the id does not say what the thing is. Add new
+  // dairy BY ID.
+  dairy: /butter|cream|milk|cheese|parm|yogurt|ghee|mascarpone|queso|oaxaca|colby_jack/,
   // soy sauce, doubanjiang, oyster sauce, Shaoxing, and Marmite all carry
   // wheat; the blunt /soy/ inside gluten is intentional (US soy sauce = wheat
   // unless labeled tamari, and nothing in this kitchen is tamari).
@@ -151,6 +156,76 @@ for (const dish of DISHES) {
   }
 }
 
+// ── ALWAYS-ITEMS (add-ons, desserts, bag items, sauces) ────────────────────
+//
+// FOUND Jul 29: this file only ever iterated DISHES, so all 34 always-items
+// were undeclared and nothing noticed. archiveExport.js reads it.allergens on
+// exactly these items to build the delivery-records export, got undefined every
+// time, and shipped a blank allergen column for every add-on. The dinners were
+// gated from the start; the rest of the menu never was.
+//
+// Same three claims, same fail-closed rule. The five finishing sauces are the
+// one exemption: they carry no recipe lines anywhere in the registry, so there
+// is nothing to check them against and guessing at their contents is how a
+// confident wrong claim ships. They are excluded from the Carl menu entirely
+// (src/carl.js CARL_EXCLUDED) and stay listed here until Kevin supplies
+// recipes. Removing an id from this set without adding a recipe re-opens the
+// hole.
+const NO_RECIPE_YET = new Set([
+  'chimichurri', 'romesco', 'chermoula', 'miso-butter-sauce', 'whipped-lemon-garlic-herb',
+]);
+
+let alwaysChecked = 0;
+for (const item of ALL_ALWAYS_ITEMS) {
+  if (NO_RECIPE_YET.has(item.id)) continue;
+
+  if (!item.allergens || typeof item.allergens !== 'object') {
+    problems.push(`${item.name}: no allergens field — an undeclared item is an unchecked item. Declare tags (or an explicit empty object).`);
+    continue;
+  }
+  alwaysChecked += 1;
+
+  const declaredByVariant = new Map((item.variants || []).map(v => [v.label, new Set()]));
+  for (const [tag, value] of Object.entries(item.allergens)) {
+    if (!PATTERNS[tag]) {
+      problems.push(`${item.name}: unknown allergen tag '${tag}'`);
+      continue;
+    }
+    tagsChecked += 1;
+    const { labels, unlisted } = tagCoverage(item, value);
+    if (!Array.isArray(labels) || labels.length === 0) {
+      problems.push(`${item.name}: allergens.${tag} covers no variants`);
+      continue;
+    }
+    let supported = false;
+    for (const label of labels) {
+      if (!declaredByVariant.has(label)) {
+        problems.push(`${item.name}: allergens.${tag} names variant '${label}', which does not exist`);
+        continue;
+      }
+      declaredByVariant.get(label).add(tag);
+      const resolved = resolveDishVariant(item.name, label);
+      if (resolved && resolved.some(x => x.id && PATTERNS[tag].test(x.id))) supported = true;
+    }
+    if (!supported && !unlisted) {
+      problems.push(`${item.name}: allergens.${tag} is declared but no variant's recipe supports it — stale claim, or it needs an unlisted: reason`);
+    }
+  }
+
+  for (const v of (item.variants || [])) {
+    const resolved = resolveDishVariant(item.name, v.label);
+    if (!resolved) continue;   // priced-by-weight items resolve loosely; not a claim failure
+    const declared = declaredByVariant.get(v.label) || new Set();
+    for (const [tag, re] of Object.entries(PATTERNS)) {
+      if (declared.has(tag)) continue;
+      const hits = resolved.map(x => x.id).filter(id => id && re.test(id) && !ALLOW.has(id));
+      if (hits.length) {
+        problems.push(`${item.name} / '${v.label}'\n      recipe contains: ${[...new Set(hits)].join(', ')}  (${tag})\n      declared:        ${[...declared].join(', ') || 'nothing'}\n      -> a customer avoiding ${tag} has no way to know`);
+      }
+    }
+  }
+}
+
 assert.equal(
   problems.length, 0,
   `[allergens] ${problems.length} allergen claim(s) the recipes do not support:\n\n    ` +
@@ -161,4 +236,5 @@ assert.equal(
 assert.ok(dishesChecked > 0 && tagsChecked > 0 && variantsChecked > 0,
   `sanity: expected to check some dishes, saw ${dishesChecked} dishes / ${tagsChecked} tags / ${variantsChecked} variants — did the allergens field change shape?`);
 
-console.log(`[allergens] ${tagsChecked} tags across ${dishesChecked} dishes / ${variantsChecked} variants match their recipes`);
+console.log(`[allergens] ${tagsChecked} tags across ${dishesChecked} dinners + ${alwaysChecked} always-items / ${variantsChecked} variants match their recipes`);
+console.log(`[allergens] ${NO_RECIPE_YET.size} finishing sauces exempt pending recipes — excluded from the Carl menu`);

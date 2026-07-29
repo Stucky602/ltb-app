@@ -1986,6 +1986,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'homemade-waffles',
       name: 'Homemade Waffles',
+      allergens: { dairy: true, gluten: true, egg: true },
       variants: [{ label: 'Set of 12', price: 7, cost: 2.78 }],
       recipe: {
         factors: { 'Set of 12': 1 },
@@ -2003,6 +2004,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'fresh-cut-pineapple',
       name: 'Fresh Cut Pineapple',
+      allergens: {},
       packaging: 'none',
       variants: [{ label: 'Per Container', price: 6, cost: 2.5 }],
       recipe: { factors: { 'Per Container': 0.5 }, base: [I('Pineapple (1 makes 2 containers)', 1, '')] },
@@ -2010,6 +2012,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'seasonal-cantaloupe',
       name: 'Seasonal Cantaloupe',
+      allergens: {},
       packaging: 'none',
       variants: [{ label: 'Per Container', price: 6, cost: 3 }],
       recipe: { factors: { 'Per Container': 1 }, base: [I('Seasonal cantaloupe (HEB melons)', 1, '')] },
@@ -2019,6 +2022,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'chocolate-chip-cookies',
       name: 'Chocolate Chip Cookies',
+      allergens: { dairy: true, gluten: true, egg: true },
       equipment: { fixed: ['ovenNormal'] },
       variants: [
         { label: '1 Dozen (Standard)', price: 25, cost: 11.33 },
@@ -2041,6 +2045,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'peanut-butter-fudge',
       name: 'Peanut Butter Fudge',
+      allergens: { dairy: true, peanut: true },
       equipment: { fixed: ['largePot'] },
       // Anchor re-cut to the recipe's real cost Jul 15 (was $4.35). The old
       // number was built when peanut butter was costed per 'half-jar' @ $0.70,
@@ -2062,6 +2067,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'brownies',
       name: 'Brownies',
+      allergens: { dairy: true, gluten: true, egg: true },
       equipment: { fixed: ['ovenNormal'] },
       variants: [{ label: '1 Batch', price: 25, cost: 10.46 }],
       recipe: {
@@ -2083,6 +2089,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'queso',
       name: 'Queso',
+      allergens: { dairy: true },
       packaging: 'none', // the $1.50 passthrough jar (recipe line) carries the container cost now, not the wrap
       equipment: { fixed: ['largePot'] },
       variants: [
@@ -2111,6 +2118,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'pickled-onions-or-carrots',
       name: 'Pickled Onions or Carrots',
+      allergens: {},
       packaging: 'jar',
       variants: [
         { label: 'Standard', price: 7.5, cost: 4 },
@@ -2128,6 +2136,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'chili-oil',
       name: 'Chili Oil',
+      allergens: { sesame: { variants: true, unlisted: 'toasted sesame oil is part of the house chili oil, inside the Chili-flakes-plus-whole-spices-plus-oil batch line, which resolves to spices_generic' } },
       packaging: 'jar',
       variants: [
         { label: 'Per Jar', price: 10, cost: 4.07 },
@@ -2145,6 +2154,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'thyme-or-lavender-syrup',
       name: 'Thyme or Lavender Syrup',
+      allergens: {},
       packaging: 'jar',
       variants: [
         { label: 'Per Jar', price: 7, cost: 4.35 },
@@ -2162,6 +2172,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'vanilla-syrup',
       name: 'Vanilla Syrup',
+      allergens: {},
       packaging: 'jar',
       variants: [
         { label: 'Per Jar', price: 12, cost: 7.17 },
@@ -2179,6 +2190,7 @@ export const ALWAYS_ITEMS = {
     {
       id: 'vanilla-lavender-syrup',
       name: 'Vanilla Lavender Syrup',
+      allergens: {},
       packaging: 'jar',
       variants: [
         { label: 'Per Jar', price: 13, cost: 8.17 },
@@ -2206,36 +2218,42 @@ export const ALWAYS_ITEMS = {
     // ── BEEF (alphabetical) ──────────────────────────────────────────────────
     {
       id: 'filet-mignon',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Filet Mignon', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_dinner', pricePerLb: 34, costPerLb: 23.49, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 34, cost: 23.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet mignon', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       id: 'filet-mignon-prime',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Filet Mignon - Prime', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_prime', pricePerLb: 55, costPerLb: 34.99, avgWeightLb: 0.5,
       variants: [{ label: 'price by weight', price: 55, cost: 34.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       id: 'flank-steak',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Flank Steak', packaging: 'none', perLb: true, costIngredient: 'flank_steak', pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
       variants: [{ label: 'price by weight', price: 20, cost: 11 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Flank steak', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       id: 'ny-strip',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'NY Strip', packaging: 'none', perLb: true, costIngredient: 'ny_strip', pricePerLb: 26, costPerLb: 14.49, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 26, cost: 14.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       id: 'ny-strip-prime',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'NY Strip - Prime', packaging: 'none', perLb: true, costIngredient: 'ny_strip_prime', pricePerLb: 32, costPerLb: 17.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 32, cost: 17.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
       id: 'ribeye',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Ribeye', packaging: 'none', perLb: true, costIngredient: 'ribeye', pricePerLb: 30, costPerLb: 16.49, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 30, cost: 16.49 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2244,6 +2262,7 @@ export const ALWAYS_ITEMS = {
       // Prime line: renders directly under the regular Ribeye. Separate perLb
       // item (name-keyed pricing) so the whole weight pipeline works unchanged.
       id: 'ribeye-prime',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Ribeye - Prime', packaging: 'none', perLb: true, costIngredient: 'ribeye_prime', pricePerLb: 35, costPerLb: 19.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 35, cost: 19.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2251,6 +2270,7 @@ export const ALWAYS_ITEMS = {
     // ── PORK (alphabetical) ──────────────────────────────────────────────────
     {
       id: 'pork-tenderloin',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Pork Tenderloin', packaging: 'none', perLb: true, costIngredient: 'pork_tenderloin', pricePerLb: 15, costPerLb: 7.29, avgWeightLb: 1.25,
       variants: [{ label: 'price by weight', price: 15, cost: 7.29 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork tenderloin', 1.25, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2261,6 +2281,7 @@ export const ALWAYS_ITEMS = {
       // thinner chop it replaced ($3.99/lb) — this is a product change, not a
       // fix. $6.29 raw x 1.0825 = $6.81 buffered; $13/lb holds 47.6%.
       id: 'thick-cut-pork-chop',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Thick-Cut Pork Chop', packaging: 'none', perLb: true, costIngredient: 'pork_chop_boneless', pricePerLb: 13, costPerLb: 6.81, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 13, cost: 6.81 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Pork chop', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2268,6 +2289,7 @@ export const ALWAYS_ITEMS = {
     // ── CHICKEN ──────────────────────────────────────────────────────────────
     {
       id: 'air-chilled-chicken-breast',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Air-Chilled Chicken Breast', packaging: 'none', perLb: true, costIngredient: 'air_chilled_chicken_breast', pricePerLb: 13, costPerLb: 7.27, avgWeightLb: 0.55,
       variants: [{ label: 'price by weight', price: 13, cost: 7.27 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Chicken breast', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
@@ -2275,36 +2297,42 @@ export const ALWAYS_ITEMS = {
     // ── VEG (sous vide bags) — ordered by price then alphabetical ────────────
     {
       id: 'carrots',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Carrots', packaging: 'none',
       variants: [{ label: '~2 servings', price: 6.5, cost: 2.71 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Carrots', 0.5, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       id: 'baby-gold-potatoes',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Baby Gold Potatoes', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7.5, cost: 3.79 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Baby gold potatoes', 0.75, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       id: 'corn-off-the-cob',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Corn (off the cob)', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7.5, cost: 2.98 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Corn', 3, 'ears'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       id: 'kabocha-squash',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Kabocha Squash', packaging: 'none',
       variants: [{ label: '~2 servings', price: 7.5, cost: 3.25 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Kabocha squash', 0.667, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       id: 'parsnips',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Parsnips', packaging: 'none',
       variants: [{ label: '~2 servings', price: 10, cost: 5.25 }],
       recipe: { factors: { '2 servings': 1 }, base: [I('Parsnips', 0.909, 'lb'), I('Sous vide bag + butter + herbs (costed)', 1, '')] },
     },
     {
       id: 'asparagus',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Asparagus', packaging: 'none',
       variants: [
         { label: 'Whole (~2 servings)', price: 9, cost: 4.32 },
@@ -2319,6 +2347,7 @@ export const ALWAYS_ITEMS = {
       // renders as a normal bag card. NOT flagged isSousVideVeg (it isn't a
       // glaze veg and doesn't join the consolidated veg block).
       id: 'garlic-confit',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Garlic Confit', packaging: 'none',
       variants: [{ label: '6 oz bag', price: 10, cost: 5.05 }],
       recipe: { factors: { '6 oz bag': 1 }, base: [I('Garlic', 12, 'cloves'), I('Sous vide bag + seasonings', 1, '', true)] },

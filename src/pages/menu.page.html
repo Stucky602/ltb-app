@@ -46,6 +46,9 @@
   .price-label { font-size:13px; color:var(--cream); }
   .price-amt { font-size:14px; font-weight:700; color:var(--gold); white-space:nowrap; padding-left:12px; }
   .contains { font-size:11px; color:#8a928c; margin-top:7px; }
+  .carl-say { font-size:12px; font-weight:700; color:var(--gold); background:rgba(212,160,80,0.12); border-left:3px solid var(--gold); padding:7px 9px; margin:8px 0 2px; border-radius:0 4px 4px 0; }
+  .carl-note { font-size:11px; color:#8a928c; margin-top:6px; }
+  .carl-hidden { display:none !important; }
   .drink-picker { margin:18px 0; padding:16px; background:rgba(63,184,160,0.06); border:1px solid var(--teal-mid); border-radius:12px; }
   .dp-head { font-size:15px; font-weight:800; color:var(--teal-light); letter-spacing:0.2px; margin-bottom:4px; }
   .dp-sub { font-size:12.5px; color:#8a928c; line-height:1.5; margin-bottom:10px; }
@@ -111,6 +114,7 @@
 
   <!-- @include _partials/noticeHtml.js -->
   <!-- @generate menuLibrary -->
+  <!-- @generate carlData -->
 
   function money(n){ return "$" + (Math.round(n*100)/100).toFixed(2).replace(/\.00$/,""); }
 
@@ -132,6 +136,7 @@
     if (!s || s <= 0) return null;
     return '~$' + (price / s).toFixed(2).replace(/\.00$/, '') + '/serving';
   }
+  <!-- @include _partials/carlFilter.js -->
   <!-- @include _partials/esc.js -->
 
   function lookupCopy(name, kind){
@@ -189,7 +194,18 @@
     // "Customer favorite" is EARNED, stamped at publish from repeat orders and
     // real feedback. It is never hand-set, so it cannot become marketing.
     var favTag = dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '';
-    var html = '<div class="dish"><div class="dish-name">'+esc(dish.name)+favTag+'</div>';
+    // Carl attributes, from the CARL blob the build generates out of
+    // src/carl.js. Read carlFilter.js for what consumes them. Absent for a dish
+    // the registry does not know, which fails closed: no data-carl means the
+    // filter leaves the card alone rather than silently declaring it safe.
+    var c = (typeof CARL !== 'undefined' && CARL[dish.name]) || null;
+    var carlAttr = '';
+    if (c) {
+      carlAttr = ' data-carl="'+esc(c.v)+'"';
+      if (c.say) carlAttr += ' data-carl-say="'+esc(c.say)+'"';
+      if (c.dead && c.dead.length) carlAttr += ' data-carl-dead="'+esc(c.dead.join(','))+'"';
+    }
+    var html = '<div class="dish"'+carlAttr+'><div class="dish-name">'+esc(dish.name)+favTag+'</div>';
     if (kind === 'dinner') html += dietTagHtml(dish);
     if (copy.desc) html += '<div class="dish-desc">'+esc(copy.desc)+'</div>';
     if (copy.reheat) html += '<div class="dish-meta">'+esc(copy.reheat)+'</div>';
@@ -254,6 +270,8 @@
     return '<div class="diet-filter">' +
       '<span class="diet-filter-label">Show:</span>' +
       chip('veg', 'Vegetarian') + chip('vegan', 'Vegan') + chip('pesc', 'Pescatarian') +
+      '<button type="button" id="carlChip" class="diet-chip" aria-pressed="false" onclick="__carlToggle()">Carl-friendly</button>' +
+      '</div><div class="carl-note" id="carlNote" style="display:none">Hiding anything with gluten, egg, legumes, mushrooms, sesame, or white potato. Where a swap makes a dish work, the change is called out on the dish. Ask about anything you don\'t see.</div><div class="diet-filter" style="border:0;padding:0;margin:0">' +
       (ACTIVE_DIET ? '<button class="diet-chip clear" onclick="setDiet(\'' + ACTIVE_DIET + '\')">Clear</button>' : '') +
       '</div>';
   }
@@ -537,6 +555,11 @@
     html += '<div class="footer">Lettuce, Turnip, The Beet · Friends-only meal prep · Austin, TX</div>';
 
     document.getElementById("content").innerHTML = html;
+    // MUST run after every render, not once at boot. innerHTML above destroys
+    // every card and every class on it, so a Carl filter left on would silently
+    // forget itself the first time the week's menu refreshed. main-menu.html
+    // needs no equivalent because its cards are static.
+    if (typeof __carlApply === 'function') __carlApply();
     attachDrinkPicker(weekDinnerNames);
 
     // Wire the request button after the DOM is in place.

@@ -553,6 +553,29 @@ export function carlSentence(swaps) {
   return 'For Carl, we ' + joined + '.';
 }
 
+// One card's worth of Carl state, collapsed from its variants.
+//
+// SHARED BY BOTH SURFACES ON PURPOSE. tools/syncMainMenu.mjs stamps the static
+// catalog cards from this, and the carlData generator in tools/buildPages.mjs
+// emits the weekly menu's blob from it. It lived in syncMainMenu first and was
+// about to be copied into the generator; two copies of this collapse would
+// drift, and then the two menus would quietly disagree about the same dish.
+//
+//   verdict — worst case across the card's variants ('ok' | 'swap' | 'no')
+//   say     — the composed yellow line, or '' when nothing changes
+//   dead    — indices of variants dead for Carl, POSITIONAL against the order
+//             the item declares them in, which is the order both surfaces
+//             render price rows in
+export function carlCardSummary(item, resolve) {
+  const per = (item.variants || []).map(v => carlStatus(item, v.label, resolve ? resolve(item.name, v.label) : null));
+  const dead = per.map((st, i) => (st.verdict === 'dead' ? i : -1)).filter(i => i >= 0);
+  const alive = per.filter(st => st.verdict !== 'dead');
+  if (!alive.length) return { verdict: 'no', say: '', dead };
+  const swaps = [];
+  for (const st of alive) for (const sw of st.swaps) if (!swaps.includes(sw)) swaps.push(sw);
+  return { verdict: swaps.length ? 'swap' : 'ok', say: swaps.length ? carlSentence(swaps) : '', dead };
+}
+
 // Every variant of every item, filtered to what Carl can actually have.
 // `resolve` is injected so this file never imports dishCosting (keeps it
 // usable from customer page builders that must not pull the costing engine).

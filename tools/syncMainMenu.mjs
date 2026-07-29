@@ -7,7 +7,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
 import { resolveDishVariant } from '../src/dishCosting.js';
-import { carlStatus, SWAPS, carlSentence } from '../src/carl.js';
+import { carlCardSummary } from '../src/carl.js';
 
 // KEPT, NOT FOLDED INTO buildPages.mjs (Jul 2026, page build step). The build
 // generates main-menu.html from src/pages/main-menu.page.html, so this tool now
@@ -107,18 +107,7 @@ function dietTokens(d) {
 //                    contract syncCard() uses to rewrite prices, so if one is
 //                    right the other is too, and if the card gains a row both
 //                    break together instead of one drifting silently.
-function carlAttrs(item) {
-  const per = (item.variants || []).map(v => carlStatus(item, v.label, resolveDishVariant(item.name, v.label)));
-  const dead = per.map((st, i) => (st.verdict === 'dead' ? i : -1)).filter(i => i >= 0);
-  const alive = per.filter(st => st.verdict !== 'dead');
-  if (!alive.length) return { verdict: 'no', say: '', dead };
-
-  // Union of swaps across surviving variants. One line per card, not per row:
-  // the card is the unit a customer reads.
-  const swaps = [];
-  for (const st of alive) for (const sw of st.swaps) if (!swaps.includes(sw)) swaps.push(sw);
-  return { verdict: swaps.length ? 'swap' : 'ok', say: swaps.length ? carlSentence(swaps) : '', dead };
-}
+const carlAttrs = (item) => carlCardSummary(item, resolveDishVariant);
 
 // Walk back from the dish-name div to the <div class="dish" that opens its card.
 // Add-on cards are packed several to a line and carry no data-name, so they

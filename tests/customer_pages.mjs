@@ -307,6 +307,58 @@ console.log('menu.html');
   check('a paused week beats the empty-menu notice', /Taking this week off/.test(dom.window.document.body.innerHTML));
 }
 
+// ── The Carl filter on the weekly menu ──────────────────────────────────────
+// Different mechanism from the catalog: menu.html has no static cards, so the
+// verdicts arrive in a generated CARL blob and renderDish writes the attributes
+// as it builds each card. That makes the re-render case the one that matters,
+// and it is the last check in this block.
+{
+  // CFG's dishes are placeholders ('Meat Dish'), which the registry has never
+  // heard of — so they get no verdict, and that is the fail-closed path: an
+  // unknown dish is left alone rather than declared safe. Asserted here, then
+  // the real assertions run against a config of real dishes below.
+  const dumb = boot(menu, CFG); await sleep(150);
+  check('a dish the registry does not know gets no Carl verdict',
+    dumb.window.document.querySelectorAll('.dish[data-carl]').length === 0);
+
+  const CARL_CFG = { weekLabel: 'W', dishes: [
+    { name: 'Bolognese', variants: [{ label: 'Small (split order, ~4)', price: 45, cost: 22 }] },
+    { name: 'Mushroom Ragu', variants: [{ label: 'Small (~4-5 servings)', price: 70, cost: 38 }] },
+    { name: 'Pork Chop with Kabocha Purée and Charred Broccolini', variants: [{ label: '~4 servings', price: 55, cost: 30 }] },
+  ] };
+  const dom = boot(menu, CARL_CFG); await sleep(150);
+  const d = dom.window.document;
+  check('the weekly menu carries the Carl blob', typeof dom.window.CARL === 'object' && !!dom.window.CARL);
+  check('the blob agrees with the registry on a dead dish', dom.window.CARL['Mushroom Ragu'].v === 'no');
+  check('and on a swapped one', dom.window.CARL['Bolognese'].v === 'swap');
+  check('rendered cards carry a Carl verdict', d.querySelectorAll('.dish[data-carl]').length > 0);
+  check('the Carl chip renders next to the diet chips', !!d.getElementById('carlChip'));
+  check('the explanatory note renders too', !!d.getElementById('carlNote'));
+  check('and the note is hidden until the filter is on', d.getElementById('carlNote').style.display === 'none');
+
+  const dietBefore = Array.from(d.querySelectorAll('.dish')).length;
+  check('a dead dish is on the page before the filter runs',
+    d.querySelectorAll('.dish[data-carl="no"]').length > 0);
+  dom.window.__carlToggle();
+  check('dead cards are hidden once Carl is on',
+    d.querySelectorAll('.dish[data-carl="no"]:not(.carl-hidden)').length === 0);
+  check('the card count is untouched, only visibility changes',
+    d.querySelectorAll('.dish').length === dietBefore);
+  check('the note is revealed with the filter', d.getElementById('carlNote').style.display !== 'none');
+  const say = d.querySelectorAll('.carl-say');
+  check('the swap line is printed on the weekly menu', say.length > 0, String(say.length));
+  check('and it reads as a sentence about Carl', /^For Carl, we .+\.$/.test(say[0].textContent), say[0] && say[0].textContent);
+
+  // THE REGRESSION THIS FILTER EXISTS TO FAIL ON. render() replaces
+  // #content.innerHTML, which destroys every card and every class on it. If
+  // __carlApply is not called at the end of render(), the filter looks correct
+  // right up until the week's menu refreshes and then silently forgets.
+  dom.window.render(CARL_CFG); await sleep(50);
+  check('the Carl filter survives a re-render',
+    d.querySelectorAll('.dish[data-carl="no"]:not(.carl-hidden)').length === 0
+    && d.querySelectorAll('.carl-say').length > 0);
+}
+
 // Offline submit queue: the last unprotected inch between a customer's thumb
 // and the worker.
 {

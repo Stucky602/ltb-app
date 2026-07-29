@@ -26,7 +26,9 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { WORKER_BASE } from '../src/config.js';
 import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
-import { DISHES } from '../src/dishes.js';
+import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
+import { resolveDishVariant } from '../src/dishCosting.js';
+import { carlCardSummary } from '../src/carl.js';
 import {
   DINNER_BAGGED, MENU_ADDONS, MENU_BAG, MENU_SAUCES, MENU_STATIC, LIBRARY_COMMENT,
   OFF_MENU_DISHES, DINNER_ORDER,
@@ -143,6 +145,26 @@ const GENERATORS = {
   // hazard than a red test. That was true when the blob was hand-owned and
   // nothing could prove a rewrite was faithful. checkPagesBuilt.mjs proves
   // exactly that, so the reasoning no longer applies and the tool is safe.
+  // ── Carl state for the weekly menu ────────────────────────────────────────
+  // main-menu.html is static HTML, so tools/syncMainMenu.mjs stamps its cards
+  // directly. menu.html builds every card at runtime in renderDish(), so there
+  // is nothing to stamp and the data has to arrive as a blob instead.
+  //
+  // Both come from carlCardSummary() in src/carl.js, deliberately: the collapse
+  // from per-variant verdicts to one card's worth of state is the thing most
+  // likely to drift if it existed twice, and if it drifted the two menus would
+  // disagree about the same dish while both looking correct.
+  //
+  // Keyed by exact dish name, which is the key renderDish already has in hand.
+  carlData: () => {
+    const out = {};
+    for (const item of [...DISHES, ...ALL_ALWAYS_ITEMS]) {
+      const c = carlCardSummary(item, resolveDishVariant);
+      out[item.name] = { v: c.verdict, say: c.say, dead: c.dead };
+    }
+    return `var CARL = ${looseJson(out)};`;
+  },
+
   menuLibrary: () => {
     const off = new Set(OFF_MENU_DISHES);
     const eligible = DISHES.filter((d) => !off.has(d.name) && d.copy && d.copy.desc);

@@ -68,10 +68,15 @@
 //   gigantes         — non-negotiable. Dish is dead.
 //
 // STILL OPEN, and moot today:
-//   guittard_*, valrhona, chocolate_100 — commercial chocolate almost always
-//                      carries soy lecithin, a legume, which Kevin ruled counts
-//                      at trace. Every dessert using them is already dead on
-//                      gluten or egg, so nothing turns on it yet.
+//   guittard_*, valrhona — commercial chocolate almost always carries soy
+//                      lecithin, a legume, which Kevin ruled counts at trace.
+//                      Every DESSERT using these is already dead on gluten,
+//                      egg, or peanut, so nothing turns on them.
+//   chocolate_100    — NO LONGER MOOT as of Jul 29. The Fesenjan went live and
+//                      it is the only surviving dish using this id, so whether
+//                      that specific bar lists soy lecithin now decides whether
+//                      Carl can eat the dish at all. Label check, not a guess.
+//                      See the pecan-mole-fesenjan ruling below.
 //   garlic_confit    — confit is traditionally oil, but Kevin says butter and
 //                      thyme go in every sous vide bag. If the confit is the
 //                      exception its dairy tag is wrong, which is harmless for
@@ -415,6 +420,19 @@ export const CARL_RULINGS = {
     gluten: { swap: 'xanthan_thickener' },
   },
   'pecan-mole-fesenjan-beef-and': {
+    // Went live on the customer menu Jul 29. Mitad-y-mitad is half wheat, half
+    // corn, so a pure corn tortilla is a clean swap and the tortillas are the
+    // ONLY thing on the plate Carl reacts to.
+    //
+    // ONE THING TO CHECK, and it is the reason this dish moved the chocolate
+    // question off the moot list: the sauce carries 100% unsweetened chocolate,
+    // and commercial chocolate often carries SOY LECITHIN, which is a legume
+    // and which Kevin ruled counts at trace. Most 100% baking chocolate is pure
+    // cocoa mass with no lecithin, but some brands add it, and this is now the
+    // only LIVE dish where it matters — every other chocolate dish is already
+    // dead on gluten, egg, or peanut. It is a label check, not a judgment call,
+    // so it is not guessed at here. If the bar lists lecithin, add
+    // chocolate_100 to CARL_PATTERNS.legume and this dish becomes dead.
     gluten: { swap: 'corn_tortillas' },
   },
 

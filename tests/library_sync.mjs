@@ -97,7 +97,6 @@ const isPrimeSubline = (name) => / - Prime$/.test(name);
 // there is nothing for a description to describe.
 const OFF_MENU = new Set([
   'Homemade Waffles', // breakfast item, costed in the app, never listed on menu.html
-  'Pecan Mole-Fesenjan, Beef and Kabocha', // OFF-MENU DRAFT (Jul 20): costed + built, not yet live; no menu.html copy on purpose
 ]);
 
 const exempt = (name) => isPrimeSubline(name) || OFF_MENU.has(name);
@@ -180,11 +179,19 @@ for (const d of DISHES) {
   // purpose), so this is not a verbatim check — it asserts the customer
   // copy agrees the dish is two-part and involves a bag. Generic
   // one-container copy on a stewVegCopy dish fails.
+  //
+  // WIDENED Jul 29. This used to require the literal string 'two parts', which
+  // was fine while every stewVegCopy dish had exactly two components. The
+  // Fesenjan went live with five (braise, kabocha bag, rice, tortillas, pickled
+  // onion) and failed a check whose stated intent it satisfied completely. The
+  // intent is "the copy admits the dish arrives in pieces and one is a bag", so
+  // that is what it now tests.
   if (d.stewVegCopy) {
     const r = String(d.copy.reheat || '').toLowerCase();
-    if (!r.includes('two parts') || !r.includes('bag')) {
+    const admitsParts = /\b(two|three|four|five|six|seven) parts\b/.test(r) || /\bin parts\b/.test(r);
+    if (!admitsParts || !r.includes('bag')) {
       mismatched.push(
-        `${d.name} . stewVegCopy\n      this is a two-part dish (stewVegCopy present) but copy.reheat never says so — the exact Brunswick failure`
+        `${d.name} . stewVegCopy\n      this dish arrives in pieces (stewVegCopy present) but copy.reheat does not say so and mention a bag — the exact Brunswick failure`
       );
     }
   }

@@ -133,7 +133,9 @@ const PIPELINE_DISHES = [
   'Kabocha Char Siu',
   'Kare-Kare with XO',
   'Khoresh-e Gheimeh',
-  'Fesenjan',
+  // 'Fesenjan',  RETIRED Jul 29 — shipped as "Pecan Mole-Fesenjan, Beef and Kabocha".
+  //              Commented rather than deleted so the vote key stays a tombstone
+  //              and historical votes remain attributable.
   'Sauerbraten Beef Cheeks',
   'Yogurt-Braised Lamb',
   'Nixtamal Grits',

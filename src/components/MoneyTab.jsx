@@ -35,7 +35,6 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { BooksPanel } from './BooksPanel.jsx';
 import { AuditPanel } from './AuditPanel.jsx';
 import { WeeklySummaryModal } from './WeeklySummary.jsx';
-import { CONTAINER_TYPES, CONTAINER_TYPE_ORDER, packagingCost } from '../containers.js';
 
 export function ProfitChart({ series }) {
   const W = 320, H = 160;
@@ -165,7 +164,7 @@ export function compactMoney(v) {
 }
 
 // ─── Money Tab ──────────────────────────────────────────────────────────────
-export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName, containerStatus, onSaveContainerConfig }) {
+export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap, ingredientName }) {
   const [sortField, setSortField] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
   const [groupMode, setGroupMode] = useState('none');
@@ -574,59 +573,12 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
               ingredientName={ingredientName}
             />
             <AuditPanel log={auditLog} />
-            {/* ── M1 + M2: Packaging & containers ──
-                 Owned counts (editable — Kevin called his numbers
-                 placeholders), the meal-pool outstanding count with his
-                 manual override, and this week's packaging spend.
-                 DISPLAY-ONLY costs (decision 3a): nothing here ever
-                 touches the dish margin engine. */}
-            {containerStatus && (
-              <div style={{ marginTop: 10, padding: '10px 0', borderTop: '1px solid #2d3a36' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#9aa5a0', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 }}>Packaging &amp; containers</div>
-                {CONTAINER_TYPE_ORDER.map(t => {
-                  const row = containerStatus.rows.find(r => r.type === t);
-                  return (
-                    <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', fontSize: 12.5, color: '#e8ede9' }}>
-                      <span style={{ flex: 1 }}>{CONTAINER_TYPES[t].label} <span style={{ color: '#7a8480' }}>(${CONTAINER_TYPES[t].cost.toFixed(2)})</span></span>
-                      <span style={{ color: row && row.short > 0 ? '#e0828a' : '#7a8480', fontSize: 11.5 }}>
-                        need {row ? row.need : 0}{t === 'jar' && containerStatus.jarsHeld > 0 ? ` · ${containerStatus.jarsHeld} held` : ''}
-                      </span>
-                      <span style={{ color: '#7a8480', fontSize: 11.5 }}>own</span>
-                      <input
-                        type="number" min="0" inputMode="numeric"
-                        value={containerStatus.owned[t]}
-                        onChange={e => onSaveContainerConfig && onSaveContainerConfig(prev => ({ ...prev, owned: { ...prev.owned, [t]: Math.max(0, Math.floor(Number(e.target.value) || 0)) } }))}
-                        style={{ width: 56, minHeight: 36, background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 7, color: '#e8ede9', fontSize: 13, padding: '4px 6px', textAlign: 'center' }}
-                      />
-                    </div>
-                  );
-                })}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0 2px', fontSize: 12.5, color: '#e8ede9', borderTop: '1px solid #232d2a', marginTop: 6 }}>
-                  <span style={{ flex: 1 }}>Meal containers still out <span style={{ color: '#7a8480' }}>(returns net out via invoices)</span></span>
-                  <span style={{ fontWeight: 700, color: containerStatus.mealOut > 0 ? '#EF9F27' : '#7a8480' }}>{containerStatus.mealOut}</span>
-                  <span style={{ color: '#7a8480', fontSize: 11.5 }}>adjust</span>
-                  <input
-                    type="number" inputMode="numeric"
-                    value={containerStatus.mealAdjust}
-                    onChange={e => onSaveContainerConfig && onSaveContainerConfig(prev => ({ ...prev, mealAdjust: Math.floor(Number(e.target.value) || 0) }))}
-                    style={{ width: 56, minHeight: 36, background: '#1a1a1a', border: '1px solid #37403c', borderRadius: 7, color: '#e8ede9', fontSize: 13, padding: '4px 6px', textAlign: 'center' }}
-                  />
-                </div>
-                {(() => {
-                  const wk = packagingCost((orders || []).filter(o => {
-                    const t = new Date(o.createdAt || 0).getTime();
-                    return t >= Date.now() - 7 * 86400000;
-                  }));
-                  return (
-                    <div style={{ fontSize: 12, color: '#9aa5a0', marginTop: 6 }}>
-                      Packaging out, last 7 days: <b style={{ color: '#e8ede9' }}>${wk.total.toFixed(2)}</b>
-                      {wk.bags > 0 ? ` · ${wk.bags} sous vide bag${wk.bags !== 1 ? 's' : ''} (uncosted)` : ''}
-                      <span style={{ color: '#7a8480' }}> — display only, never in dish margins.</span>
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+            {/* Packaging & containers used to render here. REMOVED Jul 29:
+                 the Shop tab already owns container inventory (owned counts,
+                 need, custody, the collapsible), and two editable copies of
+                 the same owned numbers in two tabs is a way to disagree with
+                 yourself. The Shop tab is the one that survived, because that
+                 is where Kevin is standing when the count matters. */}
           </div>
         )}
       </div>

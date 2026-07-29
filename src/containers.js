@@ -212,7 +212,7 @@ export const DISH_CONTAINERS = {
   'Texas Gulf Shrimp or Tofu and Chinese Broccoli':      { round16: 1, bag: 1 },
   'Shrimp or Tofu with Asparagus in Black Bean Sauce':   { round16: 1, bag: 1 },
   'Stir Fried Long Beans with Ground Pork or Tofu':      { round16: 1, bag: 1 },
-  'Pecan Mole-Fesenjan, Beef and Kabocha':               { round16: 1, round48: 1, bag: 1 },
+  'Pecan Mole-Fesenjan, Beef and Kabocha':               { round8: 1, round16: 1, round48: 1, bag: 1 },
   // AMBIGUITY 6a, RESOLVED Jul 26 by Kevin: "the rice is only for that variant.
   // Same for the need of the container." The round16 is the rice container, so
   // it follows the rice exactly — Beef and Lamb variants get it, Mushroom does

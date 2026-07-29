@@ -120,7 +120,7 @@
   <div class="section-intro">Testing items. Details will change. Ask me about any of them.</div>
 
   <div class="filters">
-    <button class="filter-btn on" data-filter="all">All 30</button>
+    <button class="filter-btn on" data-filter="all">All 29</button>
     <button class="filter-btn" data-filter="pesc">Pescatarian</button>
     <button class="filter-btn" data-filter="veg">Vegetarian</button>
   </div>
@@ -151,13 +151,6 @@
     <div class="dish-name">Khoresh-e Gheimeh, Persian Dried Lime Braise</div>
     <div class="dish-origin">Iran</div>
     <div class="dish-desc">A Persian braise of beef and yellow split peas, built around dried limes that leak a deep, funky sourness into the pot as it cooks. Not sharp like lemon, more savory and bitter, with no sweetness anywhere. The split peas melt down and round it out. Over saffron rice.</div>
-  </div>
-
-  <div class="dish" data-dish="Fesenjan">
-    <div class="dish-name">Fesenjan, Walnut and Pomegranate Braise</div>
-    <div class="dish-origin">Iran &middot; Georgia &middot; Mexico</div>
-    <div class="dish-desc">Chicken braised in a sauce of ground walnuts and pomegranate molasses, cooked down until it goes nearly black. Sour, deep, and rich, closer to savory than sweet. This is made a day or two ahead on purpose, so yours arrives the way it is supposed to be. Over saffron rice.</div>
-    <div class="contains">Contains: Tree nuts (walnuts).</div>
   </div>
 
   <div class="dish" data-dish="Sauerbraten Beef Cheeks">
@@ -355,7 +348,7 @@
   // Dishes that graduated from this page to the real menu. Maintained by
   // tools/syncPipeline.mjs from entries carrying status:'shipped', so it can
   // never drift from the registry.
-  var GRADUATED = []; /* SYNC:GRADUATED */
+  var GRADUATED = [{"title":"Fesenjan, Walnut and Pomegranate Braise","note":"","votes":0}]; /* SYNC:GRADUATED */
   function renderGrads() {
     if (!GRADUATED.length) return;
     var host = document.getElementById('gradsBody');

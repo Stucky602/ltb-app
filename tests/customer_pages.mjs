@@ -3,6 +3,7 @@
 // that no bundler checks, so a regression there ships silently. Booted in
 // jsdom with a stubbed fetch, exactly as they run on a phone.
 import { JSDOM } from 'jsdom';
+import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
 import fs from 'fs';
 
 let failed = 0;
@@ -13,6 +14,8 @@ function check(name, cond, extra) {
 
 const form = fs.readFileSync('form.html', 'utf8');
 const menu = fs.readFileSync('menu.html', 'utf8');
+// How many pipeline dishes are still in testing, per canon.
+const TESTING_COUNT = PIPELINE_DISHES.filter(x => !x.status || x.status === 'testing').length;
 const landing = fs.existsSync('order.html') ? fs.readFileSync('order.html', 'utf8') : null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -504,11 +507,14 @@ console.log('\npipeline.html');
     const d = bootPipeline({ '/config': { pipeline: [] }, '/votes': VOTES }).window.document;
     await sleep(150);
     const cards = d.querySelectorAll('.dish[data-dish]');
-    check('an empty roster leaves the built-in cards alone', cards.length === 30, `got ${cards.length}`);
+    // DERIVED, not hardcoded. This was `=== 30` and broke the moment a dish
+    // graduated out of the pipeline, failing three assertions that had nothing
+    // to do with the change. The number is canon's, so read it from canon.
+    check('an empty roster leaves the built-in cards alone', cards.length === TESTING_COUNT, `got ${cards.length}, canon says ${TESTING_COUNT}`);
     check('every built-in card has exactly one vote button',
       d.querySelectorAll('.vote-btn').length === cards.length);
     check('the All count matches the built-in cards',
-      /All 30/.test(d.querySelector('.filter-btn[data-filter="all"]').textContent));
+      new RegExp('All ' + TESTING_COUNT).test(d.querySelector('.filter-btn[data-filter="all"]').textContent));
   }
 
   // A published roster replaces them.
@@ -564,7 +570,7 @@ console.log('\npipeline.html');
     const d = bootPipeline({ '/config': { weekLabel: 'Week of Jul 22' }, '/votes': VOTES }).window.document;
     await sleep(150);
     check('a config with no roster field at all leaves the page intact',
-      d.querySelectorAll('.dish[data-dish]').length === 30);
+      d.querySelectorAll('.dish[data-dish]').length === TESTING_COUNT);
   }
 }
 

@@ -30,7 +30,11 @@ let drift = 0, patched = 0;
 
 // Off-menu dinners: costed and built in the registry, but never rendered on the
 // customer menu (mirror of tests/library_sync.mjs OFF_MENU). No card, by design.
-const OFF_MENU = new Set(['Pecan Mole-Fesenjan, Beef and Kabocha']);
+// Fesenjan graduated to the live menu Jul 29, so the set is empty. Kept rather
+// than deleted: the exemption mechanism is still the right one for the next
+// costed-but-unlisted dish, and the three OFF_MENU copies across this file,
+// src/menuLibrary.js, and tests/library_sync.mjs are a known duplication.
+const OFF_MENU = new Set([]);
 
 function cardBounds(name) {
   const tag = `<div class="dish-name">${name}</div>`;

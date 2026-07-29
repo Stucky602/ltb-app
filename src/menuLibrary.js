@@ -232,8 +232,7 @@ export const MENU_STATIC = {
 // the different-but-similar one in tools/syncMainMenu.mjs are still separate,
 // which is a duplication worth closing on purpose rather than in passing.
 export const OFF_MENU_DISHES = [
-    "Homemade Waffles",
-    "Pecan Mole-Fesenjan, Beef and Kabocha"
+    "Homemade Waffles"
   ];
 
 // The order dinners appear in the LIBRARY blob. The blob is a lookup keyed by

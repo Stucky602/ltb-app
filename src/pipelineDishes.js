@@ -91,6 +91,11 @@ export const PIPELINE_DISHES = [
   },
   {
     key: "Fesenjan",
+    // SHIPPED Jul 29 as "Pecan Mole-Fesenjan, Beef and Kabocha" — the pecan and
+    // mole version, not the walnut original this entry describes. status:'shipped'
+    // rather than deleting the entry, because the vote key is a frozen contract
+    // that worker.js and pipeline.html are both gated against.
+    status: 'shipped',
     title: "Fesenjan, Walnut and Pomegranate Braise",
     origin: "Iran &middot; Georgia &middot; Mexico",
     diet: null,

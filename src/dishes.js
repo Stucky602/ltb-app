@@ -1926,9 +1926,9 @@ export const DISHES = [
     id: 'pecan-mole-fesenjan-beef-and',
     name: 'Pecan Mole-Fesenjan, Beef and Kabocha',
     copy: {
-      desc: "A Persian fesenjan that walked west into mole. The sauce is built from toasted Texas pecans and pomegranate molasses, cooked down dark with dried chiles and a whisper of unsweetened chocolate until it is sour, bitter, and deep, and nobody guesses what is in it. Beef chuck in big chunks over kabocha squash cooked in the same warm spices, with cold pickled onion to cut it, pepitas for crunch, and charred tortillas for scooping. Made a day ahead on purpose.",
-      reheat: "Comes as the braise and kabocha in a container, rice to cook fresh, tortillas, and the cold pickled onion and pepitas separately. Cook the rice. Warm the braise gently on the stove over medium-low until it loosens and comes back to a gloss, adding a splash of water if it has tightened. Char the tortillas straight over a burner or in a dry hot pan until they blister. Braise over rice, tortillas alongside, the pickled onion and pepitas cold over the top, and the pomegranate seeds if they came with it.",
-      contains: "Tree nuts (pecans). Gluten (flour in tortillas). Seeds (pepitas).",
+      desc: "A Persian fesenjan that walked west into mole. The sauce is built from toasted Texas pecans and pomegranate molasses, cooked down dark with dried chiles and a whisper of unsweetened chocolate until it is bitter and deep, and nobody guesses what is in it. Beef chuck in big chunks with kabocha squash cooked in the same warm spices, with cold pickled onion to cut it, and charred tortillas for scooping. Comes with uncooked rice. Made a day ahead on purpose.",
+      reheat: "Comes in five parts: the braise in a container, the kabocha sealed in a sous vide bag, uncooked rice, tortillas in their own bag, and the cold pickled onion in a small cup. Cook the rice. Warm the braise gently on the stove over medium-low until it loosens and comes back to a gloss, adding a splash of water if it has tightened. Drop the kabocha bag into simmering water until heated through. Char the tortillas straight over a burner or in a dry hot pan until they blister. Braise over rice with the kabocha alongside, tortillas to scoop, and the pickled onion cold over the top. If you have pepitas or pomegranate seeds in the house, both are excellent on this.",
+      contains: "Tree nuts (pecans). Gluten (flour in the tortillas).",
       pairings: [
         { id: "tempranillo", drink: "Tempranillo or Rioja", why: "earthy Spanish red that meets the mole's chile-and-chocolate depth without fighting it" },
         { id: "zinfandel", drink: "Zinfandel", why: "jammy and high-toned enough to stand up to the sour-sweet braise and the beef" },
@@ -1939,7 +1939,18 @@ export const DISHES = [
       wineStyles: ['bold_red'],
     },
     allergens: { tree_nut: true, gluten: true },
-    cuisine: 'Persian',
+    // Spotlight rather than 'Persian' (Kevin, Jul 29), matching how Boeuf
+    // Bourguignon is filed as Spotlight rather than French. The bucket is an
+    // editorial tier, not an origin, and the catalog filters on it.
+    // Without a stewVegCopy the dish falls through to the generic stovetop
+    // card, which says "comes in a container" and never mentions the bag at
+    // all. That is the exact bug Brunswick hit on Jul 15, and this dish has
+    // the same shape: a stove component plus a bagged one.
+    stewVegCopy: {
+      main: 'Comes in five parts: the braise in a container, the kabocha sealed in a sous vide bag, uncooked rice, tortillas in their own bag, and the cold pickled onion in a small cup. Cook the rice. Warm the braise gently on the stove over medium-low until it loosens and comes back to a gloss, adding a splash of water if it has tightened.',
+      veg: 'Drop the kabocha bag into simmering water until heated through. Char the tortillas straight over a burner or in a dry hot pan until they blister. Braise over rice with the kabocha alongside, tortillas to scoop, and the pickled onion cold over the top. If you have pepitas or pomegranate seeds in the house, both are excellent on this.',
+    },
+    cuisine: 'Spotlight',
     // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
     // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
     // components. Property to sort and sum, not prose to read.
@@ -1955,8 +1966,11 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch'] },
     variants: [
-      { label: 'Small (~4 servings)', price: 75, cost: 38.58 },  // PLACEHOLDER price; ~49% @ buffered cost
-      { label: 'Large (~8 servings)', price: 150, cost: 76.08 }, // PLACEHOLDER price; ~49%. Large is 1.97x Small (flat dried-chili bag + spice bucket)
+      // Prices locked Jul 29. Anchors recomputed from the resolved recipe rather
+      // than hand-set: the old ones sat BELOW computed cost and were only 1.97x
+      // each other, breaking the exactly-2x rule. These are exactly 2.00x.
+      { label: 'Small (~4 servings)', price: 75, cost: 38.32 },  // 48.9% @ buffered cost
+      { label: 'Large (~8 servings)', price: 140, cost: 76.65 }, // 45.25% — the tightest margin on the board, watch chuck price
     ],
     recipe: {
       factors: { 'Small (~4 servings)': 0.5, 'Large (~8 servings)': 1 },
@@ -1972,9 +1986,14 @@ export const DISHES = [
         I('Honey', 2, 'tbs'),
         I('Kabocha squash', 3, 'lb'),
         I('Pickled onion (house)', 1, 'container'),
-        I('Pepitas', 2, 'oz'),
-        I('Pomegranate seeds', 2, 'oz'),
+        // Pepitas and pomegranate seeds REMOVED Jul 29. They are no longer
+        // included; the reheat copy suggests them as an "if you have it" note
+        // instead, which costs nothing and packs nothing.
         I('Mitad-y-mitad tortillas', 2, '10ct'),
+        // Fesenjan was the ONLY rice:true dish in the registry without this
+        // line, so its rice had been shipping uncosted. Same wording, unit, and
+        // staple flag as the other nine.
+        I('Rice (included with order)', 1, 'batch', true),
       ],
     },
   },

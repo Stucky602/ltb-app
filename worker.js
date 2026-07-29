@@ -345,6 +345,16 @@ export default {
           phone: String(body.phone || '').slice(0, 40),
           items: Array.isArray(body.items) ? body.items.slice(0, 50) : [],
           notes: String(body.notes || '').slice(0, 1000),
+          // Carl mode. A BOOLEAN, never a stored swap list: the swaps are
+          // derived from src/carl.js at display time, so an order placed today
+          // still shows the current rulings after one changes. Storing the list
+          // would freeze last month's substitutions into the order forever.
+          // Note the shape of this endpoint — fields are picked one by one, so
+          // an unlisted field is silently dropped. That is exactly what killed
+          // `notice` and `oneBottle` on /config in July. Adding a field means
+          // adding a line HERE and hand-pasting worker.js into the Cloudflare
+          // dashboard; nothing in the repo deploys it.
+          carlMode: body.carlMode === true,
           submittedAt: new Date().toISOString(),
         };
         if (!submission.customer || submission.items.length === 0) {

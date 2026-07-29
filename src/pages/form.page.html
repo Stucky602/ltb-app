@@ -57,6 +57,9 @@
   .diet-filter-label { font-size:11px; color:var(--dim); letter-spacing:0.5px; }
   .diet-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:var(--cream); font-size:12px; cursor:pointer; }
   .diet-chip.on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .carl-say { font-size:12px; font-weight:700; color:var(--gold); background:rgba(212,160,80,0.12); border-left:3px solid var(--gold); padding:7px 9px; margin:8px 0 2px; border-radius:0 4px 4px 0; }
+  .carl-note { font-size:11px; color:var(--dim); margin:6px 0 10px; }
+  .carl-hidden { display:none !important; }
   .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .submit-btn {
@@ -421,7 +424,17 @@
           var opts = dishOptions(dish);
           var blkId = 'dishblk_' + gi + '_' + di;
           if (isDinnerGroup) DINNER_BLOCKS.push({ id: blkId, dish: dish, gi: gi, di: di });
-          html += '<div class="dish"' + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
+          // Carl attributes, from the generated CARL blob. Absent for anything
+          // the registry does not know, which fails closed: no data-carl means
+          // the filter leaves the row alone rather than declaring it orderable.
+          var cc = (typeof CARL !== 'undefined' && CARL[dish.name]) || null;
+          var cAttr = '';
+          if (cc) {
+            cAttr = ' data-carl="' + esc(cc.v) + '"';
+            if (cc.say) cAttr += ' data-carl-say="' + esc(cc.say) + '"';
+            if (cc.dead && cc.dead.length) cAttr += ' data-carl-dead="' + esc(cc.dead.join(',')) + '"';
+          }
+          html += '<div class="dish"' + cAttr + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
             + (dish.requested ? ' <span class="req-chip">by request</span>' : '')
             + (dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '') + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
@@ -523,6 +536,9 @@
       '</div>';
 
       document.getElementById("content").innerHTML = html;
+      // After every render: innerHTML above destroys the blocks and their
+      // classes, so a filter left on would forget itself on the next redraw.
+      if (typeof __carlApply === 'function') __carlApply();
       prefillIdentity();
     }
 
@@ -602,6 +618,8 @@
       saveDraftSoon();
     }
 
+    <!-- @generate carlData -->
+    <!-- @include _partials/carlFilter.js -->
     <!-- @include _partials/esc.js -->
 
     var ACTIVE_DIET = null; // null | 'veg' | 'vegan' | 'pesc'
@@ -630,9 +648,13 @@
         var on = ACTIVE_DIET === diet;
         return '<button type="button" class="diet-chip' + (on ? ' on' : '') + '" onclick="setDiet(\'' + diet + '\')">' + label + '</button>';
       }
-      return '<span class="diet-filter-label">Show:</span>' + chip('veg','Vegetarian') + chip('vegan','Vegan') + chip('pesc','Pescatarian');
+      return '<span class="diet-filter-label">Show:</span>' + chip('veg','Vegetarian') + chip('vegan','Vegan') + chip('pesc','Pescatarian')
+        + '<button type="button" id="carlChip" class="diet-chip" aria-pressed="false" onclick="__carlToggle()">Carl-friendly</button>';
     }
-    function dietChipsHtml(){ return '<div class="diet-filter" id="dietChips">' + dietChipsInner() + '</div>'; }
+    function dietChipsHtml(){
+      return '<div class="diet-filter" id="dietChips">' + dietChipsInner() + '</div>'
+        + '<div class="carl-note" id="carlNote" style="display:none">Carl mode is on. Anything with gluten, egg, legumes, mushrooms, sesame, or white potato is hidden, and this order will be flagged so the swaps get made.</div>';
+    }
     function dishHasCart(gi, di){
       var pre = gi + '_' + di + '_';
       for (var k in cart) { if (cart.hasOwnProperty(k) && k.indexOf(pre) === 0 && cart[k] > 0) return true; }
@@ -885,7 +907,11 @@
       var btn = document.getElementById("submitBtn");
       btn.disabled = true; btn.textContent = "Submitting…";
 
-      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId() };
+      // carlMode is sent as a BOOLEAN and nothing more. The swaps are derived
+      // from src/carl.js when Kevin's order card renders, so a ruling change
+      // updates every existing order instead of leaving stale substitutions
+      // frozen into the ones already placed.
+      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId(), carlMode: (typeof __carlOn !== 'undefined' && __carlOn) === true };
 
       fetch(WORKER + "/submit", {
         method: "POST",

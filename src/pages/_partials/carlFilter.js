@@ -38,18 +38,22 @@ function __carlApply() {
 
     // Dead cards disappear entirely. A menu of things he cannot have is a list
     // of disappointments (Kevin's call, Jul 29).
-    if (__carlOn && verdict === 'no') card.className = 'dish carl-hidden';
-    else card.className = 'dish';
+    var cbase = card.className.replace(/\s*carl-hidden/g, '');
+    card.className = (__carlOn && verdict === 'no') ? cbase + ' carl-hidden' : cbase;
 
     // Per-variant deadness: hide just those price rows. The chickpea curry is
     // the case this exists for — the chicken and shrimp versions are fine.
-    var rows = card.querySelectorAll('.prices .price-row');
+    // Both row shapes: the two menus render .prices .price-row, the order form
+    // renders .variant-row. One selector so the partial serves all three
+    // surfaces rather than being forked per page.
+    var rows = card.querySelectorAll('.prices .price-row, .variant-row');
     for (var r = 0; r < rows.length; r++) {
       var isDead = false;
       for (var d = 0; d < deadRows.length; d++) {
         if (deadRows[d] !== '' && Number(deadRows[d]) === r) isDead = true;
       }
-      rows[r].className = (__carlOn && isDead) ? 'price-row carl-hidden' : 'price-row';
+      var base = rows[r].className.replace(/\s*carl-hidden/g, '');
+      rows[r].className = (__carlOn && isDead) ? base + ' carl-hidden' : base;
     }
 
     // The yellow line. Created once, then shown or hidden.

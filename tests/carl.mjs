@@ -196,5 +196,41 @@ ok('no swaps means no sentence', carlSentence([]) === null);
   ok('18 of the 27 dinners survive', dinnerNames.size === 18, String(dinnerNames.size));
 }
 
+// ── The order path ─────────────────────────────────────────────────────────
+// The order carries a BOOLEAN. Everything Kevin sees on the card is derived
+// from carl.js at render time, which is what makes a ruling change apply to
+// orders already placed. These assertions pin that contract down: given an
+// order's item list, the swaps and cook notes must be recoverable without the
+// order having stored any of them.
+{
+  const order = { carlMode: true, items: [
+    { name: 'Steak au Poivre', variant: 'Medium (~4 servings)', qty: 1 },
+    { name: 'Bolognese', variant: 'Large (~8)', qty: 1 },
+    // Bo Ssam is here for the cook notes specifically. The pasta, potato, and
+    // lecithin swaps all change nothing about the cooking, so an order of only
+    // those correctly produces no notes — coconut aminos is the one that needs
+    // saying out loud, because it is much less salty than soy.
+    { name: 'Bo Ssam', variant: 'Large (~8 servings)', qty: 1 },
+  ] };
+  const swaps = [], notes = [], shopping = [];
+  for (const it of order.items) {
+    const item = ITEMS.find(x => x.name === it.name);
+    const st = carlStatus(item, it.variant, resolveDishVariant(it.name, it.variant));
+    for (const sw of st.swaps) if (!swaps.includes(sw)) swaps.push(sw);
+    for (const n of st.cookNotes) if (!notes.includes(n)) notes.push(n);
+    for (const sh of st.shopping) if (!shopping.includes(sh)) shopping.push(sh);
+  }
+  ok('an order resolves its swaps from the registry, not from stored state',
+    swaps.includes('sweet_potato') && swaps.includes('sunflower_lecithin') && swaps.includes('gf_pasta'), swaps.join(','));
+  ok('and it carries the cook notes that matter', notes.length > 0 && notes.some(n => /salt/i.test(n)), notes.join(' | '));
+  ok('and a deduplicated shopping list', shopping.length === new Set(shopping).size && shopping.length > 0, shopping.join(','));
+
+  // A dead item must never resolve to a swap list, so a form bug cannot turn
+  // into a dish that gets cooked wrong.
+  const dead = carlStatus(byName('Mushroom Ragu'), 'Small (~4-5 servings)', resolveDishVariant('Mushroom Ragu', 'Small (~4-5 servings)'));
+  ok('a dead item yields no swaps even if it reaches an order', dead.swaps.length === 0 && dead.verdict === 'dead');
+  ok('and it says what blocked it, for the card to show', dead.blocked.length > 0);
+}
+
 console.log(f === 0 ? '\nCARL: ALL PASS' : `\nCARL: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

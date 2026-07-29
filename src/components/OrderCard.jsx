@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { companionHtml, companionContext } from '../companion.js';
 import { INGREDIENT_SEED } from '../ingredients.js';
-import { DISHES } from '../dishes.js';
+import { DISHES, ALL_ALWAYS_ITEMS } from '../dishes.js';
+import { carlStatus } from '../carl.js';
 import { unitOptionsFor, resolveDishVariant } from '../dishCosting.js';
 import { pastOmakasesFor } from '../omakase.js';
 import { buildPassport as buildPassportData } from '../passport.js';
@@ -558,6 +559,41 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
     setEditingContact(false);
   };
 
+  // ── Carl mode ──────────────────────────────────────────────────────────────
+  // DERIVED, never read off the order. The order carries a boolean and nothing
+  // else, so a ruling change in src/carl.js updates every order already placed
+  // instead of leaving last month's substitutions frozen in.
+  //
+  // The banner deliberately does NOT just say "Carl friendly". A flag that only
+  // says safe is a lie on a substituted dish: it is not safe until the corn
+  // tortillas are actually used. So it lists what to do differently, and the
+  // cook notes underneath carry the things that are easy to get wrong (salt the
+  // aminos at the end, disperse the xanthan cold).
+  const carl = useMemo(() => {
+    if (!order.carlMode) return null;
+    const registry = [...DISHES, ...ALL_ALWAYS_ITEMS];
+    const swaps = [];
+    const notes = [];
+    const shopping = [];
+    const blocked = [];
+    for (const it of (order.items || [])) {
+      const item = registry.find(x => x.name === it.name);
+      if (!item) continue;
+      const st = carlStatus(item, it.variant || it.label, resolveDishVariant(it.name, it.variant || it.label));
+      if (st.verdict === 'dead') {
+        // Should not happen: the form hides these. If one gets through, say so
+        // loudly rather than cooking it and hoping.
+        blocked.push(`${it.name}${it.variant ? ' — ' + it.variant : ''}: ${st.blocked.map(b => b.reason).join('; ')}`);
+        continue;
+      }
+      for (const sw of st.swaps) if (!swaps.includes(sw)) swaps.push(sw);
+      if (st.sentence && !notes.includes(st.sentence)) notes.push(`${it.name}: ${st.sentence}`);
+      for (const n of st.cookNotes) if (!notes.includes(n)) notes.push(n);
+      for (const sh of st.shopping) if (!shopping.includes(sh)) shopping.push(sh);
+    }
+    return { swaps, notes, shopping, blocked };
+  }, [order.carlMode, order.items]);
+
   return (
     <div style={styles.orderCard}>
       <div style={styles.orderCardHeader} onClick={onToggle} role="button" tabIndex={0}>
@@ -574,6 +610,11 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
           </div>
         </div>
         <div style={styles.orderCardRight}>
+          {order.carlMode && (
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: '#D4A050', border: '1px solid #D4A050', borderRadius: 999, padding: '2px 7px', marginRight: 6 }}>
+              CARL
+            </span>
+          )}
           <button
             style={{
               ...styles.paidPill,
@@ -597,6 +638,26 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
 
       {expanded && (
         <div style={styles.orderCardBody}>
+          {carl && (carl.notes.length > 0 || carl.blocked.length > 0 || carl.shopping.length > 0) && (
+            <div style={{ border: '1px solid #D4A050', background: 'rgba(212,160,80,0.10)', borderRadius: 6, padding: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#D4A050', marginBottom: 6, letterSpacing: 0.3 }}>
+                CARL FRIENDLY — make these changes
+              </div>
+              {carl.blocked.length > 0 && (
+                <div style={{ fontSize: 12, color: '#EF6F6F', marginBottom: 6, fontWeight: 700 }}>
+                  {carl.blocked.map((b, i) => <div key={i}>Should not have been orderable: {b}</div>)}
+                </div>
+              )}
+              {carl.notes.map((n, i) => (
+                <div key={i} style={{ fontSize: 12, color: '#e8ede9', marginBottom: 4, lineHeight: 1.4 }}>{n}</div>
+              ))}
+              {carl.shopping.length > 0 && (
+                <div style={{ fontSize: 11, color: '#8a928c', marginTop: 6 }}>
+                  Shop: {carl.shopping.join(', ')}
+                </div>
+              )}
+            </div>
+          )}
           {(() => {
             // Standing restrictions live on the regular. Surfaced here so they
             // are in front of Kevin while he is fulfilling, not one tab away.

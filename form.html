@@ -61,6 +61,9 @@
   .diet-filter-label { font-size:11px; color:var(--dim); letter-spacing:0.5px; }
   .diet-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:var(--cream); font-size:12px; cursor:pointer; }
   .diet-chip.on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .carl-say { font-size:12px; font-weight:700; color:var(--gold); background:rgba(212,160,80,0.12); border-left:3px solid var(--gold); padding:7px 9px; margin:8px 0 2px; border-radius:0 4px 4px 0; }
+  .carl-note { font-size:11px; color:var(--dim); margin:6px 0 10px; }
+  .carl-hidden { display:none !important; }
   .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .submit-btn {
@@ -441,7 +444,17 @@
           var opts = dishOptions(dish);
           var blkId = 'dishblk_' + gi + '_' + di;
           if (isDinnerGroup) DINNER_BLOCKS.push({ id: blkId, dish: dish, gi: gi, di: di });
-          html += '<div class="dish"' + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
+          // Carl attributes, from the generated CARL blob. Absent for anything
+          // the registry does not know, which fails closed: no data-carl means
+          // the filter leaves the row alone rather than declaring it orderable.
+          var cc = (typeof CARL !== 'undefined' && CARL[dish.name]) || null;
+          var cAttr = '';
+          if (cc) {
+            cAttr = ' data-carl="' + esc(cc.v) + '"';
+            if (cc.say) cAttr += ' data-carl-say="' + esc(cc.say) + '"';
+            if (cc.dead && cc.dead.length) cAttr += ' data-carl-dead="' + esc(cc.dead.join(',')) + '"';
+          }
+          html += '<div class="dish"' + cAttr + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
             + (dish.requested ? ' <span class="req-chip">by request</span>' : '')
             + (dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '') + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
@@ -543,6 +556,9 @@
       '</div>';
 
       document.getElementById("content").innerHTML = html;
+      // After every render: innerHTML above destroys the blocks and their
+      // classes, so a filter left on would forget itself on the next redraw.
+      if (typeof __carlApply === 'function') __carlApply();
       prefillIdentity();
     }
 
@@ -622,6 +638,103 @@
       saveDraftSoon();
     }
 
+    var CARL = {"Brunswick Stew": {"v": "no", "say": "", "dead": [0, 1]}, "Chili": {"v": "swap", "say": "For Carl, we leave the beans out, swap the soy sauce for coconut aminos and drop the Marmite and lean on the anchovy for depth.", "dead": []}, "Gumbo": {"v": "no", "say": "", "dead": [0, 1]}, "Tex-Mex Kit": {"v": "swap", "say": "For Carl, we leave the beans out and swap the flour tortillas for corn.", "dead": []}, "Indian Style Curry": {"v": "ok", "say": "", "dead": [0, 3]}, "Leblanc Inspired Japanese Curry": {"v": "no", "say": "", "dead": [0, 1]}, "Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce": {"v": "no", "say": "", "dead": [0, 1]}, "Bo Ssam": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos.", "dead": []}, "Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos and leave the chili oil out.", "dead": [0, 1, 2, 3]}, "Mapo Eggplant": {"v": "no", "say": "", "dead": [0, 1]}, "Shrimp or Tofu with Asparagus in Black Bean Sauce": {"v": "no", "say": "", "dead": [0, 1, 2, 3]}, "Stir Fried Long Beans with Ground Pork or Tofu": {"v": "no", "say": "", "dead": [0, 1, 2, 3]}, "Texas Gulf Shrimp or Tofu and Chinese Broccoli": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos, swap the oyster sauce for a gluten-free one and leave the chili oil out.", "dead": [2, 3]}, "Thai Basil Chicken (Pad Krapow Gai)": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos and swap the oyster sauce for a gluten-free one.", "dead": []}, "Bolognese": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pasta with Homegrown Tomato Sauce": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": [2, 3]}, "Orecchiette with Bitter Greens and Anchovies": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pappardelle with Vegetables and Mint": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape and leave the peas out.", "dead": []}, "Saffron Pork Ragu": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pork with Mustard Tarragon Cream Sauce": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Mushroom Ragu": {"v": "no", "say": "", "dead": [0, 1]}, "Coriander Lamb Steak over Gigantes Beans": {"v": "no", "say": "", "dead": [0, 1, 2]}, "Pork Chop with Kabocha Purée and Charred Broccolini": {"v": "ok", "say": "", "dead": []}, "Bone-In Pork Rib Chop with All the Fixings": {"v": "swap", "say": "For Carl, we stabilize the butter sauce with sunflower lecithin instead of soy.", "dead": []}, "Steak au Poivre": {"v": "swap", "say": "For Carl, we swap the potatoes for sweet potato and stabilize the butter sauce with sunflower lecithin instead of soy.", "dead": []}, "Boeuf Bourguignon (Beef Stew)": {"v": "swap", "say": "For Carl, we swap the potatoes for sweet potato and thicken the stew with xanthan gum instead of a flour roux.", "dead": [1]}, "Pecan Mole-Fesenjan, Beef and Kabocha": {"v": "swap", "say": "For Carl, we swap the flour tortillas for corn.", "dead": []}, "Homemade Waffles": {"v": "no", "say": "", "dead": [0]}, "Fresh Cut Pineapple": {"v": "ok", "say": "", "dead": []}, "Seasonal Cantaloupe": {"v": "ok", "say": "", "dead": []}, "Chocolate Chip Cookies": {"v": "no", "say": "", "dead": [0, 1]}, "Peanut Butter Fudge": {"v": "no", "say": "", "dead": [0]}, "Brownies": {"v": "no", "say": "", "dead": [0]}, "Queso": {"v": "ok", "say": "", "dead": []}, "Pickled Onions or Carrots": {"v": "ok", "say": "", "dead": []}, "Chili Oil": {"v": "no", "say": "", "dead": [0, 1]}, "Thyme or Lavender Syrup": {"v": "ok", "say": "", "dead": []}, "Vanilla Syrup": {"v": "ok", "say": "", "dead": []}, "Vanilla Lavender Syrup": {"v": "ok", "say": "", "dead": []}, "Filet Mignon": {"v": "ok", "say": "", "dead": []}, "Filet Mignon - Prime": {"v": "ok", "say": "", "dead": []}, "Flank Steak": {"v": "ok", "say": "", "dead": []}, "NY Strip": {"v": "ok", "say": "", "dead": []}, "NY Strip - Prime": {"v": "ok", "say": "", "dead": []}, "Ribeye": {"v": "ok", "say": "", "dead": []}, "Ribeye - Prime": {"v": "ok", "say": "", "dead": []}, "Pork Tenderloin": {"v": "ok", "say": "", "dead": []}, "Thick-Cut Pork Chop": {"v": "ok", "say": "", "dead": []}, "Air-Chilled Chicken Breast": {"v": "ok", "say": "", "dead": []}, "Carrots": {"v": "ok", "say": "", "dead": []}, "Baby Gold Potatoes": {"v": "no", "say": "", "dead": [0]}, "Corn (off the cob)": {"v": "ok", "say": "", "dead": []}, "Kabocha Squash": {"v": "ok", "say": "", "dead": []}, "Parsnips": {"v": "ok", "say": "", "dead": []}, "Asparagus": {"v": "ok", "say": "", "dead": []}, "Garlic Confit": {"v": "ok", "say": "", "dead": []}, "Chimichurri": {"v": "no", "say": "", "dead": [0]}, "Romesco": {"v": "no", "say": "", "dead": [0]}, "Chermoula": {"v": "no", "say": "", "dead": [0]}, "Miso Butter Sauce": {"v": "no", "say": "", "dead": [0]}, "Whipped Lemon Garlic Herb Butter": {"v": "no", "say": "", "dead": [0]}};
+    // carlFilter.js — the Carl toggle on the customer catalog.
+    //
+    // Reads ONLY attributes stamped onto each card by tools/syncMainMenu.mjs from
+    // src/carl.js. There is no allergen logic in here and there must never be: a
+    // second copy of the rules on the client is a second copy that can be wrong,
+    // and the one that is wrong is the one nobody tests. This file shows, hides,
+    // and prints a line. That is all.
+    //
+    //   data-carl="ok|swap|no"   worst-case verdict across the card's variants
+    //   data-carl-say="..."      the yellow line, already composed
+    //   data-carl-dead="0,3"     indices of price rows that are dead for Carl,
+    //                            positional against the card's own price rows
+    //                            (the same positional contract syncMainMenu uses
+    //                            to rewrite prices, so the two cannot disagree)
+    //
+    // IT HIDES WITH A CLASS, NOT style.display. The catalog's diet and cuisine
+    // filters already own style.display on these same cards. The first version of
+    // this used style.display too and silently broke the diet filter: every
+    // __carlApply pass reset display to '' and un-hid everything the diet filter
+    // had just hidden. tests/customer_pages.mjs caught it. Classes compose, inline
+    // styles fight, so the two filters now cannot interfere with each other and no
+    // re-apply hook is needed after a catalog filter runs.
+    //
+    // ES5 on purpose. These pages carry no build step and no polyfills.
+    var __carlOn = false;
+
+    function __carlCards() {
+      return document.querySelectorAll('.dish[data-carl]');
+    }
+
+    function __carlApply() {
+      var cards = __carlCards();
+      for (var i = 0; i < cards.length; i++) {
+        var card = cards[i];
+        var verdict = card.getAttribute('data-carl') || 'no';
+        var say = card.getAttribute('data-carl-say') || '';
+        var deadRows = (card.getAttribute('data-carl-dead') || '').split(',');
+
+        // Dead cards disappear entirely. A menu of things he cannot have is a list
+        // of disappointments (Kevin's call, Jul 29).
+        var cbase = card.className.replace(/\s*carl-hidden/g, '');
+        card.className = (__carlOn && verdict === 'no') ? cbase + ' carl-hidden' : cbase;
+
+        // Per-variant deadness: hide just those price rows. The chickpea curry is
+        // the case this exists for — the chicken and shrimp versions are fine.
+        // Both row shapes: the two menus render .prices .price-row, the order form
+        // renders .variant-row. One selector so the partial serves all three
+        // surfaces rather than being forked per page.
+        var rows = card.querySelectorAll('.prices .price-row, .variant-row');
+        for (var r = 0; r < rows.length; r++) {
+          var isDead = false;
+          for (var d = 0; d < deadRows.length; d++) {
+            if (deadRows[d] !== '' && Number(deadRows[d]) === r) isDead = true;
+          }
+          var base = rows[r].className.replace(/\s*carl-hidden/g, '');
+          rows[r].className = (__carlOn && isDead) ? base + ' carl-hidden' : base;
+        }
+
+        // The yellow line. Created once, then shown or hidden.
+        var line = card.querySelector('.carl-say');
+        if (__carlOn && say) {
+          if (!line) {
+            line = document.createElement('div');
+            line.className = 'carl-say';
+            var prices = card.querySelector('.prices');
+            if (prices) card.insertBefore(line, prices);
+            else card.appendChild(line);
+          }
+          line.textContent = say;
+          line.style.display = '';
+        } else if (line) {
+          line.style.display = 'none';
+        }
+      }
+    }
+
+    function __carlToggle() {
+      __carlOn = !__carlOn;
+      var btn = document.getElementById('carlChip');
+      if (btn) {
+        btn.className = 'cat-chip' + (__carlOn ? ' on' : '');
+        btn.setAttribute('aria-pressed', __carlOn ? 'true' : 'false');
+      }
+      var note = document.getElementById('carlNote');
+      if (note) note.style.display = __carlOn ? '' : 'none';
+      __carlApply();
+    }
+
+    // EXPORTED TO window EXPLICITLY. This partial is included inside the catalog's
+    // filter IIFE, so these are closure-scoped by default — and an inline
+    // onclick="__carlToggle()" resolves against the global scope, not the closure.
+    // So the button silently did nothing until this was added. Same reason the
+    // catalog's own filter does window.__catFilter = ... rather than relying on a
+    // bare function declaration.
+    window.__carlToggle = __carlToggle;
+    window.__carlApply = __carlApply;
     // HTML escaping for anything that reaches a customer's screen. Shared because
     // a page that escapes LESS than its neighbours is the bug, not a style
     // difference — and that is invisible until someone publishes a notice with an
@@ -658,9 +771,13 @@
         var on = ACTIVE_DIET === diet;
         return '<button type="button" class="diet-chip' + (on ? ' on' : '') + '" onclick="setDiet(\'' + diet + '\')">' + label + '</button>';
       }
-      return '<span class="diet-filter-label">Show:</span>' + chip('veg','Vegetarian') + chip('vegan','Vegan') + chip('pesc','Pescatarian');
+      return '<span class="diet-filter-label">Show:</span>' + chip('veg','Vegetarian') + chip('vegan','Vegan') + chip('pesc','Pescatarian')
+        + '<button type="button" id="carlChip" class="diet-chip" aria-pressed="false" onclick="__carlToggle()">Carl-friendly</button>';
     }
-    function dietChipsHtml(){ return '<div class="diet-filter" id="dietChips">' + dietChipsInner() + '</div>'; }
+    function dietChipsHtml(){
+      return '<div class="diet-filter" id="dietChips">' + dietChipsInner() + '</div>'
+        + '<div class="carl-note" id="carlNote" style="display:none">Carl mode is on. Anything with gluten, egg, legumes, mushrooms, sesame, or white potato is hidden, and this order will be flagged so the swaps get made.</div>';
+    }
     function dishHasCart(gi, di){
       var pre = gi + '_' + di + '_';
       for (var k in cart) { if (cart.hasOwnProperty(k) && k.indexOf(pre) === 0 && cart[k] > 0) return true; }
@@ -913,7 +1030,11 @@
       var btn = document.getElementById("submitBtn");
       btn.disabled = true; btn.textContent = "Submitting…";
 
-      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId() };
+      // carlMode is sent as a BOOLEAN and nothing more. The swaps are derived
+      // from src/carl.js when Kevin's order card renders, so a ruling change
+      // updates every existing order instead of leaving stale substitutions
+      // frozen into the ones already placed.
+      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId(), carlMode: (typeof __carlOn !== 'undefined' && __carlOn) === true };
 
       fetch(WORKER + "/submit", {
         method: "POST",

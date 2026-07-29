@@ -6,6 +6,8 @@
 //   node tools/syncMainMenu.mjs --write  → rewrite main-menu.html in place
 import { readFileSync, writeFileSync } from 'fs';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
+import { resolveDishVariant } from '../src/dishCosting.js';
+import { carlStatus, SWAPS, carlSentence } from '../src/carl.js';
 
 // KEPT, NOT FOLDED INTO buildPages.mjs (Jul 2026, page build step). The build
 // generates main-menu.html from src/pages/main-menu.page.html, so this tool now
@@ -22,6 +24,7 @@ const PATH = new URL('../src/pages/main-menu.page.html', import.meta.url).pathna
 let html = readFileSync(PATH, 'utf8');
 const write = process.argv.includes('--write');
 
+const attrEsc = (x) => String(x).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const money = (n) => Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`;
 let drift = 0, patched = 0;
 
@@ -86,6 +89,80 @@ function dietTokens(d) {
   return out.join(' ');
 }
 
+// ── CARL ATTRIBUTE SYNC (Jul 29) ─────────────────────────────────────────────
+// Dinners are stamped inside syncAttrs() above, which owns their opening tag.
+// What is left here is the ALWAYS-ITEMS pass: syncAttrs only loops DISHES, and
+// add-on cards carry no data-name at all, so they are located by walking back
+// from their dish-name div instead.
+// Same contract as the diet tokens above: the registry already knows the answer,
+// so stamp it onto the card rather than hand-maintaining a parallel list. The
+// client partial (_partials/carlFilter.js) reads these three attributes and
+// contains no allergen logic of its own, deliberately — a second copy of the
+// rules on the client is a second copy that can be wrong.
+//
+//   data-carl        worst-case verdict across the card's variants
+//   data-carl-say    the composed yellow line, or absent when nothing changes
+//   data-carl-dead   indices of price rows dead for Carl, POSITIONAL against
+//                    the card's own price rows. That is the same positional
+//                    contract syncCard() uses to rewrite prices, so if one is
+//                    right the other is too, and if the card gains a row both
+//                    break together instead of one drifting silently.
+function carlAttrs(item) {
+  const per = (item.variants || []).map(v => carlStatus(item, v.label, resolveDishVariant(item.name, v.label)));
+  const dead = per.map((st, i) => (st.verdict === 'dead' ? i : -1)).filter(i => i >= 0);
+  const alive = per.filter(st => st.verdict !== 'dead');
+  if (!alive.length) return { verdict: 'no', say: '', dead };
+
+  // Union of swaps across surviving variants. One line per card, not per row:
+  // the card is the unit a customer reads.
+  const swaps = [];
+  for (const st of alive) for (const sw of st.swaps) if (!swaps.includes(sw)) swaps.push(sw);
+  return { verdict: swaps.length ? 'swap' : 'ok', say: swaps.length ? carlSentence(swaps) : '', dead };
+}
+
+// Walk back from the dish-name div to the <div class="dish" that opens its card.
+// Add-on cards are packed several to a line and carry no data-name, so they
+// cannot be found the way the dinners are.
+function cardOpenTag(name) {
+  const tag = `<div class="dish-name">${name}</div>`;
+  const at = html.indexOf(tag);
+  if (at < 0) return null;
+  const open = html.lastIndexOf('<div class="dish"', at);
+  if (open < 0) return null;
+  const close = html.indexOf('>', open);
+  if (close < 0 || close > at) return null;
+  return { start: open, end: close + 1, text: html.slice(open, close + 1) };
+}
+
+let carlDrift = 0, carlPatched = 0, carlMissing = 0;
+function syncCarl(item) {
+  if (OFF_MENU.has(item.name)) return;
+  const t = cardOpenTag(item.name);
+  if (!t) { carlMissing++; return; }   // no card on the catalog; not an error
+  const a = carlAttrs(item);
+
+  let tag = t.text
+    .replace(/\s+data-carl="[^"]*"/g, '')
+    .replace(/\s+data-carl-say="[^"]*"/g, '')
+    .replace(/\s+data-carl-dead="[^"]*"/g, '');
+  let extra = ` data-carl="${a.verdict}"`;
+  if (a.say) extra += ` data-carl-say="${attrEsc(a.say)}"`;
+  if (a.dead.length) extra += ` data-carl-dead="${a.dead.join(',')}"`;
+  tag = tag.replace(/>$/, extra + '>');
+
+  if (tag === t.text) return;
+  carlDrift++;
+  console.log(`  carl: ${item.name} -> ${a.verdict}${a.dead.length ? ' (dead rows ' + a.dead.join(',') + ')' : ''}`);
+  if (write) { html = html.slice(0, t.start) + tag + html.slice(t.end); carlPatched++; }
+}
+
+for (const it of ALL_ALWAYS_ITEMS) syncCarl(it);
+if (carlDrift) {
+  drift += carlDrift;
+  patched += carlPatched;
+  console.log(`  carl: ${carlDrift} card(s) ${write ? 'stamped' : 'need stamping'}, ${carlMissing} registry item(s) have no catalog card`);
+}
+
 function syncAttrs(d) {
   if (OFF_MENU.has(d.name)) return;
   const b = cardBounds(d.name);
@@ -97,9 +174,18 @@ function syncAttrs(d) {
   if (closeIdx < 0 || closeIdx > b.start) return;
   const current = html.slice(openTagEnd, closeIdx + 1);
   const diet = dietTokens(d);
+  // The Carl attributes are emitted HERE rather than in a second pass. The
+  // first version of this used its own pass, and the two fought: syncAttrs
+  // rebuilds the whole tag from scratch and dropped data-carl, then the Carl
+  // pass put it back, so every run reported drift and the tool stopped being
+  // idempotent. One tool, one tag, one write.
+  const c = carlAttrs(d);
   const want = `<div class="dish" data-name="${d.name.replace(/"/g, '&quot;')}"`
     + ` data-cuisine="${(d.cuisine || 'Other').replace(/"/g, '&quot;')}"`
     + (diet ? ` data-diet="${diet}"` : '')
+    + ` data-carl="${c.verdict}"`
+    + (c.say ? ` data-carl-say="${attrEsc(c.say)}"` : '')
+    + (c.dead.length ? ` data-carl-dead="${c.dead.join(',')}"` : '')
     + '>';
   if (current === want) return;
   drift++;

@@ -355,6 +355,40 @@ console.log('menu.html');
   dom.window.__catFilter('diet', 'vegan');
   const after = Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length;
   check('a diet filter actually narrows the catalog', after > 0 && after < before);
+
+  // ── The Carl filter ───────────────────────────────────────────────────────
+  // Stamped by tools/syncMainMenu.mjs from src/carl.js. Asserted here because
+  // the gate otherwise proves nothing about whether the toggle works, and
+  // because this filter and the diet filter both act on the same cards: the
+  // first version hid with style.display and silently un-hid everything the
+  // diet filter had just hidden.
+  // The vegan filter is ALREADY active from the assertion above — do not tap it
+  // again here. Tapping the same chip clears it, which silently changed the
+  // catalog state the later chip assertions depend on.
+  const dietOn = after;
+  check('the Carl chip is on the page', !!d.getElementById('carlChip'));
+  check('cards carry a Carl verdict', d.querySelectorAll('.dish[data-carl]').length > 20);
+  check('some cards carry a swap line', d.querySelectorAll('.dish[data-carl-say]').length > 5);
+
+  dom.window.__carlToggle();
+  check('the Carl toggle does not disturb the active diet filter',
+    Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length === dietOn);
+  check('dead cards are hidden when Carl is on',
+    d.querySelectorAll('.dish[data-carl="no"]:not(.carl-hidden)').length === 0);
+  check('surviving cards are not hidden by Carl',
+    d.querySelectorAll('.dish[data-carl="swap"].carl-hidden').length === 0);
+  const said = d.querySelectorAll('.carl-say');
+  check('the swap line is printed', said.length > 5, String(said.length));
+  check('and it reads as a sentence about Carl', /^For Carl, we .+\.$/.test(said[0].textContent), said[0] && said[0].textContent);
+  check('per-variant dead rows are hidden', d.querySelectorAll('.price-row.carl-hidden').length > 0);
+  check('the explanatory note is shown', d.getElementById('carlNote').style.display !== 'none');
+
+  dom.window.__carlToggle();
+  check('toggling Carl off restores every card', d.querySelectorAll('.carl-hidden').length === 0);
+  check('and hides the swap lines again',
+    Array.from(d.querySelectorAll('.carl-say')).every(e => e.style.display === 'none'));
+  check('and the diet filter is still exactly where it was',
+    Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length === dietOn);
   dom.window.__catFilter('diet', 'vegan');
   check('tapping the same chip clears it', Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length === before);
   check('this week is badged onto the catalog', /on this week's menu/.test(d.body.innerHTML));

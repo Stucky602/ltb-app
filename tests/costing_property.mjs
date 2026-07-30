@@ -155,9 +155,17 @@ for (let r = 0; r < ROUNDS; r++) {
 // The property is restated as what is actually true: the buffer is never
 // multiplied back IN, and the strict decrease is asserted only above the
 // resolution where a decrease can be represented at all.
+const round2money = (n) => Math.round(n * 100) / 100;
 const ROUNDING_FLOOR = 0.07;
 for (let r = 0; r < 200; r++) {
-  const buffered = between(0.01, 500);
+  // MONEY, so two decimals. between() returns full-precision floats, and a
+  // value like 0.03899942 divided by 1.0825 and rounded to cents comes back as
+  // 0.04 — GREATER than the input, because the comparison was between a
+  // rounded output and an unrounded input. That is a category error in the
+  // test, not a defect in trueRawCost: a buffered cost is a dollar amount and
+  // can never have eight decimal places. Rounding the generated value tests the
+  // function against inputs it can actually receive.
+  const buffered = round2money(between(0.01, 500));
   const raw = trueRawCost(buffered);
   hold('trueRawCost never multiplies the buffer back in',
     raw <= buffered, `${buffered} -> ${raw}`);

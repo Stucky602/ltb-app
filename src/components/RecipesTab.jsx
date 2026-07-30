@@ -12,6 +12,7 @@ import {
 } from '../dishReport.js';
 import { PIPELINE_DISHES } from '../pipelineDishes.js';
 import { CueCapture, CueGallery } from './CueAtlas.jsx';
+import { buildIngredientCard, ingredientCardText, BLEND_LABEL } from '../ingredientCard.js';
 import { fetchFeedbackHistory, feedbackHistoryByDish } from '../feedbackSync.js';
 import { omakaseStats } from '../omakase.js';
 import { repricingScoreboard } from '../repricing.js';
@@ -1381,6 +1382,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                     : 'the whole day'}
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* ── Ingredient card ────────────────────────────────────────────
+              For a customer who asks what is in a dish. Generated rather than
+              written, so it cannot drift from the recipe — and it adds the
+              staples the recipes never bother to record, because a card that
+              says a dish contains no salt is false on every line of the menu. */}
+          {dishDef && (
+            <div style={S.section}>
+              <div style={S.sectionTitle}>Ingredient card</div>
+              <IngredientCardBlock dishName={dish} />
             </div>
           )}
 

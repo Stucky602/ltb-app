@@ -1,3 +1,4 @@
+import { buildIngredientCard, BLEND_LABEL } from '../ingredientCard.js';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
@@ -458,3 +459,153 @@ export function WeightPhotoModal({ orderId, itemIdx, item, stepLabel, onApply, o
 }
 
 // ─── Order Card ─────────────────────────────────────────────────────────────
+
+// ─── Ingredient card (shareable image, mirrors the invoice) ─────────────────
+//
+// Kevin sends these when a customer asks what is in a dish. It is an IMAGE via
+// the native share sheet, not text, for the same reason the invoice is: a card
+// arrives in a message looking like it came from a business, and a wall of
+// plain text does not.
+//
+// Deliberately NOT rendered inline on the Recipes tab. Kevin has the actual
+// recipe in front of him there, so a read-only copy of it is clutter. The tab
+// carries one button; this is what the button opens.
+//
+// Layout mirrors InvoiceModal exactly — same gold-bordered card, same LTB
+// header, same divider rhythm — because these two land side by side in the same
+// message thread and a near-match reads worse than either a match or a clear
+// difference.
+export function IngredientCardModal({ dishName, onClose }) {
+  const card = useMemo(() => buildIngredientCard(dishName), [dishName]);
+  const [sharing, setSharing] = useState(false);
+  const cardRef = React.useRef(null);
+
+  if (!card) return null;
+
+  const shareCard = async () => {
+    setSharing(true);
+    try {
+      const html2canvas = await loadHtml2Canvas();
+      if (!html2canvas || !cardRef.current) {
+        setSharing(false);
+        alert('Could not prepare the image. You can screenshot the card instead.');
+        return;
+      }
+      const canvas = await html2canvas(cardRef.current, {
+        backgroundColor: '#1a1a1a',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+      });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      if (!blob) { setSharing(false); return; }
+      const safe = String(card.dishName).replace(/[^a-z0-9]+/gi, '-').slice(0, 40);
+      const file = new File([blob], `LTB-ingredients-${safe}.png`, { type: 'image/png' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (e) {
+      if (e && e.name !== 'AbortError') {
+        alert('Sharing failed: ' + (e.message || 'unknown error') + '. You can screenshot instead.');
+      }
+    }
+    setSharing(false);
+  };
+
+  const dateStr = new Date(card.generatedAt).toLocaleDateString(undefined, {
+    month: 'long', day: 'numeric', year: 'numeric',
+  });
+
+  return (
+    <div style={styles.invoiceOverlay} onClick={onClose}>
+      <div style={styles.invoiceScroll} onClick={e => e.stopPropagation()}>
+        <div style={styles.invoiceCard} ref={cardRef}>
+          <div style={styles.invoiceHeader}>
+            <div style={styles.invoiceLogo}>LTB</div>
+            <div>
+              <div style={styles.invoiceBrand}>Lettuce, Turnip, The Beet</div>
+              <div style={styles.invoiceTagline}>meal prep, delivered fresh</div>
+            </div>
+          </div>
+
+          <div style={styles.invoiceMeta}>
+            <div style={styles.invoiceCustomer}>{card.dishName}</div>
+            <div style={styles.invoiceDate}>{dateStr}</div>
+          </div>
+
+          <div style={styles.invoiceDivider} />
+
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: '#9aa5a0', marginBottom: 8 }}>
+            Everything in it
+          </div>
+
+          {/* Two columns. A single column of twenty ingredients makes a card
+              taller than a phone screen, and a screenshot that needs scrolling
+              is not a card. */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 14, rowGap: 3 }}>
+            {card.ingredients.map((ing, i) => (
+              <div
+                key={i}
+                style={{
+                  fontSize: 12.5,
+                  lineHeight: 1.5,
+                  color: ing === BLEND_LABEL ? GOLD : CREAM,
+                  fontStyle: ing === BLEND_LABEL ? 'italic' : 'normal',
+                  // The blend note is a pointer to a conversation rather than an
+                  // ingredient, so it spans and sits apart from the list.
+                  gridColumn: ing === BLEND_LABEL ? '1 / -1' : 'auto',
+                  marginTop: ing === BLEND_LABEL ? 6 : 0,
+                }}
+              >{ing}</div>
+            ))}
+          </div>
+
+          {card.allergens && (
+            <>
+              <div style={{ ...styles.invoiceDivider, background: GOLD, margin: '14px 0 10px' }} />
+              {/* Loud, and above the small print. This is the line somebody with
+                  an allergy is looking for, and it should not be at the bottom
+                  next to a disclaimer. */}
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: GOLD, marginBottom: 4 }}>
+                Contains
+              </div>
+              <div style={{ fontSize: 12.5, lineHeight: 1.55, color: CREAM }}>
+                {card.allergens}
+              </div>
+            </>
+          )}
+
+          <div style={{ borderTop: '1px dashed #37403c', margin: '14px 0 10px' }} />
+
+          {card.notes.map((n, i) => (
+            <div key={i} style={{ fontSize: 11, color: '#9aa5a0', lineHeight: 1.5, fontStyle: 'italic' }}>{n}</div>
+          ))}
+
+          <div style={styles.invoiceFooter}>
+            Ask me anything about any of it.
+          </div>
+
+          {/* Provenance, small. Without the version a card cannot be matched to
+              what a customer actually received months later. */}
+          <div style={{ fontSize: 9.5, color: '#6b7570', textAlign: 'center', marginTop: 6 }}>
+            {card.recipeVersionId || 'recipe version not recorded'}
+          </div>
+        </div>
+
+        <button style={styles.invoiceShareBtn} onClick={shareCard} disabled={sharing}>
+          {sharing ? 'Preparing…' : 'Share card'}
+        </button>
+        <button style={styles.invoiceClose} onClick={onClose}>Done</button>
+        <div style={styles.invoiceHint}>Share sends the card as an image, or screenshot it.</div>
+      </div>
+    </div>
+  );
+}

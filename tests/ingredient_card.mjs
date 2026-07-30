@@ -17,6 +17,7 @@
 // mood, especially the curry, so a declared component list would be a lie most
 // weeks. The card says "ask for details" instead, which is true every week.
 
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DISHES } from '../src/dishes.js';
@@ -26,6 +27,7 @@ import {
 } from '../src/ingredientCard.js';
 import { currentVersionFor } from '../src/recipeVersions.js';
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let p = 0, f = 0;
 const ok = (n, c, x) => { c ? (p++, console.log('  ✓ ' + n)) : (f++, console.log('  ✗ ' + n + (x ? '\n      ' + x : ''))); };
 
@@ -166,6 +168,46 @@ const cards = allIngredientCards();
 
   const unknownIds = keys.filter(k => !DISHES.some(d => d.id === k));
   ok('every declared addition names a real dish', unknownIds.length === 0, unknownIds.join(', '));
+}
+
+
+// ── The card is a shareable image, not a text block on the tab ─────────────
+//
+// Kevin's ruling, Jul 30: it should look like the invoice card and arrive in a
+// message as an image. It should NOT render inline on the Recipes tab, because
+// the real recipe is already on that screen and a read-only copy of it is
+// clutter. One button, which opens the card.
+{
+  const modals = fs.readFileSync(path.join(ROOT, 'src/components/Modals.jsx'), 'utf8');
+  const recipes = fs.readFileSync(path.join(ROOT, 'src/components/RecipesTab.jsx'), 'utf8');
+
+  ok('there is an ingredient card modal', /export function IngredientCardModal/.test(modals));
+  ok('it rasterizes and shares like the invoice',
+    /loadHtml2Canvas/.test(modals) && /navigator\.share/.test(modals));
+  ok('and falls back to a download when sharing is unavailable',
+    /createObjectURL/.test(modals),
+    'a desktop browser has no share sheet and must still produce the file');
+  ok('a cancelled share is not reported as an error', /AbortError/.test(modals));
+
+  ok('it uses the invoice card styling, not its own',
+    /styles\.invoiceCard/.test(modals) && /styles\.invoiceHeader/.test(modals),
+    'these land side by side in one message thread; a near-match reads worse than a match');
+  ok('and carries the LTB header', /Lettuce, Turnip, The Beet/.test(modals));
+
+  ok('the allergen line is above the small print, not buried',
+    modals.indexOf('Contains') < modals.indexOf('Quantities') || !/Quantities/.test(modals),
+    'this is the line somebody with an allergy is looking for');
+
+  ok('the Recipes tab renders no inline ingredient list',
+    !/IngredientCardBlock/.test(recipes),
+    'the real recipe is already on that screen');
+  ok('and offers one button instead', /Copy to card/.test(recipes));
+  ok('which opens the card', /<IngredientCardModal/.test(recipes));
+
+  // The staples rule, restated at the surface Kevin actually sends from.
+  ok('the modal builds from the same card model, so the staples come with it',
+    /buildIngredientCard/.test(modals),
+    'salt, sugar and MSG are added by that model unconditionally');
 }
 
 console.log(f === 0 ? '\nINGREDIENT CARDS: ALL PASS' : `\nINGREDIENT CARDS: ${f} FAILURES`);

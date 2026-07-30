@@ -12,7 +12,7 @@ import {
 } from '../dishReport.js';
 import { PIPELINE_DISHES } from '../pipelineDishes.js';
 import { CueCapture, CueGallery } from './CueAtlas.jsx';
-import { buildIngredientCard, ingredientCardText, BLEND_LABEL } from '../ingredientCard.js';
+import { IngredientCardModal } from './Modals.jsx';
 import { fetchFeedbackHistory, feedbackHistoryByDish } from '../feedbackSync.js';
 import { omakaseStats } from '../omakase.js';
 import { repricingScoreboard } from '../repricing.js';
@@ -239,61 +239,6 @@ function FeedbackStrip({ fb, dish, onReset, archive, archiveState }) {
   );
 }
 
-// The card a customer gets when they ask what is in something. Copy is the
-// primary action: Kevin sends these one at a time in a message, so a paste is
-// the common case and a download is not.
-function IngredientCardBlock({ dishName }) {
-  const card = useMemo(() => buildIngredientCard(dishName), [dishName]);
-  const [copied, setCopied] = useState(false);
-  if (!card) return null;
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(ingredientCardText(card));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch (e) { /* clipboard blocked: the card is on screen to read from */ }
-  };
-
-  return (
-    <div>
-      <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, background: '#151d1b' }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{card.dishName}</div>
-        <div style={{ fontSize: 10, color: C.dim, marginBottom: 8 }}>Lettuce, Turnip, The Beet</div>
-
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: C.dim, marginBottom: 4 }}>Ingredients</div>
-        <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>
-          {card.ingredients.map((i, n) => (
-            <div key={n} style={i === BLEND_LABEL ? { color: C.warn, fontStyle: 'italic' } : null}>{i}</div>
-          ))}
-        </div>
-
-        {card.allergens && (
-          <div style={{ fontSize: 11, color: C.warn, lineHeight: 1.5, marginBottom: 8 }}>
-            <b>Contains:</b> {card.allergens}
-          </div>
-        )}
-
-        {card.notes.map((n, i) => (
-          <div key={i} style={{ fontSize: 10, color: C.dim, lineHeight: 1.4 }}>{n}</div>
-        ))}
-
-        {/* Provenance, small but present. Without the version a card cannot be
-            matched to what a customer actually received months later. */}
-        <div style={{ fontSize: 10, color: '#6b7570', marginTop: 6 }}>
-          Card generated {card.generatedAt.slice(0, 10)}
-          {card.recipeVersionId ? ` \u00b7 ${card.recipeVersionId}` : ' \u00b7 recipe version not recorded'}
-        </div>
-      </div>
-
-      <button
-        onClick={copy}
-        style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: 'transparent', color: copied ? C.good : C.text, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
-      >{copied ? 'Copied' : 'Copy card to send'}</button>
-    </div>
-  );
-}
-
 export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog, visualCues, onSaveCues }) {
   const [showRepricing, setShowRepricing] = useState(false);
   const repricing = useMemo(() => repricingScoreboard(auditLog || [], orders || []), [auditLog, orders]);
@@ -353,6 +298,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const recipe = (report && currentVariant) ? report.recipeFor(currentVariant.label) : null;
   // The registry entry itself, for data the report does not carry (pairings).
   const dishDef = useMemo(() => DISHES.find(d => d.name === dish) || null, [dish]);
+  const [showCard, setShowCard] = useState(false);
 
   // Grounding facts for the studio: ingredient names (NEVER costs), the canon
   // reheat approach, and Kevin's own craft notes. Only what's true — and only
@@ -1445,11 +1391,27 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
               written, so it cannot drift from the recipe — and it adds the
               staples the recipes never bother to record, because a card that
               says a dish contains no salt is false on every line of the menu. */}
+          {/* One button, no preview. The full recipe is already on this screen,
+              so rendering a read-only ingredient list beside it was clutter.
+              The card is for sending, not for reading here. */}
           {dishDef && (
             <div style={S.section}>
-              <div style={S.sectionTitle}>Ingredient card</div>
-              <IngredientCardBlock dishName={dish} />
+              <button
+                onClick={() => setShowCard(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '9px 14px', borderRadius: 6, border: `1px solid ${C.border}`,
+                  background: 'transparent', color: C.text, fontSize: 13,
+                  cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >Copy to card</button>
+              <div style={{ fontSize: 11, color: C.dim, marginTop: 6 }}>
+                Everything in the dish, no amounts, with the allergen line. Sends as an image.
+              </div>
             </div>
+          )}
+          {showCard && dishDef && (
+            <IngredientCardModal dishName={dish} onClose={() => setShowCard(false)} />
           )}
 
           {/* ── Visual cues ────────────────────────────────────────────────

@@ -15,7 +15,7 @@ import {
 } from './recipes.js';
 import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL,
-  PUBLISH_TOKEN, VAPID_PUBLIC_KEY,
+  PUBLISH_TOKEN, VAPID_PUBLIC_KEY, ensurePublishToken,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, PIPELINE_JOURNAL_KEY, WEEK_NOTES_KEY,
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY,
@@ -113,6 +113,18 @@ const ALL_MENU_DISH_NAMES = [
 ].filter(Boolean).filter((n, i, a) => a.indexOf(n) === i).sort();
 
 export default function LTBOrderTracker() {
+  // ── Owner token ───────────────────────────────────────────────────────────
+  // Prompts once per device and stores it in localStorage. It used to be a
+  // string literal in src/config.js, which meant it shipped inside app.js —
+  // and index.html serves app.js publicly, so the token that guards /backup
+  // (customer addresses, phone numbers, the private journal, Rowan's log) was
+  // readable by anyone who opened the site. Runs before any effect that talks
+  // to an owner route.
+  //
+  // This is not authentication. It removes a published secret from a public
+  // file. Cloudflare Access in front of index.html is the actual boundary.
+  React.useEffect(() => { ensurePublishToken(); }, []);
+
   React.useEffect(() => {
     if (!document.getElementById('ltb-spin-style')) {
       const s = document.createElement('style');

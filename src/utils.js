@@ -1,7 +1,7 @@
 // All pure-JS helpers: uid/currency/formatting, name matching, regulars helpers, insights,
 // pricing math, localStorage wrapper, photo storage, and the AI order-parsing API client.
 import { FULL_MENU, ALL_DINNERS, PER_LB_ITEMS, isPerLbItem } from './menu.js';
-import { SURCHARGE, WORKER_BASE } from './config.js';
+import { SURCHARGE, WORKER_BASE, PUBLISH_TOKEN } from './config.js';
 import { DISHES, ALL_ALWAYS_ITEMS } from './dishes.js';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -1150,7 +1150,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
   try {
     response = await fetch('https://ltb-proxy.strickland-kevinj.workers.dev/parse-order', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
@@ -1277,7 +1277,7 @@ export async function extractReceipt(imageBase64) {
   try {
     response = await fetch(WORKER_BASE + '/parse-receipt', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 4000,
@@ -1707,7 +1707,7 @@ Respond with ONLY a JSON object, no markdown fences, no explanation. Shape:
   try {
     response = await fetch('https://ltb-proxy.strickland-kevinj.workers.dev/parse-amendment', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 2000,
@@ -1772,7 +1772,7 @@ export async function parseFormNotes(notes) {
   try {
     const res = await fetch('https://ltb-proxy.strickland-kevinj.workers.dev/parse-notes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
       body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, messages: [{ role: 'user', content: prompt }] }),
     });
     const raw = await res.text();

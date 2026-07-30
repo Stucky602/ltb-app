@@ -771,12 +771,23 @@ export default {
       }
 
       // ── AI proxy endpoints ────────────────────────────────────────────────────
+      // TOKEN REQUIRED as of Jul 29. These four had NO auth of any kind and
+      // forwarded the caller's body straight to Anthropic on Kevin's key, with
+      // the caller choosing the model, the prompt, and max_tokens. An open LLM
+      // proxy on a public URL gets found by scanners, not by people.
+      //
+      // The token rides in a header rather than the body because these routes
+      // forward the body verbatim and adding a field to it would reach
+      // Anthropic as part of the request.
       if (request.method === 'POST' && (
         url.pathname === '/parse-order' ||
         url.pathname === '/parse-amendment' ||
         url.pathname === '/parse-notes' ||
         url.pathname === '/parse-receipt'
       )) {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
         return proxyToAnthropic(request, env, origin);
       }
 
@@ -1386,10 +1397,23 @@ async function proxyToAnthropic(request, env, origin) {
   }
   try {
     const body = await request.text();
+    // Size cap. A receipt photo is the largest legitimate payload; anything
+    // past this is somebody using the endpoint for something else.
+    if (body.length > 8 * 1024 * 1024) {
+      return json({ error: 'payload too large' }, origin, 413);
+    }
+    // Pin the model and ceiling rather than trusting the caller's body. Even
+    // behind the token this stops a copied token from being spent on Opus at
+    // 64k output.
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { return json({ error: 'bad json' }, origin, 400); }
+    parsed.model = CLAUDE_MODEL;
+    parsed.max_tokens = Math.min(Number(parsed.max_tokens) || 1024, 4096);
+    const pinned = JSON.stringify(parsed);
     const res = await fetch(ANTHROPIC_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      body,
+      body: pinned,
     });
     const text = await res.text();
     return new Response(text, { status: res.status, headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' } });
@@ -1406,7 +1430,14 @@ function json(obj, origin, status = 200) {
 }
 
 function corsHeaders(origin) {
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : '*';
+  // NO WILDCARD FALLBACK as of Jul 29. This returned '*' for every origin it
+  // did not recognise, which let any page on the internet read the responses
+  // of token-gated routes from a visitor's browser. Unrecognised origins now
+  // get the canonical origin instead, so the browser blocks the read.
+  //
+  // If a custom domain is ever added, it MUST be appended to ALLOWED_ORIGINS or
+  // the app will fail CORS from that domain.
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',

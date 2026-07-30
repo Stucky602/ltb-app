@@ -98,7 +98,61 @@ export const SW_VERSION_KEY = 'ltb-sw-version';
 export const OMAKASE_TEMPLATES_KEY = 'ltb-omakase-templates';
 export const OMAKASE_REG_QUEUE_KEY = 'ltb-omakase-reg-queue';
 
-export const PUBLISH_TOKEN = 'ltb-publish-2026';
+// ── The owner token ─────────────────────────────────────────────────────────
+//
+// THIS USED TO BE A STRING LITERAL, and that string was compiled into app.js.
+// index.html loads app.js, .assetsignore deliberately does NOT exclude it, so
+// the bundle is served publicly at the site root. Anyone who opened the
+// homepage could read the token out of it and then call /backup, which returns
+// full snapshots: customer names, addresses, phone numbers, the private
+// journal, and Rowan's log.
+//
+// It is now read at runtime from localStorage and never appears in the bundle.
+// tests/no_secrets.mjs fails the build if a literal is ever put back.
+//
+// BE CLEAR ABOUT WHAT THIS IS AND IS NOT. This removes a published secret from
+// a public file. It is NOT authentication: anyone with devtools on a device
+// that has already been unlocked can still read localStorage. The real owner
+// boundary is Cloudflare Access in front of index.html, which is free at this
+// scale and is the actual fix. This is the part that can be done in code.
+//
+// A `let` on purpose: ES live bindings mean the seventeen modules that
+// `import { PUBLISH_TOKEN }` see the value the moment it is set, without any of
+// them changing.
+export let PUBLISH_TOKEN = '';
+
+export function setPublishToken(token) {
+  PUBLISH_TOKEN = String(token || '').trim();
+  try {
+    if (PUBLISH_TOKEN) localStorage.setItem('ltb-owner-token', PUBLISH_TOKEN);
+    else localStorage.removeItem('ltb-owner-token');
+  } catch { /* private mode, or a non-browser import in the test gate */ }
+  return PUBLISH_TOKEN;
+}
+
+// Prompts once if nothing is stored. Returns '' if the person declines, which
+// leaves every owner route failing 401 rather than silently doing nothing.
+export function ensurePublishToken() {
+  if (PUBLISH_TOKEN) return PUBLISH_TOKEN;
+  try {
+    const stored = localStorage.getItem('ltb-owner-token');
+    if (stored) return setPublishToken(stored);
+    const entered = typeof prompt === 'function'
+      ? prompt('Owner token (stored on this device only):')
+      : '';
+    return setPublishToken(entered);
+  } catch {
+    return '';
+  }
+}
+
+// Read at module load so a device that has already been set up never prompts.
+// Guarded because the test gate imports this file under node, where there is
+// no localStorage.
+try {
+  const stored = typeof localStorage !== 'undefined' && localStorage.getItem('ltb-owner-token');
+  if (stored) PUBLISH_TOKEN = stored;
+} catch { /* no storage available */ }
 export const VAPID_PUBLIC_KEY = 'BD96MjYlJ5dAdlTEzTMLi1hAlDmy-s2d6eO5B2aavlXFdueX9jSH4BOKJpDLE2MdOKvttlwOdSrs0tjFEio3EU8';
 
 // Legacy Google Forms CSV polling — inactive (kept as fallback).

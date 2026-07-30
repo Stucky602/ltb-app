@@ -1,4 +1,4 @@
-import { DISH_CONTAINERS, isTrackedType } from '../src/containers.js';
+import { DISH_CONTAINERS, containersForDish, isTrackedType } from '../src/containers.js';
 // ═══════════════════════════════════════════════════════════════════════════
 // LTB INVARIANT SUITE (Approach B)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -451,19 +451,24 @@ for (const rec of [...DISHES, ...ALL_ALWAYS_ITEMS]) {
   const v = rec.variants[0];
   const resolved = resolveDishVariant(rec.name, v.label) || [];
   const pack = resolved.filter(r => r.id === 'wrap' || String(r.id).startsWith('ctn_'));
-  const mapped = !!DISH_CONTAINERS[rec.name];
+  // Through the resolver. This was a raw name index and it was the LAST
+  // name-keyed consumer after containers.js was rekeyed to dishId on Jul 30 —
+  // it silently reported every dish as unmapped and produced 11 failures that
+  // looked like a costing regression.
+  const auditMix = containersForDish(rec.name);
+  const mapped = !!auditMix;
 
   if (rec.packaging === 'none') {
     if (pack.length) F('wrap', `"${rec.name}" is packaging:'none' but still carries ${pack.length} packaging line(s) — its container is already a recipe line`);
   } else if (mapped) {
-    const tracked = Object.entries(DISH_CONTAINERS[rec.name]).filter(([t]) => isTrackedType(t));
+    const tracked = Object.entries(auditMix).filter(([t]) => isTrackedType(t));
     if (pack.length !== tracked.length) {
       F('wrap', `"${rec.name}" resolved ${pack.length} packaging line(s), audit says ${tracked.length}`);
     }
     // Bags must be CHARGED even though they are untracked for the fleet. Fifteen
     // dinners carry them, and they were free for a day because "untracked" was
     // conflated with "free". That inflated margins on every bagged dish.
-    const bagQty = Object.entries(DISH_CONTAINERS[rec.name]).filter(([t]) => !isTrackedType(t))
+    const bagQty = Object.entries(auditMix).filter(([t]) => !isTrackedType(t))
       .reduce((n, [, q]) => n + (Number(q) || 0), 0);
     if (bagQty > 0) {
       const bagLine = resolved.find(r => r.id === 'sv_bag');

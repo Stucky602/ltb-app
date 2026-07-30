@@ -20,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { dishIdFor, dishNameFor } from './dishIdentity.js';
-import { DISH_CONTAINERS, portionMultiplier, isTrackedType } from './containers.js';
+import { containersForDish, portionMultiplier, isTrackedType } from './containers.js';
 import { ALL_DINNERS, ALWAYS_MENU } from './menu.js';
 import { ALL_ALWAYS_ITEMS } from './dishes.js';
 import { RECIPES, RICE_DISHES } from './recipes.js';
@@ -495,7 +495,9 @@ function wrapLines(dishName, variant) {
   // Always-items flagged `none` carry their container as a real recipe line
   // (the Queso passthrough jar), so charging them again here would double.
   if (NO_WRAP.has(dishName)) return [];
-  const mix = DISH_CONTAINERS[dishName];
+  // Through the resolver, not a raw index — the map is keyed by dishId now and
+  // a historical name on an old order must still find its containers.
+  const mix = containersForDish(dishName);
   if (mix) {
     const mult = portionMultiplier({ name: dishName, variant });
     const out = [];

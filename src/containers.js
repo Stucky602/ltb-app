@@ -45,6 +45,7 @@ import { itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
 import { perLbBagCount, orderOutboundJars, jarsOutForRegular, JAR_LEDGER_EPOCH } from './utils.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
+import { dishIdFor, resolveDishId } from './dishIdentity.js';
 import { ALWAYS_MENU } from './menu.js';
 
 // RESET Jul 26, and the reset is the point rather than an accident.
@@ -193,63 +194,87 @@ export function normalizeContainerConfig(raw) {
 // excluded from owned counts, the Sunday shortage check, and the custody pool.
 //
 // Ambiguities are FLAGGED, not resolved — see CONTAINER_AMBIGUITIES below.
+// LOOKUP HELPER — always go through this, never index DISH_CONTAINERS directly.
+//
+// The map was keyed by DISPLAY NAME until Jul 30. That meant renaming a dish
+// silently detached its container mapping: the dish kept selling, the cost
+// engine stopped charging for its containers, and nothing failed. Every other
+// consumer in the app (passport, regularsIntel, favorites, repricing,
+// dishCosting) had already moved to dishId; containers.js and menu.js were the
+// two holdouts.
+//
+// Rekeyed before recipe versioning specifically, because packaging is part of a
+// version snapshot and a version registry is append-only. Freezing a
+// name-keyed mapping into permanent history would make the defect
+// unfixable-in-place rather than merely present.
+//
+// dishIdFor follows DISH_RENAMES, so a historical name on an old order still
+// lands on the right dish.
+export function containersForDish(nameOrRecord) {
+  if (!nameOrRecord) return null;
+  const id = typeof nameOrRecord === 'string'
+    ? dishIdFor(nameOrRecord)
+    : resolveDishId(nameOrRecord);
+  return (id && DISH_CONTAINERS[id]) || null;
+}
+
 export const DISH_CONTAINERS = {
   // Braises and stews: round48 is the container this menu actually runs on.
-  'Boeuf Bourguignon (Beef Stew)':                       { round48: 1, bag: 2 },
-  'Chili':                                               { round48: 1 },
-  'Brunswick Stew':                                      { round48: 1 },
+  'boeuf-bourguignon-beef-stew':                   { round48: 1, bag: 2 },  // Boeuf Bourguignon (Beef Stew)
+  'chili':                                         { round48: 1 },  // Chili
+  'brunswick-stew':                                { round48: 1 },  // Brunswick Stew
 
   // Rice dishes. The round16 here is TWO CUPS OF RICE, and that is a container
   // holding an ingredient, not an ingredient itself — the rice belongs in the
   // recipe, the round16 belongs here. Do not promote "2 cups rice" into a
   // packaging line; that conflates two different objects that happen to get
   // described in the same sentence.
-  'Leblanc Inspired Japanese Curry':                     { round16: 1, round48: 1 },
-  'Gumbo':                                               { round16: 1, round48: 1 },
-  'Indian Style Curry':                                  { round16: 1, round48: 1 },
-  'Mapo Eggplant':                                       { round16: 1, round48: 1 },
-  'Thai Basil Chicken (Pad Krapow Gai)':                 { round16: 1, bag: 1 },
-  'Texas Gulf Shrimp or Tofu and Chinese Broccoli':      { round16: 1, bag: 1 },
-  'Shrimp or Tofu with Asparagus in Black Bean Sauce':   { round16: 1, bag: 1 },
-  'Stir Fried Long Beans with Ground Pork or Tofu':      { round16: 1, bag: 1 },
-  'Pecan Mole-Fesenjan, Beef and Kabocha':               { round8: 1, round16: 1, round48: 1, bag: 1 },
+  'leblanc-inspired-japanese':                     { round16: 1, round48: 1 },  // Leblanc Inspired Japanese Curry
+  'gumbo':                                         { round16: 1, round48: 1 },  // Gumbo
+  'indian-style-curry':                            { round16: 1, round48: 1 },  // Indian Style Curry
+  'mapo-eggplant':                                 { round16: 1, round48: 1 },  // Mapo Eggplant
+  'thai-basil-chicken-pad':                        { round16: 1, bag: 1 },  // Thai Basil Chicken (Pad Krapow Gai)
+  'texas-gulf-shrimp-or-tofu':                     { round16: 1, bag: 1 },  // Texas Gulf Shrimp or Tofu and Chinese Broccoli
+  'shrimp-or-tofu-with':                           { round16: 1, bag: 1 },  // Shrimp or Tofu with Asparagus in Black Bean Sauce
+  'stir-fried-long-beans-with':                    { round16: 1, bag: 1 },  // Stir Fried Long Beans with Ground Pork or Tofu
+  'pecan-mole-fesenjan-beef-and':                  { round8: 1, round16: 1, round48: 1, bag: 1 },  // Pecan Mole-Fesenjan, Beef and Kabocha
   // AMBIGUITY 6a, RESOLVED Jul 26 by Kevin: "the rice is only for that variant.
   // Same for the need of the container." The round16 is the rice container, so
   // it follows the rice exactly — Beef and Lamb variants get it, Mushroom does
   // not. Resolved at breakdown time in containerTypesFor, not here, because the
   // mapping is keyed by DISH and this is the one dish that is really two.
-  'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice': { round16: 1, bag: 1 },
-  'Bo Ssam':                                             { round8: 1, round16: 1, bag: 1 },
+  'cumin-mushroom-noodles-cumin':                  { round16: 1, bag: 1 },  // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice
+  'bo-ssam':                                       { round8: 1, round16: 1, bag: 1 },  // Bo Ssam
 
   // Pasta sauces and lighter braises.
-  'Bolognese':                                           { round32: 1 },
-  'Mushroom Ragu':                                       { round32: 1 },
-  'Pasta with Homegrown Tomato Sauce':                   { round32: 1 },
-  'Saffron Pork Ragu':                                   { round32: 1 },
-  'Orecchiette with Bitter Greens and Anchovies':        { round16: 1 },
+  'bolognese':                                     { round32: 1 },  // Bolognese
+  'mushroom-ragu':                                 { round32: 1 },  // Mushroom Ragu
+  'pasta-with-homegrown-tomato':                   { round32: 1 },  // Pasta with Homegrown Tomato Sauce
+  'saffron-pork-ragu':                             { round32: 1 },  // Saffron Pork Ragu
+  'orecchiette-with-bitter':                       { round16: 1 },  // Orecchiette with Bitter Greens and Anchovies
 
   // Composed plates. The rectangles hold awkward solids that are not bagged,
   // and two of the three are charred broccolini.
-  'Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce': { round8: 1, rect38: 1, bag: 1 },
-  'Bone-In Pork Rib Chop with All the Fixings':          { round16: 1, rect38: 1, bag: 2 },
+  'tea-smoked-chicken-with':                       { round8: 1, rect38: 1, bag: 1 },  // Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce
+  'bone-in-pork-rib-chop-with':                    { round16: 1, rect38: 1, bag: 2 },  // Bone-In Pork Rib Chop with All the Fixings
   // AMBIGUITY 6b: Kevin confirmed bag x1, but his own note says "chop and purée
   // in the bags", plural. Left at 1 pending his answer rather than rounded up.
-  'Pork Chop with Kabocha Purée and Charred Broccolini': { rect38: 1, bag: 1 },
-  'Steak au Poivre':                                     { round16: 1, bag: 3 },
-  'Pork with Mustard Tarragon Cream Sauce':              { round16: 1, bag: 1 },
+  'pork-chop-with-kabocha-pur-e':                  { rect38: 1, bag: 1 },  // Pork Chop with Kabocha Purée and Charred Broccolini
+  'steak-au-poivre':                               { round16: 1, bag: 3 },  // Steak au Poivre
+  'pork-with-mustard-tarragon':                    { round16: 1, bag: 1 },  // Pork with Mustard Tarragon Cream Sauce
 
   // Zero tracked containers. Worth stating explicitly, because an empty mapping
   // and a missing mapping used to look identical and the second one silently
   // fell through to a default.
-  'Pappardelle with Vegetables and Mint':                { bag: 1 },
-  'Coriander Lamb Steak over Gigantes Beans':            { bag: 2 },
+  'pappardelle-with-vegetables':                   { bag: 1 },  // Pappardelle with Vegetables and Mint
+  'coriander-lamb-steak-over':                     { bag: 2 },  // Coriander Lamb Steak over Gigantes Beans
 
-  'Tex-Mex Kit':                                         { round16: 1, round32: 1, round48: 1 },
+  'tex-mex-kit':                                   { round16: 1, round32: 1, round48: 1 },  // Tex-Mex Kit
 
   // Always-items, settled separately by Kevin.
-  'Chocolate Chip Cookies':                              { rectXL: 1 },
-  'Brownies':                                            { round48: 1 },
-  'Peanut Butter Fudge':                                 { rect38: 1 },
+  'chocolate-chip-cookies':                        { rectXL: 1 },  // Chocolate Chip Cookies
+  'brownies':                                      { round48: 1 },  // Brownies
+  'peanut-butter-fudge':                           { rect38: 1 },  // Peanut Butter Fudge
 };
 
 // Recorded so they are not rediscovered as new findings later. Each is a real
@@ -348,8 +373,9 @@ export function containerAuditStatus(dishList) {
     // bags. `.length` used to work because the mapping was an array; it is now
     // an object of counts, and a stale `.length` here returns undefined and
     // poisons every sum downstream with NaN.
-    if (DISH_CONTAINERS[name]) {
-      const mix = DISH_CONTAINERS[name];
+    const mixByName = containersForDish(name);
+    if (mixByName) {
+      const mix = mixByName;
       const units = Object.entries(mix)
         .filter(([t]) => isTrackedType(t))
         .reduce((n, [, q]) => n + (Number(q) || 0), 0);
@@ -443,7 +469,8 @@ export function containerTypesFor(it) {
   // and on a three-size dish Medium doubles and Large triples. Applied here
   // rather than in the mapping so the table stays readable and there is exactly
   // one place the rule lives.
-  if (DISH_CONTAINERS[it.name]) {
+  const mixForItem = containersForDish(it);
+  if (mixForItem) {
     const mult = portionMultiplier(it);
     const out = [];
     // The one dish that is really two plates in one entry. Its round16 is the
@@ -452,7 +479,7 @@ export function containerTypesFor(it) {
     // can never be charged for a rice container it did not get, or vice versa.
     const skipRiceContainer = it.name === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice'
       && !/^(beef|lamb),/i.test(String(it.variant || ''));
-    for (const [type, n] of Object.entries(DISH_CONTAINERS[it.name])) {
+    for (const [type, n] of Object.entries(mixForItem)) {
       if (type === 'round16' && skipRiceContainer) continue;
       for (let k = 0; k < (Number(n) || 0) * mult; k++) out.push(type);
     }

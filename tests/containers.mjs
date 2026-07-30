@@ -19,10 +19,11 @@ import {
   CONTAINER_TYPES, CONTAINER_TYPE_ORDER, DEFAULT_OWNED, MEAL_CONTAINER_EPOCH,
   normalizeContainerConfig, containerTypesFor, orderContainerBreakdown,
   sumBreakdowns, mealContainersOut, containerReport, packagingCost,
-  DISH_CONTAINERS, DEFAULT_DINNER_TYPE, emptyBreakdown, containerCustody, isTrackedType, shortageWarningDue,
+  DISH_CONTAINERS, containersForDish, DEFAULT_DINNER_TYPE, emptyBreakdown, containerCustody, isTrackedType, shortageWarningDue,
 } from '../src/containers.js';
 import { buildLabelSheet } from '../src/labels.js';
 import { DISHES, ALWAYS_ITEMS } from '../src/dishes.js';
+import { dishById } from '../src/dishIdentity.js';
 import { orderOutboundJars } from '../src/utils.js';
 
 let pass = 0;
@@ -97,7 +98,7 @@ const bdTotal = [...CONTAINER_TYPE_ORDER, 'bag'].reduce((n, t) => n + (bd[t] || 
 // then compares false against everything without ever looking wrong.
 let expectedExtra = 0;
 for (const it of crossOrder.items) {
-  const comp = DISH_CONTAINERS[it.name];
+  const comp = containersForDish(it);
   if (!comp) continue;
   const units = containerTypesFor(it).length;
   expectedExtra += (units - 1) * (Number(it.qty) || 1);
@@ -262,7 +263,7 @@ ok(typeof pc.bags === 'number', 'bags are COUNTED (uncosted) so the number exist
   // data distinguishes it from a genuine three-container plate. It now has a
   // mapping because Kevin CONFIRMED it, and his answer was exactly the one a
   // name-based guess would have got wrong: a single round16.
-  const orec = DISH_CONTAINERS['Orecchiette with Bitter Greens and Anchovies'];
+  const orec = containersForDish('Orecchiette with Bitter Greens and Anchovies');
   ok(orec && Object.keys(orec).length === 1 && orec.round16 === 1,
     'the audited answer for the one-bowl dish is one container, which name-splitting would have got wrong');
 
@@ -458,6 +459,38 @@ const SAMPLE_ORDERS = [
     'the jar row declares that its outstanding side lives in the jar ledger');
   ok(jar.out === 0,
     'and reports 0 out rather than a half-truth counting only one direction');
+}
+
+
+// ── The map is keyed by dishId, not display name (Jul 30) ───────────────────
+//
+// It was name-keyed, which meant renaming a dish silently detached its
+// container mapping: the dish kept selling, the cost engine stopped charging
+// for its containers, and nothing failed. Rekeyed before recipe versioning,
+// because packaging is part of a version snapshot and a version registry is
+// append-only — freezing the defect in would make it unfixable in place.
+{
+  const ids = Object.keys(DISH_CONTAINERS);
+  const looksLikeName = ids.filter(k => /[ ,()/]/.test(k) || /[A-Z]/.test(k));
+  ok('every container key is a slug, not a display name', looksLikeName.length === 0,
+    looksLikeName.join(' | '));
+
+  const unresolvable = ids.filter(k => !dishById(k));
+  ok('every container key resolves to a real dish identity', unresolvable.length === 0,
+    unresolvable.join(', '));
+
+  // The whole point: a historical name still finds its mapping.
+  ok('a lookup by current display name works', !!containersForDish('Bolognese'));
+  ok('a lookup by record works', !!containersForDish({ name: 'Steak au Poivre' }));
+  ok('a lookup by id works', !!containersForDish({ dishId: 'bolognese' }));
+  ok('an unknown name returns null rather than throwing', containersForDish('Not A Dish') === null);
+  ok('a null argument is survivable', containersForDish(null) === null);
+
+  // Every live dinner must still be mapped after the rekey. If one fell out,
+  // it would silently stop being charged for its containers.
+  const unmapped = DISHES.filter(d => !containersForDish(d.name));
+  ok('every dinner still has a container mapping', unmapped.length === 0,
+    unmapped.map(d => d.name).join(', '));
 }
 
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

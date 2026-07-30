@@ -97,6 +97,8 @@ import * as fb from './feedbackSync.js';
 import * as ing from './ingredientOps.js';
 import * as pub from './publishWeek.js';
 import * as poll from './pendingPoll.js';
+import { AmendmentQueue } from './components/AmendmentQueue.jsx';
+import { acceptAmendment, supersedePending } from './amendments.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
 import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
@@ -348,6 +350,39 @@ export default function LTBOrderTracker() {
   const [showPaste, setShowPaste] = useState(false);
   const [showAmend, setShowAmend] = useState(false);
   const [pendingOrders, setPendingOrders] = useState([]);
+
+  // ── Amendments ────────────────────────────────────────────────────────────
+  // Customer change requests. The worker stores them; nothing there ever writes
+  // to an order. Applying an accepted patch happens HERE, through updateOrder,
+  // so the order keeps exactly one writer.
+  const [amendments, setAmendments] = useState([]);
+
+  const loadAmendments = useCallback(async () => {
+    if (!PUBLISH_TOKEN) return;
+    try {
+      const r = await fetch(WORKER_BASE + '/amendments', { headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
+      if (!r.ok) return;
+      const j = await r.json();
+      setAmendments(Array.isArray(j.amendments) ? j.amendments : []);
+    } catch (e) { /* offline: the queue simply does not appear */ }
+  }, []);
+
+  React.useEffect(() => { loadAmendments(); }, [loadAmendments]);
+
+  const decideAmendment = useCallback(async (amd, status, reason) => {
+    try {
+      await fetch(WORKER_BASE + '/amendments/decide', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
+        body: JSON.stringify({ id: amd.id, status, reason: reason || null }),
+      });
+    } catch (e) { /* recorded locally below regardless; the worker is retried on next load */ }
+    setAmendments(prev => prev.map(a => (a.id === amd.id
+      ? { ...a, status, decision: { at: new Date().toISOString(), by: 'owner', reason: reason || null } }
+      : a)));
+  }, []);
+
+
   // Ledger of worker pending ids already accepted/rejected (see HANDLED_PENDING_KEY).
   const handledPendingRef = useRef({});
   const [ingredientsDb, setIngredientsDb] = useState([]);
@@ -561,6 +596,24 @@ export default function LTBOrderTracker() {
   }), [recordAudit]);
 
   const updateOrder = useCallback((id, patch) => ops.updateOrder(id, patch, { setOrders, setError }), []);
+
+  const onAcceptAmendment = useCallback((amd) => {
+    const order = (orders || []).find(o => o.id === amd.orderId);
+    if (!order) return;
+    // acceptAmendment refuses anything not pending, so a double-tap cannot
+    // apply the patch twice even if this handler runs twice.
+    const result = acceptAmendment(amd, order);
+    if (!result.applied) return;
+    // updateOrder takes (id, patch) — pass only what changed.
+    updateOrder(order.id, { items: result.order.items, cancelled: !!result.order.cancelled });
+    setAmendments(prev => supersedePending(prev, amd.orderId, amd.id));
+    decideAmendment(amd, 'accepted', null);
+  }, [orders, updateOrder, decideAmendment]);
+
+  const onRejectAmendment = useCallback((amd, reason) => {
+    decideAmendment(amd, 'rejected', reason);
+  }, [decideAmendment]);
+
 
   // ── Make-a-regular star (OrderCard) ────────────────────────────────────────
   const makeRegularFromOrder = useCallback((order) => ops.makeRegularFromOrder(order, {
@@ -1349,6 +1402,17 @@ export default function LTBOrderTracker() {
                   <FeedbackCard key={entry.id} entry={entry} onSave={saveFeedbackEntry} onIgnore={ignoreFeedbackEntry} />
                 ))}
               </div>
+            )}
+
+            {!formMode && !showPaste && (
+              <AmendmentQueue
+                amendments={amendments}
+                orders={orders || []}
+                offered={(menu && menu.dinner) || []}
+                onAccept={onAcceptAmendment}
+                onReject={onRejectAmendment}
+                styles={styles}
+              />
             )}
 
             {pendingOrders.length > 0 && !formMode && !showPaste && (

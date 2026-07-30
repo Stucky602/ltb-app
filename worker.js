@@ -100,6 +100,15 @@ const ALLOWED_ORIGINS = [
   'https://ltb-app.strickland-kevinj.workers.dev',
 ];
 
+const AMD_PREFIX = 'amd:';
+
+// Device credentials are stored as hashes, never raw. Feature 5 relies on this
+// too; defined here because amendments is the first endpoint that needs it.
+async function sha256Hex(input) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(input)));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL  = 'claude-sonnet-4-6';
 
@@ -774,6 +783,96 @@ export default {
         return json({ ok: true, timestamp: pick.timestamp, snapshot }, origin);
       }
 
+      // ── Amendments ────────────────────────────────────────────────────────
+      //
+      // A customer asks; Kevin decides. Nothing here ever writes to an order —
+      // the worker only stores the request and the decision. Applying an
+      // accepted patch happens in the owner app, through one tested path.
+      //
+      // AUTH: the customer POST requires X-LTB-Device, the per-device credential
+      // from Feature 5. Nothing sends that header yet, so this endpoint is inert
+      // rather than open. That is deliberate: shipping an unauthenticated write
+      // endpoint "for now" is how a temporary hole becomes permanent.
+      if (request.method === 'POST' && url.pathname === '/amendments') {
+        const device = request.headers.get('X-LTB-Device');
+        if (!device) return json({ error: 'device not recognised' }, origin, 401);
+
+        const body = await request.json().catch(() => null);
+        if (!body || !body.orderId || !Array.isArray(body.patch)) {
+          return json({ error: 'orderId and patch required' }, origin, 400);
+        }
+        // Idempotency: a retried submission from a flaky phone must produce ONE
+        // amendment, the same way order submission already works.
+        const key = typeof body.idempotencyKey === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(body.idempotencyKey)
+          ? body.idempotencyKey : null;
+        const id = 'amd_' + (key || (Date.now() + '_' + Math.random().toString(36).slice(2, 8)));
+
+        const existing = await env.LTB_KV.get(AMD_PREFIX + id);
+        if (existing) return json({ ok: true, id, duplicate: true }, origin);
+
+        const rec = {
+          id,
+          orderId: String(body.orderId).slice(0, 64),
+          customerDeviceHash: await sha256Hex(device),
+          submittedAt: new Date().toISOString(),
+          status: 'pending',
+          requestedPatch: body.patch.slice(0, 40),
+          customerNote: String(body.customerNote || '').slice(0, 500),
+          decision: { at: null, by: null, reason: null },
+          idempotencyKey: key,
+        };
+        await env.LTB_KV.put(AMD_PREFIX + id, JSON.stringify(rec), {
+          expirationTtl: 60 * 60 * 24 * 60,
+        });
+        return json({ ok: true, id }, origin);
+      }
+
+      // Owner: read the queue.
+      if (request.method === 'GET' && url.pathname === '/amendments') {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const list = await env.LTB_KV.list({ prefix: AMD_PREFIX });
+        const out = [];
+        for (const k of list.keys) {
+          const raw = await env.LTB_KV.get(k.name);
+          if (raw) { try { out.push(JSON.parse(raw)); } catch (e) { /* skip corrupt */ } }
+        }
+        out.sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+        return json({ amendments: out }, origin);
+      }
+
+      // Owner: record a decision. The worker stores WHAT was decided; the app
+      // applies the patch to the order. Splitting it that way means the order
+      // has exactly one writer.
+      if (request.method === 'POST' && url.pathname === '/amendments/decide') {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const body = await request.json().catch(() => null);
+        if (!body || !body.id || !['accepted', 'rejected'].includes(body.status)) {
+          return json({ error: 'id and status (accepted|rejected) required' }, origin, 400);
+        }
+        const raw = await env.LTB_KV.get(AMD_PREFIX + body.id);
+        if (!raw) return json({ error: 'not found' }, origin, 404);
+        const rec = JSON.parse(raw);
+        // Decide once. A double-tap in the owner UI must not overwrite a
+        // recorded decision with a different one.
+        if (rec.status !== 'pending') {
+          return json({ ok: true, id: rec.id, status: rec.status, alreadyDecided: true }, origin);
+        }
+        rec.status = body.status;
+        rec.decision = {
+          at: new Date().toISOString(),
+          by: 'owner',
+          reason: String(body.reason || '').slice(0, 300) || null,
+        };
+        await env.LTB_KV.put(AMD_PREFIX + rec.id, JSON.stringify(rec), {
+          expirationTtl: 60 * 60 * 24 * 60,
+        });
+        return json({ ok: true, id: rec.id, status: rec.status }, origin);
+      }
+
       // ── AI proxy endpoints ────────────────────────────────────────────────────
       // TOKEN REQUIRED as of Jul 29. These four had NO auth of any kind and
       // forwarded the caller's body straight to Anthropic on Kevin's key, with
@@ -1342,6 +1441,15 @@ const CONFIG_FIELDS = {
   // One bottle for the week, stamped at publish from the registry's pairing
   // data. Absent publishes as null, which menu.html already treats as "none".
   oneBottle:  b => ((b.oneBottle && typeof b.oneBottle === 'object') ? b.oneBottle : null),
+  // EXPLICIT DEADLINES, published rather than inferred from prose. The order
+  // form has always described its cutoff in the notice text, which is fine for
+  // a human and useless to a validator. Amendments need a timestamp that can be
+  // compared, and Kevin needs to close amendments EARLY once shopping starts
+  // without also closing new orders — hence two fields, not one. They may hold
+  // the same value initially. Empty string means "no deadline set", which every
+  // consumer must read as open rather than closed.
+  orderClosesAt:      b => String(b.orderClosesAt || ''),
+  amendmentsCloseAt:  b => String(b.amendmentsCloseAt || ''),
   // The pipeline roster: the dishes pipeline.html shows and /votes accepts.
   // Published from src/pipelineDishes.js, which is canon for every vote KEY.
   // Before this existed, adding one pipeline dish meant editing canon, editing

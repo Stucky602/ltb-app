@@ -17,6 +17,18 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { DISHES, ALL_ALWAYS_ITEMS, ALWAYS_ITEMS, REPORTABLE_DISHES } from '../src/dishes.js';
 import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.js';
+// OFF-MENU, imported rather than retyped. Both checks below used to carry their
+// own hardcoded set, and both still listed Fesenjan after it went LIVE on Jul 29
+// — a stale exemption is worse than no exemption, because it silently stops
+// checking a dish that is on the customer menu. src/menuLibrary.js is the source
+// of truth for which dinners the customer surfaces skip.
+//
+// NOTE the sets are NOT all interchangeable, which is why this import replaces
+// only these two. tools/syncMainMenu.mjs keeps a separate list because
+// main-menu.html is the full CATALOG and does carry cards for things menu.html
+// never shows (Homemade Waffles has a card there). Same words, different job.
+import { OFF_MENU_DISHES } from '../src/menuLibrary.js';
+const OFF_MENU = new Set(OFF_MENU_DISHES);
 import { RECIPES, DINNER_REHEAT_BUCKET, RICE_DISHES, PASTA_DISHES, NOODLE_DISHES, BAGGED_PASTA_DISHES, STEW_VEG_COPY, buildReheatBlocks } from '../src/recipes.js';
 import { LINE_MAP, resolveDishVariant, costDishVariant, baselineCostMap, MARGIN_BUFFER, trueRawCost, makeConv, canonUnit } from '../src/dishCosting.js';
 import { DISH_EQUIPMENT, analyzeConflicts } from '../src/equipmentConflict.js';
@@ -485,9 +497,8 @@ else {
   try { LIB = JSON.parse(libMatch[1]); } catch (e) { F('library', 'LIBRARY in menu.html is not valid JSON: ' + e.message); }
   if (LIB) {
     const libDinners = LIB.dinners || {};
-    const OFF_MENU_LIB = new Set(['Pecan Mole-Fesenjan, Beef and Kabocha']); // off-menu drafts have no customer LIBRARY copy by design
     for (const d of DISHES) {
-      if (OFF_MENU_LIB.has(d.name)) continue;
+      if (OFF_MENU.has(d.name)) continue;
       const e = libDinners[d.name];
       if (!e) { F('library-entry', `dinner "${d.name}" has no menu.html LIBRARY entry (customer menu/order form show nothing for it)`); continue; }
       for (const field of ['desc', 'reheat', 'contains']) {
@@ -518,9 +529,8 @@ const cards = mainHtml.split(/<div class="dish"[^>]*>/).slice(1).map(chunk => {
   return { name, amounts };
 });
 const cardByName = new Map(cards.filter(c => c.name).map(c => [c.name, c]));
-const OFF_MENU_MAINMENU = new Set(['Pecan Mole-Fesenjan, Beef and Kabocha']); // off-menu drafts: costed, no customer card by design
 for (const d of DISHES) {
-  if (OFF_MENU_MAINMENU.has(d.name)) continue;
+  if (OFF_MENU.has(d.name)) continue;
   const card = cardByName.get(d.name);
   if (!card) { F('mainmenu-card', `dinner "${d.name}" has no main-menu.html card`); continue; }
   const prices = d.variants.map(v => v.price);

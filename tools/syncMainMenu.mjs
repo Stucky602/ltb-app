@@ -34,7 +34,10 @@ let drift = 0, patched = 0;
 // than deleted: the exemption mechanism is still the right one for the next
 // costed-but-unlisted dish, and the three OFF_MENU copies across this file,
 // src/menuLibrary.js, and tests/library_sync.mjs are a known duplication.
-const OFF_MENU = new Set([]);
+const OFF_MENU = new Set([
+  'Coriander Lamb Steak over Gigantes Beans',
+  'Bone-In Pork Rib Chop with All the Fixings',
+]);
 
 function cardBounds(name) {
   const tag = `<div class="dish-name">${name}</div>`;

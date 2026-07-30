@@ -129,7 +129,7 @@ const PIPELINE_DISHES = [
   // names at tally time, so those ballots simply carry one fewer pick. That is
   // the graceful path; do not "clean up" KV to match.
   //   'Tea-Smoked Chicken',
-  'Suya Flank Steak',
+  // 'Suya Flank Steak',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
   'Kabocha Char Siu',
   'Kare-Kare with XO',
   'Khoresh-e Gheimeh',
@@ -137,7 +137,7 @@ const PIPELINE_DISHES = [
   //              Commented rather than deleted so the vote key stays a tombstone
   //              and historical votes remain attributable.
   'Sauerbraten Beef Cheeks',
-  'Yogurt-Braised Lamb',
+  // 'Yogurt-Braised Lamb',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
   'Nixtamal Grits',
   'Umeboshi Chicken',
   'Two-Garum Pasta',
@@ -146,27 +146,27 @@ const PIPELINE_DISHES = [
   'Pork Tenderloin Agrodolce',
   // Second pass, July 2026. Appended, never reordered: the existing keys are
   // load-bearing for votes already in KV. Renaming one orphans its ballots.
-  'Octopus Soy-Dashi-Pimenton',
-  'Three-Branch Caramel Pork',
-  'Kufteh Tabrizi',
-  'Garlic in Two Times Pork Chop',
-  'Wok-Smoked Tri-Tip',
+  // 'Octopus Soy-Dashi-Pimenton',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
+  // 'Three-Branch Caramel Pork',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
+  // 'Kufteh Tabrizi',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
+  // 'Garlic in Two Times Pork Chop',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
+  // 'Wok-Smoked Tri-Tip',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
   'Pasta alla Genovese',
   'Wok-Smoked Dal Makhani',
   // Third pass, Jul 18. Appended, never reordered (existing keys are
   // load-bearing for votes already in KV). These keys are terse on purpose;
   // pipeline.html maps each to its full card title for the board via
   // DISPLAY_NAMES, so the key and the customer-facing label can differ safely.
-  'Georgia Bomb Meatballs',
+  // 'Georgia Bomb Meatballs',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
   'Smothered Turkey Yassa',
-  'Quail Black Oil Celery Root',
-  'Viet-Cajun Skillet Boil',
+  // 'Quail Black Oil Celery Root',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
+  // 'Viet-Cajun Skillet Boil',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
   'Wok-Smoked Flank White Sauce',
-  'Hoja Santa Pork Tenderloin',
-  'Charred Allium Trinity Pasta',
+  // 'Hoja Santa Pork Tenderloin',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
+  // 'Charred Allium Trinity Pasta',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
   'Lamb Leg Steak Black Lime Freekeh',
   'Mushroom Escabeche Polenta Cakes',
-  'Blackened Hanger Steak Coconut Corn',
+  // 'Blackened Hanger Steak Coconut Corn',  CUT Jul 29 — retired, not deleted, so the vote key stays a tombstone
 ];
 const VOTE_PREFIX      = 'vote:';
 const VOTE_MAX_PICKS   = 3;    // per ballot, per Kevin: "up to 3"

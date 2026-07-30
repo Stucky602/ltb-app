@@ -1,6 +1,7 @@
 // Functional test of worker.js against a mock KV namespace.
 // Proves: per-key storage, legacy migration, clear-vs-submit race survival,
 // idempotent clientId retries, queue cap, and old-app response shapes.
+import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
 import worker from '../worker.js';
 
 class MockKV {
@@ -232,7 +233,13 @@ check('a companion write still requires the real token', r.status === 401, 'got 
 // People who actually order here get more say than a stranger who found the
 // page. The claim is client-side (there is no login in a friends-only shop),
 // so the worker CLAMPS it: the most a regular can ever be worth is 3.
-const someDish = 'Suya Flank Steak'; // must match the worker's PIPELINE_DISHES whitelist exactly
+// DERIVED from canon, not hardcoded. This was 'Suya Flank Steak', which was cut
+// from the pipeline on Jul 29 and retired out of the worker whitelist — and the
+// moment it was, eight vote-weighting assertions failed with "weight undefined"
+// for reasons that had nothing to do with voting. A fixture pinned to a live
+// dish will break every time that dish's status changes, so take the first one
+// canon still calls testing.
+const someDish = PIPELINE_DISHES.filter(d => !d.status || d.status === 'testing')[0].key;
 r = await call('POST', '/votes', { picks: [someDish] });
 j = await r.json();
 check('a stranger ballot counts once', j.ok && j.weight === 1, 'weight ' + j.weight);
@@ -259,9 +266,14 @@ check('weighted ballots are reported separately', j.weightedBallots === 2, 'got 
 // rather than refusing every ballot, and the fields are bounded on the way in
 // because they land on a customer page as markup.
 const NEW_DISH = 'A Dish That Is Not In The Constant';
+// A SECOND canon dish, for the roster tests. Same reasoning as someDish above:
+// 'Suya Flank Steak' and 'Fesenjan' were both hardcoded here and both were
+// retired on Jul 29, which broke three roster assertions that have nothing to do
+// with rosters. Anything still testing in canon works.
+const otherDish = PIPELINE_DISHES.filter(d => (!d.status || d.status === 'testing') && d.key !== someDish)[0].key;
 r = await call('POST', '/votes', { picks: [NEW_DISH] });
 check('before publishing, a dish outside the constant is refused', r.status === 400, 'got ' + r.status);
-r = await call('POST', '/votes', { picks: ['Suya Flank Steak'] });
+r = await call('POST', '/votes', { picks: [someDish] });
 check('and the constant still works as the fallback whitelist', (await r.json()).ok === true);
 
 r = await call('POST', '/config', {
@@ -269,7 +281,7 @@ r = await call('POST', '/config', {
   dishes: [{ name: 'A' }],
   pipeline: [
     { key: NEW_DISH, title: 'A Dish', origin: 'Nowhere', desc: 'New.', diet: 'veg', note: 'n', contains: 'c' },
-    { key: 'Fesenjan', title: 'Fesenjan', origin: 'Iran', desc: 'Walnuts.', diet: null },
+    { key: otherDish, title: otherDish, origin: 'Somewhere', desc: 'Canon.', diet: null },
   ],
 });
 j = await r.json();
@@ -279,23 +291,23 @@ check('and nothing was reported dropped', (j.dropped || []).length === 0, JSON.s
 
 r = await call('POST', '/votes', { picks: [NEW_DISH] });
 check('a PUBLISHED dish is now votable with no worker paste', (await r.json()).ok === true);
-r = await call('POST', '/votes', { picks: ['Suya Flank Steak'] });
+r = await call('POST', '/votes', { picks: [someDish] });
 check('a dish NOT on the published roster is refused', r.status === 400, 'got ' + r.status);
 r = await call('GET', '/votes');
 j = await r.json();
 check('the public board tallies the published roster', (j.top || []).some(t => t.dish === NEW_DISH), JSON.stringify(j.top));
-check('and drops a dish the roster no longer carries', !(j.top || []).some(t => t.dish === 'Suya Flank Steak'));
+check('and drops a dish the roster no longer carries', !(j.top || []).some(t => t.dish === someDish));
 r = await call('GET', '/votes/full', null, { 'X-LTB-Token': 'test-token' });
 j = await r.json();
 check('the full ranking is seeded from the published roster too',
-  j.ranking.length === 2 && j.ranking.some(x => x.dish === 'Fesenjan' && x.votes === 0), JSON.stringify(j.ranking));
+  j.ranking.length === 2 && j.ranking.some(x => x.dish === otherDish && x.votes === 0), JSON.stringify(j.ranking));
 
 // Ballots for a dropped dish are NOT deleted, so restoring the dish restores
 // its history. This is the same graceful path retiring from the constant had.
-r = await call('POST', '/config', { token: 'test-token', dishes: [{ name: 'A' }], pipeline: [{ key: 'Suya Flank Steak', title: 'Suya' }] });
+r = await call('POST', '/config', { token: 'test-token', dishes: [{ name: 'A' }], pipeline: [{ key: someDish, title: someDish }] });
 r = await call('GET', '/votes');
 j = await r.json();
-const restored = (j.top || []).find(t => t.dish === 'Suya Flank Steak');
+const restored = (j.top || []).find(t => t.dish === someDish);
 check('a dish put back on the roster gets its old ballots back', restored && restored.votes >= 8,
   'votes ' + (restored && restored.votes));
 
@@ -324,7 +336,7 @@ check('an oversized description is bounded', P[1].desc.length === 1200, 'len ' +
 r = await call('POST', '/config', { token: 'test-token', dishes: [{ name: 'A' }] });
 j = await r.json();
 check('a publish with no roster stores an empty one', Array.isArray(j.config.pipeline) && j.config.pipeline.length === 0);
-r = await call('POST', '/votes', { picks: ['Suya Flank Steak'] });
+r = await call('POST', '/votes', { picks: [someDish] });
 check('EMPTY ROSTER FALLS BACK to the constant instead of killing voting', (await r.json()).ok === true);
 
 // ── Scenario 14: the kitchen archive survives triage ────────────────────────

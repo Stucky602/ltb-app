@@ -49,6 +49,11 @@ export const PIPELINE_DISHES = [
   {
     key: "Suya Flank Steak",
     title: "Suya Flank Steak, Coconut Rice, Cucumber Kachumbari",
+    status: 'cut',
+    cutGate: CUT_GATES.WOW,  // test-cooked Jul 2026 and rejected: "basically just
+    //   steak, rice, and a side salad". Failed on interest, not execution. The
+    //   yaji blend survived it and is still looking for a dish.
+
     origin: "Nigeria &middot; Kenya &middot; Vietnam &middot; Texas",
     diet: null,
     allergenFlags: { peanut: true },
@@ -119,6 +124,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Yogurt-Braised Lamb",
     title: "Yogurt-Braised Lamb, Alkaline Noodles, Aleppo-Mint Brown Butter",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Persia &middot; India &middot; Japan &middot; Turkey",
     diet: null,
     allergenFlags: { dairy: true, gluten: true },
@@ -197,6 +204,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Octopus Soy-Dashi-Pimenton",
     title: "Octopus, Soy-Dashi-Piment&oacute;n, Baby Golds",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Galicia &middot; Japan",
     diet: "pesc",
     allergenFlags: {},
@@ -208,6 +217,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Three-Branch Caramel Pork",
     title: "Three-Branch Caramel Pork",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "China &middot; Vietnam &middot; Philippines",
     diet: null,
     allergenFlags: { fish: true, gluten: true, soy: true },
@@ -219,6 +230,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Kufteh Tabrizi",
     title: "Kufteh Tabrizi, the Sicilian Reading",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Persia &middot; Azerbaijan &middot; Sicily",
     diet: null,
     allergenFlags: { treenut: true },
@@ -231,6 +244,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Garlic in Two Times Pork Chop",
     title: "Thick-Cut Pork Chop, Garlic in Two Times",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "House programs &middot; France &middot; Korea by Japan",
     diet: null,
     allergenFlags: { dairy: true },
@@ -242,6 +257,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Wok-Smoked Tri-Tip",
     title: "Wok-Smoked Tri-Tip, Santa Maria Beans",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Santa Maria Valley &middot; Sichuan &middot; France",
     diet: null,
     allergenFlags: {},
@@ -277,6 +294,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Georgia Bomb Meatballs",
     title: "Georgia Bomb Meatballs",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "American South · China · France",
     diet: null,
     allergenFlags: {},
@@ -297,6 +316,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Quail Black Oil Celery Root",
     title: "Quail, Black Oil, Celery Root",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Japan · Oaxaca · Turkey · Texas",
     diet: null,
     allergenFlags: {},
@@ -307,6 +328,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Viet-Cajun Skillet Boil",
     title: "Viet-Cajun Skillet Boil",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Houston · Vietnam · Louisiana · Texas Gulf",
     diet: "pesc",
     allergenFlags: { shellfish: true, fish: true },
@@ -328,6 +351,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Hoja Santa Pork Tenderloin",
     title: "Hoja Santa Pork Tenderloin, Fil&eacute; Pan Sauce",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Veracruz · Louisiana · Texas",
     diet: null,
     allergenFlags: {},
@@ -338,6 +363,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Charred Allium Trinity Pasta",
     title: "Charred Allium Trinity Pasta",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Korea · France · Italy · Vegetarian",
     diet: "veg",
     allergenFlags: { dairy: true, gluten: true },
@@ -371,6 +398,8 @@ export const PIPELINE_DISHES = [
   {
     key: "Blackened Hanger Steak Coconut Corn",
     title: "Blackened Hanger Steak, Coconut Creamed Corn, Tomato Sambol",
+    status: 'cut',  // cutGate not yet recorded
+
     origin: "Sri Lanka · Louisiana · Texas",
     diet: null,
     allergenFlags: {},

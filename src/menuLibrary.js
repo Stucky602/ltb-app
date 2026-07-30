@@ -232,7 +232,14 @@ export const MENU_STATIC = {
 // the different-but-similar one in tools/syncMainMenu.mjs are still separate,
 // which is a duplication worth closing on purpose rather than in passing.
 export const OFF_MENU_DISHES = [
-    "Homemade Waffles"
+    "Homemade Waffles",
+    // Pulled from the customer menu Jul 29. OFF-MENU rather than deleted, on
+    // Kevin's call: the dishes are fully built, so the recipe, cost anchors,
+    // container mapping, equipment claims, and the cider beurre blanc work all
+    // stay in the registry. Keeping the record is also what lets a dossier entry
+    // explain WHY each one came off, which deletion would have thrown away.
+    "Coriander Lamb Steak over Gigantes Beans",
+    "Bone-In Pork Rib Chop with All the Fixings"
   ];
 
 // The order dinners appear in the LIBRARY blob. The blob is a lookup keyed by

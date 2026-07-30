@@ -24,7 +24,7 @@
 // (a card's copy and a whitelist retirement are human decisions). Exit 1 on any
 // drift so the gate blocks the deploy, same contract as syncMainMenu.
 //
-// STATUS: canon entries may carry status:'shipped' | 'killed'. A dish that has
+// STATUS: canon entries may carry status:'shipped' | 'killed' | 'cut'. A dish that has
 // shipped to the real menu (e.g. Tea-Smoked Chicken) must be RETIRED from the
 // pipeline: commented-out in the worker whitelist and absent from pipeline.html.
 // This tool enforces exactly that end state. Default (no status) == 'testing',
@@ -54,7 +54,14 @@ const F = (msg) => { console.log('  ✗ ' + msg); drift++; };
 
 // ── Canon partitioned by status ──────────────────────────────────────────────
 const testing = PIPELINE_DISHES.filter(d => !d.status || d.status === 'testing');
-const shipped = PIPELINE_DISHES.filter(d => d.status === 'shipped' || d.status === 'killed');
+// RETIRED, not just shipped. This set used to be 'shipped' or 'killed' only,
+// which left status:'cut' in a hole: a cut dish was excluded from `testing`, so
+// nothing checked it was live, and absent from this set, so nothing checked it
+// was retired either. Thirteen dishes were cut on Jul 29 and all thirteen
+// stayed votable in the worker and carded on the page with this gate reporting
+// full agreement. A status the gate does not know about is a status the gate
+// cannot enforce, so anything that is not testing belongs here.
+const retired = PIPELINE_DISHES.filter(d => d.status && d.status !== 'testing');
 const canonKeys = new Set(PIPELINE_DISHES.map(d => d.key));
 
 // ── Parse the worker's PIPELINE_DISHES block ─────────────────────────────────
@@ -92,7 +99,7 @@ if (wStart < 0 || wEnd < 0) {
   }
 
   // ── Rule 2: every SHIPPED/KILLED dish is retired everywhere ─────────────────
-  for (const d of shipped) {
+  for (const d of retired) {
     if (liveWorker.has(d.key)) {
       F(`"${d.key}" is ${d.status} in canon but STILL LIVE in worker PIPELINE_DISHES ` +
         `— comment it out (retire), don't delete (keeps the tombstone)`);

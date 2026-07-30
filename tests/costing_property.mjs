@@ -141,15 +141,39 @@ for (let r = 0; r < ROUNDS; r++) {
 // covers the misc-expense tab (power and gas), not ingredient drift. The rule
 // is that trueRawCost divides it out for DISPLAY and the engine never puts it
 // back. Round-tripping is the cheap way to pin that.
+//
+// THE ROUNDING BOUNDARY, and why this assertion used to flake.
+//
+// trueRawCost rounds to two decimals. The amount it removes is
+// buffered x (1 - 1/1.0825), about 7.6%, so below roughly seven cents that
+// difference is smaller than half a penny and rounding hands back the SAME
+// number. `raw < buffered` is therefore false for any draw under ~$0.07, which
+// between(0.01, 500) produces about once every forty runs — a flake that failed
+// the whole gate, and therefore Kevin's deploy, for a test bug rather than a
+// costing bug. trueRawCost was correct the entire time.
+//
+// The property is restated as what is actually true: the buffer is never
+// multiplied back IN, and the strict decrease is asserted only above the
+// resolution where a decrease can be represented at all.
+const ROUNDING_FLOOR = 0.07;
 for (let r = 0; r < 200; r++) {
   const buffered = between(0.01, 500);
   const raw = trueRawCost(buffered);
-  hold('trueRawCost divides the buffer out, never multiplies it in',
-    raw < buffered, `${buffered} -> ${raw}`);
+  hold('trueRawCost never multiplies the buffer back in',
+    raw <= buffered, `${buffered} -> ${raw}`);
+  hold('and strictly reduces anything above the rounding floor',
+    buffered < ROUNDING_FLOOR || raw < buffered, `${buffered} -> ${raw}`);
   hold('trueRawCost round-trips back to the buffered figure',
     Math.abs(raw * MARGIN_BUFFER - buffered) < 0.02,
     `${buffered} -> ${raw} -> ${raw * MARGIN_BUFFER}`);
 }
+
+// The boundary, pinned. If MARGIN_BUFFER or the rounding changes, this fails
+// deterministically instead of reappearing as a one-in-forty mystery.
+hold('a penny cannot be reduced and stays a penny', trueRawCost(0.01) === 0.01, String(trueRawCost(0.01)));
+hold('six cents is still absorbed by rounding', trueRawCost(0.06) === 0.06, String(trueRawCost(0.06)));
+hold('seven cents is the first value that moves', trueRawCost(0.07) < 0.07, String(trueRawCost(0.07)));
+hold('a dollar loses the buffer as expected', Math.abs(trueRawCost(1) - 0.92) < 0.005, String(trueRawCost(1)));
 
 // ── 4. Passthrough ingredients ──────────────────────────────────────────────
 // A passthrough is sold at cost, so it can never improve a margin. Raising the

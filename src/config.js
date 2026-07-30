@@ -33,6 +33,9 @@ export const COPIES_NOTE_KEY = 'ltb-copies-note';
 // is what lets each archive know it is the Nth rather than pretending to be the
 // only one. The series IS the artifact.
 export const ARCHIVE_HISTORY_KEY = 'ltb-archive-history';
+// Visual cue METADATA only. The photographs live in R2; this holds what each
+// one shows, which recipe version it belongs to, and whether its bytes landed.
+export const VISUAL_CUES_KEY = 'ltb-visual-cues';
 // M1: owned container counts + the meal-pool manual adjustment. Rides the
 // backup ring. Costs and type definitions live in containers.js (they are
 // registry facts, not per-device state); this key holds only what varies:

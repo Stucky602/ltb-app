@@ -27,7 +27,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, REGULARS_KEY, INVENTORY_KEY, PIPELINE_JOURNAL_KEY,
   JOURNAL_KEY, COPIES_NOTE_KEY, WEEK_LEDGER_KEY, CONTAINER_INVENTORY_KEY,
   INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY, HANDLED_PENDING_KEY,
-  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
+  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -119,6 +119,7 @@ export function buildBackupPayload(state) {
     weekLedger: state.weekLedger,
     copiesNote: state.copiesNote,
     archiveHistory: state.archiveHistory,
+    visualCues: state.visualCues,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
@@ -195,7 +196,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -303,6 +304,14 @@ export async function applyBackupPayload(payload, deps) {
   if (Array.isArray(payload.archiveHistory)) {
     setArchiveHistory(payload.archiveHistory);
     await saveJSON(ARCHIVE_HISTORY_KEY, payload.archiveHistory);
+  }
+  // READ BACK, not merely written. A field that rides the payload and is never
+  // restored is a silent data-loss bug, and there is one in this very file's
+  // history. Cue metadata is the only record of which photograph belongs to
+  // which recipe version — losing it orphans every image in the bucket.
+  if (Array.isArray(payload.visualCues)) {
+    setVisualCues(payload.visualCues);
+    await saveJSON(VISUAL_CUES_KEY, payload.visualCues);
   }
   // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
   // state back to the backup point, so the ledger of what was handled THEN is

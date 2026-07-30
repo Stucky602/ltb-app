@@ -11,6 +11,7 @@ import {
   buildDishReport, buildPortfolioSummary, reportableDishes, buildServingAudit, dishSalesHistory,
 } from '../dishReport.js';
 import { PIPELINE_DISHES } from '../pipelineDishes.js';
+import { CueCapture, CueGallery } from './CueAtlas.jsx';
 import { fetchFeedbackHistory, feedbackHistoryByDish } from '../feedbackSync.js';
 import { omakaseStats } from '../omakase.js';
 import { repricingScoreboard } from '../repricing.js';
@@ -237,7 +238,7 @@ function FeedbackStrip({ fb, dish, onReset, archive, archiveState }) {
   );
 }
 
-export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog }) {
+export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog, visualCues, onSaveCues }) {
   const [showRepricing, setShowRepricing] = useState(false);
   const repricing = useMemo(() => repricingScoreboard(auditLog || [], orders || []), [auditLog, orders]);
   const [dish, setDish] = useState('');
@@ -1380,6 +1381,18 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                     : 'the whole day'}
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* ── Visual cues ────────────────────────────────────────────────
+              What the step is supposed to LOOK like. The dossier holds why a
+              dish is the way it is; it could never hold the colour of a correct
+              roux, and that is the thing a written recipe has never carried. */}
+          {dishDef && (
+            <div style={S.section}>
+              <div style={S.sectionTitle}>What it should look like</div>
+              <CueGallery dishName={dish} cues={visualCues} onSaveCues={onSaveCues} />
+              <CueCapture dishName={dish} cues={visualCues} onSaveCues={onSaveCues} />
             </div>
           )}
 

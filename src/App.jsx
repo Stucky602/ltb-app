@@ -20,7 +20,7 @@ import {
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
-  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -365,6 +365,12 @@ export default function LTBOrderTracker() {
   // is exactly why the archive bundle carries checksums.
   const [visualCues, setVisualCues] = useState([]);
 
+  const saveVisualCues = useCallback((next) => {
+    setVisualCues(next);
+    try { localStorage.setItem(VISUAL_CUES_KEY, JSON.stringify(next)); }
+    catch (e) { setError('Could not save the cue list on this device.'); }
+  }, []);
+
   const loadAmendments = useCallback(async () => {
     if (!PUBLISH_TOKEN) return;
     try {
@@ -466,7 +472,7 @@ export default function LTBOrderTracker() {
       setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
       setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
       setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-      setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings,
+      setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues,
       handledPendingRef, pollWorkerPending,
     });
     return () => { mounted = false; };
@@ -799,12 +805,12 @@ export default function LTBOrderTracker() {
   // pushBackup holds it in a ref and re-reads it on every 15-minute tick: the
   // identity of this function is what tells that effect the state moved.
   const buildBackupPayload = useCallback(() => buildPayload({
-    orders, shopping, weekDishes, regulars, inventory, ingredientsDb,
+    orders, shopping, weekDishes, regulars, inventory, ingredientsDb, visualCues,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
     archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings, visualCues]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -945,7 +951,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 

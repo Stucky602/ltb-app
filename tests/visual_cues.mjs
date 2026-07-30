@@ -23,6 +23,7 @@ import { execFileSync } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import {
   makeCue, markStored, markFailed, brokenCues, unfinishedCues,
   cuesForDish, cueComparisonSets, buildBundleManifest, BUNDLE_README, CUE_KINDS, CUE_STATUS,
@@ -30,6 +31,7 @@ import {
 import { buildZip, crc32 } from '../src/zipWriter.js';
 import { currentVersionFor } from '../src/recipeVersions.js';
 
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let p = 0, f = 0;
 const ok = (n, c, x) => { c ? (p++, console.log('  ✓ ' + n)) : (f++, console.log('  ✗ ' + n + (x ? '\n      ' + x : ''))); };
 
@@ -176,6 +178,59 @@ print(json.dumps({
   ok('crc32 matches the known value for "123456789"',
     crc32(new TextEncoder().encode('123456789')) === 0xCBF43926,
     'the standard check value; a wrong CRC makes every zip tool report corruption');
+}
+
+
+// ── Cue metadata must survive a backup round trip ───────────────────────────
+//
+// The photographs live in R2 and are NOT in the backup. This metadata is the
+// only record of which image belongs to which dish and which recipe version, so
+// losing it orphans every file in the bucket — they would still exist and mean
+// nothing. archiveHistory is written into the payload and never restored, a
+// live bug in that same file, which is exactly the shape being guarded here.
+{
+  const backup = fs.readFileSync(path.join(ROOT, 'src/backupRestore.js'), 'utf8');
+  ok('cues are written into the backup payload', /visualCues: state\.visualCues/.test(backup));
+  ok('AND read back on restore', /payload\.visualCues/.test(backup) && /setVisualCues\(payload\.visualCues\)/.test(backup),
+    'a payload field that is never restored is silent data loss');
+  ok('and persisted to the same key on restore', /saveJSON\(VISUAL_CUES_KEY/.test(backup));
+
+  const boot = fs.readFileSync(path.join(ROOT, 'src/bootHydrate.js'), 'utf8');
+  ok('cues are loaded at boot', /loadJSON\(VISUAL_CUES_KEY/.test(boot),
+    'booting empty and then saving would overwrite the stored list with nothing');
+  ok('and set into state', /setVisualCues\(/.test(boot));
+}
+
+// ── The capture UI cannot claim a save it did not get ──────────────────────
+{
+  const ui = fs.readFileSync(path.join(ROOT, 'src/components/CueAtlas.jsx'), 'utf8');
+  const code = ui.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  ok('stored is only ever set from an upload result',
+    /result\.ok[\s\S]{0,40}markStored\(working, result\)/.test(code),
+    'the only path to stored is a server-confirmed checksum');
+  ok('a failed upload is marked failed', /markFailed\(working, result\.reason\)/.test(code));
+  ok('failures stay visible on the card rather than in a toast',
+    /status === 'failed'/.test(code),
+    'a failed upload the cook did not notice is a photograph that cannot be retaken');
+  ok('and the copy says the photo is gone and needs retaking',
+    /needs retaking/.test(ui));
+
+  ok('photos are fetched through the gated route, never a public URL',
+    /WORKER_BASE\}\/media\//.test(code) && !/r2\.dev|pub-[a-z0-9]+\./.test(code),
+    'the bucket has public access disabled and must stay that way');
+
+  ok('the capture flow opens the camera before asking questions',
+    ui.indexOf('capture="environment"') < ui.indexOf('Which step?'),
+    'a question asked before the shutter is a question asked while the roux darkens');
+
+  ok('a cue shows which recipe version it was true of', /versionLabel\(c\.recipeVersionId\)/.test(code));
+  ok('deleting a cue deletes the photograph too', /method: 'DELETE'/.test(code));
+  ok('and confirms first', /window\.confirm/.test(code));
+
+  ok('the component uses the repo icon set, not an uninstalled package',
+    /from '\.\.\/icons\.jsx'/.test(code) && !/lucide-react/.test(code),
+    'app_render bundles App.jsx with no externals, so an unresolvable import fails the whole gate');
 }
 
 console.log(f === 0 ? '\nVISUAL CUES: ALL PASS' : `\nVISUAL CUES: ${f} FAILURES`);

@@ -30,7 +30,7 @@
 import { migrateDishNotes, normalizeJournal } from './journal.js';
 import { dishIdFor } from './dishIdentity.js';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 export const SCHEMA_VERSION_KEY = 'ltb-schema-version';
 
 // Ordered, one function per step. Each MUST be:
@@ -99,6 +99,34 @@ const MIGRATIONS = {
 
     return out;
   },
+  // v3 → v4 (Jul 30 2026): IMMUTABLE RECIPE VERSIONS.
+  // Orders gain two fields recording which exact recipe version was offered
+  // when the customer ordered, and which was actually cooked. They are normally
+  // the same, but Kevin can refine a dish after orders are placed and before
+  // Tuesday's cook, so one field cannot honestly mean both.
+  //
+  // BOTH ARE SET TO null AND STAY THAT WAY. Every order that existed before
+  // versioning is genuinely unknown, and the UI renders it as
+  // "Legacy — exact recipe version unrecorded". Backfilling them to the oldest
+  // recorded version because it happens to be the oldest one in code would
+  // assert a fact nobody knows, and the whole point of an immutable registry is
+  // that it does not lie about history.
+  //
+  // Additive and non-destructive, same as v3: nothing is dropped.
+  3: (data) => {
+    if (!data || typeof data !== 'object') return data;
+    const orders = Array.isArray(data.orders) ? data.orders.map((o) => {
+      if (!o || typeof o !== 'object') return o;
+      if ('offeredRecipeVersionId' in o && 'servedRecipeVersionId' in o) return o;
+      return {
+        ...o,
+        offeredRecipeVersionId: o.offeredRecipeVersionId ?? null,
+        servedRecipeVersionId: o.servedRecipeVersionId ?? null,
+      };
+    }) : data.orders;
+    return { ...data, orders };
+  },
+
 };
 
 // Runs every migration step between `fromVersion` and SCHEMA_VERSION, in

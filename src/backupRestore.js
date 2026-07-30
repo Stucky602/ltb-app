@@ -27,7 +27,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, REGULARS_KEY, INVENTORY_KEY, PIPELINE_JOURNAL_KEY,
   JOURNAL_KEY, COPIES_NOTE_KEY, WEEK_LEDGER_KEY, CONTAINER_INVENTORY_KEY,
   INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY, HANDLED_PENDING_KEY,
-  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
+  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -120,6 +120,7 @@ export function buildBackupPayload(state) {
     copiesNote: state.copiesNote,
     archiveHistory: state.archiveHistory,
     visualCues: state.visualCues,
+    customerFlags: state.customerFlags,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
@@ -196,7 +197,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -312,6 +313,13 @@ export async function applyBackupPayload(payload, deps) {
   if (Array.isArray(payload.visualCues)) {
     setVisualCues(payload.visualCues);
     await saveJSON(VISUAL_CUES_KEY, payload.visualCues);
+  }
+  // Feature flags are an OBJECT, not an array, so the Array.isArray guard used
+  // by everything above would silently skip them. Losing these on a restore
+  // would quietly change what every customer sees.
+  if (payload.customerFlags && typeof payload.customerFlags === 'object') {
+    setCustomerFlags(payload.customerFlags);
+    await saveJSON(CUSTOMER_FLAGS_KEY, payload.customerFlags);
   }
   // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
   // state back to the backup point, so the ledger of what was handled THEN is

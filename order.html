@@ -606,6 +606,14 @@
   (function () {
     if (typeof fetch !== 'function') return;
 
+    // FLAGS. The worker evaluates them for this person and sends booleans. An
+    // absent answer means OFF for optional things — a page that cannot reach the
+    // worker should show the plain menu rather than half a feature.
+    //
+    // Nothing about ORDERING is gated. See NEVER_FLAGGED in src/featureFlags.js.
+    window.__ltbFlags = {};
+    window.__ltbFlag = function (id) { return window.__ltbFlags[id] === true; };
+
     function el(id) { return document.getElementById(id); }
 
     function greetingHtml(name, weekLabel) {
@@ -630,6 +638,7 @@
           greeting: payload.greeting || '',
           weekLabel: payload.weekLabel || '',
           annotations: payload.annotations || {},
+          flags: window.__ltbFlags || {},
           at: Date.now()
         }));
       } catch (e) { /* no storage: the form simply shows the generic view */ }
@@ -719,20 +728,25 @@
       // No credential means this browser has never ordered. Offer the code path
       // and stop. Do NOT mint one here: a person reading the menu should not be
       // carrying a credential they never asked for.
-      if (!token) { claimUi(); return; }
+      if (!token) { if (window.__ltbFlag('claimCode')) claimUi(); return; }
 
       fetch(WORKER + '/customer-home', { headers: { 'X-LTB-Device': token } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+          // Flags land even when the browser is unrecognised — that is exactly
+          // when the claim-code path matters, and gating it on recognition would
+          // make it unreachable for the only people who need it.
+          if (data && data.flags) window.__ltbFlags = data.flags;
           if (!data || data.recognized !== true) {
             // Has a token but the worker does not know it: a new device that
             // ordered once and was never linked, or one Kevin revoked. Either way
             // the code is the way back.
             clearStash();
-            claimUi();
+            if (window.__ltbFlag('claimCode')) claimUi();
             return;
           }
 
+          if (!window.__ltbFlag('personalization')) return;
           var slot = el('weekNotice');
           if (!slot) return;
           // Inserted BEFORE the notice rather than replacing it. The week's
@@ -743,7 +757,7 @@
 
           // The amend surface appears only for a recognised customer who has a
           // live order this week. Everyone else never sees it exist.
-          if (data.currentOrder && typeof __ltbAmendInit === 'function') {
+          if (window.__ltbFlag('amendments') && data.currentOrder && typeof __ltbAmendInit === 'function') {
             var box = el('amendBox');
             if (box) {
               box.style.display = '';

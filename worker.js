@@ -100,6 +100,50 @@ const ALLOWED_ORIGINS = [
   'https://ltb-app.strickland-kevinj.workers.dev',
 ];
 
+// Flag evaluation, mirroring src/featureFlags.js. INLINED because worker.js is
+// pasted into the Cloudflare dashboard and cannot import from the repo. The two
+// copies are kept honest by tests/feature_flags.mjs, which asserts the flag ids
+// and stage ids match on both sides — a drifted copy here would silently hand
+// customers the wrong answer.
+const FLAG_DEFAULTS = { personalization:'on', amendments:'on', claimCode:'on', requestBox:'on', ingredientCards:'on', visualCues:'owner', freezerLens:'off', serveTogether:'off', awayMode:'off', jarReturn:'off' };
+function flagBucket(profileId) {
+  const s = String(profileId || '');
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return Math.abs(h % 100);
+}
+function resolveFlags(flags, ctx) {
+  const out = {};
+  for (const id of Object.keys(FLAG_DEFAULTS)) {
+    const f = (flags && flags[id]) || { stage: FLAG_DEFAULTS[id] };
+    const stage = f.stage || 'off';
+    let on = false;
+    if (stage === 'on') on = true;
+    else if (stage === 'owner') on = !!(ctx && ctx.isOwner);
+    else if (stage === 'testers') on = !!(ctx && ctx.profileId) && (f.testers || []).includes(ctx.profileId);
+    else if (stage === 'percent') on = !!(ctx && ctx.profileId) && flagBucket(ctx.profileId) < (Number(f.percent) || 0);
+    out[id] = on;
+  }
+  return out;
+}
+
+// OWNER TOKEN, from a header first and a query string second.
+//
+// A token in a URL lands in Cloudflare's request logs, in browser history, and
+// in any Referer header the page emits. The header is the correct place and is
+// what every route added since Jul 29 uses. The query string is still ACCEPTED
+// rather than removed, because worker.js is hand-pasted and removing it would
+// break any caller not yet updated the instant this is deployed — a security
+// improvement that takes the app down is not one.
+//
+// Remove the query-string branch once nothing sends it. `grep token=` in src/
+// is the check.
+function tokenOk(request, url, env) {
+  const header = request.headers.get('X-LTB-Token');
+  if (header && header === env.PUBLISH_TOKEN) return true;
+  return url.searchParams.get('token') === env.PUBLISH_TOKEN;
+}
+
 const AMD_PREFIX = 'amd:';
 const DEV_PREFIX = 'device:';
 const CLAIM_PREFIX = 'claim:';
@@ -303,7 +347,7 @@ export default {
       // ── GET /ask-log — the questions customers actually asked ──────────────
       // Token in the query string, same as /config-history (a GET has no body).
       if (request.method === 'GET' && url.pathname === '/ask-log') {
-        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+        if (!tokenOk(request, url, env)) {
           return json({ error: 'Unauthorized' }, origin, 401);
         }
         const raw = await env.LTB_KV.get(KV_ASK_LOG);
@@ -313,7 +357,7 @@ export default {
       // ── GET /config-history — metadata only, for the app's rollback list ────
       // Token rides the query string: a GET has no body to carry it.
       if (request.method === 'GET' && url.pathname === '/config-history') {
-        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+        if (!tokenOk(request, url, env)) {
           return json({ error: 'Unauthorized' }, origin, 401);
         }
         const raw = await env.LTB_KV.get(KV_CONFIG_HIST);
@@ -547,7 +591,7 @@ export default {
         return json({ ok: true }, origin);
       }
       if (request.method === 'GET' && url.pathname === '/feedback/pending') {
-        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) return json({ error: 'unauthorized' }, origin, 401);
+        if (!tokenOk(request, url, env)) return json({ error: 'unauthorized' }, origin, 401);
         const listing = await env.LTB_KV.list({ prefix: 'companionfb:' });
         const out = [];
         for (const k of listing.keys) {
@@ -598,7 +642,7 @@ export default {
       // tell "I triaged this" from "this is still sitting there" without a
       // second round trip or a second key.
       if (request.method === 'GET' && url.pathname === '/feedback/history') {
-        if (url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+        if (!tokenOk(request, url, env)) {
           return json({ error: 'unauthorized' }, origin, 401);
         }
         const listing = await env.LTB_KV.list({ prefix: FBHIST_PREFIX, limit: FBHIST_MAX_PAGES });
@@ -845,7 +889,7 @@ export default {
 
       if (request.method === 'GET' && url.pathname.startsWith('/media/')) {
         if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN
-            && url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+            && !tokenOk(request, url, env)) {
           return new Response('unauthorized', { status: 401, headers: corsHeaders(origin) });
         }
         if (!env.MEDIA) return new Response('media storage not configured', { status: 503, headers: corsHeaders(origin) });
@@ -996,20 +1040,38 @@ export default {
       // state instead. Personalization is progressive enhancement: its absence
       // must never look like a fault.
       if (request.method === 'GET' && url.pathname === '/customer-home') {
+        // Flags for an anonymous visitor, computed once and reused on every
+        // early return below. Without this, an unrecognised browser gets no
+        // flags at all and every gated capability reads as off — including the
+        // claim-code path, which only unrecognised browsers ever need.
+        let anonFlags = null;
+        try {
+          const cfgRaw = await env.LTB_KV.get('config');
+          const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
+          anonFlags = resolveFlags(cfg && cfg.customerFlags, {});
+        } catch (e) { anonFlags = null; }
+
         const device = request.headers.get('X-LTB-Device');
-        if (!device) return json({ recognized: false }, origin);
+        if (!device) return json({ recognized: false, flags: anonFlags }, origin);
         const rec = await env.LTB_KV.get(DEV_PREFIX + await sha256Hex(device));
-        if (!rec) return json({ recognized: false }, origin);
+        if (!rec) return json({ recognized: false, flags: anonFlags }, origin);
         const dev = JSON.parse(rec);
-        if (dev.revoked) return json({ recognized: false }, origin);
+        if (dev.revoked) return json({ recognized: false, flags: anonFlags }, origin);
         const snap = await env.LTB_KV.get(PROFILE_PREFIX + dev.profileId);
-        if (!snap) return json({ recognized: false }, origin);
+        if (!snap) return json({ recognized: false, flags: anonFlags }, origin);
         dev.lastUsed = new Date().toISOString();
         await env.LTB_KV.put(DEV_PREFIX + await sha256Hex(device), JSON.stringify(dev));
         // currentOrder rides along so the amend surface needs no second round
         // trip. It is published by the owner app inside the snapshot and is
         // already sanitized — dish names, variants, and quantities only.
-        return json({ recognized: true, ...JSON.parse(snap) }, origin);
+        // Flags, evaluated for THIS profile. Sent as booleans only.
+        let flags = null;
+        try {
+          const cfgRaw = await env.LTB_KV.get('config');
+          const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
+          flags = resolveFlags(cfg && cfg.customerFlags, { profileId: dev.profileId, isOwner: false });
+        } catch (e) { flags = null; }
+        return json({ recognized: true, flags, ...JSON.parse(snap) }, origin);
       }
 
       // ── Amendments ────────────────────────────────────────────────────────
@@ -1677,6 +1739,11 @@ const CONFIG_FIELDS = {
   // without also closing new orders — hence two fields, not one. They may hold
   // the same value initially. Empty string means "no deadline set", which every
   // consumer must read as open rather than closed.
+  // Customer feature flags. Published as Kevin's OPERATIONAL settings (stage,
+  // tester list, percentage); /customer-home evaluates them per person and
+  // sends only booleans, so a customer page never learns how many households
+  // are in a test.
+  customerFlags:      b => ((b.customerFlags && typeof b.customerFlags === 'object') ? b.customerFlags : null),
   orderClosesAt:      b => String(b.orderClosesAt || ''),
   amendmentsCloseAt:  b => String(b.amendmentsCloseAt || ''),
   // The pipeline roster: the dishes pipeline.html shows and /votes accepts.

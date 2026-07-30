@@ -33,7 +33,7 @@ export const ALL_DINNERS = DISHES.map(d => {
 export const ALWAYS_MENU = {};
 for (const [cat, items] of Object.entries(ALWAYS_ITEMS)) {
   ALWAYS_MENU[cat] = items.map(it => it.perLb
-    ? { name: it.name, perLb: true, pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, costIngredient: it.costIngredient, variants: it.variants }
+    ? { name: it.name, perLb: true, pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, costIngredient: it.costIngredient, piecesPerUnit: it.piecesPerUnit, variants: it.variants }
     : { name: it.name, variants: it.variants });
 }
 
@@ -43,7 +43,11 @@ export const DEFAULT_WEEK = ['Shrimp or Tofu with Asparagus in Black Bean Sauce'
 // Which catalog items are priced by weight (sous vide proteins)
 export const PER_LB_ITEMS = {};
 ALWAYS_MENU.bag.forEach(it => {
-  if (it.perLb) PER_LB_ITEMS[it.name] = { pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, costIngredient: it.costIngredient };
+  // piecesPerUnit rides along or the weekly menu cannot say "2 steaks to a
+  // package". Every other per-lb item is one piece per unit, so avgWeightLb has
+  // always meant one steak; grass fed tenderloin is the first exception and the
+  // note is the only thing stopping its price looking doubled.
+  if (it.perLb) PER_LB_ITEMS[it.name] = { pricePerLb: it.pricePerLb, costPerLb: it.costPerLb, avgWeightLb: it.avgWeightLb, costIngredient: it.costIngredient, piecesPerUnit: it.piecesPerUnit };
 });
 export function isPerLbItem(name) {
   return !!PER_LB_ITEMS[name];

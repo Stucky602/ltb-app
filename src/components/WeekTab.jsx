@@ -33,6 +33,7 @@ import {
   menuForPrompt, fileToJpegBase64, parseOrderText, validateParsedOrder, parseAmendment,
   parseFormNotes,
 } from '../utils.js';
+import { FLAGS, STAGES } from '../featureFlags.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { costDishVariant, driftBorder } from '../dishCosting.js';
 import { ConflictModal } from './ConflictModal.jsx';
@@ -66,7 +67,7 @@ function GrowingText({ value, onChange, placeholder, style, disabled }) {
   );
 }
 
-export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, dishFeedback, onFetchHistory, onRestoreConfig }) {
+export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, dishFeedback, onFetchHistory, onRestoreConfig, customerFlags, onSaveFlags }) {
   // Earned, not declared: recomputed on every publish so a dish can gain or
   // lose the badge as real evidence accumulates.
   const favorites = useMemo(() => customerFavorites(orders || [], dishFeedback || {}), [orders, dishFeedback]);
@@ -194,7 +195,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     try {
       await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), {
         paused: true, pausedMsg: pauseMsg.trim(),
-      }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '' });
+      }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '', customerFlags });
       setPublishMsg({ ok: true, text: 'Week paused. The form and menu now say you are off this week.' });
     } catch (e) {
       setPublishMsg({ ok: false, text: (e && e.message) || 'Could not pause the week.' });
@@ -211,6 +212,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
       // notice, which CLEARS whatever was showing, so an old banner can never
       // survive a week just because the words are still in the box.
       await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), null, {
+        customerFlags,
         requestCounts: requestCounts || {},
         favorites: favorites || [],
         notice: noticeOn ? notice.trim() : '',
@@ -460,6 +462,54 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
                 ? 'Every publish carries this until you untick the box. Shows on the landing page, the order form, and the menu.'
                 : 'Off. Publishing clears any banner that is currently showing. The text stays here for next time.'}
             </div>
+            {/* Kill switches. Everything here is optional BY DEFINITION: the
+                menu, ordering, allergens, and reheat instructions are never
+                flaggable, because a switch that can stop somebody ordering
+                dinner is not a safety feature. Flags publish with the week, so
+                changing one takes a publish rather than a deploy. */}
+            <details style={{ marginTop: 12 }}>
+              <summary style={{ fontSize: 12, color: '#9aa5a0', cursor: 'pointer', userSelect: 'none' }}>
+                Customer features &middot; {FLAGS.filter(f => ((customerFlags || {})[f.id] || {}).stage === 'on').length} of {FLAGS.length} on for everyone
+              </summary>
+              <div style={{ marginTop: 8, borderLeft: '2px solid #2d3a36', paddingLeft: 10 }}>
+                {FLAGS.map(f => {
+                  const entry = (customerFlags || {})[f.id] || { stage: 'off' };
+                  return (
+                    <div key={f.id} style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: CREAM }}>{f.label}</div>
+                      <div style={{ fontSize: 11, color: '#7a8480', lineHeight: 1.4, marginBottom: 4 }}>{f.why}</div>
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        {STAGES.map(st => (
+                          <button
+                            key={st.id}
+                            title={st.note}
+                            onClick={() => onSaveFlags && onSaveFlags({ ...(customerFlags || {}), [f.id]: { ...entry, stage: st.id } })}
+                            style={{
+                              padding: '3px 8px', borderRadius: 999, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit',
+                              border: '1px solid ' + (entry.stage === st.id ? GOLD : '#3a453f'),
+                              background: entry.stage === st.id ? 'rgba(212,160,80,0.15)' : 'transparent',
+                              color: entry.stage === st.id ? GOLD : '#9aa5a0',
+                              fontWeight: entry.stage === st.id ? 700 : 400,
+                            }}
+                          >{st.label}</button>
+                        ))}
+                      </div>
+                      {entry.stage === 'percent' && (
+                        <input
+                          type="number" min="0" max="100" value={entry.percent || 0}
+                          onChange={e => onSaveFlags && onSaveFlags({ ...(customerFlags || {}), [f.id]: { ...entry, percent: Number(e.target.value) } })}
+                          style={{ ...styles.input, width: '80px', marginTop: 6, padding: '4px 8px', fontSize: 12 }}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+                <div style={{ fontSize: 10.5, color: '#6b7570', lineHeight: 1.45 }}>
+                  Takes effect on the next publish. The menu and the order form keep working with every one of these off.
+                </div>
+              </div>
+            </details>
+
           </div>
           <div style={{ marginTop: 10 }}>
             <button

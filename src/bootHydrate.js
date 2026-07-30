@@ -28,11 +28,12 @@
 // flag and still flips it in the effect's cleanup; this reads it at exactly
 // the same points the old code read `mounted`.
 
+import { normalizeFlags } from './featureFlags.js';
 import {
   ORDERS_KEY, CHECKS_KEY, SHOPPING_KEY, WEEK_KEY, DELIVER_CHECKS_KEY,
   DISH_NOTES_KEY, FEEDBACK_KEY, PIPELINE_JOURNAL_KEY, JOURNAL_KEY,
   LAST_SEEN_WEEK_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY,
-  ARCHIVE_HISTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
+  ARCHIVE_HISTORY_KEY, CUSTOMER_FLAGS_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
   INVENTORY_KEY, INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY,
   AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -59,7 +60,7 @@ export async function hydrateFromStorage(deps) {
     setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
     setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
     setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues,
+    setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags,
     handledPendingRef, pollWorkerPending,
   } = deps;
 
@@ -87,7 +88,7 @@ export async function hydrateFromStorage(deps) {
     await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
   }
 
-  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEquipment, loadedEpoch, loadedRowan, loadedRankings, loadedCues] = await Promise.all([
+  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEquipment, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags] = await Promise.all([
     loadJSON(ORDERS_KEY, []),
     loadJSON(CHECKS_KEY, {}),
     loadJSON(SHOPPING_KEY, []),
@@ -107,6 +108,7 @@ export async function hydrateFromStorage(deps) {
     loadJSON(ROWAN_LOG_KEY, []),
     loadJSON(DISH_RANKING_KEY, null),
     loadJSON(VISUAL_CUES_KEY, []),
+    loadJSON(CUSTOMER_FLAGS_KEY, null),
   ]);
   if (!isMounted()) return;
   const migrated = loadedOrders.map(o => ({
@@ -185,6 +187,9 @@ export async function hydrateFromStorage(deps) {
   // save would overwrite the stored list with that empty one — the photographs
   // would survive in the bucket with nothing left pointing at them.
   setVisualCues(Array.isArray(loadedCues) ? loadedCues : []);
+  // Flags load through normalizeFlags so a stored value from an older shape, or
+  // a hand-edited one, cannot put an unknown stage in front of customers.
+  if (loadedFlags && typeof loadedFlags === 'object') setCustomerFlags(normalizeFlags(loadedFlags));
   setDishFeedback(loadedDishFeedback || {});
   if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
     setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });

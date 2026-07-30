@@ -20,7 +20,7 @@ import {
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
-  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -100,6 +100,7 @@ import * as poll from './pendingPoll.js';
 import { AmendmentQueue } from './components/AmendmentQueue.jsx';
 import { acceptAmendment, supersedePending } from './amendments.js';
 import { buildProfileSnapshot, sanitizeSnapshot, generateClaimCode, ensureProfileId } from './customerDevice.js';
+import { normalizeFlags } from './featureFlags.js';
 import { dishIdFor } from './dishIdentity.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
@@ -364,6 +365,19 @@ export default function LTBOrderTracker() {
   // whether its bytes actually landed. Rides backup — the bytes do not, which
   // is exactly why the archive bundle carries checksums.
   const [visualCues, setVisualCues] = useState([]);
+
+  // ── Customer feature flags ────────────────────────────────────────────────
+  // Kill switches for optional customer capabilities. They publish WITH the
+  // week, so turning one off is a publish rather than a deploy — which is the
+  // whole point of having them.
+  const [customerFlags, setCustomerFlags] = useState(() => normalizeFlags(null));
+
+  const saveCustomerFlags = useCallback((next) => {
+    const clean = normalizeFlags(next);
+    setCustomerFlags(clean);
+    try { localStorage.setItem(CUSTOMER_FLAGS_KEY, JSON.stringify(clean)); }
+    catch (e) { setError('Could not save the feature settings on this device.'); }
+  }, []);
 
   const saveVisualCues = useCallback((next) => {
     setVisualCues(next);
@@ -822,12 +836,12 @@ export default function LTBOrderTracker() {
   // pushBackup holds it in a ref and re-reads it on every 15-minute tick: the
   // identity of this function is what tells that effect the state moved.
   const buildBackupPayload = useCallback(() => buildPayload({
-    orders, shopping, weekDishes, regulars, inventory, ingredientsDb, visualCues,
+    orders, shopping, weekDishes, regulars, inventory, ingredientsDb, visualCues, customerFlags,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
     archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings, visualCues]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -968,7 +982,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 
@@ -1788,7 +1802,9 @@ export default function LTBOrderTracker() {
 
         {view === 'week' && (
           <>
-            <WeekTab selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} dishFeedback={dishFeedback} onFetchHistory={fetchConfigHistory} onRestoreConfig={restoreConfig} />
+            <WeekTab
+              customerFlags={customerFlags}
+              onSaveFlags={saveCustomerFlags} selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} dishFeedback={dishFeedback} onFetchHistory={fetchConfigHistory} onRestoreConfig={restoreConfig} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />
             <SchedulePanel orders={orders || []} />
             <div style={{ margin: '10px 0 24px' }}>

@@ -258,8 +258,11 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   // `if (!token) return;` and broke the moment the claim-code path made that
   // `if (!token) { claimUi(); return; }` — same guarantee, different shape.
   // A fixture pinned to exact source is the same trap as a hardcoded count.
+  // Behaviour, not the literal line. This was pinned to the exact source and
+  // broke the moment the claim path gained a feature flag — same guarantee,
+  // different shape. Third time a pinned source string has done this.
   ok('the greeting bails when there is no credential rather than making one',
-    /if \(!token\) \{ claimUi\(\); return; \}/.test(partial),
+    /if \(!token\) \{[^}]*claimUi\(\)[^}]*return;/.test(partial),
     'a visitor who only reads the menu must not be given one');
   ok('the greeting PEEKS rather than minting',
     /__ltbDeviceTokenPeek\(\)/.test(partial),
@@ -398,7 +401,7 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('the offer appears when the browser is unrecognised',
     /recognized !== true[\s\S]{0,200}claimUi\(\)/.test(code));
   ok('and when it has no credential at all',
-    /if \(!token\) \{ claimUi\(\); return; \}/.test(code),
+    /if \(!token\) \{[^}]*claimUi\(\)[^}]*return;/.test(code),
     'a permanent "enter a code" prompt on a friends-only site reads like a login wall');
   ok('a recognised customer is never shown it',
     !/recognized === true[\s\S]{0,120}claimUi/.test(code));
@@ -461,7 +464,10 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   const pz = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/personalize.js'), 'utf8');
   ok('the greeting path uses the peek', /var token = \(typeof __ltbDeviceTokenPeek/.test(pz));
   ok('so a brand-new browser reaches the claim offer',
-    /if \(!token\) \{ claimUi\(\); return; \}/.test(pz));
+    /if \(!token\) \{[^}]*claimUi\(\)[^}]*return;/.test(pz));
+  ok('and the offer respects its own flag',
+    /__ltbFlag\('claimCode'\)/.test(pz),
+    'it can be switched off like anything else optional');
 
   const app = fs.readFileSync(path.join(ROOT, 'src/App.jsx'), 'utf8');
   ok('a claim code mints a profile id when the customer has none',

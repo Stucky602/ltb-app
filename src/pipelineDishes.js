@@ -101,7 +101,13 @@ export const PIPELINE_DISHES = [
     // rather than deleting the entry, because the vote key is a frozen contract
     // that worker.js and pipeline.html are both gated against.
     status: 'shipped',
+    // TITLE IS FROZEN. It is what people saw and voted on, and rewriting it
+    // would quietly change the record of what they were asked about.
     title: "Fesenjan, Walnut and Pomegranate Braise",
+    // What it actually became. The graduation wall shows THIS, because a wall
+    // that names a dish nobody can order is a wall nobody can read. Walnut and
+    // pomegranate became pecan and mole somewhere between the vote and the pan.
+    shippedAs: "Pecan Mole-Fesenjan, Beef and Kabocha",
     origin: "Iran &middot; Georgia &middot; Mexico",
     diet: null,
     allergenFlags: { treenut: true },

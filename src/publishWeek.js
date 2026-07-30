@@ -65,6 +65,9 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
         perLb: true,
         pricePerLb: info.pricePerLb,
         avgWeightLb: info.avgWeightLb,
+        // Only present when a package holds more than one piece. Absent
+        // otherwise, so the payload does not grow a null on every steak.
+        ...(info.piecesPerUnit > 1 ? { piecesPerUnit: info.piecesPerUnit } : {}),
         variants: [{ label: 'By weight', price: info.pricePerLb, cost: info.costPerLb }],
       };
     }

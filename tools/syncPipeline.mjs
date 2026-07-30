@@ -188,7 +188,10 @@ if (wStart < 0 || wEnd < 0) {
 // remain deliberate), so it VERIFIES the array matches canon rather than
 // rewriting it, and prints the exact line to paste when it does not.
 {
-  const gradKeys = PIPELINE_DISHES.filter(d => d.status === 'shipped').map(d => d.title || d.key);
+  // shippedAs first: a dish can arrive under a different name than it was
+  // proposed under, and the wall is a record of what SHIPPED. The pipeline
+  // title stays frozen as the record of what was voted on.
+  const gradKeys = PIPELINE_DISHES.filter(d => d.status === 'shipped').map(d => d.shippedAs || d.title || d.key);
   const m = pipelineHtmlFull.match(/var GRADUATED = (\[[^;]*\]);\s*\/\* SYNC:GRADUATED \*\//);
   if (!m) {
     F('pipeline.html is missing the GRADUATED array (marker: /* SYNC:GRADUATED */)');

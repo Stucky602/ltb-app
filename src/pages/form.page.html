@@ -554,7 +554,20 @@
       // Placed after the order and before the review button. By this point they
       // have chosen what they want, which is exactly when they notice what they
       // could not choose.
-      html += requestBoxHtml();
+      // Flagged, two ways, because this page never calls /customer-home.
+      //
+      // The per-customer answer arrives in the stash order.html leaves behind,
+      // but somebody can open form.html directly and have no stash at all. So
+      // the published config is checked too: a flag at stage 'on' is on for
+      // everyone by definition and needs no identity to evaluate.
+      //
+      // ABSENT MEANS "AS IT WAS BEFORE FLAGS EXISTED", not "off". This box was
+      // shown to everyone until today, and a customer losing it because the
+      // config fetch was slow would be a regression dressed up as caution.
+      var rbFlag = (__ltbPersonal.flags && __ltbPersonal.flags.requestBox === true)
+        || !config.customerFlags
+        || (config.customerFlags.requestBox && config.customerFlags.requestBox.stage === 'on');
+      if (rbFlag) html += requestBoxHtml();
 
       html += '<button class="submit-btn" id="reviewBtn" onclick="openReview()">Review Order</button>';
       html += '<div id="msgArea"></div>';

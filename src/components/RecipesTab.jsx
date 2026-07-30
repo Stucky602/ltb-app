@@ -239,6 +239,61 @@ function FeedbackStrip({ fb, dish, onReset, archive, archiveState }) {
   );
 }
 
+// The card a customer gets when they ask what is in something. Copy is the
+// primary action: Kevin sends these one at a time in a message, so a paste is
+// the common case and a download is not.
+function IngredientCardBlock({ dishName }) {
+  const card = useMemo(() => buildIngredientCard(dishName), [dishName]);
+  const [copied, setCopied] = useState(false);
+  if (!card) return null;
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(ingredientCardText(card));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) { /* clipboard blocked: the card is on screen to read from */ }
+  };
+
+  return (
+    <div>
+      <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: 12, background: '#151d1b' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{card.dishName}</div>
+        <div style={{ fontSize: 10, color: C.dim, marginBottom: 8 }}>Lettuce, Turnip, The Beet</div>
+
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: C.dim, marginBottom: 4 }}>Ingredients</div>
+        <div style={{ fontSize: 12, color: C.text, lineHeight: 1.6, marginBottom: 8 }}>
+          {card.ingredients.map((i, n) => (
+            <div key={n} style={i === BLEND_LABEL ? { color: C.warn, fontStyle: 'italic' } : null}>{i}</div>
+          ))}
+        </div>
+
+        {card.allergens && (
+          <div style={{ fontSize: 11, color: C.warn, lineHeight: 1.5, marginBottom: 8 }}>
+            <b>Contains:</b> {card.allergens}
+          </div>
+        )}
+
+        {card.notes.map((n, i) => (
+          <div key={i} style={{ fontSize: 10, color: C.dim, lineHeight: 1.4 }}>{n}</div>
+        ))}
+
+        {/* Provenance, small but present. Without the version a card cannot be
+            matched to what a customer actually received months later. */}
+        <div style={{ fontSize: 10, color: '#6b7570', marginTop: 6 }}>
+          Card generated {card.generatedAt.slice(0, 10)}
+          {card.recipeVersionId ? ` \u00b7 ${card.recipeVersionId}` : ' \u00b7 recipe version not recorded'}
+        </div>
+      </div>
+
+      <button
+        onClick={copy}
+        style={{ marginTop: 8, padding: '8px 12px', borderRadius: 6, border: `1px solid ${C.border}`, background: 'transparent', color: copied ? C.good : C.text, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}
+      >{copied ? 'Copied' : 'Copy card to send'}</button>
+    </div>
+  );
+}
+
 export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog, visualCues, onSaveCues }) {
   const [showRepricing, setShowRepricing] = useState(false);
   const repricing = useMemo(() => repricingScoreboard(auditLog || [], orders || []), [auditLog, orders]);

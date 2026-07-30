@@ -2250,6 +2250,23 @@ export const ALWAYS_ITEMS = {
       recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'filet-mignon-grassfed',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
+      // TWO STEAKS PER PACKAGE. Every other per-lb item on this menu is one
+      // piece per unit, so avgWeightLb has always meant "one steak". Here it is
+      // the PACKAGE: 0.98 lb holding two pieces of roughly half a pound. The
+      // customer copy has to say so, because the weight estimate on the order
+      // form reads as one steak otherwise and the price looks doubled.
+      //
+      // $64 on $40.99 is 1.56x, matching the Prime filet markup (34.99 -> 55).
+      // Filet runs a thinner margin than the other cuts at every tier, which is
+      // deliberate — $64/lb is already a lot to ask.
+      name: 'Filet Mignon - Grass Fed', packaging: 'none', perLb: true, costIngredient: 'filet_mignon_grassfed', pricePerLb: 64, costPerLb: 40.99, avgWeightLb: 0.98,
+      piecesPerUnit: 2,
+      variants: [{ label: 'price by weight', price: 64, cost: 40.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Filet Mignon - Grass Fed', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
       id: 'flank-steak',
       allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Flank Steak', packaging: 'none', perLb: true, costIngredient: 'flank_steak', pricePerLb: 20, costPerLb: 11, avgWeightLb: 1.2,
@@ -2271,6 +2288,15 @@ export const ALWAYS_ITEMS = {
       recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     {
+      id: 'ny-strip-grassfed',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
+      // $46 on a $25.99 cost is 1.77x, matching the Prime markup on this cut
+      // (17.99 -> 32) rather than inventing a new one.
+      name: 'NY Strip - Grass Fed', packaging: 'none', perLb: true, costIngredient: 'ny_strip_grassfed', pricePerLb: 46, costPerLb: 25.99, avgWeightLb: 0.6,
+      variants: [{ label: 'price by weight', price: 46, cost: 25.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('NY Strip - Grass Fed', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
       id: 'ribeye',
       allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
       name: 'Ribeye', packaging: 'none', perLb: true, costIngredient: 'ribeye', pricePerLb: 30, costPerLb: 16.49, avgWeightLb: 0.75,
@@ -2285,6 +2311,14 @@ export const ALWAYS_ITEMS = {
       name: 'Ribeye - Prime', packaging: 'none', perLb: true, costIngredient: 'ribeye_prime', pricePerLb: 35, costPerLb: 19.99, avgWeightLb: 0.75,
       variants: [{ label: 'price by weight', price: 35, cost: 19.99 }],
       recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye - Prime', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
+    },
+    {
+      id: 'ribeye-grassfed',
+      allergens: { dairy: { variants: true, unlisted: 'two tablespoons of butter plus thyme go into every sous vide bag (Kevin, Jul 29). The bag line resolves to sv_bag, which no pattern can see through.' } },
+      // $52 on $29.99 is 1.73x, in line with the Prime markup on this cut.
+      name: 'Ribeye - Grass Fed', packaging: 'none', perLb: true, costIngredient: 'ribeye_grassfed', pricePerLb: 52, costPerLb: 29.99, avgWeightLb: 0.785,
+      variants: [{ label: 'price by weight', price: 52, cost: 29.99 }],
+      recipe: { factors: { 'price by weight': 1 }, base: [I('Ribeye - Grass Fed', 1, 'lb'), I('Sous vide bag + seasonings', 1, '', true)] },
     },
     // ── PORK (alphabetical) ──────────────────────────────────────────────────
     {

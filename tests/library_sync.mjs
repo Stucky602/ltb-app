@@ -90,7 +90,13 @@ for (const section of SECTIONS) {
 // description and reheat copy. tools/syncMainMenu.mjs treats them as CARDLESS
 // for exactly this reason; this is the same fact seen from the copy side.
 // Matched by pattern rather than listed, so a fourth Prime cut inherits it.
-const isPrimeSubline = (name) => / - Prime$/.test(name);
+// Grade tiers render as a price ROW inside their parent steak's card, never as
+// their own card, so there is nothing for a description to describe. Prime was
+// the only tier until grass fed arrived on Jul 30; the suffix was hardcoded in
+// four places and this was the fourth.
+const GRADE_TIERS = ['Prime', 'Grass Fed'];
+const tierSuffix = new RegExp(` - (${GRADE_TIERS.join('|')})$`);
+const isPrimeSubline = (name) => tierSuffix.test(name);
 
 // Registry items that are deliberately not on the customer menu. These are
 // real dishes Kevin makes and costs, but menu.html never renders them, so

@@ -460,10 +460,13 @@ export const LINE_MAP = {
   'Fresh tarragon':         { id: 'tarragon', conv: C({ unit: 'sprig', aliases: { bunch: SPRIGS_PER_HERB_PACK, pack: SPRIGS_PER_HERB_PACK } }) },
   'Ribeye':                 { skip: true },
   'Ribeye - Prime':         { skip: true },
+  'Ribeye - Grass Fed':         { skip: true },
   'NY Strip':               { skip: true },
   'NY Strip - Prime':       { skip: true },
+  'NY Strip - Grass Fed':       { skip: true },
   'Filet Mignon':           { skip: true }, // STALE key (Jul 13 ingredient-line rename; dish name unchanged)
   'Filet Mignon - Prime':   { skip: true },
+  'Filet Mignon - Grass Fed':   { skip: true },
   'Flank steak':            { skip: true },
   'Pork chop':              { skip: true },
   'Boneless pork chop':     { id: 'pork_chop_boneless', conv: C({ unit: 'lb', eachWeightLb: 0.75 }) }, // avg 0.75 lb/chop, so '2 each' resolves to 1.5 lb

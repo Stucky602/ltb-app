@@ -78,6 +78,12 @@ export const DISH_ID_MANIFEST = Object.freeze([
   'flank-steak',
   'ny-strip',
   'ny-strip-prime',
+  // Grass fed tier, added Jul 30. Appended, never inserted among the existing
+  // ids: this manifest is the anchor every version, cue, and container mapping
+  // resolves against.
+  'ny-strip-grassfed',
+  'ribeye-grassfed',
+  'filet-mignon-grassfed',
   'ribeye',
   'ribeye-prime',
   'pork-tenderloin',

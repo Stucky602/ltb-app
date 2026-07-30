@@ -464,6 +464,9 @@ export const CARL_RULINGS = {
   'vanilla-lavender-syrup': {},
   'filet-mignon': {}, 'filet-mignon-prime': {}, 'flank-steak': {},
   'ny-strip': {}, 'ny-strip-prime': {}, ribeye: {}, 'ribeye-prime': {},
+  // Grass fed tier, Jul 30. Clean for Carl exactly as the other grades are:
+  // the only thing in the bag is butter and thyme, and dairy is not on his list.
+  'filet-mignon-grassfed': {}, 'ny-strip-grassfed': {}, 'ribeye-grassfed': {},
   'pork-tenderloin': {}, 'thick-cut-pork-chop': {}, 'air-chilled-chicken-breast': {},
   carrots: {}, 'corn-off-the-cob': {}, 'kabocha-squash': {},
   parsnips: {}, asparagus: {}, 'garlic-confit': {},

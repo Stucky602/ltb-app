@@ -293,19 +293,26 @@ for (const d of DISHES) {
 // different HTML shape (no dish-name divs) — the invariant suite still guards
 // their prices; this tool reports them as out-of-scope instead of failing.
 const CARDLESS = new Set(['Homemade Waffles', 'Carrots', 'Baby Gold Potatoes', 'Corn (off the cob)', 'Kabocha Squash', 'Parsnips', 'Asparagus', 'Garlic Confit', 'Pecan Mole-Fesenjan, Beef and Kabocha']);
-// Prime steaks render as a sub-line inside their parent steak's card (not their
-// own card), so they're cardless for the card sync — but we still verify the
-// Prime price appears correctly, guarding against drift on that sub-line.
+// GRADE TIERS render as sub-lines inside their parent steak's card rather than
+// getting their own, so they are cardless for the card sync — but the price on
+// that sub-line still has to be checked, or it drifts from canon silently.
+//
+// Prime was the only tier until grass fed arrived on Jul 30. The suffix was
+// hardcoded here, in menu.page.html's merge, and in menu.page.html's row
+// renderer. One list now; adding a tier means adding a string.
+const GRADE_TIERS = ['Prime', 'Grass Fed'];
+const tierRe = new RegExp(`^(.*) - (${GRADE_TIERS.join('|')})$`);
 for (const b of (ALL_ALWAYS_ITEMS || [])) {
-  const pm = /^(.*) - Prime$/.exec(b.name);
+  const pm = tierRe.exec(b.name);
   if (pm && b.perLb) {
     CARDLESS.add(b.name);
     const parent = pm[1];
+    const tier = pm[2];
     const bnds = cardBounds(parent);
-    const wantLine = `<span class="price-label">Prime, by weight</span><div class="price-right"><span class="price-amt">${money(b.pricePerLb)}/lb + $2.00 bag</span>`;
-    if (!bnds) { console.log(`  MISSING parent card for Prime: ${parent}`); drift++; }
+    const wantLine = `<span class="price-label">${tier}, by weight</span><div class="price-right"><span class="price-amt">${money(b.pricePerLb)}/lb + $2.00 bag</span>`;
+    if (!bnds) { console.log(`  MISSING parent card for ${tier}: ${parent}`); drift++; }
     else if (!html.slice(bnds.start, bnds.end).includes(wantLine)) {
-      console.log(`  Prime sub-line drift on ${parent}: expected ${money(b.pricePerLb)}/lb`);
+      console.log(`  ${tier} sub-line missing or drifted on ${parent}: expected ${money(b.pricePerLb)}/lb`);
       drift++;
     }
   }

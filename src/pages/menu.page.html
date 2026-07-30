@@ -141,17 +141,40 @@
     return pool[name] || null;
   }
 
-  function priceRows(dish, primeDish){
+  function priceRows(dish, tiers){
     var html = '<div class="prices">';
     if (dish && dish.perLb) {
       html += '<div class="price-row"><span class="price-label">By weight</span><span class="price-amt">'+money(dish.pricePerLb)+'/lb + $2.00 bag</span></div>';
-      // Prime line: renders directly under the regular weight line for the three
-      // steaks that offer a Prime grade (NY Strip, Ribeye, Filet).
-      if (primeDish && primeDish.perLb) {
-        html += '<div class="price-row"><span class="price-label">Prime, by weight</span><span class="price-amt">'+money(primeDish.pricePerLb)+'/lb + $2.00 bag</span></div>';
+      // Tier lines, directly under the regular weight line. The argument is now
+      // an ARRAY of tiers, so the old `primeDish.perLb` guard would always be
+      // undefined and silently drop every row.
+      if (tiers && tiers.length) {
+        // One row per tier, labelled by its own name.
+        for (var ti = 0; ti < tiers.length; ti++) {
+          html += '<div class="price-row"><span class="price-label">'+esc(tiers[ti].label)+', by weight</span><span class="price-amt">'+money(tiers[ti].dish.pricePerLb)+'/lb + $2.00 bag</span></div>';
+        }
+      }
+      // Pieces per unit, when it is not one. Every other per-lb item is a
+      // single steak, so an unqualified "0.98 lb" reads as one enormous filet
+      // and the price looks doubled.
+      if (dish.piecesPerUnit && dish.piecesPerUnit > 1) {
+        html += '<div class="dish-meta">Comes ' + dish.piecesPerUnit + ' steaks to a package</div>';
       }
       if (dish.avgWeightLb) {
-        html += '<div class="price-row"><span class="price-label" style="font-size:11px;color:var(--dim);font-style:italic;">Averages approx. '+(+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/,'')+' lb per piece</span></div>';
+        // PIECES PER UNIT lives on the TIER, not on this card. Every other
+        // per-lb item is one steak per unit, so avgWeightLb has always meant
+        // "one steak" — but grass fed tenderloin is 0.98 lb holding TWO. Read
+        // off the parent it is always undefined and the note never renders,
+        // which is exactly what the first version of this did.
+        var pieceNote = '';
+        for (var pi = 0; tiers && pi < tiers.length; pi++) {
+          var td = tiers[pi].dish;
+          if (td.piecesPerUnit && td.piecesPerUnit > 1) {
+            pieceNote += ' \u00b7 ' + tiers[pi].label.toLowerCase() + ' comes ' + td.piecesPerUnit
+              + ' steaks to a package, approx. ' + (+td.avgWeightLb).toFixed(2).replace(/\.?0+$/,'') + ' lb total';
+          }
+        }
+        html += '<div class="price-row"><span class="price-label" style="font-size:11px;color:var(--dim);font-style:italic;">Averages approx. '+(+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/,'')+' lb per piece'+pieceNote+'</span></div>';
       }
     } else {
       ((dish && dish.variants)||[]).forEach(function(v){
@@ -186,7 +209,7 @@
     return html + '</div>';
   }
 
-  function renderDish(dish, kind, primeDish){
+  function renderDish(dish, kind, tiers){
     var copy = kind === 'bag' ? (lookupBagCopy(dish.name) || {}) : (lookupCopy(dish.name, kind) || {});
     // "Customer favorite" is EARNED, stamped at publish from repeat orders and
     // real feedback. It is never hand-set, so it cannot become marketing.
@@ -210,7 +233,7 @@
     if (copy.note) html += '<div class="dish-note">'+esc(copy.note)+'</div>';
     if (copy.bagCharge) html += '<div class="dish-meta">+ $2.00 per bag for seasoning and packaging</div>';
     html += pairingsHtml(copy);
-    html += priceRows(dish, primeDish);
+    html += priceRows(dish, tiers);
     if (copy.contains) html += '<div class="contains">Contains: '+esc(copy.contains)+'</div>';
     return html + '</div>';
   }
@@ -439,14 +462,26 @@
       // as their own cards; instead their price is attached as a sub-line under
       // the matching regular steak via renderDish's primeDish argument.
       var proteins = bag.filter(function(d){ var c=lookupBagCopy(d.name); return !c || !c.isSousVideVeg; });
-      var primeByBase = {};
+      // TIERS. Prime was the only one until grass fed arrived on Jul 30, and
+      // the suffix was hardcoded in three separate places. Generalised so the
+      // next tier is one array entry rather than another hunt.
+      //
+      // Order matters: it is the order the rows appear on the card, cheapest
+      // first, which is also the order the costs run.
+      var TIERS = ['Prime', 'Grass Fed'];
+      var tierRe = new RegExp('^(.*) - (' + TIERS.join('|') + ')$');
+      var tiersByBase = {};
       proteins.forEach(function(d){
-        var m = /^(.*) - Prime$/.exec(d.name);
-        if (m) primeByBase[m[1]] = d;
+        var m = tierRe.exec(d.name);
+        if (!m) return;
+        (tiersByBase[m[1]] = tiersByBase[m[1]] || []).push({ label: m[2], dish: d });
+      });
+      Object.keys(tiersByBase).forEach(function(base){
+        tiersByBase[base].sort(function(a, b){ return TIERS.indexOf(a.label) - TIERS.indexOf(b.label); });
       });
       proteins.forEach(function(d){
-        if (/ - Prime$/.test(d.name)) return; // skip standalone Prime cards
-        html += renderDish(d, "bag", primeByBase[d.name]);
+        if (tierRe.test(d.name)) return; // tier cards render inside their parent
+        html += renderDish(d, "bag", tiersByBase[d.name]);
       });
       // Sous Vide Vegetables — single consolidated block
       var vegs = bag.filter(function(d){ var c=lookupBagCopy(d.name); return c && c.isSousVideVeg; });

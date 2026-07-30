@@ -96,10 +96,18 @@ export const INGREDIENT_SEED = [
   // the regular chicken_breast, per Kevin.
   { id: 'ribeye', name: 'Ribeye steak', unit: 'lb', baseline: 16.49, category: 'protein' },
   { id: 'ribeye_prime', name: 'Prime ribeye steak', unit: 'lb', baseline: 19.99, category: 'protein' },
+  // Grass fed, added Jul 30 on a customer request. H-E-B listed prices; note
+  // these sit ABOVE Prime on every cut, so grass fed is the top tier.
+  { id: 'ribeye_grassfed', name: 'Grass fed ribeye steak', unit: 'lb', baseline: 29.99, category: 'protein' },
   { id: 'ny_strip', name: 'NY strip steak', unit: 'lb', baseline: 14.49, category: 'protein' },
   { id: 'ny_strip_prime', name: 'Prime NY strip steak', unit: 'lb', baseline: 17.99, category: 'protein' },
+  { id: 'ny_strip_grassfed', name: 'Grass fed NY strip steak', unit: 'lb', baseline: 25.99, category: 'protein' },
   { id: 'flank_steak', name: 'Flank steak', unit: 'lb', baseline: 11.0, category: 'protein' },
   { id: 'filet_mignon_prime', name: 'Prime filet mignon', unit: 'lb', baseline: 34.99, category: 'protein' },
+  // TWO STEAKS PER PACKAGE, unlike every other cut on this list. The 0.98 lb
+  // average is the PACKAGE, not the steak, so a customer ordering one unit gets
+  // two pieces of about half a pound each.
+  { id: 'filet_mignon_grassfed', name: 'Grass fed beef tenderloin (2 per pack)', unit: 'lb', baseline: 40.99, category: 'protein' },
   { id: 'air_chilled_chicken_breast', name: 'Air chilled chicken breast', unit: 'lb', baseline: 7.27, category: 'protein' },
   { id: 'shrimp', name: 'Shrimp', unit: 'lb', baseline: 14.0, category: 'protein' },
   { id: 'tofu', name: 'Tofu', unit: 'block', baseline: 2.5, category: 'protein' },

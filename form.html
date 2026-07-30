@@ -64,6 +64,9 @@
   .carl-say { font-size:12px; font-weight:700; color:var(--gold); background:rgba(212,160,80,0.12); border-left:3px solid var(--gold); padding:7px 9px; margin:8px 0 2px; border-radius:0 4px 4px 0; }
   .carl-note { font-size:11px; color:var(--dim); margin:6px 0 10px; }
   .carl-hidden { display:none !important; }
+  .p-tag { font-size:10px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; padding:2px 6px; border-radius:999px; margin-left:8px; vertical-align:middle; }
+  .p-new { background:rgba(93,202,165,0.15); color:#5DCAA5; }
+  .p-usual { background:rgba(212,160,80,0.15); color:#D4A050; }
   .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .submit-btn {
@@ -447,6 +450,11 @@
           // Carl attributes, from the generated CARL blob. Absent for anything
           // the registry does not know, which fails closed: no data-carl means
           // the filter leaves the row alone rather than declaring it orderable.
+          // Personal annotations, if order.html recognised this browser and
+          // left them in sessionStorage. Absent for everyone else, which is the
+          // normal case and renders exactly the page that shipped before.
+          var pann = (__ltbPersonal.annotations || {})[dish.dishId || ''] || null;
+
           var cc = (typeof CARL !== 'undefined' && CARL[dish.name]) || null;
           var cAttr = '';
           if (cc) {
@@ -454,7 +462,17 @@
             if (cc.say) cAttr += ' data-carl-say="' + esc(cc.say) + '"';
             if (cc.dead && cc.dead.length) cAttr += ' data-carl-dead="' + esc(cc.dead.join(',')) + '"';
           }
-          html += '<div class="dish"' + cAttr + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
+          var pTag = '';
+          if (pann) {
+            // ONE tag per dish, not a report card. "New to you" is genuinely
+            // useful on a menu; "you have ordered this 4 times, last on the
+            // 12th" reads like being watched. The count stays in the data and
+            // out of the customer's face.
+            if (pann.newToYou) pTag = '<span class="p-tag p-new">New to you</span>';
+            else if (pann.usual) pTag = '<span class="p-tag p-usual">One of your usuals</span>';
+          }
+
+          html += '<div class="dish"' + cAttr + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name) + pTag
             + (dish.requested ? ' <span class="req-chip">by request</span>' : '')
             + (dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '') + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
@@ -707,6 +725,23 @@
         try { localStorage.removeItem(KEY); return true; } catch (e) { return false; }
       };
     }());
+    // Handed over by order.html, which is where the worker was asked. This
+    // page never calls /customer-home itself: one fetch per visit, and the
+    // form stays fast.
+    //
+    // NOTE these includes live INSIDE an existing <script> block — a nested
+    // <script> tag here silently breaks the whole page.
+    var __ltbPersonal = (function () {
+        try {
+          var raw = sessionStorage.getItem('ltb-personal');
+          if (!raw) return {};
+          var parsed = JSON.parse(raw);
+          // Stale after an hour. A greeting from last week's visit is worse
+          // than none.
+          if (!parsed || !parsed.at || (Date.now() - parsed.at) > 3600000) return {};
+          return parsed;
+        } catch (e) { return {}; }
+      }());
     var CARL = {"Brunswick Stew": {"v": "no", "say": "", "dead": [0, 1]}, "Chili": {"v": "swap", "say": "For Carl, we leave the beans out, swap the soy sauce for coconut aminos and drop the Marmite and lean on the anchovy for depth.", "dead": []}, "Gumbo": {"v": "no", "say": "", "dead": [0, 1]}, "Tex-Mex Kit": {"v": "swap", "say": "For Carl, we leave the beans out and swap the flour tortillas for corn.", "dead": []}, "Indian Style Curry": {"v": "ok", "say": "", "dead": [0, 3]}, "Leblanc Inspired Japanese Curry": {"v": "no", "say": "", "dead": [0, 1]}, "Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce": {"v": "no", "say": "", "dead": [0, 1]}, "Bo Ssam": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos.", "dead": []}, "Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos and leave the chili oil out.", "dead": [0, 1, 2, 3]}, "Mapo Eggplant": {"v": "no", "say": "", "dead": [0, 1]}, "Shrimp or Tofu with Asparagus in Black Bean Sauce": {"v": "no", "say": "", "dead": [0, 1, 2, 3]}, "Stir Fried Long Beans with Ground Pork or Tofu": {"v": "no", "say": "", "dead": [0, 1, 2, 3]}, "Texas Gulf Shrimp or Tofu and Chinese Broccoli": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos, swap the oyster sauce for a gluten-free one and leave the chili oil out.", "dead": [2, 3]}, "Thai Basil Chicken (Pad Krapow Gai)": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos and swap the oyster sauce for a gluten-free one.", "dead": []}, "Bolognese": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pasta with Homegrown Tomato Sauce": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": [2, 3]}, "Orecchiette with Bitter Greens and Anchovies": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pappardelle with Vegetables and Mint": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape and leave the peas out.", "dead": []}, "Saffron Pork Ragu": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pork with Mustard Tarragon Cream Sauce": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Mushroom Ragu": {"v": "no", "say": "", "dead": [0, 1]}, "Coriander Lamb Steak over Gigantes Beans": {"v": "no", "say": "", "dead": [0, 1, 2]}, "Pork Chop with Kabocha Purée and Charred Broccolini": {"v": "ok", "say": "", "dead": []}, "Bone-In Pork Rib Chop with All the Fixings": {"v": "swap", "say": "For Carl, we stabilize the butter sauce with sunflower lecithin instead of soy.", "dead": []}, "Steak au Poivre": {"v": "swap", "say": "For Carl, we swap the potatoes for sweet potato and stabilize the butter sauce with sunflower lecithin instead of soy.", "dead": []}, "Boeuf Bourguignon (Beef Stew)": {"v": "swap", "say": "For Carl, we swap the potatoes for sweet potato and thicken the stew with xanthan gum instead of a flour roux.", "dead": [1]}, "Pecan Mole-Fesenjan, Beef and Kabocha": {"v": "swap", "say": "For Carl, we swap the flour tortillas for corn.", "dead": []}, "Homemade Waffles": {"v": "no", "say": "", "dead": [0]}, "Fresh Cut Pineapple": {"v": "ok", "say": "", "dead": []}, "Seasonal Cantaloupe": {"v": "ok", "say": "", "dead": []}, "Chocolate Chip Cookies": {"v": "no", "say": "", "dead": [0, 1]}, "Peanut Butter Fudge": {"v": "no", "say": "", "dead": [0]}, "Brownies": {"v": "no", "say": "", "dead": [0]}, "Queso": {"v": "ok", "say": "", "dead": []}, "Pickled Onions or Carrots": {"v": "ok", "say": "", "dead": []}, "Chili Oil": {"v": "no", "say": "", "dead": [0, 1]}, "Thyme or Lavender Syrup": {"v": "ok", "say": "", "dead": []}, "Vanilla Syrup": {"v": "ok", "say": "", "dead": []}, "Vanilla Lavender Syrup": {"v": "ok", "say": "", "dead": []}, "Filet Mignon": {"v": "ok", "say": "", "dead": []}, "Filet Mignon - Prime": {"v": "ok", "say": "", "dead": []}, "Flank Steak": {"v": "ok", "say": "", "dead": []}, "NY Strip": {"v": "ok", "say": "", "dead": []}, "NY Strip - Prime": {"v": "ok", "say": "", "dead": []}, "Ribeye": {"v": "ok", "say": "", "dead": []}, "Ribeye - Prime": {"v": "ok", "say": "", "dead": []}, "Pork Tenderloin": {"v": "ok", "say": "", "dead": []}, "Thick-Cut Pork Chop": {"v": "ok", "say": "", "dead": []}, "Air-Chilled Chicken Breast": {"v": "ok", "say": "", "dead": []}, "Carrots": {"v": "ok", "say": "", "dead": []}, "Baby Gold Potatoes": {"v": "no", "say": "", "dead": [0]}, "Corn (off the cob)": {"v": "ok", "say": "", "dead": []}, "Kabocha Squash": {"v": "ok", "say": "", "dead": []}, "Parsnips": {"v": "ok", "say": "", "dead": []}, "Asparagus": {"v": "ok", "say": "", "dead": []}, "Garlic Confit": {"v": "ok", "say": "", "dead": []}, "Chimichurri": {"v": "no", "say": "", "dead": [0]}, "Romesco": {"v": "no", "say": "", "dead": [0]}, "Chermoula": {"v": "no", "say": "", "dead": [0]}, "Miso Butter Sauce": {"v": "no", "say": "", "dead": [0]}, "Whipped Lemon Garlic Herb Butter": {"v": "no", "say": "", "dead": [0]}};
     // carlFilter.js — the Carl toggle on the customer catalog.
     //

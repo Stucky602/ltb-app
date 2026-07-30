@@ -70,6 +70,18 @@
   .logo { width:120px; height:120px; border-radius:50%; display:block; margin:0 auto 16px; box-shadow:0 4px 20px rgba(0,0,0,0.4); }
   .brand { font-size:22px; font-weight:800; color:var(--gold); text-align:center; margin-bottom:3px; width:100%; }
   .week { font-size:13px; color:var(--teal-light); text-align:center; font-style:italic; margin-bottom:22px; width:100%; }
+  .personal-greeting {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 8px 12px; border-radius: 8px;
+    background: rgba(212,160,80,0.10); border-left: 3px solid #D4A050;
+  }
+  .pg-hi { font-size: 14px; font-weight: 700; color: #D4A050; }
+  .pg-week { font-size: 12px; color: #9aa5a0; }
+  .pg-forget {
+    margin-left: auto; background: none; border: 0; padding: 0;
+    font-size: 11px; color: #9aa5a0; text-decoration: underline;
+    cursor: pointer; font-family: inherit;
+  }
   .blurb { background:var(--card); border:1px solid var(--teal-mid); border-radius:14px; padding:16px; font-size:14px; line-height:1.55; color:var(--cream); text-align:center; margin-bottom:22px; width:100%; }
   .blurb b { color:var(--gold); }
   .btn {
@@ -122,6 +134,10 @@
     <img class="logo" src="/ltb-logo.png" alt="LTB logo">
     <div class="brand">Lettuce, Turnip, The Beet</div>
     <div class="week">meal prep, delivered fresh</div>
+
+    <!-- A recognised customer's greeting is inserted immediately BEFORE the
+         notice by _partials/personalize.js. Nothing renders here unless the
+         worker recognises this browser, so the default page is unchanged. -->
 
     <!-- Heads-up banner for the week, published from the Week tab. Stays
          empty (and invisible) unless a notice is actually published. -->
@@ -197,11 +213,14 @@
 <script>
   <!-- @generate workerBase -->
 
+  <!-- @include _partials/customerDevice.js -->
   <!-- @include _partials/esc.js -->
 
   <!-- @include _partials/noticeHtml.js -->
 
   <!-- @include _partials/orderWindow.js -->
+  <!-- personalize.js comes last: it needs WORKER and __ltbDeviceToken. -->
+  <!-- @include _partials/personalize.js -->
 
   // Save-to-home-screen toggle
   document.getElementById('saveToggle').addEventListener('click', function () {

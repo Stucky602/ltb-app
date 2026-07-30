@@ -60,6 +60,9 @@
   .carl-say { font-size:12px; font-weight:700; color:var(--gold); background:rgba(212,160,80,0.12); border-left:3px solid var(--gold); padding:7px 9px; margin:8px 0 2px; border-radius:0 4px 4px 0; }
   .carl-note { font-size:11px; color:var(--dim); margin:6px 0 10px; }
   .carl-hidden { display:none !important; }
+  .p-tag { font-size:10px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; padding:2px 6px; border-radius:999px; margin-left:8px; vertical-align:middle; }
+  .p-new { background:rgba(93,202,165,0.15); color:#5DCAA5; }
+  .p-usual { background:rgba(212,160,80,0.15); color:#D4A050; }
   .fav-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .req-chip { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:4px; padding:1px 5px; vertical-align:middle; }
   .submit-btn {
@@ -427,6 +430,11 @@
           // Carl attributes, from the generated CARL blob. Absent for anything
           // the registry does not know, which fails closed: no data-carl means
           // the filter leaves the row alone rather than declaring it orderable.
+          // Personal annotations, if order.html recognised this browser and
+          // left them in sessionStorage. Absent for everyone else, which is the
+          // normal case and renders exactly the page that shipped before.
+          var pann = (__ltbPersonal.annotations || {})[dish.dishId || ''] || null;
+
           var cc = (typeof CARL !== 'undefined' && CARL[dish.name]) || null;
           var cAttr = '';
           if (cc) {
@@ -434,7 +442,17 @@
             if (cc.say) cAttr += ' data-carl-say="' + esc(cc.say) + '"';
             if (cc.dead && cc.dead.length) cAttr += ' data-carl-dead="' + esc(cc.dead.join(',')) + '"';
           }
-          html += '<div class="dish"' + cAttr + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name)
+          var pTag = '';
+          if (pann) {
+            // ONE tag per dish, not a report card. "New to you" is genuinely
+            // useful on a menu; "you have ordered this 4 times, last on the
+            // 12th" reads like being watched. The count stays in the data and
+            // out of the customer's face.
+            if (pann.newToYou) pTag = '<span class="p-tag p-new">New to you</span>';
+            else if (pann.usual) pTag = '<span class="p-tag p-usual">One of your usuals</span>';
+          }
+
+          html += '<div class="dish"' + cAttr + (isDinnerGroup ? ' id="' + blkId + '"' : '') + '><div class="dish-name">' + esc(dish.name) + pTag
             + (dish.requested ? ' <span class="req-chip">by request</span>' : '')
             + (dish.favorite ? ' <span class="fav-chip">customer favorite</span>' : '') + '</div>';
           (dish.variants || []).forEach(function (v, vi) {
@@ -619,6 +637,23 @@
     }
 
     <!-- @include _partials/customerDevice.js -->
+    // Handed over by order.html, which is where the worker was asked. This
+    // page never calls /customer-home itself: one fetch per visit, and the
+    // form stays fast.
+    //
+    // NOTE these includes live INSIDE an existing <script> block — a nested
+    // <script> tag here silently breaks the whole page.
+    var __ltbPersonal = (function () {
+        try {
+          var raw = sessionStorage.getItem('ltb-personal');
+          if (!raw) return {};
+          var parsed = JSON.parse(raw);
+          // Stale after an hour. A greeting from last week's visit is worse
+          // than none.
+          if (!parsed || !parsed.at || (Date.now() - parsed.at) > 3600000) return {};
+          return parsed;
+        } catch (e) { return {}; }
+      }());
     <!-- @generate carlData -->
     <!-- @include _partials/carlFilter.js -->
     <!-- @include _partials/esc.js -->

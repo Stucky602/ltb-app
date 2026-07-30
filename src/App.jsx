@@ -99,6 +99,8 @@ import * as pub from './publishWeek.js';
 import * as poll from './pendingPoll.js';
 import { AmendmentQueue } from './components/AmendmentQueue.jsx';
 import { acceptAmendment, supersedePending } from './amendments.js';
+import { buildProfileSnapshot, sanitizeSnapshot } from './customerDevice.js';
+import { dishIdFor } from './dishIdentity.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
 import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
@@ -510,11 +512,35 @@ export default function LTBOrderTracker() {
   const fetchConfigHistory = React.useCallback(async () => pub.fetchConfigHistory(), []);
   const restoreConfig = React.useCallback(async (index) => pub.restoreConfig(index), []);
   const publishWeek = React.useCallback(
-    async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras) =>
-      pub.publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras, {
-        setWeekLedger, setNotice, recordAudit,
-      }),
-    [recordAudit]);
+    async (currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts, extras) => {
+      // ── Personalized snapshots ──────────────────────────────────────────
+      // Built HERE, where the trusted data lives, and sanitized before it goes
+      // anywhere near the worker. Only regulars who have actually bound a
+      // device get one — publishing a snapshot for someone with no device is
+      // data sitting in KV that nothing will ever read.
+      const weekDishIds = (currentWeekDishes || [])
+        .map(d => dishIdFor(typeof d === 'string' ? d : d.name))
+        .filter(Boolean);
+
+      const profileSnapshots = {};
+      for (const r of (regulars || [])) {
+        if (!r || !r.customerProfileId) continue;
+        if (!Array.isArray(r.deviceHashes) || r.deviceHashes.length === 0) continue;
+        const snap = sanitizeSnapshot(buildProfileSnapshot({
+          regular: r,
+          orders: orders || [],
+          weekLabel: weekLabel || '',
+          weekDishIds,
+        }));
+        if (snap) profileSnapshots[r.customerProfileId] = snap;
+      }
+
+      return pub.publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, pausedOpts,
+        { ...(extras || {}), profileSnapshots }, {
+          setWeekLedger, setNotice, recordAudit,
+        });
+    },
+    [recordAudit, regulars, orders]);
 
   const dismissPending = useCallback((pendingId) => ops.dismissPending(pendingId, {
     setPendingOrders, handledPendingRef, setShowPendingIdx, setError,

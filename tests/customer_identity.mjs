@@ -244,5 +244,66 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('the queued entry stores the whole payload', /q\.push\(\{[^}]*payload: payload/.test(form));
 }
 
+
+// ── The landing page degrades, always ───────────────────────────────────────
+//
+// Personalization is an enhancement bolted onto a page that already worked.
+// Every one of these asserts that the bolt cannot break the page underneath it:
+// no credential, worker down, revoked device, blocked storage — all of them end
+// with an ordering page that works.
+{
+  const partial = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/personalize.js'), 'utf8');
+
+  ok('the greeting never mints a credential',
+    !/__ltbDeviceToken\(\)\s*\|\|\s*mint/.test(partial) && /if \(!token\) return;/.test(partial),
+    'a visitor who only reads the menu must not be given one');
+
+  ok('a worker failure is caught and ignored', /\.catch\(function/.test(partial));
+  ok('an unrecognised response renders nothing', /recognized !== true/.test(partial));
+  ok('the whole thing is wrapped so nothing can throw upward', /catch \(e\)/.test(partial));
+
+  ok('the greeting is inserted BEFORE the notice, not over it',
+    /insertAdjacentHTML\('beforebegin'/.test(partial),
+    "the week's heads-up banner outranks a greeting");
+
+  ok('the name is escaped before it reaches the DOM', /replace\(\/\[<>&"\]\/g/.test(partial));
+
+  ok('history is handed over in sessionStorage, not a URL',
+    /sessionStorage/.test(partial) && !/location\.search|\?personal=/.test(partial),
+    'a URL carrying ordering history gets shared, screenshotted, and logged');
+
+  ok('"Not you?" confirms before forgetting', /window\.confirm/.test(partial));
+  ok('and clears the handover too', /clearStash\(\)/.test(partial));
+
+  const order = fs.readFileSync(path.join(ROOT, 'order.html'), 'utf8');
+  ok('the built landing page carries the greeting styles', /personal-greeting/.test(order));
+  ok('and asks the worker for it', /customer-home/.test(order));
+  // Script contents stripped first: greetingHtml() legitimately BUILDS that
+  // markup as a JS string. What must not exist is the markup sitting in the
+  // document, which is what an unrecognised visitor would otherwise see.
+  const orderBody = order.replace(/<script[\s\S]*?<\/script>/g, '');
+  ok('but renders no greeting markup by default', !/class="personal-greeting"/.test(orderBody),
+    'the default page must look exactly like what an unknown visitor sees today');
+}
+
+// ── The form shows one tag, not a report card ───────────────────────────────
+{
+  const form = fs.readFileSync(path.join(ROOT, 'form.html'), 'utf8');
+  ok('the form reads the handover', /__ltbPersonal/.test(form));
+  ok('it tags a dish the customer has never had', /New to you/.test(form));
+  ok('and one they order often', /One of your usuals/.test(form));
+  ok('the handover goes stale after an hour', /3600000/.test(form),
+    'a greeting from last week is worse than none');
+
+  // The count is deliberately NOT rendered.
+  ok('no order count is shown next to a dish',
+    !/timesOrdered/.test(form),
+    '"you have ordered this 4 times" reads like being watched');
+  ok('and no last-had date either', !/lastHad/.test(form));
+
+  // One tag per dish, enforced by the else-if.
+  ok('a dish gets at most one tag', /if \(pann\.newToYou\)[\s\S]{0,120}else if \(pann\.usual\)/.test(form));
+}
+
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

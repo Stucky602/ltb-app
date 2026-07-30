@@ -74,6 +74,18 @@
   .logo { width:120px; height:120px; border-radius:50%; display:block; margin:0 auto 16px; box-shadow:0 4px 20px rgba(0,0,0,0.4); }
   .brand { font-size:22px; font-weight:800; color:var(--gold); text-align:center; margin-bottom:3px; width:100%; }
   .week { font-size:13px; color:var(--teal-light); text-align:center; font-style:italic; margin-bottom:22px; width:100%; }
+  .personal-greeting {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 8px 12px; border-radius: 8px;
+    background: rgba(212,160,80,0.10); border-left: 3px solid #D4A050;
+  }
+  .pg-hi { font-size: 14px; font-weight: 700; color: #D4A050; }
+  .pg-week { font-size: 12px; color: #9aa5a0; }
+  .pg-forget {
+    margin-left: auto; background: none; border: 0; padding: 0;
+    font-size: 11px; color: #9aa5a0; text-decoration: underline;
+    cursor: pointer; font-family: inherit;
+  }
   .blurb { background:var(--card); border:1px solid var(--teal-mid); border-radius:14px; padding:16px; font-size:14px; line-height:1.55; color:var(--cream); text-align:center; margin-bottom:22px; width:100%; }
   .blurb b { color:var(--gold); }
   .btn {
@@ -126,6 +138,10 @@
     <img class="logo" src="/ltb-logo.png" alt="LTB logo">
     <div class="brand">Lettuce, Turnip, The Beet</div>
     <div class="week">meal prep, delivered fresh</div>
+
+    <!-- A recognised customer's greeting is inserted immediately BEFORE the
+         notice by _partials/personalize.js. Nothing renders here unless the
+         worker recognises this browser, so the default page is unchanged. -->
 
     <!-- Heads-up banner for the week, published from the Week tab. Stays
          empty (and invisible) unless a notice is actually published. -->
@@ -201,6 +217,75 @@
 <script>
   var WORKER = "https://ltb-proxy.strickland-kevinj.workers.dev";
 
+  // _partials/customerDevice.js — the customer half of device identity.
+  //
+  // ES5 and standalone on purpose: form.html and order.html are hand-written
+  // pages that no bundler touches, so they cannot import src/customerDevice.js.
+  // The two files do different jobs and barely overlap — this one mints, stores,
+  // and forgets; the app-side module binds, revokes, and builds snapshots. Keep
+  // it that way. If they ever need to share logic, generate this from that rather
+  // than copying by hand.
+  //
+  // WHAT THIS IS: a random value this browser stores about itself, so Kevin's
+  // site can greet a returning customer without an account and without a private
+  // weekly link.
+  //
+  // WHAT IT IS NOT: a login, and not a fingerprint. No canvas hashing, no font
+  // probing, nothing derived from the device at all. The customer can clear it
+  // whenever they like and the site keeps working.
+
+  (function () {
+    var KEY = 'ltb-customer-device';
+
+    function mint() {
+      try {
+        if (!window.crypto || !window.crypto.getRandomValues) return null;
+        var bytes = new Uint8Array(32);
+        window.crypto.getRandomValues(bytes);
+        var bin = '';
+        for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+        return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      } catch (e) { return null; }
+    }
+
+    // Returns the token, minting on first use. Returns null when storage is
+    // unavailable (private browsing), and every caller must treat null as
+    // "generic page" rather than as an error. Personalization is an enhancement;
+    // it must never be able to block ordering.
+    window.__ltbDeviceToken = function () {
+      try {
+        // Read guarded separately from mint, so a corrupted value self-heals
+        // instead of leaving this browser permanently unrecognisable.
+        var parsed = null;
+        try {
+          var raw = localStorage.getItem(KEY);
+          if (raw) parsed = JSON.parse(raw);
+        } catch (e2) { parsed = null; }
+
+        if (parsed && typeof parsed.token === 'string' && parsed.token.length >= 20) {
+          parsed.lastUsedAt = new Date().toISOString();
+          localStorage.setItem(KEY, JSON.stringify(parsed));
+          return parsed.token;
+        }
+        var token = mint();
+        if (!token) return null;
+        localStorage.setItem(KEY, JSON.stringify({
+          token: token,
+          createdAt: new Date().toISOString(),
+          lastUsedAt: new Date().toISOString()
+        }));
+        return token;
+      } catch (e) { return null; }
+    };
+
+    // "Not you?" — clears this device's credential only. Deliberately does NOT
+    // clear the saved name and address prefill, which is a separate convenience
+    // the person may still want, and deliberately does not tell the worker:
+    // revoking server-side is Kevin's action, not something a visitor can do.
+    window.__ltbForgetDevice = function () {
+      try { localStorage.removeItem(KEY); return true; } catch (e) { return false; }
+    };
+  }());
   // HTML escaping for anything that reaches a customer's screen. Shared because
   // a page that escapes LESS than its neighbours is the bug, not a style
   // difference — and that is invisible until someone publishes a notice with an
@@ -230,6 +315,98 @@
     var d = new Date().getDay();
     return d === 0 || d >= 3;
   }
+  <!-- personalize.js comes last: it needs WORKER and __ltbDeviceToken. -->
+  // _partials/personalize.js — the returning-customer greeting on order.html.
+  //
+  // PROGRESSIVE ENHANCEMENT, AND THIS IS NOT NEGOTIABLE
+  //
+  // The generic page renders first and completely. This runs afterwards and adds
+  // to it. If the worker is down, the fetch is slow, the customer cleared their
+  // storage, Kevin revoked the device, or the browser blocks storage entirely,
+  // the page stays exactly what it is today — a working ordering page.
+  //
+  // That is why /customer-home answers 200 with recognized:false on every failure
+  // path instead of an error status. There is no state in which this file can
+  // make the page look broken, and there is no state in which a customer cannot
+  // order because personalization failed.
+  //
+  // WHAT IT IS ALLOWED TO KNOW: a first name, the week label, and per-dish
+  // annotations keyed by dishId. The worker sends nothing else, the owner app
+  // strips anything else before publishing, and this file would have nothing to
+  // do with an address even if one arrived.
+  //
+  // ES5, standalone, imports nothing. order.html is hand-written and no bundler
+  // touches it.
+
+  (function () {
+    if (typeof fetch !== 'function') return;
+
+    function el(id) { return document.getElementById(id); }
+
+    function greetingHtml(name, weekLabel) {
+      var who = String(name || '').replace(/[<>&"]/g, '');
+      if (!who) return '';
+      return '<div class="personal-greeting">'
+        + '<span class="pg-hi">Hi ' + who + '.</span>'
+        + (weekLabel ? ' <span class="pg-week">' + String(weekLabel).replace(/[<>&"]/g, '') + '</span>' : '')
+        + '<button type="button" class="pg-forget" id="pgForget">Not you?</button>'
+        + '</div>';
+    }
+
+    // Annotations ride to form.html in sessionStorage rather than being rendered
+    // here, because THIS page does not list dishes — it is a door. The order form
+    // is where "new to you" and "one of your usuals" actually mean something next
+    // to a dish. sessionStorage rather than a query string: a URL carrying
+    // someone's ordering history is a URL that gets shared, screenshotted, and
+    // logged.
+    function stash(payload) {
+      try {
+        sessionStorage.setItem('ltb-personal', JSON.stringify({
+          greeting: payload.greeting || '',
+          weekLabel: payload.weekLabel || '',
+          annotations: payload.annotations || {},
+          at: Date.now()
+        }));
+      } catch (e) { /* no storage: the form simply shows the generic view */ }
+    }
+
+    function clearStash() {
+      try { sessionStorage.removeItem('ltb-personal'); } catch (e) {}
+    }
+
+    try {
+      var token = (typeof __ltbDeviceToken === 'function') ? __ltbDeviceToken() : null;
+      // No credential means a browser that has never ordered. Do NOT mint one
+      // here: a person who is only reading the menu should not be carrying a
+      // credential, and minting on page load would give one to every visitor.
+      if (!token) return;
+
+      fetch(WORKER + '/customer-home', { headers: { 'X-LTB-Device': token } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || data.recognized !== true) { clearStash(); return; }
+
+          var slot = el('weekNotice');
+          if (!slot) return;
+          // Inserted BEFORE the notice rather than replacing it. The week's
+          // heads-up banner is more important than a greeting and must not be
+          // displaced by one.
+          slot.insertAdjacentHTML('beforebegin', greetingHtml(data.greeting, data.weekLabel));
+          stash(data);
+
+          var btn = el('pgForget');
+          if (btn) {
+            btn.addEventListener('click', function () {
+              if (!window.confirm('Forget this device? You will see the standard page from now on.')) return;
+              if (typeof __ltbForgetDevice === 'function') __ltbForgetDevice();
+              clearStash();
+              window.location.reload();
+            });
+          }
+        })
+        .catch(function () { /* worker down — the page is exactly as it was */ });
+    } catch (e) { /* anything unexpected: stay generic */ }
+  }());
 
   // Save-to-home-screen toggle
   document.getElementById('saveToggle').addEventListener('click', function () {

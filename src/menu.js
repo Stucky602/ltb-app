@@ -6,6 +6,8 @@
 // changes. To add or edit a dish: edit dishes.js, not this file.
 // ═══════════════════════════════════════════════════════════════════════════
 import { DISHES, ALWAYS_ITEMS } from './dishes.js';
+import { OFF_MENU_DISHES } from './menuLibrary.js';
+const OFF_MENU = new Set(OFF_MENU_DISHES);
 
 // Dinners: { name, variants } in registry order. Dishes with customer
 // options (spice level, pasta shape) carry them through — the publish
@@ -16,6 +18,12 @@ export const ALL_DINNERS = DISHES.map(d => {
     ? { name: d.name, variants: d.variants, options: d.options }
     : { name: d.name, variants: d.variants };
   if (d.spotlight) base.spotlight = true;
+  // MARKED, not filtered. Off-menu dishes stay in this list because it is a
+  // LOOKUP as well as a picker: WeekTab line ~202 and every order surface
+  // resolve a saved dish name through it, so dropping the entry would break
+  // any historical week or order that carries one. Pickers filter on this
+  // flag; lookups keep working.
+  if (OFF_MENU.has(d.name)) base.offMenu = true;
   if (d.diet) base.diet = d.diet; // dietary filter (veg/pesc), read by both menus
   return base;
 });

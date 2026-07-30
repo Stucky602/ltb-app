@@ -285,7 +285,9 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
         )}
       </div>
 
-      {ALL_DINNERS.map(dish => {
+      {/* Off-menu dishes are excluded from the picker but NOT from the lookup
+          above: a week saved before the dish came off still resolves. */}
+      {ALL_DINNERS.filter(d => !d.offMenu).map(dish => {
         const isOn = selected.includes(dish.name);
         const prices = dish.variants.map(v => v.price);
         const lo = Math.min(...prices);

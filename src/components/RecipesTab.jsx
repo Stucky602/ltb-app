@@ -390,17 +390,25 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
   const journalEntries = (pipelineJournal && pipelineJournal.entries) || {};
   const statusOf = (key) => (journalEntries[key] && journalEntries[key].status) || 'testing';
 
-  // Group the dropdown: testing (alpha) → promoting → shipped/killed.
+  // Group the dropdown: testing (alpha) → promoting → shipped/killed → cut.
+  //
+  // THE else USED TO SWALLOW ANYTHING IT DID NOT RECOGNISE. When thirteen
+  // dishes were marked status:'cut' on Jul 29, every one of them fell through
+  // into `testing` and sat in the main dropdown labelled "cut" — the same shape
+  // of bug as tools/syncPipeline.mjs, which only knew 'shipped' and 'killed'.
+  // A status the code does not name is a status the code gets wrong, so the
+  // fallthrough is now explicit and cut has its own bucket.
   const pipeGroups = useMemo(() => {
-    const g = { testing: [], promoting: [], done: [] };
+    const g = { testing: [], promoting: [], done: [], cut: [] };
     for (const d of PIPELINE_DISHES) {
       const st = d.status || statusOf(d.key);
-      if (st === 'shipped' || st === 'killed') g.done.push(d);
+      if (st === 'cut') g.cut.push(d);
+      else if (st === 'shipped' || st === 'killed') g.done.push(d);
       else if (st === 'promoting') g.promoting.push(d);
       else g.testing.push(d);
     }
     const byTitle = (a, b) => a.title.localeCompare(b.title);
-    g.testing.sort(byTitle); g.promoting.sort(byTitle); g.done.sort(byTitle);
+    g.testing.sort(byTitle); g.promoting.sort(byTitle); g.done.sort(byTitle); g.cut.sort(byTitle);
     return g;
   }, [pipelineJournal]);
 
@@ -566,7 +574,35 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   {pipeGroups.done.map(d => <option key={d.key} value={d.key}>{d.title} ({d.status || statusOf(d.key)})</option>)}
                 </optgroup>
               )}
+              {/* Cut dishes are deliberately NOT here. The dropdown is for
+                  candidates still in play; the graveyard below is where a cut
+                  one lives, and it is still selectable from there. */}
             </select>
+
+            {pipeGroups.cut.length > 0 && (
+              <details style={{ marginTop: 10 }}>
+                <summary style={{ fontSize: 12, color: C.dim, cursor: 'pointer', userSelect: 'none' }}>
+                  Graveyard · {pipeGroups.cut.length} cut
+                </summary>
+                <div style={{ marginTop: 8, borderLeft: '2px solid ' + C.dim, paddingLeft: 10 }}>
+                  {pipeGroups.cut.map(d => (
+                    <div key={d.key} style={{ marginBottom: 8 }}>
+                      <button
+                        style={{ background: 'none', border: 0, padding: 0, color: C.text, fontSize: 13, fontWeight: 600, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
+                        onClick={() => { setPipeKey(d.key); setPromoteText(''); }}
+                      >
+                        {d.title}
+                      </button>
+                      <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
+                        {d.cutGate
+                          ? `Failed the ${d.cutGate} gate.`
+                          : 'No gate recorded. The reason left with the dish.'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
 
             {pipeDish && (
               <div>

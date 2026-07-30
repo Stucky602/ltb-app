@@ -56,17 +56,95 @@
     try { sessionStorage.removeItem('ltb-personal'); } catch (e) {}
   }
 
+  // ── Claim a code ─────────────────────────────────────────────────────────
+  //
+  // THE ANSWER TO "where does a returning customer on a new phone enter this?"
+  // Nowhere, until now — the owner app could generate a code and the worker
+  // could redeem one, and there was no box. A feature with no door.
+  //
+  // The link is deliberately quiet and only appears when this browser is NOT
+  // recognised, which is the only moment it means anything. Someone already
+  // greeted by name has no use for it, and a permanent "enter a code" prompt on
+  // a friends-only site reads like a login wall.
+  function claimUi() {
+    var slot = el('weekNotice');
+    if (!slot) return;
+    slot.insertAdjacentHTML('beforebegin',
+      '<div class="pg-claim" id="pgClaim">'
+      + '<button type="button" id="pgClaimOpen">Ordered before, on a different phone?</button>'
+      + '<div id="pgClaimForm" style="display:none">'
+      + '<input id="pgClaimCode" type="text" inputmode="text" autocapitalize="characters" '
+      + 'maxlength="9" placeholder="ABCD-EFGH" />'
+      + '<button type="button" id="pgClaimGo">Connect</button>'
+      + '<div id="pgClaimMsg"></div>'
+      + '</div></div>');
+
+    el('pgClaimOpen').addEventListener('click', function () {
+      el('pgClaimForm').style.display = '';
+      el('pgClaimOpen').style.display = 'none';
+      el('pgClaimCode').focus();
+    });
+
+    el('pgClaimGo').addEventListener('click', function () {
+      var code = (el('pgClaimCode').value || '').trim().toUpperCase();
+      var msg = el('pgClaimMsg');
+      if (code.length < 8) { msg.textContent = 'That code looks too short.'; return; }
+
+      // Minting the credential HERE is the point: the code binds this browser,
+      // so this browser needs one before it asks. Everywhere else in the app a
+      // token is only minted at order time, and this is the one exception.
+      var token = (typeof __ltbDeviceToken === 'function') ? __ltbDeviceToken() : null;
+      if (!token) { msg.textContent = 'This browser will not let the site remember you.'; return; }
+
+      el('pgClaimGo').disabled = true;
+      msg.textContent = 'Checking\u2026';
+      fetch(WORKER + '/customer-device/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-LTB-Device': token },
+        body: JSON.stringify({ code: code })
+      }).then(function (r) {
+        return r.json().then(function (j) { return { ok: r.ok, body: j }; });
+      }).then(function (res) {
+        if (res.ok && res.body && res.body.ok) {
+          msg.textContent = 'Connected. One moment\u2026';
+          window.location.reload();
+          return;
+        }
+        // The worker's own wording, which distinguishes expired from used from
+        // unrecognised. A single "that did not work" would send someone back to
+        // Kevin for a new code when the real problem is a typo.
+        msg.textContent = (res.body && res.body.error)
+          ? res.body.error.charAt(0).toUpperCase() + res.body.error.slice(1) + '.'
+          : 'That did not work. Ask Kevin for a fresh code.';
+        el('pgClaimGo').disabled = false;
+      }).catch(function () {
+        msg.textContent = 'No connection. Try again in a moment.';
+        el('pgClaimGo').disabled = false;
+      });
+    });
+  }
+
   try {
     var token = (typeof __ltbDeviceToken === 'function') ? __ltbDeviceToken() : null;
     // No credential means a browser that has never ordered. Do NOT mint one
     // here: a person who is only reading the menu should not be carrying a
     // credential, and minting on page load would give one to every visitor.
-    if (!token) return;
+    // No credential means this browser has never ordered. Offer the code path
+    // and stop. Do NOT mint one here: a person reading the menu should not be
+    // carrying a credential they never asked for.
+    if (!token) { claimUi(); return; }
 
     fetch(WORKER + '/customer-home', { headers: { 'X-LTB-Device': token } })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (!data || data.recognized !== true) { clearStash(); return; }
+        if (!data || data.recognized !== true) {
+          // Has a token but the worker does not know it: a new device that
+          // ordered once and was never linked, or one Kevin revoked. Either way
+          // the code is the way back.
+          clearStash();
+          claimUi();
+          return;
+        }
 
         var slot = el('weekNotice');
         if (!slot) return;

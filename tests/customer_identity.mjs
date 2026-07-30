@@ -254,9 +254,16 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
 {
   const partial = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/personalize.js'), 'utf8');
 
-  ok('the greeting never mints a credential',
-    !/__ltbDeviceToken\(\)\s*\|\|\s*mint/.test(partial) && /if \(!token\) return;/.test(partial),
+  // The rule is about BEHAVIOUR, not a literal line. It was pinned to
+  // `if (!token) return;` and broke the moment the claim-code path made that
+  // `if (!token) { claimUi(); return; }` — same guarantee, different shape.
+  // A fixture pinned to exact source is the same trap as a hardcoded count.
+  ok('the greeting bails when there is no credential rather than making one',
+    /if \(!token\) \{ claimUi\(\); return; \}/.test(partial),
     'a visitor who only reads the menu must not be given one');
+  ok('the only mint call is inside the claim handler',
+    (partial.match(/__ltbDeviceToken\(\)/g) || []).length === 2,
+    'one read on the greeting path, one inside the claim handler where binding requires it');
 
   ok('a worker failure is caught and ignored', /\.catch\(function/.test(partial));
   ok('an unrecognised response renders nothing', /recognized !== true/.test(partial));
@@ -368,6 +375,62 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
     regular: { id: 'r1', name: 'Sarah' }, orders: [], weekLabel: 'W', weekDishIds: [],
   }));
   ok('no live order means no currentOrder key at all', !('currentOrder' in none));
+}
+
+
+// ── The code has somewhere to be typed ─────────────────────────────────────
+//
+// It did not, until Kevin asked. The owner app could generate a claim code and
+// the worker could redeem one, and there was no box on any customer page — a
+// feature with no door. This asserts the door exists and behaves.
+{
+  const pz = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/personalize.js'), 'utf8');
+  const code = pz.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  ok('the landing page offers a way to enter a claim code', /pgClaimGo/.test(code));
+  ok('and posts it to the redeem endpoint', /customer-device\/claim/.test(code));
+  ok('with the device credential attached', /X-LTB-Device/.test(code));
+
+  // Only when it means something.
+  ok('the offer appears when the browser is unrecognised',
+    /recognized !== true[\s\S]{0,200}claimUi\(\)/.test(code));
+  ok('and when it has no credential at all',
+    /if \(!token\) \{ claimUi\(\); return; \}/.test(code),
+    'a permanent "enter a code" prompt on a friends-only site reads like a login wall');
+  ok('a recognised customer is never shown it',
+    !/recognized === true[\s\S]{0,120}claimUi/.test(code));
+
+  // Minting inside the claim handler is the ONE exception to the never-mint-on-
+  // load rule, and it has to be, because the code binds this browser.
+  ok('the credential is minted inside the claim handler, not on page load',
+    /pgClaimGo[\s\S]{0,900}__ltbDeviceToken\(\)/.test(code));
+
+  ok('the code is normalised before sending', /toUpperCase\(\)/.test(code));
+  ok('an obviously short code is refused locally', /length < 8/.test(code));
+
+  ok('the worker\u2019s own error wording is shown',
+    /res\.body\.error/.test(code),
+    'expired, used, and unrecognised are different problems and a single message sends people back for a code they do not need');
+
+  const order = fs.readFileSync(path.join(ROOT, 'order.html'), 'utf8');
+  const body = order.replace(/<script[\s\S]*?<\/script>/g, '');
+  ok('no claim markup renders by default', !/id="pgClaim"/.test(body),
+    'it is inserted only when the page decides this browser needs it');
+}
+
+// ── The request box moved to the form ──────────────────────────────────────
+{
+  const menu = fs.readFileSync(path.join(ROOT, 'menu.html'), 'utf8');
+  const form = fs.readFileSync(path.join(ROOT, 'form.html'), 'utf8');
+
+  ok('the weekly menu no longer carries it', !/requestBtn/.test(menu));
+  ok('the order form does', /requestBtn/.test(form));
+  ok('and it is built from the whole registry, not this week',
+    /ALL_DINNER_NAMES/.test(form),
+    'asking for a dish that IS on this week is an order, and there is a button for that');
+  ok('there is exactly one implementation',
+    !/requestBoxHtml/.test(menu) && /requestBoxHtml/.test(form));
+  ok('it never claims a send it did not get', /did not send/.test(form));
 }
 
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);

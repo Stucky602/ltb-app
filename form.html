@@ -61,9 +61,23 @@
   .diet-filter-label { font-size:11px; color:var(--dim); letter-spacing:0.5px; }
   .diet-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:var(--cream); font-size:12px; cursor:pointer; }
   .diet-chip.on { border-color:var(--gold); background:rgba(212,160,80,0.15); color:var(--gold); font-weight:700; }
+  .week-off { background:rgba(212,160,80,0.12); border:1px solid var(--gold); border-radius:12px;
+    padding:14px 16px; margin:0 0 14px; text-align:left; }
+  .week-off b { color:var(--gold); display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.8px; margin-bottom:6px; }
+  .week-off p { margin:0; font-size:13px; line-height:1.6; color:var(--body,#c9d1cd); }
   .carl-say { font-size:12px; font-weight:700; color:var(--gold); background:rgba(212,160,80,0.12); border-left:3px solid var(--gold); padding:7px 9px; margin:8px 0 2px; border-radius:0 4px 4px 0; }
   .carl-note { font-size:11px; color:var(--dim); margin:6px 0 10px; }
   .carl-hidden { display:none !important; }
+  .request-box { margin-top:22px; padding:16px; background:rgba(63,184,160,0.06); border:1px solid var(--teal-mid); border-radius:12px; }
+  .request-head { font-size:14px; font-weight:800; color:var(--teal-light); letter-spacing:0.3px; margin-bottom:4px; }
+  .request-sub { font-size:12.5px; color:#8a928c; line-height:1.5; margin-bottom:10px; }
+  .request-box select, .request-box input { width:100%; box-sizing:border-box; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid var(--teal-mid); background:#0e1a17; color:var(--body); font-size:14px; }
+  .request-box button { width:100%; padding:11px; border:none; border-radius:8px; background:var(--teal-mid); color:#04342C; font-weight:700; font-size:14px; cursor:pointer; }
+  .request-box button:disabled { opacity:0.5; cursor:default; }
+  .request-done { font-size:12.5px; margin-top:8px; min-height:16px; }
+  .request-done.ok { color:var(--teal-light); }
+  .request-done.err { color:#d98a7a; }
   .p-tag { font-size:10px; font-weight:700; letter-spacing:0.4px; text-transform:uppercase; padding:2px 6px; border-radius:999px; margin-left:8px; vertical-align:middle; }
   .p-new { background:rgba(93,202,165,0.15); color:#5DCAA5; }
   .p-usual { background:rgba(212,160,80,0.15); color:#D4A050; }
@@ -386,9 +400,7 @@
         document.getElementById("content").innerHTML =
           noticeHtml(config) +
           '<div class="section" style="text-align:center;">' +
-          '<div class="section-title">Taking this week off</div>' +
-          '<div style="font-size:13px;color:var(--dim);line-height:1.6;">No menu this week. Back next week, same as always.' +
-          (config.pausedMsg ? '<br><br>' + esc(config.pausedMsg) : '') + '</div></div>';
+          pausedHtml(config) + '</div>';
         return;
       }
 
@@ -559,6 +571,11 @@
         '<textarea id="custNotes" placeholder="Spice level, substitutions, delivery notes, anything else"></textarea>' +
         '</div>';
 
+      // Placed after the order and before the review button. By this point they
+      // have chosen what they want, which is exactly when they notice what they
+      // could not choose.
+      html += requestBoxHtml();
+
       html += '<button class="submit-btn" id="reviewBtn" onclick="openReview()">Review Order</button>';
       html += '<div id="msgArea"></div>';
       html += '<div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;overflow-y:auto;padding:20px;box-sizing:border-box;">' +
@@ -577,6 +594,7 @@
       // After every render: innerHTML above destroys the blocks and their
       // classes, so a filter left on would forget itself on the next redraw.
       if (typeof __carlApply === 'function') __carlApply();
+      if (typeof wireRequestBox === 'function') wireRequestBox();
       prefillIdentity();
     }
 
@@ -656,6 +674,98 @@
       saveDraftSoon();
     }
 
+    var ALL_DINNER_NAMES = ["Bo Ssam", "Boeuf Bourguignon (Beef Stew)", "Bolognese", "Bone-In Pork Rib Chop with All the Fixings", "Brunswick Stew", "Chili", "Coriander Lamb Steak over Gigantes Beans", "Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice", "Gumbo", "Indian Style Curry", "Leblanc Inspired Japanese Curry", "Mapo Eggplant", "Mushroom Ragu", "Orecchiette with Bitter Greens and Anchovies", "Pappardelle with Vegetables and Mint", "Pasta with Homegrown Tomato Sauce", "Pecan Mole-Fesenjan, Beef and Kabocha", "Pork Chop with Kabocha Purée and Charred Broccolini", "Pork with Mustard Tarragon Cream Sauce", "Saffron Pork Ragu", "Shrimp or Tofu with Asparagus in Black Bean Sauce", "Steak au Poivre", "Stir Fried Long Beans with Ground Pork or Tofu", "Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce", "Tex-Mex Kit", "Texas Gulf Shrimp or Tofu and Chinese Broccoli", "Thai Basil Chicken (Pad Krapow Gai)"];
+    // "Want a dish back?" — one implementation, used by the order form.
+    //
+    // MOVED FROM THE WEEKLY MENU (Kevin, Jul 30). It lived on menu.html, which is
+    // the browsing page, and the ask belongs where somebody is already in the act of
+    // telling him what they want. A person reading the menu is deciding; a person on
+    // the form has decided, and that is the moment they notice what is missing.
+    //
+    // Trust-based and anonymous, exactly as before: no name, no device, no order
+    // attached. It is a request, not an order, and the wording carries that — a
+    // different verb and a different colour from everything else on the page.
+    //
+    // Built from ALL_DINNER_NAMES (the whole registry) rather than the published
+    // week, because asking for a dish that IS on this week is not a request, it is
+    // an order, and there is a button for that already.
+    function requestBoxHtml() {
+      if (typeof ALL_DINNER_NAMES === 'undefined' || !ALL_DINNER_NAMES.length) return '';
+      var opts = ALL_DINNER_NAMES.map(function (n) {
+        return '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>';
+      }).join('');
+      return '<div class="request-box" id="requestBox">'
+        + '<div class="request-head">Want a dish back?</div>'
+        + '<div class="request-sub">Not an order &mdash; just tell me what you&rsquo;re hoping to see. No promises, but it helps me plan.</div>'
+        + '<select id="requestSelect"><option value="">Pick a dish&hellip;</option>' + opts + '</select>'
+        + '<input id="requestNote" type="text" maxlength="200" placeholder="Optional note (why, when, etc.)" />'
+        + '<button id="requestBtn" type="button">Send request</button>'
+        + '<div class="request-done" id="requestDone"></div>'
+        + '</div>';
+    }
+
+    // Wired AFTER the DOM exists. Called from the render path, not on load.
+    function wireRequestBox() {
+      var rb = document.getElementById('requestBtn');
+      if (!rb || rb.__wired) return;
+      rb.__wired = true;
+      rb.addEventListener('click', function () {
+        var sel = document.getElementById('requestSelect');
+        var note = document.getElementById('requestNote');
+        var done = document.getElementById('requestDone');
+        var dish = sel ? sel.value : '';
+        if (!dish) { done.textContent = 'Pick a dish first.'; done.className = 'request-done err'; return; }
+        rb.disabled = true;
+        fetch(WORKER + '/requests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dish: dish, note: note ? note.value : '' })
+        }).then(function (r) {
+          if (!r.ok) throw new Error('bad');
+          done.textContent = 'Got it \u2014 thanks. I\u2019ll take it into account.';
+          done.className = 'request-done ok';
+          if (sel) sel.value = '';
+          if (note) note.value = '';
+        }).catch(function () {
+          // Never claims success it did not get. A request that silently vanished
+          // is worse than one the person knows to send again.
+          done.textContent = 'That did not send. Try again in a moment.';
+          done.className = 'request-done err';
+        }).then(function () { rb.disabled = false; });
+      });
+    }
+    // The week-off notice. ONE renderer, used by all three customer pages.
+    //
+    // WHY THIS IS A PARTIAL AND NOT THREE COPIES
+    //
+    // It was three copies, and they had already drifted: form.html and menu.html
+    // each carried their own hardcoded stock sentence about there being no menu,
+    // with slightly different markup, and order.html — the landing page, the one a
+    // customer opens first — had NO paused handling at all. So the site announced a
+    // week off on two pages out of three, in two different wordings, neither of
+    // which was what Kevin typed.
+    //
+    // The old wording is deliberately NOT quoted anywhere in this file. Partials are
+    // inlined into the built pages, comments and all, and a test asserting that the
+    // stock sentence is gone would match this comment and fail. That has now
+    // happened three times in one day, always the same way.
+    //
+    // That is the same failure noticeHtml.js exists to prevent, and its header
+    // already says so: "This had to be added to three pages by hand and one copy
+    // was missed, which is half the reason the build step exists."
+    //
+    // KEVIN'S RULING, Jul 30: the heading is "Taking some time off" — TIME, not
+    // week, because a week off is not always a week — and the body is EXACTLY what
+    // he typed and nothing else. No boilerplate prepended, no sentence he did not
+    // write. If he types nothing, the heading stands alone rather than inventing a
+    // reason on his behalf.
+    function pausedHtml(cfg) {
+      if (!cfg || !cfg.paused) return "";
+      var msg = cfg.pausedMsg ? String(cfg.pausedMsg).trim() : "";
+      return '<div class="week-off"><b>Taking some time off</b>'
+        + (msg ? '<p>' + esc(msg) + '</p>' : '')
+        + '</div>';
+    }
     // _partials/customerDevice.js — the customer half of device identity.
     //
     // ES5 and standalone on purpose: form.html and order.html are hand-written

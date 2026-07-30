@@ -156,6 +156,15 @@ const GENERATORS = {
   // disagree about the same dish while both looking correct.
   //
   // Keyed by exact dish name, which is the key renderDish already has in hand.
+  // Every dinner the registry knows, names only. The request box needs the FULL
+  // library rather than this week's published roster, because the whole point is
+  // asking for something that ISN'T on this week — and form.html only ever sees
+  // the published config.
+  dinnerNames: () => {
+    const names = DISHES.map(d => d.name).sort();
+    return `var ALL_DINNER_NAMES = ${looseJson(names)};`;
+  },
+
   carlData: () => {
     const out = {};
     for (const item of [...DISHES, ...ALL_ALWAYS_ITEMS]) {

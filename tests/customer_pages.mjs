@@ -131,7 +131,14 @@ console.log('form.html');
 {
   const dom = boot(form, { ...CFG, paused: true, pausedMsg: 'Back on the 30th.' }); await sleep(150);
   const h = dom.window.document.body.innerHTML;
-  check('a paused week says so instead of showing a menu', /Taking this week off/.test(h) && /Back on the 30th/.test(h));
+  // Heading is "Taking some time off" — TIME, not week, per Kevin (Jul 30),
+  // because a week off is not always a week. And the body is EXACTLY what he
+  // typed: the pages used to prepend "No menu this week. Back next week, same
+  // as always." and then repeat his text underneath it, so a customer read a
+  // sentence he never wrote followed by the one he did.
+  check('a paused week says so instead of showing a menu', /Taking some time off/.test(h) && /Back on the 30th/.test(h));
+  check('and does NOT prepend a sentence Kevin did not write',
+    !/No menu this week|Back next week, same as always/.test(h));
   check('a paused week cannot be ordered from', !dom.window.document.getElementById('reviewBtn'));
 }
 
@@ -307,7 +314,8 @@ console.log('menu.html');
 }
 {
   const dom = boot(menu, { weekLabel: 'W', dishes: [], paused: true }); await sleep(150);
-  check('a paused week beats the empty-menu notice', /Taking this week off/.test(dom.window.document.body.innerHTML));
+  check('a paused week beats the empty-menu notice', /Taking some time off/.test(dom.window.document.body.innerHTML));
+  check('and carries only the typed reason', !/No menu this week/.test(dom.window.document.body.innerHTML));
 }
 
 // ── The Carl filter on the weekly menu ──────────────────────────────────────
@@ -572,6 +580,34 @@ console.log('\npipeline.html');
     check('a config with no roster field at all leaves the page intact',
       d.querySelectorAll('.dish[data-dish]').length === TESTING_COUNT);
   }
+}
+
+
+// ── The week-off notice reaches ALL THREE pages ─────────────────────────────
+//
+// It used to reach two. form.html and menu.html each carried their own
+// hardcoded version, and order.html — the landing page, the first thing a
+// customer opens — had no paused handling whatsoever. One renderer now, so
+// there is nowhere for a fourth wording to hide.
+{
+  const paused = { ...CFG, paused: true, pausedMsg: 'Back on the 30th.' };
+
+  for (const [name, page] of [['order.html', landing], ['menu.html', menu], ['form.html', form]]) {
+    const dom = boot(page, paused);
+    await sleep(150);
+    const h = dom.window.document.body.innerHTML;
+    check(`${name} announces the week off`, /Taking some time off/.test(h));
+    check(`${name} carries the typed reason`, /Back on the 30th/.test(h));
+  }
+
+  // Blank means blank. The Week tab used to substitute a sentence Kevin never
+  // wrote whenever he left the box empty.
+  const blank = boot(landing, { ...CFG, paused: true, pausedMsg: '' });
+  await sleep(150);
+  const bh = blank.window.document.body.innerHTML;
+  check('a blank reason renders the heading alone', /Taking some time off/.test(bh));
+  check('and invents nothing to fill the gap',
+    !/(No menu this week|Back next week|same as always)/.test(bh));
 }
 
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);

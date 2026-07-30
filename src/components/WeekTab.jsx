@@ -37,6 +37,35 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { costDishVariant, driftBorder } from '../dishCosting.js';
 import { ConflictModal } from './ConflictModal.jsx';
 
+// Grows to fit what is typed instead of scrolling sideways. Both of these were
+// <input> elements, which meant a notice longer than the box ran off the right
+// edge and could not be clicked back into — the text was there, editable in
+// principle, and unreachable in practice.
+//
+// Height is set from scrollHeight on every change AND on mount, because a value
+// restored from storage arrives without ever firing onChange.
+function GrowingText({ value, onChange, placeholder, style, disabled }) {
+  const ref = React.useRef(null);
+  const fit = React.useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.max(38, el.scrollHeight) + 'px';
+  }, []);
+  React.useEffect(() => { fit(); }, [value, fit]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => { onChange(e); fit(); }}
+      placeholder={placeholder}
+      rows={1}
+      style={{ ...style, resize: 'none', overflow: 'hidden', lineHeight: 1.5, fontFamily: 'inherit' }}
+    />
+  );
+}
+
 export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, dishFeedback, onFetchHistory, onRestoreConfig }) {
   // Earned, not declared: recomputed on every publish so a dish can gain or
   // lose the badge as real evidence accumulates.
@@ -164,7 +193,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     setPausing(true); setPublishMsg(null);
     try {
       await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), {
-        paused: true, pausedMsg: pauseMsg.trim() || 'Taking this week off, back next week.',
+        paused: true, pausedMsg: pauseMsg.trim(),
       }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '' });
       setPublishMsg({ ok: true, text: 'Week paused. The form and menu now say you are off this week.' });
     } catch (e) {
@@ -419,7 +448,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
                 Show a heads-up banner this week
               </span>
             </label>
-            <input
+            <GrowingText
               value={notice}
               onChange={e => { setNotice(e.target.value); persistNotice(e.target.value, noticeOn); }}
               placeholder="e.g. dishwasher broke, deliveries may run a day late"
@@ -442,13 +471,14 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
             {showPause && (
               <div style={{ marginTop: 8 }}>
                 <div style={{ fontSize: 11.5, color: '#7a8480', lineHeight: 1.5, marginBottom: 6 }}>
-                  The order form and the menu page will say you are off this week instead of
-                  showing an empty menu. Publishing a normal week turns it back on.
+                  The landing page, the order form, and the menu will all show
+                  &ldquo;Taking some time off&rdquo; with whatever you write below, and nothing else.
+                  Leave it blank for just the heading. Publishing a normal week turns it back on.
                 </div>
-                <input
+                <GrowingText
                   value={pauseMsg}
                   onChange={e => setPauseMsg(e.target.value)}
-                  placeholder="Taking this week off, back next week."
+                  placeholder="Back on the 30th. (Optional — leave blank for just the heading.)"
                   style={{ ...styles.input, width: '100%', marginTop: 0, boxSizing: 'border-box' }}
                 />
                 <button

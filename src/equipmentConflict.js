@@ -91,6 +91,18 @@ ALL_ALWAYS_ITEMS.forEach(it => { if (it.equipment) DISH_EQUIPMENT[it.name] = it.
 // week in. It flags nothing, blocks nothing, and is not itself a red or
 // yellow conflict — a demanding week is not a jam, it is a warning that the
 // week will be busy even with perfect scheduling.
+// Effort bands for the week total, Kevin's thresholds (Jul 29): under 10 green,
+// 10-14 yellow, 15 and up red. Lives here rather than in the modal so the
+// numbers are canon and testable, and so a second surface cannot invent its own
+// boundaries later.
+export const EFFORT_BANDS = { yellowAt: 10, redAt: 15 };
+
+export function effortBand(total) {
+  if (total >= EFFORT_BANDS.redAt) return 'red';
+  if (total >= EFFORT_BANDS.yellowAt) return 'yellow';
+  return 'green';
+}
+
 export function weekEffortSummary(selectedNames) {
   const rows = (selectedNames || [])
     .map(name => {
@@ -106,6 +118,7 @@ export function weekEffortSummary(selectedNames) {
     demandingCount: demanding.length,
     demandingNames: demanding.map(r => r.name),
     heavy: demanding.length >= 2,
+    band: effortBand(total),
   };
 }
 

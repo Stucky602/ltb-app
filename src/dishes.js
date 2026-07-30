@@ -1954,7 +1954,7 @@ export const DISHES = [
     // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
     // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
     // components. Property to sort and sum, not prose to read.
-    effort: 3,
+    effort: 4,  // corrected from 3 by Kevin, Jul 29
     // Wow-path: which lever(s) earn this dish its menu spot. Not mutually
     // exclusive. See HANDOFF deep-dive for what each path means.
     wowPath: ['unfamiliarPop'],

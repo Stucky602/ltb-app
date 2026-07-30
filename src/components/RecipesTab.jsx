@@ -1095,17 +1095,6 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         )}
       </div>
 
-      {/* ── Dish picker ── */}
-      <select style={S.select} value={dish} onChange={e => setDish(e.target.value)}>
-        <option value="">Select a dish…</option>
-        <optgroup label="This week">
-          {dishes.filter(d => thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
-        </optgroup>
-        <optgroup label="All dishes">
-          {dishes.filter(d => !thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
-        </optgroup>
-      </select>
-
       {/* ── Serving-size check — flags label/yield drift from the 4/8 baseline ── */}
       <div style={S.section}>
         <button style={S.collapseBtn} onClick={() => setShowServings(o => !o)}>
@@ -1157,6 +1146,17 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
           </div>
         )}
       </div>
+
+      {/* ── Dish picker ── */}
+      <select style={S.select} value={dish} onChange={e => setDish(e.target.value)}>
+        <option value="">Select a dish…</option>
+        <optgroup label="This week">
+          {dishes.filter(d => thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
+        </optgroup>
+        <optgroup label="All dishes">
+          {dishes.filter(d => !thisWeek.has(d)).map(d => <option key={d} value={d}>{d}</option>)}
+        </optgroup>
+      </select>
 
       {report && (
         <>
@@ -1344,6 +1344,42 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                   ))}
                 </>
               )}
+            </div>
+          )}
+
+          {/* ── Effort ──────────────────────────────────────────────────────
+              Kevin's own 1-5 scale, relative to HIS menu rather than to cooking
+              in general: 1 is fast and usually one pot, 4-5 is sustained
+              attention (a roux) or many components. It has been on every dish
+              record for a while and was displayed nowhere.
+
+              Rendered OUTSIDE the scaleForFlavor guard on purpose — scaling data
+              is absent for single-size dishes, and effort should not vanish with
+              it. The same numbers are summed in the Week tab's conflict check,
+              which is the reason the field exists at all. */}
+          {dishDef && dishDef.effort != null && (
+            <div style={S.section}>
+              <div style={S.sectionTitle}>Effort</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <div key={n} style={{
+                      width: 22, height: 6, borderRadius: 3,
+                      background: n <= dishDef.effort
+                        ? (dishDef.effort >= 4 ? C.bad : dishDef.effort === 3 ? C.warn : C.goodMuted)
+                        : C.border,
+                    }} />
+                  ))}
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{dishDef.effort}</span>
+                <span style={{ fontSize: 11.5, color: C.dim }}>
+                  {dishDef.effort <= 1 ? 'fast, usually one pot'
+                    : dishDef.effort === 2 ? 'straightforward'
+                    : dishDef.effort === 3 ? 'some attention'
+                    : dishDef.effort === 4 ? 'sustained attention or many components'
+                    : 'the whole day'}
+                </span>
+              </div>
             </div>
           )}
 

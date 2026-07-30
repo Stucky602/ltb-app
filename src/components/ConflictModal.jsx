@@ -6,6 +6,11 @@ import { analyzeConflicts, weekEffortSummary } from '../equipmentConflict.js';
 // ─── Kitchen equipment conflict checker (producer-facing) ───────────────────
 // Runs analyzeConflicts on the checked dishes and shows red (hard jam) and
 // yellow (soft / resolvable) flags so Kevin sees collisions BEFORE publishing.
+// Band colours. Green under 10, yellow 10-14, red 15+ — the thresholds
+// themselves live in equipmentConflict.js so they cannot drift.
+const EFFORT_COLOR = { green: '#7abf7a', yellow: '#EF9F27', red: '#e0828a' };
+const EFFORT_TINT = { green: 'rgba(122,191,122,0.10)', yellow: 'rgba(239,159,39,0.10)', red: 'rgba(224,130,138,0.10)' };
+
 export function ConflictModal({ selected, onClose }) {
   const result = analyzeConflicts(selected);
   const { red, yellow, clear } = result;
@@ -21,6 +26,23 @@ export function ConflictModal({ selected, onClose }) {
         <div style={styles.conflictSub}>
           Based on the {selected.length} dish{selected.length !== 1 ? 'es' : ''} checked on this week.
           Sous vide isn't counted (it runs hands-off).
+        </div>
+
+        {/* Total effort — ALWAYS shown, not just on a demanding week. The
+            number was already being computed and was only surfacing inside the
+            heavy-week branch, so most weeks never displayed it at all. */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '8px 10px', marginBottom: 10, borderRadius: 6,
+          border: '1px solid ' + EFFORT_COLOR[effort.band],
+          background: EFFORT_TINT[effort.band],
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: EFFORT_COLOR[effort.band] }}>
+            Total Effort = {effort.total}
+          </span>
+          <span style={{ fontSize: 11, color: '#9aa5a0' }}>
+            {effort.rows.length} dish{effort.rows.length === 1 ? '' : 'es'} scored
+          </span>
         </div>
 
         {effort.heavy && (

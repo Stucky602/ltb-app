@@ -99,7 +99,7 @@ import * as pub from './publishWeek.js';
 import * as poll from './pendingPoll.js';
 import { AmendmentQueue } from './components/AmendmentQueue.jsx';
 import { acceptAmendment, supersedePending } from './amendments.js';
-import { buildProfileSnapshot, sanitizeSnapshot, generateClaimCode } from './customerDevice.js';
+import { buildProfileSnapshot, sanitizeSnapshot, generateClaimCode, ensureProfileId } from './customerDevice.js';
 import { dishIdFor } from './dishIdentity.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
@@ -689,12 +689,29 @@ export default function LTBOrderTracker() {
   // immediately, then registered with the worker; if that registration fails the
   // code will not work, so the failure is surfaced rather than swallowed.
   const onClaimCode = useCallback(async (regular) => {
+    // MINT THE PROFILE ID HERE IF THERE IS NONE.
+    //
+    // It used to be created only inside linkOrderToRegular, when an order
+    // arrived carrying a device hash. That made claim codes useless for exactly
+    // the people who need them: every customer who existed before device
+    // identity had no profile id, so the button was permanently disabled, and
+    // the only way to get one was to order from a device that enrolled — which
+    // is the thing the code exists to make possible. Chicken and egg.
+    //
+    // A profile id is just an opaque identifier. It needs no order to be valid,
+    // and creating one commits nothing.
+    let profileId = regular.customerProfileId;
+    if (!profileId) {
+      profileId = ensureProfileId(regular);
+      updateRegular(regular.id, { customerProfileId: profileId });
+    }
+
     const code = generateClaimCode();
     try {
       const r = await fetch(WORKER_BASE + '/customer-device/claim-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
-        body: JSON.stringify({ profileId: regular.customerProfileId, code }),
+        body: JSON.stringify({ profileId, code }),
       });
       if (!r.ok) throw new Error('claim code not registered');
     } catch (e) {
@@ -702,7 +719,7 @@ export default function LTBOrderTracker() {
       return null;
     }
     return code;
-  }, []);
+  }, [updateRegular]);
 
 
   // ── Make-a-regular star (OrderCard) ────────────────────────────────────────

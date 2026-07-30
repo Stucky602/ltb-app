@@ -125,7 +125,11 @@
   }
 
   try {
-    var token = (typeof __ltbDeviceToken === 'function') ? __ltbDeviceToken() : null;
+    // PEEK, not mint. The minting version created a credential for anyone who
+    // opened the page, which meant the branch below could never be reached and
+    // every menu-reader was quietly enrolled. Minting belongs at order time and
+    // in the claim handler, nowhere else.
+    var token = (typeof __ltbDeviceTokenPeek === 'function') ? __ltbDeviceTokenPeek() : null;
     // No credential means a browser that has never ordered. Do NOT mint one
     // here: a person who is only reading the menu should not be carrying a
     // credential, and minting on page load would give one to every visitor.

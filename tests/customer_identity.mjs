@@ -261,9 +261,12 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('the greeting bails when there is no credential rather than making one',
     /if \(!token\) \{ claimUi\(\); return; \}/.test(partial),
     'a visitor who only reads the menu must not be given one');
-  ok('the only mint call is inside the claim handler',
-    (partial.match(/__ltbDeviceToken\(\)/g) || []).length === 2,
-    'one read on the greeting path, one inside the claim handler where binding requires it');
+  ok('the greeting PEEKS rather than minting',
+    /__ltbDeviceTokenPeek\(\)/.test(partial),
+    'the minting version created a credential for anyone who merely opened the page');
+  ok('and the only mint call is inside the claim handler',
+    (partial.match(/__ltbDeviceToken\(\)/g) || []).length === 1,
+    'minting belongs at order time and in the claim handler, nowhere else');
 
   ok('a worker failure is caught and ignored', /\.catch\(function/.test(partial));
   ok('an unrecognised response renders nothing', /recognized !== true/.test(partial));
@@ -431,6 +434,46 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('there is exactly one implementation',
     !/requestBoxHtml/.test(menu) && /requestBoxHtml/.test(form));
   ok('it never claims a send it did not get', /did not send/.test(form));
+}
+
+
+// ── The claim path has to actually be reachable ────────────────────────────
+//
+// Two bugs Kevin found by trying to use it, and they compounded:
+//
+//   1. The landing page called the MINTING accessor on load, so the "this
+//      browser has no credential yet" branch could never fire — the call that
+//      tested for it had just created one — and every menu-reader was quietly
+//      enrolled.
+//   2. The claim-code button required a customerProfileId, which was only
+//      minted when an order was linked from an enrolled device. Every customer
+//      predating device identity had none, so a code could never be generated
+//      for exactly the people who need one.
+{
+  const cd = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/customerDevice.js'), 'utf8');
+  ok('there is a read that does not mint', /__ltbDeviceTokenPeek/.test(cd));
+
+  const peek = cd.slice(cd.indexOf('__ltbDeviceTokenPeek'));
+  const peekBody = peek.slice(0, peek.indexOf('__ltbForgetDevice'));
+  ok('and it genuinely never mints', !/mint\(\)/.test(peekBody),
+    'a peek that mints is the bug wearing a different name');
+
+  const pz = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/personalize.js'), 'utf8');
+  ok('the greeting path uses the peek', /var token = \(typeof __ltbDeviceTokenPeek/.test(pz));
+  ok('so a brand-new browser reaches the claim offer',
+    /if \(!token\) \{ claimUi\(\); return; \}/.test(pz));
+
+  const app = fs.readFileSync(path.join(ROOT, 'src/App.jsx'), 'utf8');
+  ok('a claim code mints a profile id when the customer has none',
+    /ensureProfileId\(regular\)/.test(app),
+    'a profile id is an opaque identifier and needs no order to be valid');
+
+  const rt = fs.readFileSync(path.join(ROOT, 'src/components/RegularsTab.jsx'), 'utf8');
+  ok('the button is not gated on having ordered',
+    !/disabled=\{busy \|\| !regular\.customerProfileId\}/.test(rt));
+  ok('and it tells Kevin where the customer types the code',
+    /Ordered before, on a different phone/.test(rt),
+    'he asked where it goes, which means the app never said');
 }
 
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);

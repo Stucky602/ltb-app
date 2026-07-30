@@ -59,6 +59,23 @@
     } catch (e) { return null; }
   };
 
+  // READ ONLY. Returns the stored token or null, and NEVER creates one.
+  //
+  // __ltbDeviceToken() mints on first call, which is right at order time and
+  // wrong everywhere else. The landing page was calling the minting version on
+  // load, so every person who merely opened the menu was handed a credential,
+  // and the "no credential yet" branch could never fire because the call that
+  // tested for it had just created one.
+  window.__ltbDeviceTokenPeek = function () {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return (parsed && typeof parsed.token === 'string' && parsed.token.length >= 20)
+        ? parsed.token : null;
+    } catch (e) { return null; }
+  };
+
   // "Not you?" — clears this device's credential only. Deliberately does NOT
   // clear the saved name and address prefill, which is a separate convenience
   // the person may still want, and deliberately does not tell the worker:

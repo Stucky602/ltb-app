@@ -111,17 +111,16 @@ function DevicePanel({ regular, onRevoke, onClaimCode }) {
       ) : (
         <button
           onClick={makeCode}
-          disabled={busy || !regular.customerProfileId}
-          style={{ ...styles.profileEditBtn, marginTop: 8, opacity: regular.customerProfileId ? 1 : 0.5 }}
+          disabled={busy}
+          style={{ ...styles.profileEditBtn, marginTop: 8 }}
         >
           {busy ? 'Generating…' : 'Code for a new phone'}
         </button>
       )}
-      {!regular.customerProfileId && (
-        <div style={{ fontSize: 11, color: '#6b7570', marginTop: 6 }}>
-          Available once they have ordered at least once.
-        </div>
-      )}
+      <div style={{ fontSize: 11, color: '#6b7570', marginTop: 6, lineHeight: 1.45 }}>
+        Works for anyone, whether or not they have ordered yet. They open
+        ltbaustin.com, tap &ldquo;Ordered before, on a different phone?&rdquo;, and type it in.
+      </div>
     </div>
   );
 }

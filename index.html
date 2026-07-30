@@ -3,15 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="LTB">
-<meta name="theme-color" content="#1a3a3a">
-<link rel="manifest" href="/manifest.json">
-<title>LTB Order Tracker</title>
+<meta name="robots" content="noindex">
+<title>Lettuce, Turnip, The Beet</title>
+<!--
+  THE SITE ROOT IS THE CUSTOMER DOOR, NOT THE OWNER APP.
+
+  This file used to BE the owner PWA. That meant anyone who typed the bare
+  domain landed on Kevin's operations app, and it is why the publish token
+  being compiled into app.js was so bad: the admin bundle was one click from
+  the front page.
+
+  The owner app now lives at /kitchen.html, which is the only path that needs
+  to sit behind Cloudflare Access. Everything else on the domain stays public
+  so customers can order without hitting a login screen.
+
+  A redirect rather than a copy of order.html, deliberately: order.html is
+  generated from src/pages/order.page.html and duplicating it here would give
+  the customer landing page two sources that drift.
+-->
+<meta http-equiv="refresh" content="0; url=/order.html">
+<link rel="canonical" href="/order.html">
+<script>location.replace('/order.html');</script>
 </head>
-<body style="margin:0;padding:0;background:#1a3a3a;">
-<div id="root"></div>
-<script src="app.js"></script>
+<body style="margin:0;padding:0;background:#1a3a3a;color:#e8ede9;font-family:system-ui,sans-serif">
+<p style="padding:24px">Taking you to the menu. <a href="/order.html" style="color:#D4A050">Tap here</a> if nothing happens.</p>
 </body>
 </html>

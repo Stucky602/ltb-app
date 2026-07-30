@@ -18,8 +18,12 @@
 // v9.24 while package.json said 10.0.0, which is exactly that failure.
 // tools/checkSwVersion.mjs now fails the gate if the two disagree; bump both
 // together or the build stops.
-const SW_VERSION = 'ltb-v10.0';
-const SHELL = ['/', '/index.html', '/app.js', '/manifest.json'];
+const SW_VERSION = 'ltb-v10.1';
+// The owner app moved from '/' to '/kitchen.html' so that the site root could
+// become the customer door. '/' is now a redirect stub and is deliberately NOT
+// precached: caching a redirect makes the offline fallback point at a page that
+// only tells you to go somewhere else.
+const SHELL = ['/kitchen.html', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -51,14 +55,32 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(req)
       .then((res) => {
-        // Only shell-ish same-origin GETs are worth keeping for offline.
-        if (res && res.ok && res.type === 'basic') {
+        // NEVER CACHE AN AUTH CHALLENGE AS IF IT WERE THE APP.
+        //
+        // /kitchen.html and /app.js sit behind Cloudflare Access. When an
+        // Access session expires, a request for app.js comes back as
+        // Cloudflare's HTML login page with status 200 — which passes res.ok
+        // and res.type === 'basic' and would be cached as the JavaScript
+        // bundle. From then on the app serves a login page as its own code,
+        // offline and online, until someone clears storage by hand. It looks
+        // like a totally broken app with no cause.
+        //
+        // So: a response only gets cached if its content type matches what the
+        // request actually asked for.
+        const ct = (res && res.headers && res.headers.get('content-type')) || '';
+        const wantsScript = /\.m?js(\?|$)/.test(url.pathname);
+        const wantsJson = /\.json(\?|$)/.test(url.pathname);
+        const looksLikeLogin = /text\/html/i.test(ct) && (wantsScript || wantsJson);
+        const cacheable = res && res.ok && res.type === 'basic' && !looksLikeLogin
+          && !(wantsScript && !/javascript|ecmascript|text\/plain/i.test(ct));
+
+        if (cacheable) {
           const copy = res.clone();
           caches.open(SW_VERSION).then(c => c.put(req, copy)).catch(() => {});
         }
         return res;
       })
-      .catch(() => caches.match(req).then(hit => hit || caches.match('/index.html'))),
+      .catch(() => caches.match(req).then(hit => hit || caches.match('/kitchen.html'))),
   );
 });
 

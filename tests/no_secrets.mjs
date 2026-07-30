@@ -3,7 +3,7 @@
 // WHY THIS EXISTS
 //
 // src/config.js carried `export const PUBLISH_TOKEN = 'ltb-publish-2026';` as a
-// string literal. That literal was compiled into app.js. index.html loads
+// string literal. That literal was compiled into app.js. kitchen.html loads
 // app.js, and .assetsignore deliberately does NOT exclude it (there is a
 // comment there telling you not to), so the bundle is served publicly at the
 // site root.
@@ -105,10 +105,61 @@ const read = (rel) => {
   }
 }
 
+// ── The service worker shell must actually exist ────────────────────────────
+// The owner app moved from '/' to '/kitchen.html' on Jul 30 so the site root
+// could become the customer door. SHELL is a hardcoded list of paths, and the
+// install handler swallows individual misses (`.catch(() => null)`), so a stale
+// entry does not fail loudly — it just quietly stops being available offline.
+{
+  const sw = read('sw.js') || '';
+  const m = sw.match(/const SHELL = \[([^\]]*)\]/);
+  ok('sw.js declares a SHELL', !!m);
+  if (m) {
+    const paths = [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
+    // app.js is BUILD OUTPUT — Cloudflare generates it on deploy and committing
+    // it fails checkRepoStructure by design, so it is correctly absent here.
+    const BUILD_OUTPUT = new Set(['/app.js']);
+    const missing = paths.filter(x =>
+      x !== '/' && !BUILD_OUTPUT.has(x) && !fs.existsSync(path.join(ROOT, x.replace(/^\//, ''))));
+    ok('every precached shell path exists on disk', missing.length === 0,
+      missing.join(', ') + (missing.length ? '\n      → install swallows these silently; offline just stops working' : ''));
+    ok('the shell no longer points at the old owner root',
+      !paths.includes('/index.html'),
+      'index.html is now a redirect stub; caching it makes the offline fallback a redirect');
+  }
+
+  ok('the offline fallback points at the owner app, not the redirect stub',
+    /caches\.match\('\/kitchen\.html'\)/.test(sw));
+
+  ok('the service worker refuses to cache an auth challenge as code',
+    /looksLikeLogin/.test(sw),
+    'Access returns its login page with status 200; without this guard it gets cached as app.js');
+
+  const mf = read('manifest.json') || '';
+  ok('the PWA opens the owner app, not the customer page',
+    /"start_url":\s*"\/kitchen\.html"/.test(mf));
+  ok('the manifest id is unchanged, so existing installs are not orphaned',
+    /"id":\s*"\/\?app"/.test(mf));
+}
+
+// ── The site root is the customer door ──────────────────────────────────────
+{
+  const root = read('index.html') || '';
+  // Match an actual script tag, not the string anywhere — the file's own
+  // comment explains why the bundle used to be here and mentions it by name.
+  ok('the site root no longer loads the owner bundle',
+    !/<script[^>]*src=["'][^"']*app\.js/.test(root),
+    'anyone typing the bare domain would land on the operations app');
+  ok('and it sends visitors to the customer page', /order\.html/.test(root));
+
+  const kitchen = read('kitchen.html') || '';
+  ok('the owner app exists at kitchen.html', /app\.js/.test(kitchen));
+}
+
 // ── The bundle is public, and that is the reason for all of the above ───────
 {
   const ignore = read('.assetsignore') || '';
-  const idx = read('index.html') || '';
+  const idx = read('kitchen.html') || '';
   const bundleIsPublic = idx.includes('app.js') && !/^app\.js$/m.test(ignore);
   ok('app.js is understood to be publicly served (this is expected, not a bug)',
     bundleIsPublic,

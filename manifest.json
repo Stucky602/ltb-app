@@ -3,7 +3,7 @@
   "short_name": "LTB",
   "description": "Friends-only meal prep ordering",
   "id": "/?app",
-  "start_url": "/",
+  "start_url": "/kitchen.html",
   "display": "standalone",
   "background_color": "#1a1a1a",
   "theme_color": "#1a3a3a",

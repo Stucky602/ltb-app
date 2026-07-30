@@ -93,6 +93,10 @@
  */
 
 const ALLOWED_ORIGINS = [
+  'https://ltbaustin.com',
+  'https://www.ltbaustin.com',
+  // Kept so the workers.dev URL keeps working during the cutover. Safe to
+  // remove once the custom domain is the only way in.
   'https://ltb-app.strickland-kevinj.workers.dev',
 ];
 

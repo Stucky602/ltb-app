@@ -215,7 +215,7 @@ export function archiveGapYears(journal, now) {
   return gaps;
 }
 
-export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, history, equipment } = {}) {
+export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, history } = {}) {
   const j = normalizeJournal(journal);
   const when = generatedAt || new Date().toISOString();
   const year = when.slice(0, 4);
@@ -338,16 +338,10 @@ ${entries.length ? journalSection(entries, DISH_RENAMES, superseded) : '<p class
     }
   }
 
-  // What the instructions assume you own. The record referenced "the siphon"
-  // and "the sous vide" without ever saying what they were.
-  if (equipment && Array.isArray(equipment) && equipment.length) {
-    parts.push('<h2>The equipment these assume</h2>');
-    parts.push('<table><tr><th>Thing</th><th>What it is for</th></tr>');
-    for (const eq of equipment) {
-      parts.push(`<tr><td>${esc(eq.name || '')}</td><td>${esc(eq.note || '')}</td></tr>`);
-    }
-    parts.push('</table>');
-  }
+  // REMOVED Jul 29 (Kevin): "The equipment these assume" is gone from both the
+  // archive and the Record tab. It was the only editor for that list, so keeping
+  // the section here would have meant printing a list nobody could correct —
+  // a frozen table that looks maintained is worse than no table.
 
   if ((RENAME_HISTORY || []).length) {
     parts.push('<h2>Name changes</h2><table><tr><th>Was</th><th>Became</th><th>When</th><th>Why</th></tr>');

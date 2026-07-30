@@ -173,36 +173,36 @@ ok(!/<link[^>]/i.test(rec) && /@media print/.test(rec), 'records file is self-co
   const html2 = buildArchiveHtml({
     journal: js, orders: [], generatedAt: NOW.toISOString(),
     history: [{ generatedAt: '2025-07-24T00:00:00Z', entryCount: 1 }],
-    equipment: [{ name: 'iSi siphon', note: 'rapid infusions' }],
   });
   ok(/second of these/.test(html2), 'the series line renders at the top of the file');
   ok(/This file contains private notes/.test(html2),
     'and the file says outright that it is not the delivery log — the realistic risk is attaching the wrong one');
   ok(/<h2>For you<\/h2>/.test(html2), 'personal entries get their own thread');
   ok(html2.includes('PERSONAL-MARKER from my grandmother.'), 'with the text set as a letter rather than a redaction');
-  ok(/The equipment these assume/.test(html2) && /iSi siphon/.test(html2),
-    'and the equipment the instructions assume is finally written down');
 }
 
 console.log(`ARCHIVE: ALL PASS (${pass} checks)`);
 
-// ── The equipment section ───────────────────────────────────────────────────
-// buildArchiveHtml has always accepted `equipment` and always had a section
-// written for it, and for its entire life nothing passed one — so the section
-// was unreachable and untested. Now that RecordTab holds an inventory and
-// passes it, both states are pinned.
+// ── The equipment section is GONE ───────────────────────────────────────────
+// Removed Jul 29 on Kevin's call, from the archive AND the Record tab. The tab
+// held the only editor for that list, so keeping the archive section would have
+// meant printing a table nobody could correct — and a frozen list that looks
+// maintained is worse than no list.
+//
+// Asserted as an absence rather than deleted outright: the section existed,
+// unreachable and untested, for its entire life before this, and the failure
+// mode worth guarding is somebody re-adding a renderer for data no surface can
+// edit. Passing equipment must now be inert, not resurrect a section.
 {
   const withEq = buildArchiveHtml({
     journal: emptyJournal(), orders: [], generatedAt: NOW.toISOString(),
     equipment: [{ name: 'iSi siphon', note: 'the "siphon" the record keeps mentioning' }],
   });
-  ok(/The equipment these assume/.test(withEq),
-    'the archive renders an equipment section when given one');
-  ok(/iSi siphon/.test(withEq), 'the equipment name reaches the archive');
-  ok(/the &quot;siphon&quot; the record keeps mentioning/.test(withEq) || /the "siphon" the record/.test(withEq),
-    'the equipment note reaches the archive, escaped');
+  ok(!/The equipment these assume/.test(withEq),
+    'the archive no longer renders an equipment section, even when handed one');
+  ok(!/iSi siphon/.test(withEq),
+    'and no stray equipment text leaks into the file');
 
   const withoutEq = buildArchiveHtml({ journal: emptyJournal(), orders: [], generatedAt: NOW.toISOString() });
-  ok(!/The equipment these assume/.test(withoutEq),
-    'an empty inventory omits the section rather than printing an empty table');
+  ok(!/The equipment these assume/.test(withoutEq), 'and none without one either');
 }

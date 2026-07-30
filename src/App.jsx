@@ -1551,8 +1551,6 @@ export default function LTBOrderTracker() {
             onSaveCopiesNote={saveCopiesNote}
             containerAudit={containerStatus.audit}
             archiveHistory={archiveHistory}
-            equipment={equipment}
-            onSaveEquipment={saveEquipment}
             ranking={latestRanking(dishRankings)}
             rankingDrift={rankingDrift(dishRankings)}
             tasteVsSales={tasteVsSales(latestRanking(dishRankings), dishOrderSignal(orders || []))}

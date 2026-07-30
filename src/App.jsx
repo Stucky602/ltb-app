@@ -359,6 +359,12 @@ export default function LTBOrderTracker() {
   // so the order keeps exactly one writer.
   const [amendments, setAmendments] = useState([]);
 
+  // Visual cue METADATA. The photographs themselves live in R2; this is the
+  // record of what each one shows, which recipe version it belongs to, and
+  // whether its bytes actually landed. Rides backup — the bytes do not, which
+  // is exactly why the archive bundle carries checksums.
+  const [visualCues, setVisualCues] = useState([]);
+
   const loadAmendments = useCallback(async () => {
     if (!PUBLISH_TOKEN) return;
     try {

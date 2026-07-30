@@ -797,6 +797,76 @@ export default {
         return json({ ok: true, timestamp: pick.timestamp, snapshot }, origin);
       }
 
+      // ── Visual cue media ──────────────────────────────────────────────────
+      //
+      // Owner-only, both directions. The bucket has public access disabled, so
+      // these routes are the only way in or out, and both require the owner
+      // token on top of Cloudflare Access.
+
+      if (request.method === 'POST' && url.pathname.startsWith('/media/')) {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        if (!env.MEDIA) {
+          // Said plainly rather than 500ing. If the binding is missing the fix
+          // is a wrangler.jsonc deploy, and a vague error would send someone
+          // hunting through the client instead.
+          return json({ error: 'media storage is not configured on this worker' }, origin, 503);
+        }
+        const key = decodeURIComponent(url.pathname.slice('/media/'.length));
+        if (!key || key.includes('..') || key.length > 200) {
+          return json({ error: 'bad key' }, origin, 400);
+        }
+
+        const bytes = await request.arrayBuffer();
+        if (bytes.byteLength > 8 * 1024 * 1024) {
+          return json({ error: 'too large' }, origin, 413);
+        }
+
+        // VERIFY, DO NOT TRUST. The client sends the checksum it computed; this
+        // recomputes from the bytes that actually arrived. A kitchen photograph
+        // is one-shot — the roux will not be that colour again today — so a
+        // silent truncation discovered a year later is unrecoverable in a way
+        // most data loss is not. The client refuses to mark the cue stored
+        // unless the value below comes back matching.
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        const checksum = [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+        const claimed = request.headers.get('X-LTB-Checksum');
+        if (claimed && claimed !== checksum) {
+          return json({ error: 'checksum mismatch, nothing stored', checksum }, origin, 422);
+        }
+
+        await env.MEDIA.put(key, bytes, {
+          httpMetadata: { contentType: request.headers.get('Content-Type') || 'image/webp' },
+          customMetadata: { checksum, uploadedAt: new Date().toISOString() },
+        });
+        return json({ ok: true, key, checksum, bytes: bytes.byteLength }, origin);
+      }
+
+      if (request.method === 'GET' && url.pathname.startsWith('/media/')) {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN
+            && url.searchParams.get('token') !== env.PUBLISH_TOKEN) {
+          return new Response('unauthorized', { status: 401, headers: corsHeaders(origin) });
+        }
+        if (!env.MEDIA) return new Response('media storage not configured', { status: 503, headers: corsHeaders(origin) });
+        const key = decodeURIComponent(url.pathname.slice('/media/'.length));
+        const obj = await env.MEDIA.get(key);
+        if (!obj) return new Response('not found', { status: 404, headers: corsHeaders(origin) });
+        const h = corsHeaders(origin);
+        h['Content-Type'] = obj.httpMetadata?.contentType || 'image/webp';
+        h['Cache-Control'] = 'private, max-age=3600';
+        return new Response(obj.body, { headers: h });
+      }
+
+      if (request.method === 'DELETE' && url.pathname.startsWith('/media/')) {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        if (!env.MEDIA) return json({ error: 'media storage is not configured' }, origin, 503);
+        await env.MEDIA.delete(decodeURIComponent(url.pathname.slice('/media/'.length)));
+        return json({ ok: true }, origin);
+      }
+
       // ── Customer device identity ──────────────────────────────────────────
       //
       // A per-browser credential, not an account and not a fingerprint. The

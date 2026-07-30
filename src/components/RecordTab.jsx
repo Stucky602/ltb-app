@@ -8,6 +8,9 @@ import { weeklyDossierPrompt } from '../dossierPrompts.js';
 import { currentWeekInfo } from '../timeBanners.js';
 import { sameMonthPreviousYears } from '../weekLedger.js';
 import { buildArchiveHtml, buildRecordsHtml } from '../archiveExport.js';
+import { buildBundleManifest, BUNDLE_README } from '../visualCues.js';
+import { buildZip } from '../zipWriter.js';
+import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { DISH_RENAMES } from '../utils.js';
 import { parseImport, candidateToEntry, importSummary, IMPORT_FORMAT_HELP } from '../journalImport.js';
 import { addEntry } from '../journal.js';
@@ -51,7 +54,7 @@ export function RecordTab({
   onAnswerQuestion,
   realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
   ranking, rankingDrift, tasteVsSales, tasteVsSon, rankingStale,
-  patterns, tasteVsPractice,
+  patterns, tasteVsPractice, visualCues,
 }) {
   const [msg, setMsg] = useState(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
@@ -89,6 +92,82 @@ export function RecordTab({
       setMsg(`${label} failed to build. Nothing was changed.`);
     }
     setTimeout(() => setMsg(null), 6000);
+  };
+
+  // ── The archive bundle ───────────────────────────────────────────────────
+  //
+  // A FOLDER, not one file. Kevin's ruling, Jul 30, and it had to be: media
+  // cannot live inside a self-contained HTML file without either bloating it
+  // past what a browser will open, or pointing at URLs that die with the
+  // worker. Neither survives twenty years, which is the only bar that matters
+  // for this document.
+  //
+  // So: archive.html beside media/, a README that explains the folder to
+  // someone with no software, and a manifest with checksums so a future reader
+  // can tell a missing photograph from a damaged one.
+  //
+  // Photos are fetched through the gated worker route, one at a time. A photo
+  // that will not download is OMITTED and RECORDED in the manifest rather than
+  // silently skipped — an archive that quietly drops what it could not fetch
+  // misrepresents itself as complete.
+  const downloadBundle = async () => {
+    setMsg('Building the archive…');
+    try {
+      const html = buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory });
+      const enc = new TextEncoder();
+      const stored = (visualCues || []).filter(c => c.status === 'stored' && c.mediaKey);
+      const files = [];
+      const failedFetches = [];
+
+      for (const cue of stored) {
+        try {
+          const r = await fetch(`${WORKER_BASE}/media/${encodeURIComponent(cue.mediaKey)}`, {
+            headers: { 'X-LTB-Token': PUBLISH_TOKEN },
+          });
+          if (!r.ok) throw new Error(String(r.status));
+          files.push({ path: 'media/' + cue.mediaKey, bytes: new Uint8Array(await r.arrayBuffer()) });
+        } catch (e) {
+          failedFetches.push(cue);
+        }
+      }
+
+      const manifest = buildBundleManifest({
+        cues: stored.filter(c => !failedFetches.includes(c)),
+        archiveBytes: enc.encode(html).length,
+      });
+      // Fetch failures join the omitted list, so the manifest never claims a
+      // file the folder does not contain.
+      for (const c of failedFetches) {
+        manifest.omitted.push({
+          dishId: c.dishId, step: c.step, status: c.status,
+          why: 'the photograph could not be downloaded while this archive was built',
+        });
+      }
+
+      const zip = buildZip([
+        { path: 'archive.html', bytes: enc.encode(html) },
+        { path: 'README.txt', bytes: enc.encode(BUNDLE_README) },
+        { path: 'manifest.json', bytes: enc.encode(JSON.stringify(manifest, null, 2)) },
+        ...files,
+      ]);
+
+      const blob = new Blob([zip], { type: 'application/zip' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `LTB_ARCHIVE_${new Date().getFullYear()}_${new Date().toISOString().slice(5, 10)}.zip`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+      const missing = manifest.omitted.length;
+      setMsg(missing
+        ? `Archive downloaded with ${files.length} photograph${files.length === 1 ? '' : 's'}. ${missing} could not be included and ${missing === 1 ? 'is' : 'are'} listed in manifest.json.`
+        : `Archive downloaded. Unzip it anywhere: archive.html opens in any browser, with or without this app.`);
+      if (onArchiveDownloaded) onArchiveDownloaded(journal && journal.entries ? journal.entries.length : 0);
+    } catch (e) {
+      setMsg('The archive failed to build. Nothing was changed.');
+    }
+    setTimeout(() => setMsg(null), 8000);
   };
 
   const coverRows = showAllCoverage ? coverage.rows : coverage.rows.slice(0, 12);
@@ -364,10 +443,7 @@ export function RecordTab({
           {(archiveHistory || []).length > 0 ? ` This will be number ${archiveHistory.length + 1} in the series.` : ' This would be the first of the series.'}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-          <button style={S.btn(C.good)} onClick={() => downloadDoc(
-            buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory }),
-            `LTB_ARCHIVE_${new Date().getFullYear()}_${new Date().toISOString().slice(5, 10)}.html`,
-            'The archive', () => onArchiveDownloaded && onArchiveDownloaded((journal && journal.entries ? journal.entries.length : 0)))}>
+          <button style={S.btn(C.good)} onClick={downloadBundle}>
             Download the yearly archive
           </button>
           <button style={S.btn()} onClick={() => downloadDoc(

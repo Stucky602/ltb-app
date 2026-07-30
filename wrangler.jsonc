@@ -4,6 +4,16 @@
   "compatibility_date": "2026-06-22",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // NO R2 BINDING HERE, deliberately. This file deploys ltb-app, which serves
+  // the static assets. The /media routes live in worker.js, which is ltb-proxy
+  // and is hand-pasted through the dashboard with no wrangler config at all.
+  // A binding declared here would attach the bucket to a worker that has no
+  // code to use it, and the routes that DO use it would still fail.
+  //
+  // The MEDIA binding must be added to ltb-proxy in the dashboard:
+  //   Workers & Pages -> ltb-proxy -> Settings -> Bindings -> Add -> R2 bucket
+  //   Variable name: MEDIA     Bucket: ltb-media
+  // The worker answers 503 with a plain message until that exists.
   "assets": {
     // Exclusions live in .assetsignore at the repo root, NOT here.
     // `exclude` is not a supported key for `assets` (it belongs to the

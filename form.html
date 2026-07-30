@@ -638,6 +638,75 @@
       saveDraftSoon();
     }
 
+    // _partials/customerDevice.js — the customer half of device identity.
+    //
+    // ES5 and standalone on purpose: form.html and order.html are hand-written
+    // pages that no bundler touches, so they cannot import src/customerDevice.js.
+    // The two files do different jobs and barely overlap — this one mints, stores,
+    // and forgets; the app-side module binds, revokes, and builds snapshots. Keep
+    // it that way. If they ever need to share logic, generate this from that rather
+    // than copying by hand.
+    //
+    // WHAT THIS IS: a random value this browser stores about itself, so Kevin's
+    // site can greet a returning customer without an account and without a private
+    // weekly link.
+    //
+    // WHAT IT IS NOT: a login, and not a fingerprint. No canvas hashing, no font
+    // probing, nothing derived from the device at all. The customer can clear it
+    // whenever they like and the site keeps working.
+
+    (function () {
+      var KEY = 'ltb-customer-device';
+
+      function mint() {
+        try {
+          if (!window.crypto || !window.crypto.getRandomValues) return null;
+          var bytes = new Uint8Array(32);
+          window.crypto.getRandomValues(bytes);
+          var bin = '';
+          for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        } catch (e) { return null; }
+      }
+
+      // Returns the token, minting on first use. Returns null when storage is
+      // unavailable (private browsing), and every caller must treat null as
+      // "generic page" rather than as an error. Personalization is an enhancement;
+      // it must never be able to block ordering.
+      window.__ltbDeviceToken = function () {
+        try {
+          // Read guarded separately from mint, so a corrupted value self-heals
+          // instead of leaving this browser permanently unrecognisable.
+          var parsed = null;
+          try {
+            var raw = localStorage.getItem(KEY);
+            if (raw) parsed = JSON.parse(raw);
+          } catch (e2) { parsed = null; }
+
+          if (parsed && typeof parsed.token === 'string' && parsed.token.length >= 20) {
+            parsed.lastUsedAt = new Date().toISOString();
+            localStorage.setItem(KEY, JSON.stringify(parsed));
+            return parsed.token;
+          }
+          var token = mint();
+          if (!token) return null;
+          localStorage.setItem(KEY, JSON.stringify({
+            token: token,
+            createdAt: new Date().toISOString(),
+            lastUsedAt: new Date().toISOString()
+          }));
+          return token;
+        } catch (e) { return null; }
+      };
+
+      // "Not you?" — clears this device's credential only. Deliberately does NOT
+      // clear the saved name and address prefill, which is a separate convenience
+      // the person may still want, and deliberately does not tell the worker:
+      // revoking server-side is Kevin's action, not something a visitor can do.
+      window.__ltbForgetDevice = function () {
+        try { localStorage.removeItem(KEY); return true; } catch (e) { return false; }
+      };
+    }());
     var CARL = {"Brunswick Stew": {"v": "no", "say": "", "dead": [0, 1]}, "Chili": {"v": "swap", "say": "For Carl, we leave the beans out, swap the soy sauce for coconut aminos and drop the Marmite and lean on the anchovy for depth.", "dead": []}, "Gumbo": {"v": "no", "say": "", "dead": [0, 1]}, "Tex-Mex Kit": {"v": "swap", "say": "For Carl, we leave the beans out and swap the flour tortillas for corn.", "dead": []}, "Indian Style Curry": {"v": "ok", "say": "", "dead": [0, 3]}, "Leblanc Inspired Japanese Curry": {"v": "no", "say": "", "dead": [0, 1]}, "Tea-Smoked Chicken with Dashi Polenta and Alabama White Sauce": {"v": "no", "say": "", "dead": [0, 1]}, "Bo Ssam": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos.", "dead": []}, "Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos and leave the chili oil out.", "dead": [0, 1, 2, 3]}, "Mapo Eggplant": {"v": "no", "say": "", "dead": [0, 1]}, "Shrimp or Tofu with Asparagus in Black Bean Sauce": {"v": "no", "say": "", "dead": [0, 1, 2, 3]}, "Stir Fried Long Beans with Ground Pork or Tofu": {"v": "no", "say": "", "dead": [0, 1, 2, 3]}, "Texas Gulf Shrimp or Tofu and Chinese Broccoli": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos, swap the oyster sauce for a gluten-free one and leave the chili oil out.", "dead": [2, 3]}, "Thai Basil Chicken (Pad Krapow Gai)": {"v": "swap", "say": "For Carl, we swap the soy sauce for coconut aminos and swap the oyster sauce for a gluten-free one.", "dead": []}, "Bolognese": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pasta with Homegrown Tomato Sauce": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": [2, 3]}, "Orecchiette with Bitter Greens and Anchovies": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pappardelle with Vegetables and Mint": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape and leave the peas out.", "dead": []}, "Saffron Pork Ragu": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Pork with Mustard Tarragon Cream Sauce": {"v": "swap", "say": "For Carl, we swap the pasta for a gluten-free shape.", "dead": []}, "Mushroom Ragu": {"v": "no", "say": "", "dead": [0, 1]}, "Coriander Lamb Steak over Gigantes Beans": {"v": "no", "say": "", "dead": [0, 1, 2]}, "Pork Chop with Kabocha Purée and Charred Broccolini": {"v": "ok", "say": "", "dead": []}, "Bone-In Pork Rib Chop with All the Fixings": {"v": "swap", "say": "For Carl, we stabilize the butter sauce with sunflower lecithin instead of soy.", "dead": []}, "Steak au Poivre": {"v": "swap", "say": "For Carl, we swap the potatoes for sweet potato and stabilize the butter sauce with sunflower lecithin instead of soy.", "dead": []}, "Boeuf Bourguignon (Beef Stew)": {"v": "swap", "say": "For Carl, we swap the potatoes for sweet potato and thicken the stew with xanthan gum instead of a flour roux.", "dead": [1]}, "Pecan Mole-Fesenjan, Beef and Kabocha": {"v": "swap", "say": "For Carl, we swap the flour tortillas for corn.", "dead": []}, "Homemade Waffles": {"v": "no", "say": "", "dead": [0]}, "Fresh Cut Pineapple": {"v": "ok", "say": "", "dead": []}, "Seasonal Cantaloupe": {"v": "ok", "say": "", "dead": []}, "Chocolate Chip Cookies": {"v": "no", "say": "", "dead": [0, 1]}, "Peanut Butter Fudge": {"v": "no", "say": "", "dead": [0]}, "Brownies": {"v": "no", "say": "", "dead": [0]}, "Queso": {"v": "ok", "say": "", "dead": []}, "Pickled Onions or Carrots": {"v": "ok", "say": "", "dead": []}, "Chili Oil": {"v": "no", "say": "", "dead": [0, 1]}, "Thyme or Lavender Syrup": {"v": "ok", "say": "", "dead": []}, "Vanilla Syrup": {"v": "ok", "say": "", "dead": []}, "Vanilla Lavender Syrup": {"v": "ok", "say": "", "dead": []}, "Filet Mignon": {"v": "ok", "say": "", "dead": []}, "Filet Mignon - Prime": {"v": "ok", "say": "", "dead": []}, "Flank Steak": {"v": "ok", "say": "", "dead": []}, "NY Strip": {"v": "ok", "say": "", "dead": []}, "NY Strip - Prime": {"v": "ok", "say": "", "dead": []}, "Ribeye": {"v": "ok", "say": "", "dead": []}, "Ribeye - Prime": {"v": "ok", "say": "", "dead": []}, "Pork Tenderloin": {"v": "ok", "say": "", "dead": []}, "Thick-Cut Pork Chop": {"v": "ok", "say": "", "dead": []}, "Air-Chilled Chicken Breast": {"v": "ok", "say": "", "dead": []}, "Carrots": {"v": "ok", "say": "", "dead": []}, "Baby Gold Potatoes": {"v": "no", "say": "", "dead": [0]}, "Corn (off the cob)": {"v": "ok", "say": "", "dead": []}, "Kabocha Squash": {"v": "ok", "say": "", "dead": []}, "Parsnips": {"v": "ok", "say": "", "dead": []}, "Asparagus": {"v": "ok", "say": "", "dead": []}, "Garlic Confit": {"v": "ok", "say": "", "dead": []}, "Chimichurri": {"v": "no", "say": "", "dead": [0]}, "Romesco": {"v": "no", "say": "", "dead": [0]}, "Chermoula": {"v": "no", "say": "", "dead": [0]}, "Miso Butter Sauce": {"v": "no", "say": "", "dead": [0]}, "Whipped Lemon Garlic Herb Butter": {"v": "no", "say": "", "dead": [0]}};
     // carlFilter.js — the Carl toggle on the customer catalog.
     //
@@ -1035,6 +1104,19 @@
       // updates every existing order instead of leaving stale substitutions
       // frozen into the ones already placed.
       var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId(), carlMode: (typeof __carlOn !== 'undefined' && __carlOn) === true };
+
+      // Device enrollment rides the order. Minted here rather than on page load
+      // so a browser that only ever reads the menu never gets one — nobody who
+      // has not ordered should be carrying a credential.
+      //
+      // It goes into the payload BEFORE enqueueSubmit can store it, which is
+      // what makes an offline retry safe: the queued entry replays this exact
+      // token instead of minting a fresh one and enrolling the same person
+      // twice under two profiles.
+      if (typeof __ltbDeviceToken === 'function') {
+        var __dev = __ltbDeviceToken();
+        if (__dev) submitPayload.deviceToken = __dev;
+      }
 
       fetch(WORKER + "/submit", {
         method: "POST",

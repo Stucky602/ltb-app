@@ -28,6 +28,7 @@
 // early noise is a one-off cost: "we'll figure them out quickly, not see them
 // much more if ever, and they will be past issues."
 
+import { ensureProfileId } from './customerDevice.js';
 import {
   ORDERS_KEY, REGULARS_KEY, INVENTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY,
   WORKER_BASE, PUBLISH_TOKEN,
@@ -357,14 +358,36 @@ export function deleteRegular(id, { setRegulars, setError }) {
   });
 }
 
-export function linkOrderToRegular(regularId, orderId, { setRegulars, setError }) {
+export function linkOrderToRegular(regularId, orderId, { setRegulars, setError, order = null, bindDevice = null }) {
   setRegulars(prev => {
     const next = prev.map(r => {
       if (r.id !== regularId) return r;
       const linkedOrderIds = r.linkedOrderIds.includes(orderId)
         ? r.linkedOrderIds
         : [...r.linkedOrderIds, orderId];
-      return { ...r, linkedOrderIds };
+
+      // ── Device enrollment ──────────────────────────────────────────────
+      // THIS is the moment a browser becomes a known customer, and it is the
+      // right one: Kevin has just decided that this order belongs to this
+      // person. Nothing before that decision is trustworthy — an order form
+      // can be filled in with anyone's name.
+      //
+      // The device hash arrives on the order (worker /submit hashed it). The
+      // profile id is minted once per regular and reused forever after.
+      const enriched = { ...r, linkedOrderIds };
+      const hash = order && order.deviceHash;
+      if (hash) {
+        enriched.customerProfileId = enriched.customerProfileId || ensureProfileId(enriched);
+        const known = Array.isArray(enriched.deviceHashes) ? enriched.deviceHashes : [];
+        if (!known.includes(hash)) enriched.deviceHashes = [...known, hash];
+        // Fire-and-forget to the worker. A failed bind must not fail the link:
+        // the order is still correct, the customer just is not recognised yet,
+        // and the next order re-attempts it.
+        if (typeof bindDevice === 'function') {
+          bindDevice(hash, enriched.customerProfileId, order.deviceLabel || 'Device');
+        }
+      }
+      return enriched;
     });
     persist(REGULARS_KEY, next, setError);
     return next;

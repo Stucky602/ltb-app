@@ -541,7 +541,24 @@ export default function LTBOrderTracker() {
     }
   }, [booted]);
 
-  const linkOrderToRegular = useCallback((regularId, orderId) => ops.linkOrderToRegular(regularId, orderId, { setRegulars, setError }), []);
+  // Tells the worker that this browser belongs to this customer profile.
+  // Fire-and-forget by design: a failed bind leaves the order correct and the
+  // customer merely unrecognised, and the next order retries it.
+  const bindCustomerDevice = useCallback(async (deviceHash, profileId, label) => {
+    if (!PUBLISH_TOKEN || !deviceHash || !profileId) return;
+    try {
+      await fetch(WORKER_BASE + '/customer-device/bind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
+        body: JSON.stringify({ deviceHash, profileId, label: label || 'Device' }),
+      });
+    } catch (e) { /* retried on the customer's next order */ }
+  }, []);
+
+  const linkOrderToRegular = useCallback((regularId, orderId, order = null) =>
+    ops.linkOrderToRegular(regularId, orderId, {
+      setRegulars, setError, order, bindDevice: bindCustomerDevice,
+    }), [bindCustomerDevice]);
 
   const unlinkOrderFromRegular = useCallback((regularId, orderId) => ops.unlinkOrderFromRegular(regularId, orderId, { setRegulars, setError }), []);
 
@@ -1296,7 +1313,7 @@ export default function LTBOrderTracker() {
           order={linkPrompt.order}
           candidates={linkPrompt.candidates}
           onLink={(regularId) => {
-            linkOrderToRegular(regularId, linkPrompt.order.id);
+            linkOrderToRegular(regularId, linkPrompt.order.id, linkPrompt.order);
             const reg = regulars.find(r => r.id === regularId);
             if (reg) {
               const patch = { regularId };

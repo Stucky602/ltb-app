@@ -101,6 +101,10 @@ const ALLOWED_ORIGINS = [
 ];
 
 const AMD_PREFIX = 'amd:';
+const DEV_PREFIX = 'device:';
+const CLAIM_PREFIX = 'claim:';
+const PROFILE_PREFIX = 'profile:';
+const RL_PREFIX = 'rl:';
 
 // Device credentials are stored as hashes, never raw. Feature 5 relies on this
 // too; defined here because amendments is the first endpoint that needs it.
@@ -370,6 +374,16 @@ export default {
           // adding a line HERE and hand-pasting worker.js into the Cloudflare
           // dashboard; nothing in the repo deploys it.
           carlMode: body.carlMode === true,
+          // Device enrollment. The HASH is stored, never the raw token, so a
+          // dump of this KV store hands nobody a working credential.
+          //
+          // This field only exists because it is named here. /submit builds its
+          // record field by field and silently drops anything unlisted — the
+          // same shape that killed `notice`, left `oneBottle` dead its whole
+          // life, and nearly ate `carlMode` two days ago.
+          deviceHash: typeof body.deviceToken === 'string' && body.deviceToken.length >= 20
+            ? await sha256Hex(body.deviceToken)
+            : null,
           submittedAt: new Date().toISOString(),
         };
         if (!submission.customer || submission.items.length === 0) {
@@ -781,6 +795,148 @@ export default {
           return json({ error: 'That backup is unreadable. Nothing was changed.' }, origin, 500);
         }
         return json({ ok: true, timestamp: pick.timestamp, snapshot }, origin);
+      }
+
+      // ── Customer device identity ──────────────────────────────────────────
+      //
+      // A per-browser credential, not an account and not a fingerprint. The
+      // worker only ever sees sha256(token).
+
+      // Owner: bind a device hash to a customer profile. Called after Kevin
+      // accepts a pending order and links it to a regular.
+      if (request.method === 'POST' && url.pathname === '/customer-device/bind') {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const body = await request.json().catch(() => null);
+        if (!body || !body.deviceHash || !body.profileId) {
+          return json({ error: 'deviceHash and profileId required' }, origin, 400);
+        }
+        const existing = await env.LTB_KV.get(DEV_PREFIX + body.deviceHash);
+        const prev = existing ? JSON.parse(existing) : null;
+        await env.LTB_KV.put(DEV_PREFIX + body.deviceHash, JSON.stringify({
+          profileId: String(body.profileId).slice(0, 64),
+          label: String(body.label || 'Device').slice(0, 40),
+          firstSeen: prev?.firstSeen || new Date().toISOString(),
+          lastUsed: new Date().toISOString(),
+          revoked: false,
+        }));
+        return json({ ok: true }, origin);
+      }
+
+      // Owner: revoke ONE device. Revoking a lost phone must not sign the
+      // customer out of their other devices, so this is keyed per hash.
+      if (request.method === 'POST' && url.pathname === '/customer-device/revoke') {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const body = await request.json().catch(() => null);
+        if (!body || !body.deviceHash) return json({ error: 'deviceHash required' }, origin, 400);
+        const raw = await env.LTB_KV.get(DEV_PREFIX + body.deviceHash);
+        if (!raw) return json({ error: 'not found' }, origin, 404);
+        const rec = JSON.parse(raw);
+        rec.revoked = true;
+        await env.LTB_KV.put(DEV_PREFIX + body.deviceHash, JSON.stringify(rec));
+        return json({ ok: true }, origin);
+      }
+
+      // Owner: mint a one-time claim code for a new phone.
+      if (request.method === 'POST' && url.pathname === '/customer-device/claim-code') {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const body = await request.json().catch(() => null);
+        if (!body || !body.profileId || !body.code) {
+          return json({ error: 'profileId and code required' }, origin, 400);
+        }
+        const ttl = 15 * 60;
+        await env.LTB_KV.put(CLAIM_PREFIX + String(body.code).toUpperCase(), JSON.stringify({
+          profileId: String(body.profileId).slice(0, 64),
+          expiresAt: new Date(Date.now() + ttl * 1000).toISOString(),
+          used: false,
+        }), { expirationTtl: ttl });
+        return json({ ok: true }, origin);
+      }
+
+      // Customer: redeem a claim code on a new device. Single use, and marked
+      // used BEFORE the bind so a double-submit cannot bind twice.
+      if (request.method === 'POST' && url.pathname === '/customer-device/claim') {
+        const body = await request.json().catch(() => null);
+        const device = request.headers.get('X-LTB-Device');
+        if (!device || !body || !body.code) {
+          return json({ error: 'code and device required' }, origin, 400);
+        }
+        // Rate limit: an 8-character code is a guessing surface. A per-IP hourly
+        // counter is crude but it turns a feasible online attack into an
+        // infeasible one, which is all it needs to do.
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+        const rlKey = RL_PREFIX + 'claim:' + ip + ':' + new Date().toISOString().slice(0, 13);
+        const tries = Number(await env.LTB_KV.get(rlKey)) || 0;
+        if (tries >= 10) return json({ error: 'too many attempts, try later' }, origin, 429);
+        await env.LTB_KV.put(rlKey, String(tries + 1), { expirationTtl: 3600 });
+
+        const raw = await env.LTB_KV.get(CLAIM_PREFIX + String(body.code).toUpperCase());
+        if (!raw) return json({ error: 'that code is not recognised' }, origin, 404);
+        const claim = JSON.parse(raw);
+        if (claim.used) return json({ error: 'that code has already been used' }, origin, 409);
+        if (Date.now() > Date.parse(claim.expiresAt)) {
+          return json({ error: 'that code has expired' }, origin, 410);
+        }
+        claim.used = true;
+        await env.LTB_KV.put(CLAIM_PREFIX + String(body.code).toUpperCase(), JSON.stringify(claim), { expirationTtl: 900 });
+
+        const hash = await sha256Hex(device);
+        await env.LTB_KV.put(DEV_PREFIX + hash, JSON.stringify({
+          profileId: claim.profileId,
+          label: 'Claimed device',
+          firstSeen: new Date().toISOString(),
+          lastUsed: new Date().toISOString(),
+          revoked: false,
+        }));
+        return json({ ok: true }, origin);
+      }
+
+      // Owner: publish sanitized per-profile snapshots. Rides the weekly
+      // publish; see src/publishWeek.js.
+      if (request.method === 'POST' && url.pathname === '/customer-profiles/publish') {
+        if (request.headers.get('X-LTB-Token') !== env.PUBLISH_TOKEN) {
+          return json({ error: 'unauthorized' }, origin, 401);
+        }
+        const body = await request.json().catch(() => null);
+        if (!body || typeof body.profiles !== 'object') {
+          return json({ error: 'profiles object required' }, origin, 400);
+        }
+        let n = 0;
+        for (const [profileId, snap] of Object.entries(body.profiles)) {
+          await env.LTB_KV.put(PROFILE_PREFIX + profileId, JSON.stringify(snap), {
+            // Personalization dies on its own rather than going stale. A page
+            // claiming last month's week is worse than a generic page.
+            expirationTtl: 60 * 60 * 24 * 14,
+          });
+          n++;
+        }
+        return json({ ok: true, published: n }, origin);
+      }
+
+      // Customer: the personalized payload for this device.
+      //
+      // EVERY failure path returns 200 with recognized:false rather than an
+      // error status. The landing page treats this as "show the generic page",
+      // and an error status would tempt a future client into showing a broken
+      // state instead. Personalization is progressive enhancement: its absence
+      // must never look like a fault.
+      if (request.method === 'GET' && url.pathname === '/customer-home') {
+        const device = request.headers.get('X-LTB-Device');
+        if (!device) return json({ recognized: false }, origin);
+        const rec = await env.LTB_KV.get(DEV_PREFIX + await sha256Hex(device));
+        if (!rec) return json({ recognized: false }, origin);
+        const dev = JSON.parse(rec);
+        if (dev.revoked) return json({ recognized: false }, origin);
+        const snap = await env.LTB_KV.get(PROFILE_PREFIX + dev.profileId);
+        if (!snap) return json({ recognized: false }, origin);
+        dev.lastUsed = new Date().toISOString();
+        await env.LTB_KV.put(DEV_PREFIX + await sha256Hex(device), JSON.stringify(dev));
+        return json({ recognized: true, ...JSON.parse(snap) }, origin);
       }
 
       // ── Amendments ────────────────────────────────────────────────────────

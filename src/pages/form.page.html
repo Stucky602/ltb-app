@@ -618,6 +618,7 @@
       saveDraftSoon();
     }
 
+    <!-- @include _partials/customerDevice.js -->
     <!-- @generate carlData -->
     <!-- @include _partials/carlFilter.js -->
     <!-- @include _partials/esc.js -->
@@ -912,6 +913,19 @@
       // updates every existing order instead of leaving stale substitutions
       // frozen into the ones already placed.
       var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId(), carlMode: (typeof __carlOn !== 'undefined' && __carlOn) === true };
+
+      // Device enrollment rides the order. Minted here rather than on page load
+      // so a browser that only ever reads the menu never gets one — nobody who
+      // has not ordered should be carrying a credential.
+      //
+      // It goes into the payload BEFORE enqueueSubmit can store it, which is
+      // what makes an offline retry safe: the queued entry replays this exact
+      // token instead of minting a fresh one and enrolling the same person
+      // twice under two profiles.
+      if (typeof __ltbDeviceToken === 'function') {
+        var __dev = __ltbDeviceToken();
+        if (__dev) submitPayload.deviceToken = __dev;
+      }
 
       fetch(WORKER + "/submit", {
         method: "POST",

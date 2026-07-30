@@ -137,6 +137,15 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
     // conditional — an unchecked box must publish '' to CLEAR last week's
     // banner, exactly like pausedMsg above.
     notice: extractNotice(pausedOpts, extras),
+    // Explicit deadlines, published rather than described in prose. The notice
+    // text has always carried the cutoff in words, which is fine for a person
+    // and useless to a validator. Amendments need something comparable, and
+    // there are TWO because Kevin closes changes once shopping starts without
+    // also closing new orders. Empty means "not set", which every consumer must
+    // read as open — an empty published field must never mean closed, or a
+    // publish gap would silently stop all amendments.
+    orderClosesAt: String((extras && extras.orderClosesAt) || ''),
+    amendmentsCloseAt: String((extras && extras.amendmentsCloseAt) || ''),
   };
   const res = await fetch(CONFIG_PUBLISH_URL, {
     method: 'POST',
@@ -183,6 +192,29 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
   // rejects everything until the next successful write. Full ALL_DINNERS, not
   // this week's subset — customers request dishes that AREN'T on this week.
   try {
+  // ── Personalized snapshots ─────────────────────────────────────────────
+  // Piggybacks the weekly publish deliberately: this is the moment the week
+  // becomes real, and a separate trigger would drift out of step with it.
+  //
+  // Sanitized on the way out. Nothing here carries an address, a phone, an
+  // order history, or a regular id — only a first name, the week label, and
+  // per-dish annotations keyed by dishId. sanitizeSnapshot() strips anything
+  // that is not on the allowlist, so a future edit that adds a PII field
+  // fails closed rather than shipping it.
+  //
+  // Failure is swallowed on purpose. Personalization is an enhancement; a
+  // snapshot that does not publish must never fail the week's publish, and
+  // the customer page falls back to the generic view on its own.
+  if (extras && extras.profileSnapshots && Object.keys(extras.profileSnapshots).length) {
+    try {
+      await fetch(WORKER_BASE + '/customer-profiles/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
+        body: JSON.stringify({ profiles: extras.profileSnapshots }),
+      });
+    } catch (e) { /* generic page still works */ }
+  }
+
     await fetch(WORKER_BASE + '/requestable', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

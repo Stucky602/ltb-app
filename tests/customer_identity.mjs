@@ -305,5 +305,70 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('a dish gets at most one tag', /if \(pann\.newToYou\)[\s\S]{0,120}else if \(pann\.usual\)/.test(form));
 }
 
+
+// ── The change-request surface never promises ──────────────────────────────
+//
+// Kevin decides. So the copy says "request", "asked", and "waiting", and never
+// "updated", "changed", or "done". A customer who believes their change landed
+// and then receives the original order is a worse outcome than one who was told
+// plainly that Kevin has to say yes.
+{
+  const amend = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/amendRequest.js'), 'utf8');
+  // Comments stripped: the file's own header explains the rule by quoting the
+  // forbidden words, which the first version of this check matched. Second time
+  // this exact trap has fired today.
+  const amendCode = amend.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  ok('the confirmation says asked, not changed',
+    /Asked\./.test(amendCode) && !/(Order updated|Change applied|Done\b)/i.test(amendCode));
+  ok('the caveat states nothing changes without Kevin',
+    /Nothing changes until Kevin says yes/.test(amend));
+  ok('the total is presented as an estimate',
+    /Estimated new total/.test(amend) && /confirms the final amount/.test(amend),
+    'the real number is priced by the worker from the published menu');
+
+  // The offline rule is the opposite of the order form's, deliberately.
+  ok('offline it says nothing was sent',
+    /nothing was sent/.test(amend),
+    'the order form queues because a missed order is recoverable; a missed change request the customer believes landed is not');
+  ok('and it does NOT queue silently', !/enqueue|localStorage\.setItem/.test(amend));
+
+  ok('repeat taps collapse to one op per dish',
+    /patch = patch\.filter\(/.test(amend),
+    'three setQty ops for one dish is an accurate log of fidgeting and a terrible thing to read');
+  ok('a change back to the original sends nothing',
+    /if \(next !== original\)/.test(amend));
+  ok('the request carries an idempotency key', /idempotencyKey/.test(amend));
+  ok('and the device credential', /X-LTB-Device/.test(amend));
+  ok('quantities are clamped', /Math\.max\(0, Math\.min\(20/.test(amend));
+
+  const order = fs.readFileSync(path.join(ROOT, 'order.html'), 'utf8');
+  ok('the surface is hidden by default',
+    /id="amendBox"[^>]*style="display:none"/.test(order),
+    'a customer with no live order must never see it exist');
+}
+
+// ── The snapshot carries an order without carrying a person ────────────────
+{
+  const snap = sanitizeSnapshot(buildProfileSnapshot({
+    regular: { id: 'r1', name: 'Sarah Jones', address: '99 Secret St', phone: '555-0000' },
+    orders: [], weekLabel: 'W', weekDishIds: ['chili'],
+    currentOrder: { id: 'o9', items: [{ dishId: 'chili', name: 'Chili', variant: 'Small', qty: 2 }] },
+  }));
+  const blob = JSON.stringify(snap);
+
+  ok('the live order rides the snapshot', !!snap.currentOrder && snap.currentOrder.items.length === 1);
+  ok('and still no address', !blob.includes('Secret'));
+  ok('and still no phone', !blob.includes('555-0000'));
+  ok('and still no surname', !blob.includes('Jones'));
+  ok('the order carries no prices', !/price|total|cost/i.test(blob),
+    'a customer page cannot be trusted with pricing and is not asked to be');
+
+  const none = sanitizeSnapshot(buildProfileSnapshot({
+    regular: { id: 'r1', name: 'Sarah' }, orders: [], weekLabel: 'W', weekDishIds: [],
+  }));
+  ok('no live order means no currentOrder key at all', !('currentOrder' in none));
+}
+
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

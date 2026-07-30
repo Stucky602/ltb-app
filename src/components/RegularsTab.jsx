@@ -63,7 +63,70 @@ export function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
 import { sortList, searchList, windowList, DEFAULT_WINDOW } from '../listControls.js';
 
 // ─── Regulars Tab: VIP customer profiles ───────────────────────────────────
-export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLink, onUnlink }) {
+// A customer's recognised browsers. Hashes are shown truncated: the full value
+// is useless to a human and showing it invites pasting a credential-shaped
+// string somewhere it should not go.
+function DevicePanel({ regular, onRevoke, onClaimCode }) {
+  const [code, setCode] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const hashes = Array.isArray(regular.deviceHashes) ? regular.deviceHashes : [];
+  const revoked = Array.isArray(regular.revokedDeviceHashes) ? regular.revokedDeviceHashes : [];
+
+  const makeCode = async () => {
+    setBusy(true);
+    try { setCode(await onClaimCode(regular)); } finally { setBusy(false); }
+  };
+
+  return (
+    <div>
+      {hashes.length === 0 ? (
+        <div style={styles.profileFieldEmpty}>
+          No recognised devices yet. One is added automatically the first time you
+          link an order from them to this person.
+        </div>
+      ) : hashes.map(h => {
+        const isRevoked = revoked.includes(h);
+        return (
+          <div key={h} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+            <span style={{ fontSize: 12, color: isRevoked ? '#6b7570' : CREAM, textDecoration: isRevoked ? 'line-through' : 'none' }}>
+              {regular.deviceLabels?.[h] || 'Device'} · {h.slice(0, 8)}
+            </span>
+            {!isRevoked && (
+              <button
+                onClick={() => onRevoke(regular, h)}
+                style={{ background: 'none', border: 0, padding: 0, fontSize: 11, color: '#e0828a', textDecoration: 'underline', cursor: 'pointer', fontFamily: 'inherit' }}
+              >Revoke</button>
+            )}
+          </div>
+        );
+      })}
+
+      {code ? (
+        <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 6, background: 'rgba(212,160,80,0.12)', border: `1px solid ${GOLD}` }}>
+          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: 2, color: GOLD, fontFamily: 'monospace' }}>{code}</div>
+          <div style={{ fontSize: 11, color: '#9aa5a0', marginTop: 4 }}>
+            Read this to them. Works once, expires in 15 minutes.
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={makeCode}
+          disabled={busy || !regular.customerProfileId}
+          style={{ ...styles.profileEditBtn, marginTop: 8, opacity: regular.customerProfileId ? 1 : 0.5 }}
+        >
+          {busy ? 'Generating…' : 'Code for a new phone'}
+        </button>
+      )}
+      {!regular.customerProfileId && (
+        <div style={{ fontSize: 11, color: '#6b7570', marginTop: 6 }}>
+          Available once they have ordered at least once.
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLink, onUnlink, onRevokeDevice, onClaimCode }) {
   const [mode, setMode] = useState('list'); // 'list' | 'add' | 'profile'
   const [activeId, setActiveId] = useState(null);
 
@@ -141,6 +204,8 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
   if (mode === 'profile' && activeRegular) {
     return (
       <RegularProfile
+          onRevokeDevice={onRevokeDevice}
+          onClaimCode={onClaimCode}
         regular={activeRegular}
         orders={orders}
         allRegulars={regulars}
@@ -403,7 +468,7 @@ export function RegularForm({ regular, onSave, onCancel }) {
 }
 
 // ─── Regular profile: summary, insights, history, order linking ────────────
-export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelete, onLink, onUnlink, onBack }) {
+export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelete, onLink, onUnlink, onBack, onRevokeDevice, onClaimCode }) {
   const [showPassport, setShowPassport] = useState(false);
   const [editing, setEditing] = useState(false);          // editing the detail form
   const [editingNotes, setEditingNotes] = useState(false); // editing the notes field
@@ -660,6 +725,19 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
         <button style={styles.profileEditBtn} onClick={() => setEditing(true)}>
           <Pencil size={13} /> Edit details
         </button>
+      </div>
+
+      {/* ── Devices ────────────────────────────────────────────────────────
+          What this customer's browsers are, and the two controls Kevin needs:
+          revoke a phone they no longer have, and hand them a code to bring a
+          new one on.
+
+          A regular with no devices shows the empty state rather than being
+          hidden, because "why isn't this person being greeted?" is a question
+          Kevin will have, and a missing panel answers nothing. */}
+      <div style={styles.profileSection}>
+        <div style={styles.profileSectionTitle}>Devices</div>
+        <DevicePanel regular={regular} onRevoke={onRevokeDevice} onClaimCode={onClaimCode} />
       </div>
 
       {/* Notes (includes auto-insights) */}

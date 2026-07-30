@@ -82,6 +82,22 @@
     font-size: 11px; color: #9aa5a0; text-decoration: underline;
     cursor: pointer; font-family: inherit;
   }
+  .amend-box { margin: 0 0 14px; padding: 12px 14px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid #2d3a36; text-align: left; }
+  .amend-title { font-size: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #9aa5a0; margin-bottom: 8px; }
+  .amend-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+  .amend-gone .amend-name { opacity: 0.45; text-decoration: line-through; }
+  .amend-name { font-size: 13px; color: #e8ede9; }
+  .amend-var { font-size: 11px; color: #9aa5a0; }
+  .amend-qty { display: flex; align-items: center; gap: 10px; }
+  .amend-btn { width: 26px; height: 26px; border-radius: 6px; border: 1px solid #37403c; background: transparent; color: #e8ede9; font-size: 15px; cursor: pointer; line-height: 1; }
+  .amend-was { font-size: 10px; color: #D4A050; text-align: right; margin-top: -4px; }
+  .amend-est { font-size: 12px; color: #9aa5a0; margin: 10px 0 8px; }
+  .amend-note { width: 100%; min-height: 54px; padding: 8px; border-radius: 6px; border: 1px solid #2d3a36; background: #151d1b; color: #e8ede9; font-family: inherit; font-size: 13px; margin-bottom: 8px; }
+  .amend-send { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #D4A050; background: rgba(212,160,80,0.12); color: #D4A050; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+  .amend-caveat { font-size: 11px; color: #6b7570; margin-top: 6px; text-align: center; }
+  .amend-hint, .amend-sent, .amend-fail { font-size: 12px; color: #9aa5a0; }
+  .amend-sent { color: #5DCAA5; }
+  .amend-fail { color: #e0828a; }
   .blurb { background:var(--card); border:1px solid var(--teal-mid); border-radius:14px; padding:16px; font-size:14px; line-height:1.55; color:var(--cream); text-align:center; margin-bottom:22px; width:100%; }
   .blurb b { color:var(--gold); }
   .btn {
@@ -142,6 +158,10 @@
     <!-- Heads-up banner for the week, published from the Week tab. Stays
          empty (and invisible) unless a notice is actually published. -->
     <div id="weekNotice"></div>
+
+    <!-- Change-an-order surface. Stays empty unless the worker recognises this
+         browser AND that person has a live order this week. -->
+    <div id="amendBox" class="amend-box" style="display:none"></div>
 
     <div class="blurb">
       Orders are generally needed by <b>Sunday</b> to ensure delivery the following <b>Wednesday</b>.
@@ -220,6 +240,7 @@
 
   <!-- @include _partials/orderWindow.js -->
   <!-- personalize.js comes last: it needs WORKER and __ltbDeviceToken. -->
+  <!-- @include _partials/amendRequest.js -->
   <!-- @include _partials/personalize.js -->
 
   // Save-to-home-screen toggle

@@ -99,7 +99,7 @@ import * as pub from './publishWeek.js';
 import * as poll from './pendingPoll.js';
 import { AmendmentQueue } from './components/AmendmentQueue.jsx';
 import { acceptAmendment, supersedePending } from './amendments.js';
-import { buildProfileSnapshot, sanitizeSnapshot } from './customerDevice.js';
+import { buildProfileSnapshot, sanitizeSnapshot, generateClaimCode } from './customerDevice.js';
 import { dishIdFor } from './dishIdentity.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
@@ -656,6 +656,41 @@ export default function LTBOrderTracker() {
   const onRejectAmendment = useCallback((amd, reason) => {
     decideAmendment(amd, 'rejected', reason);
   }, [decideAmendment]);
+
+  // Revoke ONE device. Recorded on the regular as well as on the worker so the
+  // panel still reads correctly offline, and so a revocation survives a restore
+  // from backup — the worker's KV is not in the backup ring.
+  const onRevokeDevice = useCallback(async (regular, deviceHash) => {
+    try {
+      await fetch(WORKER_BASE + '/customer-device/revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
+        body: JSON.stringify({ deviceHash }),
+      });
+    } catch (e) { /* recorded locally regardless; re-pushed on the next revoke */ }
+    updateRegular(regular.id, {
+      revokedDeviceHashes: [...(regular.revokedDeviceHashes || []), deviceHash],
+    });
+  }, [updateRegular]);
+
+  // A one-time code for a new phone. Generated locally so Kevin can read it out
+  // immediately, then registered with the worker; if that registration fails the
+  // code will not work, so the failure is surfaced rather than swallowed.
+  const onClaimCode = useCallback(async (regular) => {
+    const code = generateClaimCode();
+    try {
+      const r = await fetch(WORKER_BASE + '/customer-device/claim-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-LTB-Token': PUBLISH_TOKEN },
+        body: JSON.stringify({ profileId: regular.customerProfileId, code }),
+      });
+      if (!r.ok) throw new Error('claim code not registered');
+    } catch (e) {
+      setError('Could not create that code. Check the connection and try again.');
+      return null;
+    }
+    return code;
+  }, []);
 
 
   // ── Make-a-regular star (OrderCard) ────────────────────────────────────────
@@ -1714,6 +1749,8 @@ export default function LTBOrderTracker() {
               onUpdate={updateRegular}
               onDelete={deleteRegular}
               onLink={linkOrderToRegular}
+              onRevokeDevice={onRevokeDevice}
+              onClaimCode={onClaimCode}
               onUnlink={unlinkOrderFromRegular}
             />
             <RegularsIntelPanel orders={orders || []} regulars={regulars} weekDishes={weekDishes} onMerge={doMergeRegulars} onUnmerge={doUnmergeRegular} onUpdateRegular={updateRegular} onBackfill={runBackfill} onLinkSuggestion={linkSuggestionToRegular} />

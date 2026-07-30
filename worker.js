@@ -936,6 +936,9 @@ export default {
         if (!snap) return json({ recognized: false }, origin);
         dev.lastUsed = new Date().toISOString();
         await env.LTB_KV.put(DEV_PREFIX + await sha256Hex(device), JSON.stringify(dev));
+        // currentOrder rides along so the amend surface needs no second round
+        // trip. It is published by the owner app inside the snapshot and is
+        // already sanitized — dish names, variants, and quantities only.
         return json({ recognized: true, ...JSON.parse(snap) }, origin);
       }
 

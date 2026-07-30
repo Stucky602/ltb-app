@@ -167,7 +167,7 @@ export function claimIsUsable(claim, now) {
 //
 // Annotations are keyed by dishId. Never by display name — a rename would
 // otherwise silently drop a customer's whole history with a dish.
-export function buildProfileSnapshot({ regular, orders, weekLabel, weekDishIds, now }) {
+export function buildProfileSnapshot({ regular, orders, weekLabel, weekDishIds, now, currentOrder = null }) {
   const at = now || Date.now();
   const counts = new Map();
   const lastAt = new Map();
@@ -197,10 +197,24 @@ export function buildProfileSnapshot({ regular, orders, weekLabel, weekDishIds, 
     };
   }
 
+  // The live order, if there is one. Reduced to what the amend surface needs to
+  // draw a row: nothing about price, address, or anyone else. The customer
+  // already knows what they ordered — this is not a disclosure, it is a form.
+  const live = currentOrder ? {
+    id: currentOrder.id,
+    items: (currentOrder.items || []).map(it => ({
+      dishId: it.dishId || null,
+      name: it.name || '',
+      variant: it.variant || it.label || null,
+      qty: Number(it.qty) || 0,
+    })),
+  } : null;
+
   return {
     greeting: String(regular.name || '').split(' ')[0] || '',
     weekLabel: String(weekLabel || ''),
     annotations,
+    ...(live ? { currentOrder: live } : {}),
     generatedAt: new Date(at).toISOString(),
   };
 }

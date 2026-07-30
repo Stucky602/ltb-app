@@ -76,6 +76,16 @@
         slot.insertAdjacentHTML('beforebegin', greetingHtml(data.greeting, data.weekLabel));
         stash(data);
 
+        // The amend surface appears only for a recognised customer who has a
+        // live order this week. Everyone else never sees it exist.
+        if (data.currentOrder && typeof __ltbAmendInit === 'function') {
+          var box = el('amendBox');
+          if (box) {
+            box.style.display = '';
+            __ltbAmendInit(data.currentOrder, data.prices || {});
+          }
+        }
+
         var btn = el('pgForget');
         if (btn) {
           btn.addEventListener('click', function () {

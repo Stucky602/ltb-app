@@ -482,5 +482,49 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
     'he asked where it goes, which means the app never said');
 }
 
+
+// ── Away and jars: customer-controlled, never inferred ─────────────────────
+//
+// A "quiet customer" list was proposed for the owner side and correctly
+// declined. This is the opposite of it: the person says it, sees it, and can
+// undo it. The assertions below are mostly about that distinction holding.
+{
+  const hh = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/household.js'), 'utf8');
+  const code = hh.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+  ok('the customer can set away', /customer-away/.test(code));
+  ok('and clear it just as easily', /I&rsquo;m back|hhBack/.test(hh),
+    'if getting back is harder than going away, the state outlives the trip');
+  ok('away never blocks ordering', /still order any week/.test(hh),
+    'this suppresses a nudge, not a menu');
+
+  ok('no jar row when there are no jars', /if \(!box \|\| !count\) return;/.test(code));
+  ok('the jar action does not write to the ledger',
+    !/jarSwaps|containerReturns|adjustInventory/.test(code),
+    "Kevin's count is the real one; two sources for the same number is how they disagree");
+
+  ok('both blocks are flagged', /__ltbFlag\('awayMode'\)/.test(code) && /__ltbFlag\('jarReturn'\)/.test(code));
+  ok('and never claim a save they did not get', /catch \(function \(\) \{ done\(false\); \}\)|done\(false\)/.test(code),
+    'somebody who believes Kevin knows they are away, when he does not, gets food they cannot use');
+
+  // STYLE blocks stripped as well as script. `.hh-jars { ... }` is a CSS rule
+  // and matched a check meant to look at rendered markup. Same trap as the
+  // script-source one, different tag.
+  const order = fs.readFileSync(path.join(ROOT, 'order.html'), 'utf8');
+  const body = order
+    .replace(/<script[\s\S]*?<\/script>/g, '')
+    .replace(/<style[\s\S]*?<\/style>/g, '');
+  ok('neither block renders by default', !/class="hh-active"|class="hh-jars"/.test(body),
+    'context, not configuration — the landing page is not a settings screen');
+
+  // The owner half.
+  const app = fs.readFileSync(path.join(ROOT, 'src/App.jsx'), 'utf8');
+  ok('the jar count comes from the existing ledger',
+    /jarsOut: jarsOutForRegular/.test(app));
+  const week = fs.readFileSync(path.join(ROOT, 'src/components/WeekTab.jsx'), 'utf8');
+  ok('Kevin sees who is away before he shops', /Away this week/.test(week));
+  ok('and the copy says it is a heads-up, not a rule', /heads-up, not a rule/.test(week));
+}
+
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

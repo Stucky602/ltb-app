@@ -182,6 +182,10 @@
           }
         }
 
+        // Household blocks. They read their own flags and render nothing when
+        // they have nothing to say.
+        if (typeof __ltbHousehold === 'function') __ltbHousehold(data);
+
         var btn = el('pgForget');
         if (btn) {
           btn.addEventListener('click', function () {

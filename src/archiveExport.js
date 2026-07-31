@@ -25,6 +25,7 @@
 // the sales summary is pure COUNTING (units, households, first/last), because
 // counting is reconstructible logic and costing is a moving target.
 
+import { narrateChapter } from './chronicle.js';
 import { DISHES, ALWAYS_ITEMS } from './dishes.js';
 import { RENAME_HISTORY, DISH_RENAMES } from './utils.js';
 import {
@@ -215,7 +216,7 @@ export function archiveGapYears(journal, now) {
   return gaps;
 }
 
-export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, history } = {}) {
+export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, history, chronicle } = {}) {
   const j = normalizeJournal(journal);
   const when = generatedAt || new Date().toISOString();
   const year = when.slice(0, 4);
@@ -342,6 +343,24 @@ ${entries.length ? journalSection(entries, DISH_RENAMES, superseded) : '<p class
   // archive and the Record tab. It was the only editor for that list, so keeping
   // the section here would have meant printing a list nobody could correct —
   // a frozen table that looks maintained is worse than no table.
+
+  // ── The chronicle ─────────────────────────────────────────────────────
+  // One chapter per week of service, in order. This is the chronological
+  // backbone: everything else in the archive is organised by dish or by
+  // subject, and none of it answers "what happened the week of August 12".
+  //
+  // Each chapter prints its own gaps. A record that reads as complete when it
+  // is not would be worse than an obviously partial one, because it would be
+  // believed.
+  if (chronicle && chronicle.length) {
+    parts.push('<h2>Week by week</h2>');
+    parts.push('<p>Each week of service, in order. Where a chapter could not '
+      + 'establish something, it says so rather than leaving a confident gap.</p>');
+    for (const ch of chronicle) {
+      parts.push('<h3>' + esc(ch.label || 'A week') + '</h3>');
+      parts.push('<pre class="chapter">' + esc(narrateChapter(ch, { includeTitle: false })) + '</pre>');
+    }
+  }
 
   if ((RENAME_HISTORY || []).length) {
     parts.push('<h2>Name changes</h2><table><tr><th>Was</th><th>Became</th><th>When</th><th>Why</th></tr>');

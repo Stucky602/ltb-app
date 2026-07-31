@@ -9,6 +9,7 @@ import { currentWeekInfo } from '../timeBanners.js';
 import { sameMonthPreviousYears } from '../weekLedger.js';
 import { buildArchiveHtml, buildRecordsHtml } from '../archiveExport.js';
 import { buildBundleManifest, BUNDLE_README } from '../visualCues.js';
+import { buildChronicle } from '../chronicle.js';
 import { buildZip } from '../zipWriter.js';
 import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { DISH_RENAMES } from '../utils.js';
@@ -54,7 +55,7 @@ export function RecordTab({
   onAnswerQuestion,
   realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
   ranking, rankingDrift, tasteVsSales, tasteVsSon, rankingStale,
-  patterns, tasteVsPractice, visualCues,
+  patterns, tasteVsPractice, visualCues, amendments,
 }) {
   const [msg, setMsg] = useState(null);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
@@ -113,7 +114,14 @@ export function RecordTab({
   const downloadBundle = async () => {
     setMsg('Building the archive…');
     try {
-      const html = buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory });
+      // The chronicle is assembled here, from everything the tab already holds.
+      const chronicle = buildChronicle(weekLedger, {
+        orders: orders || [],
+        journal,
+        amendments: amendments || [],
+        visualCues: visualCues || [],
+      });
+      const html = buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory, chronicle });
       const enc = new TextEncoder();
       const stored = (visualCues || []).filter(c => c.status === 'stored' && c.mediaKey);
       const files = [];

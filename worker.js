@@ -145,6 +145,7 @@ function tokenOk(request, url, env) {
 }
 
 const AMD_PREFIX = 'amd:';
+const AWAY_PREFIX = 'away:';
 const DEV_PREFIX = 'device:';
 const CLAIM_PREFIX = 'claim:';
 const PROFILE_PREFIX = 'profile:';
@@ -1071,7 +1072,71 @@ export default {
           const cfg = cfgRaw ? JSON.parse(cfgRaw) : null;
           flags = resolveFlags(cfg && cfg.customerFlags, { profileId: dev.profileId, isOwner: false });
         } catch (e) { flags = null; }
-        return json({ recognized: true, flags, ...JSON.parse(snap) }, origin);
+        // Away state lives against the device hash and is fresher than the
+        // published snapshot, which is only rebuilt weekly. Read it live and
+        // let it win.
+        let away = null;
+        try {
+          const ar = await env.LTB_KV.get(AWAY_PREFIX + await sha256Hex(device));
+          if (ar) away = JSON.parse(ar);
+        } catch (e) { away = null; }
+        return json({ recognized: true, flags, ...JSON.parse(snap), away }, origin);
+      }
+
+      // ── Away ──────────────────────────────────────────────────────────────
+      //
+      // The customer says it, and can undo it. This is availability they
+      // control, NOT an inferred churn signal — a "quiet customer" list was
+      // proposed and correctly declined, and this is the opposite of it.
+      //
+      // Stored against the DEVICE HASH, not the profile, so it works before
+      // Kevin has linked anybody. It reaches him through the pending queue the
+      // same way an order does.
+      if (request.method === 'POST' && url.pathname === '/customer-away') {
+        const device = request.headers.get('X-LTB-Device');
+        if (!device) return json({ error: 'device not recognised' }, origin, 401);
+        const body = await request.json().catch(() => null);
+        if (!body) return json({ error: 'bad request' }, origin, 400);
+
+        const hash = await sha256Hex(device);
+        // A null clears it. "I am back" has to be as easy as "I am away", or
+        // the state outlives the trip.
+        if (!body.away) {
+          await env.LTB_KV.delete(AWAY_PREFIX + hash);
+          return json({ ok: true, away: null }, origin);
+        }
+        const kind = ['week', 'until', 'menus'].includes(body.away.kind) ? body.away.kind : null;
+        if (!kind) return json({ error: 'unknown away kind' }, origin, 400);
+        const rec = {
+          kind,
+          until: kind === 'until' ? String(body.away.until || '').slice(0, 10) : null,
+          remaining: kind === 'menus' ? Math.max(1, Math.min(6, Number(body.away.remaining) || 1)) : null,
+          weekLabel: kind === 'week' ? String(body.away.weekLabel || '').slice(0, 60) : null,
+          setAt: new Date().toISOString(),
+        };
+        await env.LTB_KV.put(AWAY_PREFIX + hash, JSON.stringify(rec), {
+          // Dies on its own after a season. An away flag nobody cleared should
+          // not still be suppressing a nudge a year later.
+          expirationTtl: 60 * 60 * 24 * 120,
+        });
+        return json({ ok: true, away: rec }, origin);
+      }
+
+      // Owner: everyone currently away, so the Week tab can say who to expect.
+      if (request.method === 'GET' && url.pathname === '/customer-away') {
+        if (!tokenOk(request, url, env)) return json({ error: 'unauthorized' }, origin, 401);
+        const list = await env.LTB_KV.list({ prefix: AWAY_PREFIX });
+        const out = [];
+        for (const k of list.keys) {
+          const raw = await env.LTB_KV.get(k.name);
+          if (!raw) continue;
+          try {
+            const rec = JSON.parse(raw);
+            const devRaw = await env.LTB_KV.get(DEV_PREFIX + k.name.slice(AWAY_PREFIX.length));
+            out.push({ ...rec, profileId: devRaw ? JSON.parse(devRaw).profileId : null });
+          } catch (e) { /* skip corrupt */ }
+        }
+        return json({ away: out }, origin);
       }
 
       // ── Amendments ────────────────────────────────────────────────────────

@@ -67,7 +67,7 @@ function GrowingText({ value, onChange, placeholder, style, disabled }) {
   );
 }
 
-export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, dishFeedback, onFetchHistory, onRestoreConfig, customerFlags, onSaveFlags }) {
+export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMap, orders, dishFeedback, onFetchHistory, onRestoreConfig, customerFlags, onSaveFlags, awayList, regulars }) {
   // Earned, not declared: recomputed on every publish so a dish can gain or
   // lose the badge as real evidence accumulates.
   const favorites = useMemo(() => customerFavorites(orders || [], dishFeedback || {}), [orders, dishFeedback]);
@@ -462,6 +462,34 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
                 ? 'Every publish carries this until you untick the box. Shows on the landing page, the order form, and the menu.'
                 : 'Off. Publishing clears any banner that is currently showing. The text stays here for next time.'}
             </div>
+            {(awayList || []).length > 0 && (
+              <div style={{ marginTop: 12, padding: '8px 10px', borderRadius: 6, border: '1px solid #2d3a36', background: 'rgba(255,255,255,0.02)' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: '#9aa5a0', marginBottom: 4 }}>
+                  Away this week
+                </div>
+                {(awayList || []).map((a, i) => {
+                  // Matched back to a name where possible. An opaque profile id
+                  // tells Kevin nothing he can act on, and an unmatched entry is
+                  // still worth showing as a count rather than hidden.
+                  const who = (regulars || []).find(r => r.customerProfileId === a.profileId);
+                  return (
+                    <div key={i} style={{ fontSize: 12, color: CREAM, lineHeight: 1.5 }}>
+                      {who ? who.name : 'Someone'}
+                      <span style={{ color: '#7a8480' }}>
+                        {' \u00b7 '}
+                        {a.kind === 'until' ? `until ${String(a.until || '').slice(0, 10)}`
+                          : a.kind === 'menus' ? `next ${a.remaining} menu${a.remaining === 1 ? '' : 's'}`
+                          : 'this week'}
+                      </span>
+                    </div>
+                  );
+                })}
+                <div style={{ fontSize: 10.5, color: '#6b7570', marginTop: 5, lineHeight: 1.45 }}>
+                  They said so themselves, and they can still order. This is a heads-up, not a rule.
+                </div>
+              </div>
+            )}
+
             {/* Kill switches. Everything here is optional BY DEFINITION: the
                 menu, ordering, allergens, and reheat instructions are never
                 flaggable, because a switch that can stop somebody ordering

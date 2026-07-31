@@ -167,7 +167,7 @@ export function claimIsUsable(claim, now) {
 //
 // Annotations are keyed by dishId. Never by display name — a rename would
 // otherwise silently drop a customer's whole history with a dish.
-export function buildProfileSnapshot({ regular, orders, weekLabel, weekDishIds, now, currentOrder = null }) {
+export function buildProfileSnapshot({ regular, orders, weekLabel, weekDishIds, now, currentOrder = null, jarsOut = 0, away = null }) {
   const at = now || Date.now();
   const counts = new Map();
   const lastAt = new Map();
@@ -215,13 +215,55 @@ export function buildProfileSnapshot({ regular, orders, weekLabel, weekDishIds, 
     weekLabel: String(weekLabel || ''),
     annotations,
     ...(live ? { currentOrder: live } : {}),
+    // Jars this household holds, straight from the existing ledger rather than
+    // a second count. A number nobody can reconcile with Kevin's own is worse
+    // than no number.
+    ...(jarsOut > 0 ? { jarsOut } : {}),
+    // Away state, if they have set one. Absent means they have not.
+    ...(away ? { away } : {}),
     generatedAt: new Date(at).toISOString(),
   };
 }
 
+// ── Away ────────────────────────────────────────────────────────────────────
+//
+// CUSTOMER-CONTROLLED AVAILABILITY, and that framing is the whole point. This
+// is a person saying "I am travelling", not the app inferring that somebody has
+// gone quiet. A quiet-customer list was proposed and correctly declined; this is
+// the opposite of it, because the customer says it and can undo it.
+//
+// They can always order anyway. Away suppresses a nudge, never a menu.
+export const AWAY_KINDS = ['week', 'until', 'menus'];
+
+export function awayIsActive(away, now) {
+  if (!away || !away.kind) return false;
+  const at = now || Date.now();
+  if (away.kind === 'until') return away.until ? at < Date.parse(away.until) : false;
+  if (away.kind === 'week') return away.weekLabel ? true : false;
+  if (away.kind === 'menus') return (Number(away.remaining) || 0) > 0;
+  return false;
+}
+
+// Plain words, for both the customer page and Kevin's regular list. One
+// sentence, no jargon: he reads this while packing a van.
+export function describeAway(away, now) {
+  if (!awayIsActive(away, now)) return '';
+  if (away.kind === 'until') return `Away until ${String(away.until).slice(0, 10)}`;
+  if (away.kind === 'menus') return `Away for the next ${away.remaining} menu${away.remaining === 1 ? '' : 's'}`;
+  return 'Away this week';
+}
+
+// Called at publish. A "next N menus" countdown only means anything if
+// something decrements it, and publishing a week IS the tick.
+export function tickAway(away) {
+  if (!away || away.kind !== 'menus') return away;
+  const left = (Number(away.remaining) || 0) - 1;
+  return left > 0 ? { ...away, remaining: left } : null;
+}
+
 // Belt and braces. Run over any snapshot before it leaves the app: if a future
 // edit adds a field that carries PII, this strips it rather than shipping it.
-const SNAPSHOT_ALLOWED = new Set(['greeting', 'weekLabel', 'annotations', 'generatedAt', 'currentOrder']);
+const SNAPSHOT_ALLOWED = new Set(['greeting', 'weekLabel', 'annotations', 'generatedAt', 'currentOrder', 'jarsOut', 'away']);
 export function sanitizeSnapshot(snap) {
   if (!snap || typeof snap !== 'object') return null;
   const out = {};

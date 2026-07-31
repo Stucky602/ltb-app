@@ -101,6 +101,7 @@ import { AmendmentQueue } from './components/AmendmentQueue.jsx';
 import { acceptAmendment, supersedePending } from './amendments.js';
 import { buildProfileSnapshot, sanitizeSnapshot, generateClaimCode, ensureProfileId } from './customerDevice.js';
 import { normalizeFlags } from './featureFlags.js';
+import { jarsOutForRegular } from './utils.js';
 import { dishIdFor } from './dishIdentity.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
@@ -385,6 +386,23 @@ export default function LTBOrderTracker() {
     catch (e) { setError('Could not save the cue list on this device.'); }
   }, []);
 
+  // Who has said they are away. Fetched rather than derived: the customer sets
+  // it against their device, and Kevin needs it BEFORE he shops, not after he
+  // notices somebody did not order.
+  const [awayList, setAwayList] = useState([]);
+
+  const loadAway = useCallback(async () => {
+    if (!PUBLISH_TOKEN) return;
+    try {
+      const r = await fetch(WORKER_BASE + '/customer-away', { headers: { 'X-LTB-Token': PUBLISH_TOKEN } });
+      if (!r.ok) return;
+      const j = await r.json();
+      setAwayList(Array.isArray(j.away) ? j.away : []);
+    } catch (e) { /* offline: the list simply does not appear */ }
+  }, []);
+
+  React.useEffect(() => { loadAway(); }, [loadAway]);
+
   const loadAmendments = useCallback(async () => {
     if (!PUBLISH_TOKEN) return;
     try {
@@ -557,6 +575,10 @@ export default function LTBOrderTracker() {
           orders: orders || [],
           weekLabel: weekLabel || '',
           weekDishIds,
+          // From the EXISTING jar ledger, not a second count. A number the
+          // customer sees that Kevin cannot reconcile with his own is worse
+          // than no number at all.
+          jarsOut: jarsOutForRegular(r.id, orders || []),
         }));
         if (snap) profileSnapshots[r.customerProfileId] = snap;
       }
@@ -1803,6 +1825,8 @@ export default function LTBOrderTracker() {
         {view === 'week' && (
           <>
             <WeekTab
+              awayList={awayList}
+              regulars={regulars || []}
               customerFlags={customerFlags}
               onSaveFlags={saveCustomerFlags} selected={weekDishes} onToggle={toggleWeekDish} onPublish={publishWeek} liveCostMap={liveCostMap} baseCostMap={baseCostMap} orders={orders || []} dishFeedback={dishFeedback} onFetchHistory={fetchConfigHistory} onRestoreConfig={restoreConfig} />
             <PlannerPanel orders={orders || []} weekDishes={weekDishes} liveCostMap={liveCostMap} baseCostMap={baseCostMap} />

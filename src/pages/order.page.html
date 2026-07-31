@@ -70,6 +70,21 @@
   .logo { width:120px; height:120px; border-radius:50%; display:block; margin:0 auto 16px; box-shadow:0 4px 20px rgba(0,0,0,0.4); }
   .brand { font-size:22px; font-weight:800; color:var(--gold); text-align:center; margin-bottom:3px; width:100%; }
   .week { font-size:13px; color:var(--teal-light); text-align:center; font-style:italic; margin-bottom:22px; width:100%; }
+  .hh-row { text-align: left; margin: 0 0 8px; }
+  .hh-row:empty { display: none; }
+  .hh-link { background: none; border: 0; padding: 0; font-size: 11.5px; color: #9aa5a0;
+    text-decoration: underline; cursor: pointer; font-family: inherit; }
+  .hh-jars { font-size: 12px; color: var(--body,#c9d1cd); margin-right: 8px; }
+  .hh-active { font-size: 12px; color: var(--gold); display: flex; gap: 10px; align-items: baseline; }
+  .hh-active button { background: none; border: 0; padding: 0; font-size: 11.5px; color: #9aa5a0;
+    text-decoration: underline; cursor: pointer; font-family: inherit; }
+  .hh-opt { display: block; width: 100%; text-align: left; margin: 4px 0; padding: 7px 10px;
+    border-radius: 6px; border: 1px solid #2d3a36; background: transparent; color: #e8ede9;
+    font-size: 13px; cursor: pointer; font-family: inherit; }
+  #hhUntil { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #2d3a36;
+    background: #0e1a17; color: #e8ede9; font-size: 13px; margin-top: 4px; }
+  .hh-note { font-size: 11px; color: #6b7570; margin-top: 6px; line-height: 1.45; }
+  .hh-fail { font-size: 11px; color: #e0828a; margin-top: 4px; }
   .pg-claim { margin: 0 0 10px; text-align: left; }
   .pg-claim > button { background: none; border: 0; padding: 0; font-size: 11.5px;
     color: #9aa5a0; text-decoration: underline; cursor: pointer; font-family: inherit; }
@@ -179,6 +194,11 @@
          browser AND that person has a live order this week. -->
     <div id="amendBox" class="amend-box" style="display:none"></div>
 
+    <!-- Household: away state and jars. Each renders only when it has
+         something to say, so neither turns the page into a settings screen. -->
+    <div id="householdJars" class="hh-row"></div>
+    <div id="householdAway" class="hh-row"></div>
+
     <div class="blurb">
       Orders are generally needed by <b>Sunday</b> to ensure delivery the following <b>Wednesday</b>.
       Need something outside that window? Just reach out directly and we will work it out.
@@ -257,6 +277,7 @@
 
   <!-- @include _partials/orderWindow.js -->
   <!-- personalize.js comes last: it needs WORKER and __ltbDeviceToken. -->
+  <!-- @include _partials/household.js -->
   <!-- @include _partials/amendRequest.js -->
   <!-- @include _partials/personalize.js -->
 

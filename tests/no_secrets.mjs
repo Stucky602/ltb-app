@@ -166,5 +166,54 @@ const read = (rel) => {
     'if this ever changes, the reasoning in src/config.js should be revisited');
 }
 
+
+// ── package.json and package-lock.json must agree ──────────────────────────
+//
+// On Jul 30 the Cloudflare build failed with "npm ci can only install packages
+// when your package.json and package-lock.json are in sync", and every push
+// after it silently stopped deploying. The cause was two drifts:
+//
+//   1. package.json was bumped to 10.1.0 for the service-worker version check
+//      and the lock still said 9.9.0. The root version is part of what npm ci
+//      compares.
+//   2. The lock recorded ONE of esbuild's 24 optional platform binaries,
+//      because it was generated on linux-x64 and npm prunes the rest. Cloudflare
+//      validates all of them.
+//
+// Neither is visible locally: `npm test` never runs `npm ci`. So the gate has to
+// look, or the next version bump takes the site down the same way.
+//
+// FIXING IT: regenerate the lock in an EMPTY directory containing only
+// package.json, so npm resolves from the registry with no node_modules to prune
+// against, then copy the result back.
+{
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const lockPath = path.join(ROOT, 'package-lock.json');
+  ok('there is a lock file', fs.existsSync(lockPath),
+    'Cloudflare runs npm clean-install and cannot proceed without one');
+
+  if (fs.existsSync(lockPath)) {
+    const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    ok('the lock version matches package.json',
+      lock.version === pkg.version,
+      `package.json ${pkg.version} vs lock ${lock.version} — npm ci compares these`);
+    ok('and so does the root package entry',
+      !lock.packages || !lock.packages[''] || lock.packages[''].version === pkg.version);
+
+    // Every optional dependency a locked package declares needs its own entry,
+    // or npm ci reports it missing.
+    const missing = [];
+    for (const [name, entry] of Object.entries(lock.packages || {})) {
+      if (!entry || !entry.optionalDependencies) continue;
+      for (const dep of Object.keys(entry.optionalDependencies)) {
+        if (!lock.packages[`node_modules/${dep}`]) missing.push(dep);
+      }
+    }
+    ok('every optional dependency is recorded in the lock',
+      missing.length === 0,
+      `${missing.length} missing, e.g. ${missing.slice(0, 3).join(', ')} — regenerate the lock in an empty directory`);
+  }
+}
+
 console.log(f === 0 ? '\nNO SECRETS: ALL PASS' : `\nNO SECRETS: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

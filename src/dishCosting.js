@@ -415,6 +415,16 @@ export const LINE_MAP = {
   'Sodium citrate':         { id: 'sodium_citrate', conv: C({ unit: 'g' }) },
   'Pickling vinegar + spices': { id: 'spices_generic', conv: () => 0.5 },  // composed-ok: pickle brine seasoning → spices_generic bucket
   'Chili flakes + whole spices + oil': { id: 'chili_oil', conv: () => 1 },  // composed-ok: the chili_oil id IS the finished composite product cost
+  // KEVIN, Jul 31: the syrups use the GOOD vanilla and real beans, not the
+  // cheap stuff. This maps to `vanilla`, which the ingredient registry calls
+  // "Vanilla (imitation)" at $0.07/tbs — so the resolved cost is far too low
+  // and the $7.17 ANCHOR was right all along.
+  //
+  // I read the gap the other way round first and told Kevin the anchor was
+  // stale. It was not. Left un-repriced deliberately: this is a COMPOUND LINE
+  // ("extract + beans") and splitting it with real prices is Walk 1 work, which
+  // is still open and must not be guessed at. The anchor holds the truth until
+  // then, and the drift the margin check reports is the correct signal.
   'House vanilla extract + beans': { id: 'vanilla', conv: () => 4 },  // composed-ok: beans are the input to the extract; not a separate ingredient, same vanilla id
   'Brown + white sugar':    { id: 'white_sugar', conv: () => 1.5 },  // composed-ok: two grades of sugar at ~equal price; one white_sugar id is correct
   'Sugar + karo + cocoa + vanilla': { id: 'white_karo', conv: () => 1 },  // composed-ok: the white_karo id IS the composite fudge-sugar cost

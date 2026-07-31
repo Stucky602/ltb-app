@@ -341,15 +341,31 @@ const SAMPLE_ORDERS = [
 {
   const CUMIN = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
   const has16 = (variant) => containerTypesFor({ name: CUMIN, variant }).includes('round16');
+  // "Does this plate ship a rice container" — ANY rice container. Since Jul 31
+  // that is a round16 on a Small and a round32 on a Large, so a check pinned to
+  // round16 silently means "small only" and reported a Large as riceless.
+  const hasRiceContainer = (variant) => {
+    const t = containerTypesFor({ name: CUMIN, variant });
+    return t.includes('round16') || t.includes('round32');
+  };
 
   ok(!has16('Mushroom, Small (~3-4)'), 'the mushroom variant gets NO rice container');
   ok(!has16('Mushroom, Large (~6-8) + Asian Greens (1 lb)'), 'nor does the mushroom variant with greens');
   ok(has16('Beef, Small (~3-4)'), 'the beef variant gets the rice container');
   ok(has16('Lamb, Small (~3-4)'), 'so does the lamb variant');
 
-  // Scaling still applies on top of the branch.
+  // SCALING CHANGED Jul 31, and this assertion encoded the old rule. Kevin's
+  // Walk 2 answer: a Large does not get two 16 oz rounds of rice, it gets ONE
+  // 32 oz round holding 4 cups. Rice is the only place in the model where
+  // scaling changes the container TYPE instead of the count, which is why
+  // byVariant entries bypass the portion multiplier entirely.
   const lg = containerTypesFor({ name: CUMIN, variant: 'Lamb, Large (~6-8)' });
-  ok(lg.filter(t => t === 'round16').length === 2, 'a large rice variant doubles the rice container');
+  ok(lg.filter(t => t === 'round32').length === 1, 'a large rice variant gets ONE 32 oz round');
+  ok(lg.filter(t => t === 'round16').length === 0, 'and no 16 oz round at all');
+
+  // Flat entries must keep doubling — the change is scoped to sized entries.
+  const chili = containerTypesFor({ name: 'Chili', variant: 'Large (~8)' });
+  ok(chili.filter(t => t === 'round48').length === 2, 'a flat map still doubles on a Large');
 
   // THE INVARIANT THAT MATTERS: the container and the recipe must never
   // disagree about whether this plate has rice. They are computed in different
@@ -359,8 +375,8 @@ const SAMPLE_ORDERS = [
   for (const v of ['Mushroom, Small (~3-4)', 'Beef, Small (~3-4)', 'Lamb, Large (~6-8)']) {
     const resolved = resolveDishVariant(CUMIN, v) || [];
     const hasRice = resolved.some(r => r.id === 'rice' && r.qty > 0);
-    ok(hasRice === has16(v),
-      `${v}: rice in the recipe (${hasRice}) matches the rice container (${has16(v)})`);
+    ok(hasRice === hasRiceContainer(v),
+      `${v}: rice in the recipe (${hasRice}) matches the rice container (${hasRiceContainer(v)})`);
   }
 }
 
@@ -491,6 +507,78 @@ const SAMPLE_ORDERS = [
   const unmapped = DISHES.filter(d => !containersForDish(d.name));
   ok('every dinner still has a container mapping', unmapped.length === 0,
     unmapped.map(d => d.name).join(', '));
+}
+
+
+// ── Variant-aware maps (Jul 31, the rice rule) ─────────────────────────────
+//
+// Rice is the only place in this model where scaling changes the container
+// TYPE rather than the count: 2 cups in a round16 on a Small, 4 cups in a
+// round32 on a Large. Nothing could express that before, so every rice dish
+// was recorded with a flat round16 whatever size shipped.
+{
+  const { containerEntryFor, DISH_CONTAINERS } = await import('../src/containers.js');
+
+  ok(typeof containerEntryFor === 'function', 'the raw-entry accessor exists');
+
+  // Flat entries must behave EXACTLY as before, or every existing call site
+  // silently changes meaning.
+  ok(JSON.stringify(containersForDish('Chili')) === JSON.stringify({ round48: 1 }),
+    'a flat map ignores the variant argument');
+  ok(JSON.stringify(containersForDish('Chili', 'Large (~8)')) === JSON.stringify({ round48: 1 }),
+    'and returns the same thing when one is supplied');
+
+  // The rule itself, on every rice dish.
+  const RICE = [
+    ['Gumbo', 'Small (split order, ~4)', 'Large (~8)'],
+    ['Indian Style Curry', 'Chicken, Small (~4-5)', 'Chicken, Large (~8-10)'],
+    ['Leblanc Inspired Japanese Curry', 'Small (split order, ~4)', 'Large (~8)'],
+    ['Mapo Eggplant', 'Small (~4-5 servings)', 'Large (~8-10 servings)'],
+    ['Bo Ssam', 'Small (~4 servings)', 'Large (~8 servings)'],
+  ];
+  for (const [name, small, large] of RICE) {
+    const s16 = containersForDish(name, small);
+    const l32 = containersForDish(name, large);
+    ok(s16 && s16.round16 === 1 && !s16.round32, `${name} Small takes a round16`);
+    ok(l32 && l32.round32 === 1 && !l32.round16, `${name} Large takes a round32 instead`);
+  }
+
+  // A sized entry must NOT also be doubled by the portion multiplier, or a
+  // Large gets scaled twice — the failure this whole shape exists to avoid.
+  const lgTypes = containerTypesFor({ name: 'Gumbo', variant: 'Large (~8)' });
+  ok(lgTypes.filter(t => t === 'round32').length === 1,
+    'a sized entry bypasses the portion multiplier');
+  ok(lgTypes.filter(t => t === 'round48').length === 1,
+    'including the parts of its base map');
+
+  // Gumbo carries the filé cup at every size (Walk 2: the customer thickens it).
+  ok(containersForDish('Gumbo', 'Small (split order, ~4)').cup2 === 1
+    && containersForDish('Gumbo', 'Large (~8)').cup2 === 1,
+    'the gumbo file cup rides every size');
+
+  // Tex-Mex: rice AND beans are both size-dependent, so a Large is two round32s.
+  const tmS = containersForDish('Tex-Mex Kit', 'Pulled Pork, Small (~5-6)');
+  const tmL = containersForDish('Tex-Mex Kit', 'Pulled Pork, Large (~9-10)');
+  ok(tmS.round16 === 2, 'a small Tex-Mex takes two round16s, rice and beans');
+  ok(tmL.round32 === 2, 'and a large takes two round32s');
+  ok(tmS.round48 === 1 && tmL.round48 === 2,
+    'a large Tex-Mex takes TWO protein containers — stated, because a sized entry bypasses doubling');
+
+  // Cumin: the mushroom versions ship no rice container at all.
+  const CU = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
+  ok(!containersForDish(CU, 'Mushroom, Large (~6-8)').round16
+    && !containersForDish(CU, 'Mushroom, Large (~6-8)').round32,
+    'a mushroom Cumin variant gets no rice container');
+  ok(containersForDish(CU, 'Beef, Large (~6-8)').round32 === 1,
+    'while a beef Large gets the round32');
+
+  // Every byVariant entry needs a catch-all last, or a variant nobody
+  // anticipated falls through to whatever happened to be at the end.
+  for (const [id, entry] of Object.entries(DISH_CONTAINERS)) {
+    if (!entry || !entry.byVariant) continue;
+    const last = entry.byVariant[entry.byVariant.length - 1];
+    ok(last && last.match.test('anything at all'), `${id} ends with a catch-all rule`);
+  }
 }
 
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

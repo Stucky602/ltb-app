@@ -3,6 +3,8 @@
 // dishes, and exactly how to bring each home — all reheat/sear/frozen wording
 // pulled from the canonical engine (buildReheatBlocks + itemHandling), so this
 // page can never disagree with the order card or the labels.
+import { reheatDataFor, beforeYouStart, narrateBeforeYouStart, storagePlan, holdBackBeforeFreezing, narrateStoragePlan, heatOnlyWhatYouNeed, narrateHeatOnly } from './reheatData.js';
+import { dishIdFor } from './dishIdentity.js';
 import { buildReheatBlocks, itemHandling, rescueFor } from './recipes.js';
 import { expandOrderForReheat, omakaseCustomReheat, omakaseItemsOf } from './omakase.js';
 import { isPerLbItem } from './menu.js';
@@ -65,6 +67,63 @@ export function companionContext(order, opts = {}) {
     pairingText = `\nDRINK PAIRINGS (what their page recommends):\n${oneBottle ? oneBottle + '\n' : ''}${secs}`;
   }
 
+  // ── WALK 2 DATA, for the dishes in THIS order ─────────────────────────
+  //
+  // Kevin's own ruling: his Walk 2 answers are too detailed for a reheat card,
+  // and the ask box is where they belong. The mechanism already existed and was
+  // grounded on the order, the cards, the cues, and the pairings — it was
+  // missing exactly this.
+  //
+  // PER DISH IN THE ORDER, never the whole corpus. That is what keeps the token
+  // cost flat as the corpus grows, and it is the same reason reheat blocks are
+  // built per order rather than dumped.
+  let walkText = '';
+  {
+    const parts = [];
+    for (const it of (order.items || [])) {
+      const entry = reheatDataFor(dishIdFor(it.name));
+      if (!entry) continue;
+      const bits = [];
+
+      const t = entry.timing;
+      if (t && (t.min != null || t.max != null)) {
+        const span = t.min === t.max ? `${t.min} min` : `${t.min}-${t.max} min`;
+        // Say WHY it is a range. "30-60 minutes" with no reason reads as vague;
+        // "governed by your rice" reads as honest.
+        const gov = t.governor === 'rice' ? ', governed by the rice'
+          : t.governor === 'pasta' ? ', mostly waiting for water'
+          : '';
+        bits.push(`time: ${span}${gov}${t.active ? ` (about ${t.active} min hands-on)` : ''}`);
+      }
+      if (t && t.waitFirst) bits.push(`before starting: ${t.waitFirst.minutes} min to ${t.waitFirst.why}`);
+      if (t && t.sequence) bits.push(`order of work: ${t.sequence}`);
+
+      for (const c of entry.components) {
+        const fz = c.freeze || {};
+        // The hedge travels with the value. An untested verdict must never read
+        // as a guarantee.
+        const hedge = fz.tested === false ? ' (untested, Kevin\u2019s best guess)' : '';
+        const fzTxt = fz.verdict && fz.verdict !== 'na'
+          ? `freeze ${fz.verdict}${hedge}${fz.note ? ` — ${fz.note}` : ''}` : null;
+        const dvTxt = c.divide && c.divide.note ? `dividing: ${c.divide.note}` : null;
+        if (fzTxt || dvTxt) bits.push(`  ${c.key}: ${[fzTxt, dvTxt].filter(Boolean).join('; ')}`);
+      }
+
+      if (entry.methods) {
+        bits.push('methods, best first: ' + entry.methods
+          .map(m => `${m.name} — ${m.how}${m.why ? ` (${m.why})` : ''}`).join(' | '));
+      }
+      for (const line of (entry.safety || [])) bits.push(`SAFETY: ${line}`);
+      if (entry.equipment.length) {
+        bits.push('equipment: ' + entry.equipment.map(e => `${e.vessel}${e.note ? ` (${e.note})` : ''}`).join(', '));
+      }
+      for (const line of (entry.askBox || [])) bits.push(line);
+
+      if (bits.length) parts.push(`${it.name}\n${bits.join('\n')}`);
+    }
+    if (parts.length) walkText = '\n\nLIVING WITH THESE DISHES (answer from this, it is Kevin\u2019s own):\n' + parts.join('\n\n');
+  }
+
   // Reheat history — what they told Kevin last time about these same dishes.
   // The page has always ASKED for feedback and never given any back; somebody
   // who reported a problem and then received the same generic instructions was
@@ -85,7 +144,7 @@ export function companionContext(order, opts = {}) {
       (missing.length ? ` Not yet tried: ${missing.join(', ')}.` : ` Has tried everything.`);
   }
 
-  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}${historyText}`;
+  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}${historyText}${walkText}`;
 }
 
 export function companionHtml(order, pageId = '', opts = {}) {
@@ -94,6 +153,54 @@ export function companionHtml(order, pageId = '', opts = {}) {
   // What they said last time about these same dishes. Reads as "here is what you
   // told me", never as "you got this wrong" — a person cooking dinner does not
   // need a report card, and a bad verdict is a technique signal for Kevin.
+  // ── BEFORE YOU START ──────────────────────────────────────────────────
+  // First thing on the page, because the only genuinely urgent item on it is
+  // the temper — and somebody who reads it after starting has already lost the
+  // half hour. Flagged, and absent entirely when there is nothing to say.
+  // ── WHAT TO EAT FIRST ─────────────────────────────────────────────────
+  // Placed AFTER the reheat cards, not before. Before You Start is urgent —
+  // there is a temper to begin. This is not: it answers what to do with the
+  // other three containers once tonight's dinner is handled, which is a
+  // question you have while putting things away.
+  // ── COOKING FOR FEWER ─────────────────────────────────────────────────
+  // Sits with the storage plan rather than the urgent card: both are about
+  // what happens to the food AFTER tonight's decision is made.
+  let heatOnlyHtml = '';
+  if (opts.heatOnly !== false) {
+    const items = (order.items || [])
+      .map(it => ({ name: it.name, entry: reheatDataFor(dishIdFor(it.name)) }))
+      .filter(x => x.entry);
+    const lines = narrateHeatOnly(heatOnlyWhatYouNeed(items));
+    if (lines.length) {
+      heatOnlyHtml = '<div class="fewer"><h3>Cooking for fewer tonight?</h3>'
+        + lines.map(l => '<p>' + esc(l) + '</p>').join('') + '</div>';
+    }
+  }
+
+  let storageHtml = '';
+  if (opts.storagePlan !== false) {
+    const items = (order.items || [])
+      .map(it => ({ name: it.name, entry: reheatDataFor(dishIdFor(it.name)) }))
+      .filter(x => x.entry);
+    const lines = narrateStoragePlan(storagePlan(items), holdBackBeforeFreezing(items));
+    if (lines.length) {
+      storageHtml = '<div class="store"><h3>What to eat first</h3>'
+        + lines.map(l => '<p>' + esc(l) + '</p>').join('') + '</div>';
+    }
+  }
+
+  let beforeYouStartHtml = '';
+  if (opts.beforeYouStart !== false) {
+    const entries = (order.items || [])
+      .map(it => reheatDataFor(dishIdFor(it.name)))
+      .filter(Boolean);
+    const lines = narrateBeforeYouStart(beforeYouStart(entries));
+    if (lines.length) {
+      beforeYouStartHtml = '<div class="bys"><h3>Before you start</h3>'
+        + lines.map(l => '<p>' + esc(l) + '</p>').join('') + '</div>';
+    }
+  }
+
   const history = (opts.reheatHistory || []);
   const historyHtml = history.length ? (
     '<div class="hist"><h3>Last time</h3>' + history.map(h => {
@@ -627,6 +734,20 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .feeds { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #24413a; color: #5DCAA5; font-size: 11px; font-weight: 700; vertical-align: middle; }
   .card { background: #1c2422; border: 1px solid #2d3a36; border-radius: 14px; padding: 15px 17px; margin: 12px 0; }
     .hist { background:rgba(93,202,165,0.07); border:1px solid rgba(93,202,165,0.35); border-radius:12px; padding:14px 16px; margin:0 0 14px; }
+    .safety { font-size:12.5px; line-height:1.5; color:#9aa5a0; background:rgba(255,255,255,0.03);
+      border-left:2px solid #3a453f; border-radius:0 8px 8px 0; padding:9px 12px; margin:0 0 14px; }
+    .bys { background:rgba(212,160,80,0.07); border:1px solid rgba(212,160,80,0.35); border-radius:12px;
+      padding:14px 16px; margin:0 0 14px; }
+    .store { background:rgba(93,202,165,0.06); border:1px solid rgba(93,202,165,0.3); border-radius:12px;
+      padding:14px 16px; margin:0 0 14px; }
+    .fewer { background:rgba(255,255,255,0.03); border:1px solid #2d3a36; border-radius:12px;
+      padding:14px 16px; margin:0 0 14px; }
+    .fewer h3 { margin:0 0 6px; font-size:12px; letter-spacing:0.6px; text-transform:uppercase; color:#9aa5a0; }
+    .fewer p { margin:5px 0; font-size:14px; line-height:1.55; }
+    .store h3 { margin:0 0 6px; font-size:12px; letter-spacing:0.6px; text-transform:uppercase; color:#5DCAA5; }
+    .store p { margin:5px 0; font-size:14px; line-height:1.55; }
+    .bys h3 { margin:0 0 6px; font-size:12px; letter-spacing:0.6px; text-transform:uppercase; color:var(--gold,#D4A050); }
+    .bys p { margin:5px 0; font-size:14px; line-height:1.55; }
     .hist h3 { margin:0 0 6px; font-size:12px; letter-spacing:0.6px; text-transform:uppercase; color:#5DCAA5; }
     .hist p { margin:4px 0; font-size:14px; line-height:1.55; }
   .card h3 { margin: 0; font-size: 15.5px; color: #5DCAA5; font-weight: 800; }
@@ -677,7 +798,22 @@ export function companionHtml(order, pageId = '', opts = {}) {
   </div>
   <h1>${firstName}, here's your kitchen page</h1>
   <div class="sub">Everything in your order, and exactly how to bring each dish home for its best.</div>
+  <!-- GENERAL FOOD SAFETY, Kevin's ruling (Walk 2 cross-cutting section).
+       Generic and one line, at the top, deliberately.
+
+       NO RICE-SPECIFIC WARNING: he does not cook the rice, it ships uncooked,
+       and what a customer does with their own leftovers is theirs. His stated
+       concern is forward-looking — if he ever ships COOKED rice in a bag, this
+       becomes his problem and needs revisiting.
+
+       The wording avoids scolding. It is the one line he asked for, not a
+       policy, and a kitchen page that opens with a lecture is a kitchen page
+       nobody reads twice. -->
+  ${beforeYouStartHtml}
+  <div class="safety">Reheat only what you plan to eat. Anything that comes back out of the fridge is best warmed once rather than again and again.</div>
   ${historyHtml}
+  ${storageHtml}
+  ${heatOnlyHtml}
   ${passportStrip}
   ${welcomeCard}
   <div class="card"><h3>Your order</h3><ul>${itemRows}</ul></div>
@@ -695,7 +831,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   </div>
   <div class="card ask">
     <h3>Ask about your order</h3>
-    <p class="asknote">Not sure about a reheat, a swap, or how long something keeps? Ask here. <b>You get 5 questions on this page</b>, so make them count. For anything about allergies or ingredients, text Kevin directly.</p>
+    <p class="asknote">There is more here if you want it — how long each dish really takes, what freezes and what does not, and how to cook for fewer people tonight. Ask below. <b>You get 5 questions on this page.</b> For anything about allergies or ingredients, text Kevin directly.</p>
     <div id="thread"></div>
     <div class="askrow">
       <input id="q" type="text" maxlength="300" placeholder="e.g. Can I reheat the gumbo in a microwave?" autocomplete="off">

@@ -37,6 +37,9 @@ export const FLAGS = [
   { id: 'serveTogether', label: 'Serve-together timeline', why: 'Coordinated reheat schedule. Needs the reheat walk first.' },
   { id: 'awayMode', label: 'Away mode', why: 'Lets a customer say they are away for a week.' },
   { id: 'jarReturn', label: 'Jar returns', why: 'Shows how many jars a household holds.' },
+  { id: 'beforeYouStart', label: 'Before you start', why: 'A card at the top of the kitchen page: how long, what to do first, what pans you need.' },
+  { id: 'storagePlan', label: 'What to eat first', why: 'Per-component storage plan: what to eat now, what holds, what to freeze.' },
+  { id: 'heatOnly', label: 'Cooking for fewer', why: 'How to heat part of an order without ruining the rest.' },
 ];
 
 export const FLAG_IDS = FLAGS.map(f => f.id);
@@ -69,6 +72,9 @@ export const DEFAULT_FLAGS = {
   serveTogether: { stage: 'off' },
   awayMode: { stage: 'off' },
   jarReturn: { stage: 'off' },
+  beforeYouStart: { stage: 'owner' },
+  storagePlan: { stage: 'owner' },
+  heatOnly: { stage: 'owner' },
 };
 
 export function normalizeFlags(raw) {

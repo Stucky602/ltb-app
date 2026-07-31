@@ -130,7 +130,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Yogurt-Braised Lamb",
     title: "Yogurt-Braised Lamb, Alkaline Noodles, Aleppo-Mint Brown Butter",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.WOW,  // Walk 4, Jul 2026: the one dish here Kevin is not excited to EAT: "a lamb yogurt noodle just doesn't sound appealing to me".
+
 
     origin: "Persia &middot; India &middot; Japan &middot; Turkey",
     diet: null,
@@ -210,7 +212,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Octopus Soy-Dashi-Pimenton",
     title: "Octopus, Soy-Dashi-Piment&oacute;n, Baby Golds",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB. Explicitly NOT a sourcing problem.
+
 
     origin: "Galicia &middot; Japan",
     diet: "pesc",
@@ -223,7 +227,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Three-Branch Caramel Pork",
     title: "Three-Branch Caramel Pork",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "China &middot; Vietnam &middot; Philippines",
     diet: null,
@@ -236,7 +242,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Kufteh Tabrizi",
     title: "Kufteh Tabrizi, the Sicilian Reading",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Persia &middot; Azerbaijan &middot; Sicily",
     diet: null,
@@ -250,7 +258,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Garlic in Two Times Pork Chop",
     title: "Thick-Cut Pork Chop, Garlic in Two Times",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "House programs &middot; France &middot; Korea by Japan",
     diet: null,
@@ -263,7 +273,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Wok-Smoked Tri-Tip",
     title: "Wok-Smoked Tri-Tip, Santa Maria Beans",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Santa Maria Valley &middot; Sichuan &middot; France",
     diet: null,
@@ -300,7 +312,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Georgia Bomb Meatballs",
     title: "Georgia Bomb Meatballs",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "American South · China · France",
     diet: null,
@@ -322,7 +336,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Quail Black Oil Celery Root",
     title: "Quail, Black Oil, Celery Root",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Japan · Oaxaca · Turkey · Texas",
     diet: null,
@@ -334,7 +350,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Viet-Cajun Skillet Boil",
     title: "Viet-Cajun Skillet Boil",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Houston · Vietnam · Louisiana · Texas Gulf",
     diet: "pesc",
@@ -357,7 +375,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Hoja Santa Pork Tenderloin",
     title: "Hoja Santa Pork Tenderloin, Fil&eacute; Pan Sauce",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Veracruz · Louisiana · Texas",
     diet: null,
@@ -369,7 +389,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Charred Allium Trinity Pasta",
     title: "Charred Allium Trinity Pasta",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Korea · France · Italy · Vegetarian",
     diet: "veg",
@@ -404,7 +426,9 @@ export const PIPELINE_DISHES = [
   {
     key: "Blackened Hanger Steak Coconut Corn",
     title: "Blackened Hanger Steak, Coconut Creamed Corn, Tomato Sambol",
-    status: 'cut',  // cutGate not yet recorded
+    status: 'cut',
+    cutGate: CUT_GATES.COOK,  // Walk 4, Jul 2026: excited to eat, not right for LTB.
+
 
     origin: "Sri Lanka · Louisiana · Texas",
     diet: null,

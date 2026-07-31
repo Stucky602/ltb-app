@@ -203,4 +203,10 @@ export const DOSSIER_SEED = [
     type: 'provenance', personal: true, origin: 'harvested',
     text: 'My risotto is the best I have ever had, and people in the industry have told me it is the best thing they have eaten. You will never see it on the LTB menu, because it cannot be made safe to reheat a day later. I am writing it down anyway, because if I only recorded what I could sell you would think the reheat format was the whole of my cooking. It is not.',
   },
+  {
+    subject: { kind: 'dish', dish: 'Orecchiette with Bitter Greens and Anchovies' },
+    type: 'adjustment',
+    origin: 'harvested',
+    text: "I'm unsure whether this one freezes well and I need to test it. Everything else on the menu I've answered from experience; this is the one where I'm guessing. From what I can think of it should work, but until I've actually frozen and thawed a batch, treat that as a hunch rather than a fact.",
+  },
 ];

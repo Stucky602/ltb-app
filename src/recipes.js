@@ -294,8 +294,19 @@ export function buildReheatBlocks(order) {
       // Same idea: only goes in the shared noodle/pasta card when a noodle
       // variant was actually ordered. The Beef variant gets its own card
       // (added near Bo Ssam's dedicated block below).
+      // NOT the shared pasta card. Every Cumin variant ships a bag holding
+      // everything but the carb, and that bag reheats in simmering water — the
+      // shared card says to warm the sauce on the stove, which is wrong for a
+      // sealed bag, and the pasta label cue then gets stuck ON that bag saying
+      // the same thing. Both variants have dedicated cards below.
       seen.add(name);
-      if (cuminNoodleOrdered) byBucket.pasta.push(name);
+      return;
+    }
+    if (name === 'Indian Style Curry') {
+      // Dedicated card (below). The shared stovetop text is nearly right but
+      // cannot mention the conditional bag, and running both produced two
+      // cards saying overlapping things.
+      seen.add(name);
       return;
     }
     if (name === 'Mushroom Ragu') {
@@ -329,7 +340,7 @@ export function buildReheatBlocks(order) {
 
     if (regularBagged.length) {
       let body = 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and plate. Microwave or stovetop work too if you prefer. See the main menu for additional details.';
-      if (listHasRice(regularBagged)) body += ' Cook the included rice fresh.';
+      if (listHasRice(regularBagged)) body +=' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
       blocks.push({ title: 'Reheat in the bag', dishes: regularBagged, body });
     }
 
@@ -348,7 +359,7 @@ export function buildReheatBlocks(order) {
   const genericStovetop = byBucket.stovetop.filter(n => !STEW_VEG_COPY[n]);
   if (genericStovetop.length) {
     let body = 'Comes in a container. Warm gently on the stove over medium-low until heated through. If it looks a little thick, add a splash of water to loosen it.';
-    if (listHasRice(genericStovetop)) body += ' Cook the included rice fresh.';
+    if (listHasRice(genericStovetop)) body +=' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
     blocks.push({ title: 'Reheat on the stovetop', dishes: genericStovetop, body });
   }
 
@@ -358,7 +369,7 @@ export function buildReheatBlocks(order) {
   byBucket.stovetop.filter(n => STEW_VEG_COPY[n]).forEach(name => {
     const copy = STEW_VEG_COPY[name];
     let mainBody = copy.main;
-    if (RICE_DISHES.has(name)) mainBody += ' Cook the included rice fresh.';
+    if (RICE_DISHES.has(name)) mainBody +=' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
     blocks.push({ title: name, dishes: [name], body: [mainBody, copy.veg] });
   });
 
@@ -367,16 +378,16 @@ export function buildReheatBlocks(order) {
     const hasP = listHasPasta(byBucket.pasta);
     const hasN = listHasNoodle(byBucket.pasta);
     const carb = hasP && hasN ? 'pasta/noodles' : hasN ? 'noodles' : 'pasta';
-    let body = `Cook the included ${carb} fresh. Warm the sauce gently on the stove, adding a splash of pasta water to loosen if needed, then toss together.`;
-    blocks.push({ title: 'Cook fresh, warm the sauce', dishes: byBucket.pasta, body });
+    let body = `Cook the included ${carb} in lightly salted water. Warm the sauce gently on the stove, adding a splash of pasta water to loosen if needed, then toss together.`;
+    blocks.push({ title: 'Cook the pasta, warm the sauce', dishes: byBucket.pasta, body });
   }
 
   // ── Polenta bag (Saffron Pork Ragu polenta variants) ──────────────────
   if (hasPolenta) {
     blocks.push({
-      title: 'Reheat the polenta bag',
+      title: 'Reheat the ragu and polenta',
       dishes: ['Saffron Pork Ragu'],
-      body: 'Bring a pot of water to a gentle simmer and place the sealed polenta bag in until heated through, then cut open and plate alongside the ragu.',
+      body: 'Two parts: the ragu in a container and the polenta sealed in a bag. Bring a pot of water to a gentle simmer and place the polenta bag in until heated through. While it heats, warm the ragu gently in a pan over medium-low, adding a splash of water if it has tightened. Cut the polenta bag open and plate the ragu alongside.',
     });
   }
 
@@ -459,7 +470,15 @@ export function buildReheatBlocks(order) {
     blocks.push({
       title: 'Sear the pork, warm the sauce, cook the pasta',
       dishes: ['Pork with Mustard Tarragon Cream Sauce'],
-      body: 'Three parts: the pork in a sealed bag, the sauce in a container, and the taglierini to cook fresh. For the pork, pat it very dry, then sear hard on each side in a blazing-hot pan just until deeply browned on each side. Cut it into half-inch to one-inch medallions after searing. Warm the sauce in a saucepan over medium-low, stirring now and then, while you boil your pasta in lightly salted water. Once the pasta is cooked and drained, toss it with the sauce, then plate with the pork on top.',
+      // TEMPER ADDED, Kevin at Walk 2 dish 23: this needs the same 30 minutes
+      // out of the fridge the thick pork chop does. Because he counts temper
+      // time inside the customer total, the headline for this dish moves from
+      // about 20 minutes to about 50 — which is why it has to be the FIRST
+      // thing the card says rather than a note further down.
+      //
+      // Sequencing is his too: water on, then sear, then sauce. Searing early
+      // is deliberate, it buys the pork time to rest before plating.
+      body: 'Start by taking the pork out of the fridge and letting it sit on the counter for 30 minutes — it is a thick cut and it sears better warm. Three parts: the pork in a sealed bag, the sauce in a container, and taglierini to cook. Put your pasta water on first. Then pat the pork very dry and sear it hard on each side in a blazing-hot pan just until deeply browned, and cut it into half-inch to one-inch medallions after searing. Warm the sauce in a saucepan over medium-low, stirring now and then, while the pasta boils in lightly salted water. Drain the pasta, toss it with the sauce, and plate with the pork on top.',
     });
   }
 
@@ -468,7 +487,12 @@ export function buildReheatBlocks(order) {
     blocks.push({
       title: 'Assemble at home',
       dishes: byBucket.kit,
-      body: 'Components travel separately with assembly notes. Warm the protein gently before building. The beans travel in a separate bag — warm them on the stovetop or in the microwave.',
+      // REBUILT from Walk 2. The old copy was wrong three ways: it said the
+      // beans travel in a BAG (they are in a container, and they get scooped),
+      // it said "warm the protein gently" with no endpoint, and it never
+      // mentioned toasting the tortillas — which Kevin says is how they should
+      // be eaten. The rice is new to the kit as of Jul 31.
+      body: 'Everything travels separately, so you build it as you go. Scoop as much of the beans as you want into a saucepan over medium-low, stirring now and then, until heated through. The protein comes sitting in its braise: put the portion you want into another pot or pan over medium-low and bring it up until hot. Toast the tortillas in a dry nonstick skillet over medium-low, a few seconds a side. Cook the included rice. The pico is ready as it is, straight from the fridge.',
     });
   }
 
@@ -477,16 +501,61 @@ export function buildReheatBlocks(order) {
     blocks.push({
       title: 'Bo Ssam',
       dishes: ['Bo Ssam'],
-      body: 'The pork comes pre-pulled and sealed in a bag — bring a pot of water to a gentle simmer and place the sealed bag in until heated through. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice fresh.',
+      // THREE METHODS, RANKED BY KEVIN (Walk 2 dish 8), and the ranking is the
+      // point: the bag wins because it remelts the fat evenly.
+      //
+      // THE FIRST FOOD-SAFETY RULE IN THE WHOLE WALK is attached to it. Do not
+      // use the bag unless you are eating most of it, because reheating and
+      // re-chilling repeatedly is a real risk. The oven and microwave routes
+      // exist precisely as the partial-serving answers — for this dish the
+      // divisibility answer and the safety answer are the same answer.
+      body: 'The pork comes pre-pulled and sealed in a bag. The best way is to bring a pot of water to a gentle simmer and put the whole sealed bag in until heated through — it remelts the fat evenly, which nothing else quite does. Use that method when you are eating most of it in one sitting; reheating and re-chilling the same pork over and over is worth avoiding. For a smaller serving, take out what you need and either warm it in a 325F oven for about 10 minutes, or microwave it at 50 percent power for 2 minutes under a damp paper towel, checking and repeating as needed. The pork is forgiving enough that the microwave genuinely works here. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice.',
     });
   }
 
   // ── Cumin Beef/Lamb on Rice (same sauce as the noodle version, rice instead) ──
+  // ── Indian Style Curry ────────────────────────────────────────────────
+  // Kevin picks roughly $2/lb add-on vegetables each week and they sometimes
+  // get a bag; sometimes he bags the protein instead so the curry base stays
+  // vegetarian and a household can split it. That is why the recipe carries an
+  // sv_bag line while the container map has none.
+  //
+  // The wording is PERMANENTLY CONDITIONAL and names neither the vegetables nor
+  // the protein. He explicitly rejected declaring the contents per week — he
+  // does not know until he is grocery shopping — so do not re-pitch a per-week
+  // flag.
+  //
+  // STRAIGHT INTO THE POT, Kevin Jul 31. The first draft said to simmer the bag
+  // in its own water; his Walk 2 protocol for this dish sends BOTH bag types
+  // directly into the curry, matching the change he made to the Leblanc and the
+  // Bourguignon. The draft predated that ruling.
+  //
+  // NOT SAYING WHAT TO DO WITH THE BAG LIQUID IS DELIBERATE. The two cases need
+  // opposite handling: a vegetable bag's liquid is discarded, a protein bag's is
+  // not. The card cannot know which bag it is, so it says nothing rather than
+  // giving the wrong instruction half the time. Kevin has not ruled on this;
+  // until he does, the ask box is the place for it.
+  if (items.some(it => it.name === 'Indian Style Curry')) {
+    blocks.push({
+      title: 'Indian Style Curry',
+      dishes: ['Indian Style Curry'],
+      body: 'Comes in a container. Warm gently on the stove over medium-low until heated through, adding a splash of water if it looks thick. Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way. Depending on the week, a component may come sealed in a bag alongside it. It needs no pot of its own: cut the bag open and add it straight to the curry as it warms.',
+    });
+  }
+
+  if (cuminNoodleOrdered) {
+    blocks.push({
+      title: CUMIN_DUAL,
+      dishes: [CUMIN_DUAL],
+      body: 'Everything but the noodles is sealed in a bag. Bring a pot of water to a gentle simmer and drop the bag in until heated through. While it heats, cook the included noodles in lightly salted water. Cut the bag open, tip it over the drained noodles, and toss.',
+    });
+  }
+
   if (cuminMeatOnRiceOrdered) {
     blocks.push({
       title: CUMIN_DUAL,
       dishes: [CUMIN_DUAL],
-      body: 'Warm the meat and sauce gently on the stove, adding a splash of water to loosen if needed. Cook the included rice fresh and serve the meat over the top.',
+      body: 'Everything but the rice is sealed in a bag. Bring a pot of water to a gentle simmer and drop the bag in until heated through. Cook the included rice, then cut the bag open and spoon the meat and sauce over the top.',
     });
   }
 
@@ -526,6 +595,23 @@ export function buildReheatBlocks(order) {
     });
   }
 
+  // THE RICE-SALTING NOTE APPEARS AT MOST ONCE PER CARD. Several block types
+  // append it independently (stovetop, bagged, the curry card), so an order
+  // holding two rice dishes printed the same joke twice. The first block in
+  // render order keeps it; later blocks fall back to the plain sentence.
+  {
+    const NOTE = ' I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
+    let seen = false;
+    for (const b of blocks) {
+      const strip = (t) => {
+        if (!t.includes(NOTE)) return t;
+        if (!seen) { seen = true; return t; }
+        return t.split(NOTE).join('');
+      };
+      b.body = Array.isArray(b.body) ? b.body.map(strip) : strip(b.body);
+    }
+  }
+
   return blocks;
 }
 
@@ -547,8 +633,17 @@ export const REHEAT_CUES = {
   searProtein: 'Pat very dry, sear hard in a blazing-hot pan',
   stovetop: 'Warm gently on the stovetop',
   stovetopSplash: 'Warm gently on the stove, splash of water if thick',
-  cookFreshPasta: 'Cook pasta fresh, warm the sauce gently',
-  cookFreshNoodle: 'Cook noodles fresh, toss with warmed sauce',
+  // Label cues. "Fresh" swept out Jul 31 on Kevin's ruling: cooking them
+  // implies it, so the word does nothing. Key names are internal and were left
+  // alone deliberately — renaming them is churn with no customer benefit.
+  cookFreshPasta: 'Cook the pasta, warm the sauce gently',
+  cookFreshNoodle: 'Cook the noodles, toss with warmed sauce',
+  // Cumin only. Its bucket is `pasta`, which meant the pasta cue — "cook the
+  // pasta, warm the sauce gently" — was printed on the physical label stuck to
+  // a SEALED BAG. Every Cumin variant ships that bag and it reheats in
+  // simmering water, so the label was telling the customer to do the wrong
+  // thing to the thing they were holding.
+  cuminBag: 'Bag reheats in simmering water; cook the rice or noodles separately',
   keepFrozen: 'KEEP FROZEN until use. Thaw in fridge, use within 3 days',
   toaster: 'Toast from frozen',
   fridge: 'Keep refrigerated',
@@ -571,6 +666,14 @@ export function itemHandling(name, opts = {}) {
   // Dinners: cue derives from the SAME bucket map the order card uses.
   const bucket = DINNER_REHEAT_BUCKET[name];
   if (bucket) {
+    // Cumin is bucketed `pasta` for card routing but its label must describe
+    // the bag, not the pasta. Checked before the bucket map for that reason.
+    if (name === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice') {
+      // Full shape, matching the bucket path below. The first version returned
+      // { cue } alone and silently dropped `reheatable` and `packaging`, which
+      // the label printer reads — a regression hiding inside a copy fix.
+      return { reheatable: true, cue: REHEAT_CUES.cuminBag, packaging: 'per-qty' };
+    }
     const cue =
       bucket === 'bagged' ? REHEAT_CUES.simmerBag
       : bucket === 'pasta' ? REHEAT_CUES.cookFreshPasta

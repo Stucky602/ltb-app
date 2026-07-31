@@ -16,6 +16,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { DISHES, ALL_ALWAYS_ITEMS, ALWAYS_ITEMS, REPORTABLE_DISHES } from '../src/dishes.js';
+import { PIPELINE_DISHES, CUT_GATES } from '../src/pipelineDishes.js';
 import { ALL_DINNERS, ALWAYS_MENU, FULL_MENU, DEFAULT_WEEK } from '../src/menu.js';
 // OFF-MENU, imported rather than retyped. Both checks below used to carry their
 // own hardcoded set, and both still listed Fesenjan after it went LIVE on Jul 29
@@ -2200,6 +2201,40 @@ TAX  0.00
   for (const d of all) {
     if (d.id && !DISH_ID_MANIFEST.includes(d.id)) {
       F('dish-id', `${d.name} has id "${d.id}" which is NOT in DISH_ID_MANIFEST — append it, never edit an existing line`);
+    }
+  }
+}
+
+// ── CUT GATES (Walk 4) ─────────────────────────────────────────────────────
+//
+// Every cut dish records WHY. Kevin answered all twelve outstanding ones in
+// Walk 4, and the answers matter more than the tally: eleven are COOK and one
+// is WOW, with none at all on REHEAT.
+//
+// THE LESSON WORTH KEEPING: Claude proposed all twelve and got eleven wrong,
+// every single one wrongly REHEAT. Reheat survivability is Claude's instinct.
+// Kevin cuts on FIT. Anything that later tries to infer a gate should read this
+// first and then not do that.
+{
+  const cut = PIPELINE_DISHES.filter(d => d.status === 'cut');
+  const ungated = cut.filter(d => !d.cutGate);
+  if (ungated.length) {
+    F('cut-gate', `${ungated.length} cut dish(es) record no gate: ${ungated.map(d => d.title).join(', ')}`);
+  }
+
+  const valid = new Set(Object.values(CUT_GATES));
+  for (const d of cut) {
+    if (d.cutGate && !valid.has(d.cutGate)) {
+      F('cut-gate', `"${d.title}" has gate "${d.cutGate}", which is not one of ${[...valid].join(', ')}`);
+    }
+  }
+
+  // COOK means "not right for LTB", NOT "I do not want to cook it". Kevin
+  // corrected that twice. A dish carrying a cook gate whose note says he did
+  // not fancy cooking it has been recorded with the wrong meaning.
+  for (const d of cut) {
+    if (d.cutGate === CUT_GATES.COOK && /do ?n.t want to cook|too much work|too hard to cook/i.test(d.cutWhy || '')) {
+      F('cut-gate', `"${d.title}" records COOK as reluctance; the gate means business fit, not appetite for the work`);
     }
   }
 }

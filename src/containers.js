@@ -84,8 +84,14 @@ export const CONTAINER_TYPES = {
   // cookie order quietly lands on dinners.
   rectXL:  { label: 'XL rectangle with lid (cookies)', cost: 1.49 },
   jar:     { label: 'Pint mason jar',  cost: 1.12 },
+  // EIGHTH TYPE, added Jul 31. H-E-B 2 oz clear plastic cups WITH LIDS, 50 for
+  // $3.44. At just under seven cents it is by far the cheapest thing in the
+  // fleet — the next cheapest is round8 at $0.29 — so it barely moves a margin
+  // and exists mostly to be COUNTED. Holds the finishing sauces and, from
+  // Walk 2, the gumbo's filé.
+  cup2:    { label: '2 oz cup with lid', cost: 0.0688 },
 };
-export const CONTAINER_TYPE_ORDER = ['rect38', 'round8', 'round16', 'round32', 'round48', 'rectXL', 'jar'];
+export const CONTAINER_TYPE_ORDER = ['rect38', 'round8', 'round16', 'round32', 'round48', 'rectXL', 'jar', 'cup2'];
 
 // Every zeroed tally in this file is built from the registry, never written out
 // by hand. Two hand-written literals used to seed the breakdown, so adding a
@@ -122,7 +128,12 @@ export const emptyBreakdown = () => {
 // correct and the label was correct too, so nothing moved. Recorded because the
 // next person to compare his inventory note against this table will spot the
 // same mismatch and should not have to re-ask.
-export const DEFAULT_OWNED = { rect38: 16, round8: 33, round16: 5, round32: 8, round48: 6, rectXL: 1, jar: 23 };
+// REAL COUNTS, verified against Kevin's app by screenshot in Walk 5 (Jul 30).
+// These were placeholders and three were wrong — round16 said 5 against a real
+// 16, which is the single most-used container on the board. Only bites on a
+// fresh device or a restore, but that is exactly when a wrong number is least
+// likely to be noticed.
+export const DEFAULT_OWNED = { rect38: 15, round8: 30, round16: 16, round32: 5, round48: 6, rectXL: 1, jar: 23, cup2: 20 };
 
 export function normalizeContainerConfig(raw) {
   const owned = {};
@@ -210,7 +221,49 @@ export function normalizeContainerConfig(raw) {
 //
 // dishIdFor follows DISH_RENAMES, so a historical name on an old order still
 // lands on the right dish.
-export function containersForDish(nameOrRecord) {
+// VARIANT-AWARE, added Jul 31 for the rice rule.
+//
+// Everywhere else in this model, scaling from Small to Large means MORE of the
+// same container. Rice is the one place the container TYPE changes instead:
+// Kevin's rule is 2 cups in a round16 for a Small, 4 cups in a round32 for a
+// Large. Nothing here could express that, so every rice dish was recorded with
+// a flat round16 no matter what size went out.
+//
+// An entry is EITHER the old flat map (unchanged, ignores the variant, and
+// every existing call site keeps working untouched) OR:
+//
+//   { base: {...}, byVariant: [ { match: /large/i, map: {...} }, ... ] }
+//
+// The first matching rule wins and its map is MERGED onto base. Rules are
+// ordered, so put the specific ones first and a catch-all last. When no variant
+// is supplied, a byVariant entry falls back to base plus the LAST rule, which
+// is the Small case — the common order, and the safer direction to guess.
+export function containersForDish(nameOrRecord, variantLabel) {
+  if (!nameOrRecord) return null;
+  const id = typeof nameOrRecord === 'string'
+    ? dishIdFor(nameOrRecord)
+    : resolveDishId(nameOrRecord);
+  const entry = (id && DISH_CONTAINERS[id]) || null;
+  if (!entry) return null;
+  if (!entry.byVariant) return entry;
+
+  const rules = entry.byVariant;
+  const label = variantLabel != null
+    ? String(variantLabel)
+    : (typeof nameOrRecord === 'object' && nameOrRecord ? String(nameOrRecord.variant || '') : '');
+
+  let picked = null;
+  if (label) picked = rules.find(r => r.match.test(label)) || null;
+  if (!picked) picked = rules[rules.length - 1];
+
+  const out = { ...(entry.base || {}) };
+  for (const [k, v] of Object.entries(picked.map || {})) out[k] = (out[k] || 0) + v;
+  return out;
+}
+
+// The raw entry, variant rules and all. Anything auditing the MODEL rather than
+// resolving one order wants this — a variant-aware entry has no single truth.
+export function containerEntryFor(nameOrRecord) {
   if (!nameOrRecord) return null;
   const id = typeof nameOrRecord === 'string'
     ? dishIdFor(nameOrRecord)
@@ -229,10 +282,49 @@ export const DISH_CONTAINERS = {
   // recipe, the round16 belongs here. Do not promote "2 cups rice" into a
   // packaging line; that conflates two different objects that happen to get
   // described in the same sentence.
-  'leblanc-inspired-japanese':                     { round16: 1, round48: 1 },  // Leblanc Inspired Japanese Curry
-  'gumbo':                                         { round16: 1, round48: 1 },  // Gumbo
-  'indian-style-curry':                            { round16: 1, round48: 1 },  // Indian Style Curry
-  'mapo-eggplant':                                 { round16: 1, round48: 1 },  // Mapo Eggplant
+  'leblanc-inspired-japanese': {
+    base: { round48: 1, bag: 1 },
+    byVariant: [
+      { match: /large/i, map: { round32: 1 } },
+      { match: /./,      map: { round16: 1 } },
+    ],
+  },
+
+  // ── RICE DISHES: the container TYPE changes with size ────────────────────
+  // Kevin's rule (Walk 2): 2 cups of rice in a round16 for a Small, 4 cups in a
+  // round32 for a Large. Capacity confirmed — 4 cups fits the round32 and the
+  // lid closes, barely. This is the only place in the model where scaling
+  // changes the type rather than the count, which is why byVariant exists.
+  //
+  // Fleet is NOT a concern here and Kevin ruled so explicitly: he owns 5
+  // round32 against 16 round16, most people order the Small, and if a Large
+  // comes in he picks more up at H-E-B along with everything else.
+  'gumbo': {
+    // The cup2 is the FILÉ, added Walk 2: the gumbo now leaves the kitchen
+    // without its final thickening and the customer sprinkles their own in.
+    base: { round48: 1, cup2: 1 },
+    byVariant: [
+      { match: /large/i, map: { round32: 1 } },
+      { match: /./,      map: { round16: 1 } },
+    ],
+  },
+  'indian-style-curry': {
+    // The bag is CONDITIONAL — Kevin bags roughly $2/lb of add-on vegetables
+    // some weeks, or the protein for one specific household. Not modelled here
+    // because it is not a fact about the size.
+    base: { round48: 1 },
+    byVariant: [
+      { match: /large/i, map: { round32: 1 } },
+      { match: /./,      map: { round16: 1 } },
+    ],
+  },
+  'mapo-eggplant': {
+    base: { round48: 1 },
+    byVariant: [
+      { match: /large/i, map: { round32: 1 } },
+      { match: /./,      map: { round16: 1 } },
+    ],
+  },
   'thai-basil-chicken-pad':                        { round16: 1, bag: 1 },  // Thai Basil Chicken (Pad Krapow Gai)
   'texas-gulf-shrimp-or-tofu':                     { round16: 1, bag: 1 },  // Texas Gulf Shrimp or Tofu and Chinese Broccoli
   'shrimp-or-tofu-with':                           { round16: 1, bag: 1 },  // Shrimp or Tofu with Asparagus in Black Bean Sauce
@@ -243,8 +335,27 @@ export const DISH_CONTAINERS = {
   // it follows the rice exactly — Beef and Lamb variants get it, Mushroom does
   // not. Resolved at breakdown time in containerTypesFor, not here, because the
   // mapping is keyed by DISH and this is the one dish that is really two.
-  'cumin-mushroom-noodles-cumin':                  { round16: 1, bag: 1 },  // Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice
-  'bo-ssam':                                       { round8: 1, round16: 1, bag: 1 },  // Bo Ssam
+  'cumin-mushroom-noodles-cumin': {
+    // TWO CORRECTIONS from Walk 2. The MUSHROOM versions carry no rice at all —
+    // they are bag-plus-noodle-pack, and the flat map gave every variant a
+    // round16 it never shipped. Only the beef and lamb versions get rice, and
+    // then the size rule applies. Noodles are a passthrough and never appear.
+    base: { bag: 1 },
+    byVariant: [
+      { match: /mushroom/i,                    map: {} },
+      { match: /(beef|lamb).*large/i,          map: { round32: 1 } },
+      { match: /./,                            map: { round16: 1 } },
+    ],
+  },
+  'bo-ssam': {
+    // round8 is the ginger scallion sauce; the kimchi is a passthrough in its
+    // own store-bought container and is not tracked here.
+    base: { round8: 1, bag: 1 },
+    byVariant: [
+      { match: /large/i, map: { round32: 1 } },
+      { match: /./,      map: { round16: 1 } },
+    ],
+  },
 
   // Pasta sauces and lighter braises.
   'bolognese':                                     { round32: 1 },  // Bolognese
@@ -259,7 +370,7 @@ export const DISH_CONTAINERS = {
   'bone-in-pork-rib-chop-with':                    { round16: 1, rect38: 1, bag: 2 },  // Bone-In Pork Rib Chop with All the Fixings
   // AMBIGUITY 6b: Kevin confirmed bag x1, but his own note says "chop and purée
   // in the bags", plural. Left at 1 pending his answer rather than rounded up.
-  'pork-chop-with-kabocha-pur-e':                  { rect38: 1, bag: 1 },  // Pork Chop with Kabocha Purée and Charred Broccolini
+  'pork-chop-with-kabocha-pur-e':                  { rect38: 1, bag: 2 },  // Pork Chop with Kabocha Purée and Charred Broccolini  // TWO bags: pork and kabocha puree (Walk 2 dish 23)
   'steak-au-poivre':                               { round16: 1, bag: 3 },  // Steak au Poivre
   'pork-with-mustard-tarragon':                    { round16: 1, bag: 1 },  // Pork with Mustard Tarragon Cream Sauce
 
@@ -269,11 +380,29 @@ export const DISH_CONTAINERS = {
   'pappardelle-with-vegetables':                   { bag: 1 },  // Pappardelle with Vegetables and Mint
   'coriander-lamb-steak-over':                     { bag: 2 },  // Coriander Lamb Steak over Gigantes Beans
 
-  'tex-mex-kit':                                   { round16: 1, round32: 1, round48: 1 },  // Tex-Mex Kit
+  'tex-mex-kit': {
+    // REBUILT from Walk 2. The old flat map was wrong twice over: it did not
+    // vary by size, and it did not carry the rice the kit is supposed to
+    // include. Kevin: "odd, I thought it came with rice. It should if not."
+    //
+    // Per size: rice AND beans each take a round16 on a Small and a round32 on
+    // a Large; the protein sits in its braise in the round48. Tortillas are a
+    // passthrough. So a Large is TWO round32s, not one.
+    // Kevin, Jul 31: a Large DOES take two protein containers. Because a sized
+    // entry bypasses the portion multiplier, the doubling has to be stated here
+    // rather than inferred — which is the tradeoff that shape buys.
+    byVariant: [
+      { match: /large/i, map: { round48: 2, round32: 2 } },
+      { match: /./,      map: { round48: 1, round16: 2 } },
+    ],
+  },
 
   // Always-items, settled separately by Kevin.
   'chocolate-chip-cookies':                        { rectXL: 1 },  // Chocolate Chip Cookies
-  'brownies':                                      { round48: 1 },  // Brownies
+  // Kevin, Jul 31: brownies get the same XL rectangle as the cookies. This said
+  // round48 and was a LIVE wrong value — costed 11 cents light and counted
+  // against the braise workhorse instead of the one XL he owns.
+  'brownies':                                      { rectXL: 1 },
   'peanut-butter-fudge':                           { rect38: 1 },  // Peanut Butter Fudge
 
   // FRUIT. All three come in the 38 oz rectangle and none of them was linked,
@@ -479,13 +608,25 @@ export function containerTypesFor(it) {
   // one place the rule lives.
   const mixForItem = containersForDish(it);
   if (mixForItem) {
-    const mult = portionMultiplier(it);
+    // A byVariant entry states the FINAL answer for that size, so the portion
+    // multiplier must not run on top of it or a Large gets scaled twice. This
+    // is the whole reason the rice rule needed a new shape: everywhere else
+    // Large means "two of the same container" and the multiplier is right;
+    // for rice the TYPE changes instead and there is nothing left to double.
+    const sized = !!containerEntryFor(it) && !!containerEntryFor(it).byVariant;
+    const mult = sized ? 1 : portionMultiplier(it);
     const out = [];
     // The one dish that is really two plates in one entry. Its round16 is the
     // rice container, so it appears only on the variants that come with rice.
     // Deliberately the SAME test riceUnits uses in dishCosting.js, so a dish
     // can never be charged for a rice container it did not get, or vice versa.
-    const skipRiceContainer = it.name === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice'
+    // Cumin's mushroom-has-no-rice rule moved INTO its byVariant map on Jul 31,
+    // so this hardcoded branch would be a second implementation of the same
+    // thing. Kept for flat entries only, which is now nothing — left in place
+    // rather than deleted because dishCosting.js runs the identical test for
+    // riceUnits and the two must not drift apart.
+    const skipRiceContainer = !sized
+      && it.name === 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice'
       && !/^(beef|lamb),/i.test(String(it.variant || ''));
     for (const [type, n] of Object.entries(mixForItem)) {
       if (type === 'round16' && skipRiceContainer) continue;

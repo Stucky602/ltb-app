@@ -584,10 +584,24 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
 
             {pipeGroups.cut.length > 0 && (
               <details style={{ marginTop: 10 }}>
+                {/* KEVIN'S RULING, Walk 4: a cut dish is NOT a failure. It made
+                    the pipeline, which means it cleared a bar, and it is likely
+                    tasty — it is simply not right for the menu. This has to read
+                    as a record of where the line sits, not a list of things that
+                    flopped.
+
+                    "Failed the cook gate" was exactly the wrong framing, and
+                    COOK does not even mean what it sounds like: he corrected it
+                    twice to mean "not right for LTB", NOT "I do not want to
+                    cook it". Several of these he would happily cook. */}
                 <summary style={{ fontSize: 12, color: C.dim, cursor: 'pointer', userSelect: 'none' }}>
-                  Graveyard · {pipeGroups.cut.length} cut
+                  Cut from the menu · {pipeGroups.cut.length}
                 </summary>
                 <div style={{ marginTop: 8, borderLeft: '2px solid ' + C.dim, paddingLeft: 10 }}>
+                  <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.45, marginBottom: 8, fontStyle: 'italic' }}>
+                    Every one of these cleared the bar to make the pipeline. This is
+                    a record of where the line sits, not a list of things that flopped.
+                  </div>
                   {pipeGroups.cut.map(d => (
                     <div key={d.key} style={{ marginBottom: 8 }}>
                       <button
@@ -597,8 +611,9 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
                         {d.title}
                       </button>
                       <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>
-                        {d.cutGate
-                          ? `Failed the ${d.cutGate} gate.`
+                        {d.cutGate === 'cook' ? 'Not right for LTB — exciting to eat, wrong fit for the week.'
+                          : d.cutGate === 'wow' ? 'Not interesting enough to earn a slot.'
+                          : d.cutGate === 'reheat' ? 'Would not survive the trip.'
                           : 'No gate recorded. The reason left with the dish.'}
                       </div>
                     </div>

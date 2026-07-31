@@ -139,6 +139,12 @@ export const INGREDIENT_SEED = [
   { id: 'guittard_high', name: 'Guittard chocolate (high %)', unit: 'g', baseline: 0.02749, category: 'pantry', priceLink: 'guittard_low' },
   { id: 'valrhona', name: 'Valrhona chocolate (premium)', unit: '290g', baseline: 19.0, category: 'pantry' },
   { id: 'peanut_butter', name: 'Peanut butter', unit: 'oz', baseline: 0.141, category: 'pantry' }, // Peter Pan Creamy 40 oz = $5.64 (receipt IMG_9660, Jul 15) -> $0.141/oz. Was 'half-jar' @ $0.70, a unit that predated the universal unit layer and could never resolve from a receipt: he buys whatever jar size is there. Per-oz + the scan's oz prompt handles every size.
+  // NOT WHAT THE SYRUPS USE. Kevin confirmed Jul 31 that the vanilla and vanilla
+  // lavender syrups are made with real vanilla and beans; this $0.07 imitation
+  // price is what their recipe line currently resolves to, which is why their
+  // resolved cost sits ~$4.20 BELOW their anchors. The anchors are right. Fixing
+  // this properly means splitting the compound "House vanilla extract + beans"
+  // line with real prices — Walk 1 work, still open, not to be guessed.
   { id: 'vanilla', name: 'Vanilla (imitation)', unit: 'tbs', baseline: 0.07, category: 'pantry' },
   { id: 'vanilla_extract', name: 'Vanilla extract (homemade)', unit: 'tbs', baseline: 1.5, category: 'pantry' },
   // RICE IS NOW RICE. Its baseline was 1.146, which bundled $0.50 of rice-bag
@@ -260,7 +266,7 @@ export const INGREDIENT_SEED = [
   { id: 'lime_juice', name: 'Lime juice', unit: 'g', baseline: 0.0125, category: 'produce' },
   { id: 'pecans', name: 'Pecans (shelled)', unit: 'oz', baseline: 0.56, category: 'pantry' },
   { id: 'dried_orange_peel', name: 'Dried orange peel', unit: 'tbs', baseline: 0.15, category: 'spice' },
-  { id: 'mason_jar', name: 'Pint mason jar (container)', unit: 'each', baseline: 1.50, category: 'pantry', passthrough: true }, // store-bought container, sold at cost, no buffer (Kevin, Jul 20) // replaces fresh orange in the tea smoke; stores better + cheaper (Kevin, Jul 20)
+  { id: 'mason_jar', name: 'Pint mason jar (container)', unit: 'each', baseline: 1.12, category: 'pantry', passthrough: true }, // store-bought container, sold at cost, no buffer (Kevin, Jul 20) // replaces fresh orange in the tea smoke; stores better + cheaper (Kevin, Jul 20)
   { id: 'pomegranate_molasses', name: 'Pomegranate molasses', unit: 'cup', baseline: 3.333, category: 'pantry' }, // ~$2.50 per 3/4 cup
   { id: 'pepitas', name: 'Pepitas (toasted)', unit: 'oz', baseline: 0.57, category: 'pantry' },
   { id: 'mitad_tortillas', name: 'Mitad-y-mitad tortillas (flour+corn)', unit: '10ct', baseline: 2.98, category: 'pantry' },

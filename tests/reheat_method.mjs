@@ -83,15 +83,25 @@ function hasBaggedComponent(d) {
   // instantly blocks deploys over pre-existing copy is a gate Kevin learns to
   // ignore. The baseline is recorded here; the assertion is that it does not
   // GROW. Fix the listed dishes and lower the number.
+  // ── THIS CHECK AUDITS THE WRONG SURFACE, and knowing that is the point ──
+  //
+  // It reads copy.reheat, stewVegCopy, and the label cue. NONE of those is the
+  // reheat card — that is buildReheatBlocks() in recipes.js, rendered by
+  // companion.js. So this has been auditing the MENU BLURB, which is precisely
+  // the surface Kevin ruled on Jul 31 must NOT carry the method.
+  //
+  // Its original four-dish baseline was therefore partly fiction: Brunswick's
+  // card always stated a full method, and Saffron's gap was real but on a
+  // different variant than described. tests/reheat_copy_lint.mjs now reads the
+  // actual card and supersedes this file's intent.
+  //
+  // KEPT, NARROWED, because the blurb still should not contradict the card and
+  // this is the only thing watching that. The list is what remains genuinely
+  // silent in the BLURB after the Jul 31 copy work.
   const KNOWN_SILENT = [
-    'Brunswick Stew',                                       // bags hold the potatoes
-    'Indian Style Curry',                                   // six bagged lines, copy says only "comes in a container"
-    'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',  // sv_bag from a composed line
-    // The worst of the four. Its copy says the polenta variant "comes in a
-    // bag" and then stops — and polenta is the ONE thing Kevin has explicitly
-    // ruled must never be microwaved. So this dish names a bag, gives no
-    // method, and the component inside it is the least forgiving on the board.
-    'Saffron Pork Ragu',
+    'Brunswick Stew',       // blurb is silent; the CARD states the full method
+    'Indian Style Curry',   // blurb is silent; the card now carries the conditional bag
+    'Saffron Pork Ragu',    // blurb is silent; the card now warms the ragu too
   ];
   const unexpected = silent.filter(x => !KNOWN_SILENT.some(k => x.startsWith(k)));
   const fixed = KNOWN_SILENT.filter(k => !silent.some(x => x.startsWith(k)));

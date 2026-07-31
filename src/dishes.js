@@ -465,8 +465,12 @@ export const DISHES = [
       },
     },
     stewVegCopy: {
-      main: 'Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving.',
-      veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and add the vegetables to the curry. Unlike our other sous vide vegetables, the sauce in this bag is not meant to be used as a glaze — discard it. The liquid contains butter, so avoid pouring it down the drain.',
+      // PROTOCOL CHANGE, Kevin, Walk 2 dish 6: the vegetables no longer get
+      // their own pot of water. They go straight into the curry, exactly as the
+      // Brunswick potatoes always have. That is what takes this dish from three
+      // vessels down to two.
+      main: 'Comes in two parts — the curry in a container and the vegetables in a sous vide bag. The vegetables need no pot of their own: cut the bag open and tip as much as you want straight into the curry, then warm it all together gently on the stove over medium-low until heated through.',
+      veg: 'Cut the bag open and add the squash and carrots straight to the curry — they come up to temperature with it and need no pot of their own. Unlike our other sous vide vegetables, the liquid in this bag is not meant to be used as a glaze, so discard it. It contains butter, so keep it out of the drain. Whatever you do not use keeps in the opened bag in the fridge.',
     },
   },
   {
@@ -1914,7 +1918,9 @@ export const DISHES = [
     // butter/drain line by design.
     stewVegCopy: {
       main: 'Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through, adding a splash of water if it looks thick. Great over mashed potatoes, egg noodles, or crusty bread.',
-      veg: 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through. Cut open, discard the liquid, and fold the vegetables into the stew right before serving. The liquid contains butter, so avoid pouring it down the drain.',
+      // Same protocol change as the Leblanc curry, and the same reason it is
+      // ONE pot for this dish rather than two.
+      veg: 'The vegetables need no pot of their own. Cut the bag open, discard the liquid, and tip as much of them as you want straight into the stew to come up together. The liquid contains butter, so keep it out of the drain. Save the opened bag in the fridge for whatever is left.',
     },
   },
   {
@@ -2130,7 +2136,7 @@ export const ALWAYS_ITEMS = {
       packaging: 'none', // the $1.50 passthrough jar (recipe line) carries the container cost now, not the wrap
       equipment: { fixed: ['largePot'] },
       variants: [
-        { label: 'Per Pint Jar', price: 10, cost: 5.62 },  // Jul 20: 2.5-jar yield, $1.50 passthrough jar, new cheese ratios -> ~51% value-add at $10
+        { label: 'Per Pint Jar', price: 10, cost: 5.33 },  // Jul 20: 2.5-jar yield, $1.50 passthrough jar, new cheese ratios -> ~51% value-add at $10
         { label: 'With jar swap', price: 8, cost: 4.12 },   // no jar (returned)
       ],
       recipe: {
@@ -2156,16 +2162,19 @@ export const ALWAYS_ITEMS = {
       id: 'pickled-onions-or-carrots',
       name: 'Pickled Onions or Carrots',
       allergens: {},
-      packaging: 'jar',
+      packaging: 'none',
       variants: [
-        { label: 'Standard', price: 7.5, cost: 4 },
-        { label: 'With jar swap', price: 5.5, cost: 2.75 },
+        { label: 'Standard', price: 7.5, cost: 2.84 },
+        { label: 'With jar swap', price: 5.5, cost: 1.62 },
       ],
       recipe: {
         factors: { 'Standard': 1, 'With jar swap': 1 },
+        // The jar rides the non-swap variant only. Queso's mechanism, adopted
+        // here Jul 31: the customer who brings a jar back is not charged for
+        // one. Extras are not multiplied by the batch factor, so qty is 1.
+        extras: { 'Standard': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
           I('Onions or carrots (for pickling)', 1, 'lb'),
-          I('Pint mason jar', 1, ''),
           I('Pickling vinegar + spices', 1, 'batch', true),
         ],
       },
@@ -2174,16 +2183,19 @@ export const ALWAYS_ITEMS = {
       id: 'chili-oil',
       name: 'Chili Oil',
       allergens: { sesame: { variants: true, unlisted: 'toasted sesame oil is part of the house chili oil, inside the Chili-flakes-plus-whole-spices-plus-oil batch line, which resolves to spices_generic' } },
-      packaging: 'jar',
+      packaging: 'none',
       variants: [
-        { label: 'Per Jar', price: 10, cost: 4.07 },
-        { label: 'With jar swap', price: 8, cost: 3.07 },
+        { label: 'Per Jar', price: 10, cost: 3.03 },
+        { label: 'With jar swap', price: 8, cost: 1.82 },
       ],
       recipe: {
         factors: { 'Per Jar': 0.5, 'With jar swap': 0.5 },
+        // The jar rides the non-swap variant only. Queso's mechanism, adopted
+        // here Jul 31: the customer who brings a jar back is not charged for
+        // one. Extras are not multiplied by the batch factor, so qty is 1.
+        extras: { 'Per Jar': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
           I('Ginger', 4, 'knobs'),
-          I('Pint mason jar', 2, ''),
           I('Chili flakes + whole spices + oil', 1, 'batch', true),
         ],
       },
@@ -2192,16 +2204,19 @@ export const ALWAYS_ITEMS = {
       id: 'thyme-or-lavender-syrup',
       name: 'Thyme or Lavender Syrup',
       allergens: {},
-      packaging: 'jar',
+      packaging: 'none',
       variants: [
-        { label: 'Per Jar', price: 7, cost: 4.35 },
-        { label: 'With jar swap', price: 5, cost: 2.35 },
+        { label: 'Per Jar', price: 7, cost: 2.51 },
+        { label: 'With jar swap', price: 5, cost: 1.3 },
       ],
       recipe: {
         factors: { 'Per Jar': 1, 'With jar swap': 1 },
+        // The jar rides the non-swap variant only. Queso's mechanism, adopted
+        // here Jul 31: the customer who brings a jar back is not charged for
+        // one. Extras are not multiplied by the batch factor, so qty is 1.
+        extras: { 'Per Jar': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
           I('Fresh thyme or lavender', 4, 'sprigs'),
-          I('Pint mason jar', 1, ''),
           I('Sugar', 1, 'cup', true),
         ],
       },
@@ -2210,15 +2225,18 @@ export const ALWAYS_ITEMS = {
       id: 'vanilla-syrup',
       name: 'Vanilla Syrup',
       allergens: {},
-      packaging: 'jar',
+      packaging: 'none',
       variants: [
         { label: 'Per Jar', price: 12, cost: 7.17 },
         { label: 'With jar swap', price: 10, cost: 5.17 },
       ],
       recipe: {
         factors: { 'Per Jar': 1, 'With jar swap': 1 },
+        // The jar rides the non-swap variant only. Queso's mechanism, adopted
+        // here Jul 31: the customer who brings a jar back is not charged for
+        // one. Extras are not multiplied by the batch factor, so qty is 1.
+        extras: { 'Per Jar': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
-          I('Pint mason jar', 1, ''),
           I('House vanilla extract + beans', 1, 'batch', true),
           I('Sugar', 1, 'cup', true),
         ],
@@ -2228,16 +2246,19 @@ export const ALWAYS_ITEMS = {
       id: 'vanilla-lavender-syrup',
       name: 'Vanilla Lavender Syrup',
       allergens: {},
-      packaging: 'jar',
+      packaging: 'none',
       variants: [
         { label: 'Per Jar', price: 13, cost: 8.17 },
         { label: 'With jar swap', price: 11, cost: 6.17 },
       ],
       recipe: {
         factors: { 'Per Jar': 1, 'With jar swap': 1 },
+        // The jar rides the non-swap variant only. Queso's mechanism, adopted
+        // here Jul 31: the customer who brings a jar back is not charged for
+        // one. Extras are not multiplied by the batch factor, so qty is 1.
+        extras: { 'Per Jar': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
           I('Fresh lavender', 1, 'bunch'),
-          I('Pint mason jar', 1, ''),
           I('House vanilla extract + beans', 1, 'batch', true),
           I('Sugar', 1, 'cup', true),
         ],

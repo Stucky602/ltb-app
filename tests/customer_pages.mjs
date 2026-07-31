@@ -610,5 +610,45 @@ console.log('\npipeline.html');
     !/(No menu this week|Back next week|same as always)/.test(bh));
 }
 
+
+// ── A bag-only week is a real week ─────────────────────────────────────────
+//
+// Kevin had a rough week and wanted to publish "stuff in a bag only, no
+// dinners" with a heads-up note. The Week tab hid the publish card whenever
+// nothing was checked, which quietly made that impossible — Stuff in a Bag
+// stands entirely on its own and needs no dinner behind it.
+//
+// The customer pages already handled it. These assertions exist so a future
+// tidy-up of the empty-state logic does not break the case.
+{
+  const { ALWAYS_MENU, PER_LB_ITEMS } = await import('../src/menu.js');
+  const bag = (ALWAYS_MENU.bag || []).map(item => {
+    const info = PER_LB_ITEMS[item.name];
+    if (info) return { name: item.name, perLb: true, pricePerLb: info.pricePerLb, avgWeightLb: info.avgWeightLb, variants: [{ label: 'By weight', price: info.pricePerLb, cost: info.costPerLb }] };
+    return { name: item.name, variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })) };
+  });
+  const bagOnly = {
+    weekLabel: 'Week of Aug 3', dishes: [], spotlight: [], addons: [], fruit: [], desserts: [], sauces: [],
+    bag, notice: 'Stuff in a bag only this week, no dinners.',
+  };
+
+  for (const [name, page] of [['menu.html', menu], ['form.html', form]]) {
+    const dom = boot(page, bagOnly);
+    await sleep(150);
+    const d = dom.window.document;
+    check(`${name} does not show an empty-menu notice on a bag-only week`,
+      !d.querySelector('.empty'),
+      'the bag is full; "nothing on the menu" would read as broken');
+    check(`${name} still renders the bag`, d.querySelectorAll('.dish').length > 5);
+  }
+
+  // And the ordinary empty case must STILL warn, or the check above is just
+  // deleting a useful signal.
+  const trulyEmpty = boot(menu, { ...bagOnly, bag: [] });
+  await sleep(150);
+  check('a genuinely empty week still says so',
+    !!trulyEmpty.window.document.querySelector('.empty'));
+}
+
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

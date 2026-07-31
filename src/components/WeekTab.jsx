@@ -312,7 +312,11 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
           list follow this instantly. Existing orders aren't affected.
         </div>
         {selected.length === 0 && (
-          <div style={styles.parseError}>No dishes selected — the Dinner section will be empty on new orders.</div>
+          <div style={styles.genHint}>
+            No dinners checked. That is a publishable week: the Dinner section will be
+            empty and Stuff in a Bag carries it. Add a heads-up below so it reads as
+            a decision.
+          </div>
         )}
       </div>
 
@@ -400,13 +404,32 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
         );
       })}
 
-      {selected.length > 0 && (
+      {/* NO DINNER REQUIREMENT. This card used to hide whenever nothing was
+          checked, which quietly made "bag only this week" impossible to
+          publish — the one thing Kevin actually needed on a rough week, since
+          Stuff in a Bag stands entirely on its own and needs no dinner.
+          
+          A week with no dinners is a real week, not an error state, and the
+          heads-up note is exactly how he tells people why. */}
+      {(
         <div style={styles.genCard}>
-          <div style={styles.genTitle}>Publish this week's menu</div>
+          <div style={styles.genTitle}>
+            {selected.length > 0 ? "Publish this week's menu" : 'Publish a bag-only week'}
+          </div>
           <div style={styles.genHint}>
-            Pushes the checked dishes and prices to your order form instantly.
-            Customers see the new menu the moment you publish. Optionally add the
-            menu PDF link and a week label that show on the form.
+            {selected.length > 0 ? (
+              <>
+                Pushes the checked dishes and prices to your order form instantly.
+                Customers see the new menu the moment you publish. Optionally add the
+                menu PDF link and a week label that show on the form.
+              </>
+            ) : (
+              <>
+                No dinners checked, so the Dinner section will be empty and everything
+                in Stuff in a Bag stays orderable exactly as normal. Worth adding a
+                heads-up below so people know it is deliberate rather than a mistake.
+              </>
+            )}
           </div>
           {preflight.length > 0 && (
             <div style={{ margin: '8px 0 10px' }}>

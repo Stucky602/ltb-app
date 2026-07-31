@@ -20,7 +20,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 import { dishIdFor, dishNameFor } from './dishIdentity.js';
-import { containersForDish, portionMultiplier, isTrackedType } from './containers.js';
+import { containersForDish, DISH_CONTAINERS, portionMultiplier, isTrackedType } from './containers.js';
 import { ALL_DINNERS, ALWAYS_MENU } from './menu.js';
 import { ALL_ALWAYS_ITEMS } from './dishes.js';
 import { RECIPES, RICE_DISHES } from './recipes.js';
@@ -437,6 +437,7 @@ export const LINE_MAP = {
   'Chickpeas': { id: 'chickpeas', conv: C({ unit: 'lb' }) },
   'Fresh lavender':         { id: 'herb_generic', conv: () => 1 },
   'Seasonal cantaloupe (HEB melons)': { id: 'cantaloupe', conv: C({ unit: 'each' }) },
+  'Seasonal stone fruit (HEB, whatever is best)': { id: 'stone_fruit', conv: C({ unit: 'lb' }) },
   'Pineapple (1 makes 2 containers)': { id: 'pineapple', conv: () => 2 },
 
   // Skips — packaging / per-lb bag items / included rice
@@ -478,7 +479,22 @@ export const LINE_MAP = {
 // Packaging class — DERIVED from the registry: 'jar' → $2, 'none' → $0,
 // absent → default $1 (dinners/desserts). Set per-item in dishes.js.
 const JARRED = new Set(ALL_ALWAYS_ITEMS.filter(it => it.packaging === 'jar').map(it => it.name));
-const NO_WRAP = new Set(ALL_ALWAYS_ITEMS.filter(it => it.packaging === 'none').map(it => it.name));
+// `packaging: 'none'` on an always-item has always meant "there is no container
+// to charge for" — either genuinely none, or one that already appears as a real
+// recipe line, like the Queso passthrough jar. Charging again would double it.
+//
+// AN EXPLICIT CONTAINER MAPPING OVERRIDES THAT. Adding a dish to DISH_CONTAINERS
+// is a deliberate statement that it ships in a specific container, and the
+// mapping is more specific than the flag. Fruit is why: all three ship in a
+// 38 oz rectangle, none of them carried a container recipe line, and none was in
+// DISH_CONTAINERS — so the container was neither counted against the fleet nor
+// charged for. Kevin noticed. Today the three fruits are the only items this
+// affects.
+const NO_WRAP = new Set(
+  ALL_ALWAYS_ITEMS
+    .filter(it => it.packaging === 'none' && !DISH_CONTAINERS[it.id])
+    .map(it => it.name)
+);
 // RETIRED Jul 26. This returned a flat 1 unit of the generic `wrap` ingredient
 // for every dish, 2 for jarred always-items, 0 for a few. It was a PROXY, and a
 // defensible one while the real per-dish packaging was unknown — but Kevin

@@ -2025,7 +2025,7 @@ export const ALWAYS_ITEMS = {
       name: 'Fresh Cut Pineapple',
       allergens: {},
       packaging: 'none',
-      variants: [{ label: 'Per Container', price: 6, cost: 2.5 }],
+      variants: [{ label: 'Per Container', price: 7, cost: 3.27 }],
       recipe: { factors: { 'Per Container': 0.5 }, base: [I('Pineapple (1 makes 2 containers)', 1, '')] },
     },
     {
@@ -2033,8 +2033,26 @@ export const ALWAYS_ITEMS = {
       name: 'Seasonal Cantaloupe',
       allergens: {},
       packaging: 'none',
-      variants: [{ label: 'Per Container', price: 6, cost: 3 }],
+      variants: [{ label: 'Per Container', price: 7, cost: 3.81 }],
       recipe: { factors: { 'Per Container': 1 }, base: [I('Seasonal cantaloupe (HEB melons)', 1, '')] },
+    },
+    {
+      id: 'seasonal-stone-fruit',
+      name: 'Seasonal Stone Fruit',
+      allergens: {},
+      packaging: 'none',
+      // TWO POUNDS BOUGHT, about 1.5 in the container. The recipe records what
+      // Kevin BUYS, not what the customer receives — pits, skins, and bruised
+      // bits are real cost and they leave with the trimmings. Costing 1.5 lb
+      // would quietly under-report every container by half a pound.
+      //
+      // $4/lb means $8.00 of fruit plus $0.52 for the container. At $12 that is
+      // roughly 23% and about $2.75 a container, which Kevin has accepted with
+      // his eyes open: this one is fast enough that it is a quick service and a
+      // couple of bites of good fruit rather than a margin play. It is the
+      // thinnest thing on the board, so do not use it as a precedent.
+      variants: [{ label: 'Per Container', price: 12, cost: 9.22 }],
+      recipe: { factors: { 'Per Container': 1 }, base: [I('Seasonal stone fruit (HEB, whatever is best)', 2, 'lb')] },
     },
   ],
   desserts: [

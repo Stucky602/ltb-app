@@ -442,7 +442,7 @@ export const CARL_RULINGS = {
     egg: { dead: 'flour and egg are both structural in a waffle batter' },
   },
   'fresh-cut-pineapple': {},
-  'seasonal-cantaloupe': {},
+  'seasonal-cantaloupe': {}, 'seasonal-stone-fruit': {},
   'chocolate-chip-cookies': {
     gluten: { dead: 'a gluten-free flour blend is possible but this is not that recipe' },
     egg: { dead: 'egg is structural' },

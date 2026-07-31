@@ -275,6 +275,14 @@ export const DISH_CONTAINERS = {
   'chocolate-chip-cookies':                        { rectXL: 1 },  // Chocolate Chip Cookies
   'brownies':                                      { round48: 1 },  // Brownies
   'peanut-butter-fudge':                           { rect38: 1 },  // Peanut Butter Fudge
+
+  // FRUIT. All three come in the 38 oz rectangle and none of them was linked,
+  // so the container was neither counted against the fleet nor charged for.
+  // Kevin owns 15 of these and four other items already use them, so fruit
+  // sharing the type matters for the shortage warning as well as the cost.
+  'fresh-cut-pineapple':                           { rect38: 1 },
+  'seasonal-cantaloupe':                           { rect38: 1 },
+  'seasonal-stone-fruit':                          { rect38: 1 },
 };
 
 // Recorded so they are not rediscovered as new findings later. Each is a real

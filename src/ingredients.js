@@ -76,6 +76,7 @@ export const INGREDIENT_SEED = [
   { id: 'black_pepper_oz', name: 'Black pepper (oz)', unit: 'oz', baseline: 1.0, category: 'spice' }, // Kevin's standard spice cost (heavy backstock)
   { id: 'lime', name: 'Lime', unit: 'each', baseline: 0.25, category: 'produce' },
   { id: 'cantaloupe', name: 'Seasonal melon', unit: 'each', baseline: 3.0, category: 'produce' },
+  { id: 'stone_fruit', name: 'Seasonal stone fruit', unit: 'lb', baseline: 4.00, category: 'produce' },
   { id: 'pineapple', name: 'Pineapple (per container)', unit: 'container', baseline: 2.5, category: 'produce' },
   { id: 'ground_beef', name: 'Ground beef', unit: 'lb', baseline: 7.0, category: 'protein' },
   { id: 'ground_pork', name: 'Ground pork', unit: 'lb', baseline: 5.0, category: 'protein' },

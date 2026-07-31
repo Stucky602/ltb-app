@@ -459,7 +459,17 @@ for (const rec of [...DISHES, ...ALL_ALWAYS_ITEMS]) {
   const mapped = !!auditMix;
 
   if (rec.packaging === 'none') {
-    if (pack.length) F('wrap', `"${rec.name}" is packaging:'none' but still carries ${pack.length} packaging line(s) — its container is already a recipe line`);
+    // AN EXPLICIT MAPPING OVERRIDES THE FLAG. `packaging: 'none'` means "no
+    // container to charge", either because there is none or because it already
+    // appears as a recipe line (the Queso jar). Adding a dish to DISH_CONTAINERS
+    // is a deliberate statement that it ships in a specific container, and that
+    // is more specific than the flag.
+    //
+    // Fruit is why: all three ship in a 38 oz rectangle, none carried a
+    // container recipe line, and none was mapped — so the container was neither
+    // counted against the fleet nor charged for.
+    if (pack.length && !mapped) F('wrap', `"${rec.name}" is packaging:'none' with no container mapping but still carries ${pack.length} packaging line(s)`);
+    if (pack.length > 1 && mapped) F('wrap', `"${rec.name}" resolves ${pack.length} packaging lines; a mapped always-item should carry exactly its mapping`);
   } else if (mapped) {
     const tracked = Object.entries(auditMix).filter(([t]) => isTrackedType(t));
     if (pack.length !== tracked.length) {

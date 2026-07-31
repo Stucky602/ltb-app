@@ -39,6 +39,10 @@ export const MENU_ADDONS = {
       "desc": "Seasonal melon, cut and ready to eat. Whatever's best that week goes in the container.",
       "contains": ""
     },
+    "Seasonal Stone Fruit": {
+      "desc": "Peaches, plums, nectarines, pluots \u2014 whatever is best at the market that week, cut and ready to eat.",
+      "contains": ""
+    },
     "Queso": {
       "desc": "Slow-developed flavors that put store-bought to shame. Sold by the pint. Freezes very well. Testimonial from a friend: \"This is the best drunk food I've ever had...it literally saved my life.\"",
       "contains": "Dairy.",

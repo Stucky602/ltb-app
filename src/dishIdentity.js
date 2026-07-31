@@ -64,6 +64,7 @@ export const DISH_ID_MANIFEST = Object.freeze([
   'homemade-waffles',
   'fresh-cut-pineapple',
   'seasonal-cantaloupe',
+  'seasonal-stone-fruit',
   'chocolate-chip-cookies',
   'peanut-butter-fudge',
   'brownies',

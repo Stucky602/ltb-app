@@ -65,6 +65,16 @@ export function companionContext(order, opts = {}) {
     pairingText = `\nDRINK PAIRINGS (what their page recommends):\n${oneBottle ? oneBottle + '\n' : ''}${secs}`;
   }
 
+  // Reheat history — what they told Kevin last time about these same dishes.
+  // The page has always ASKED for feedback and never given any back; somebody
+  // who reported a problem and then received the same generic instructions was
+  // talking into a void.
+  let historyText = '';
+  if (opts.reheatHistory && opts.reheatHistory.length) {
+    historyText = '\nWHAT THEY SAID LAST TIME:\n' + opts.reheatHistory
+      .map(h => `  ${h.dish}: ${h.verdict}${h.note ? ` — "${h.note}"` : ''}`).join('\n');
+  }
+
   // Passport — regulars only; the app supplies opts.passport when the order is
   // linked to a regular. Absent for everyone else, same as the page card.
   let passportText = '';
@@ -75,12 +85,28 @@ export function companionContext(order, opts = {}) {
       (missing.length ? ` Not yet tried: ${missing.join(', ')}.` : ` Has tried everything.`);
   }
 
-  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}`;
+  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}${historyText}`;
 }
 
 export function companionHtml(order, pageId = '', opts = {}) {
   const customer = esc(order.customer || 'Friend');
   const firstName = customer.split(' ')[0];
+  // What they said last time about these same dishes. Reads as "here is what you
+  // told me", never as "you got this wrong" — a person cooking dinner does not
+  // need a report card, and a bad verdict is a technique signal for Kevin.
+  const history = (opts.reheatHistory || []);
+  const historyHtml = history.length ? (
+    '<div class="hist"><h3>Last time</h3>' + history.map(h => {
+      const when = h.at ? new Date(h.at).toLocaleDateString(undefined, { month: 'long' }) : '';
+      const lead = when ? `Last time in ${when}` : 'Last time';
+      const line = h.verdict === 'good' ? `${lead} you said this came out perfectly.`
+        : h.verdict === 'meh' ? `${lead} you said this was a little off. Worth taking it slower.`
+        : h.verdict === 'bad' ? `${lead} this one gave you trouble \u2014 Kevin has seen that note.`
+        : `${lead} you sent a note about this one.`;
+      return '<p><b>' + esc(h.dish) + '</b> ' + esc(line) + '</p>';
+    }).join('') + '</div>'
+  ) : '';
+
   const blocks = buildReheatBlocks(expandOrderForReheat(order));
   const items = order.items || [];
   const handleOf = (name) => itemHandling(name, { category: CATEGORY_OF[name] || null, isPerLb: isPerLbItem(name) });
@@ -600,6 +626,9 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .v { color: #9aa5a0; font-size: 12.5px; }
   .feeds { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 10px; background: #24413a; color: #5DCAA5; font-size: 11px; font-weight: 700; vertical-align: middle; }
   .card { background: #1c2422; border: 1px solid #2d3a36; border-radius: 14px; padding: 15px 17px; margin: 12px 0; }
+    .hist { background:rgba(93,202,165,0.07); border:1px solid rgba(93,202,165,0.35); border-radius:12px; padding:14px 16px; margin:0 0 14px; }
+    .hist h3 { margin:0 0 6px; font-size:12px; letter-spacing:0.6px; text-transform:uppercase; color:#5DCAA5; }
+    .hist p { margin:4px 0; font-size:14px; line-height:1.55; }
   .card h3 { margin: 0; font-size: 15.5px; color: #5DCAA5; font-weight: 800; }
   .stephead { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
   .stepnum { flex: 0 0 24px; height: 24px; border-radius: 50%; background: #24413a; color: #5DCAA5; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
@@ -648,6 +677,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   </div>
   <h1>${firstName}, here's your kitchen page</h1>
   <div class="sub">Everything in your order, and exactly how to bring each dish home for its best.</div>
+  ${historyHtml}
   ${passportStrip}
   ${welcomeCard}
   <div class="card"><h3>Your order</h3><ul>${itemRows}</ul></div>

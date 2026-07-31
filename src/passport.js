@@ -93,6 +93,51 @@ function canonicalName(record) {
 // `currentOrder` is the delivery this page belongs to. Anything stamped by it
 // that they had never had before is the "new this delivery" moment, which is
 // the whole reason to open the book again.
+// ── Reheat history ──────────────────────────────────────────────────────────
+//
+// What this household said the LAST time they reheated each dish in this order.
+//
+// It exists because the companion page currently asks for feedback and never
+// gives any back. Somebody who reported a dish came out badly, tapped submit,
+// and then received the same dish with the same generic instructions has been
+// asked to talk into a void. This closes that loop on the page where it opened.
+//
+// TONE MATTERS MORE THAN COVERAGE HERE. It reads as "here is what you told me"
+// and never as "you got this wrong last time". A person cooking dinner does not
+// need a report card, and a bad verdict is a TECHNIQUE signal for Kevin rather
+// than a failing on their part.
+//
+// Only dishes in the current order, and only where they actually said something.
+export function reheatHistoryFor(reg, allOrders, currentOrder) {
+  if (!reg || !currentOrder) return [];
+  const mine = ordersForRegular(reg, allOrders);
+  const wanted = new Set((currentOrder.items || []).map(it => it.name).filter(Boolean));
+
+  const latest = new Map();
+  for (const o of mine) {
+    if (o.id === currentOrder.id) continue;   // this delivery has not happened yet
+    const when = Date.parse(o.createdAt || o.date || 0) || 0;
+    for (const fb of (o.feedback || [])) {
+      if (!fb || !fb.dish || !wanted.has(fb.dish)) continue;
+      const prev = latest.get(fb.dish);
+      if (!prev || when > prev.at) latest.set(fb.dish, { dish: fb.dish, verdict: fb.verdict, note: fb.note || '', at: when });
+    }
+  }
+
+  return [...latest.values()].sort((a, b) => b.at - a.at);
+}
+
+// One sentence per dish, in the customer's own terms.
+export function describeReheatHistory(entry) {
+  if (!entry) return '';
+  const when = entry.at ? new Date(entry.at).toLocaleDateString(undefined, { month: 'long' }) : '';
+  const lead = when ? `Last time in ${when}` : 'Last time';
+  if (entry.verdict === 'good') return `${lead} you said this one came out perfectly.`;
+  if (entry.verdict === 'meh') return `${lead} you said this was a little off. Worth taking it slower.`;
+  if (entry.verdict === 'bad') return `${lead} this one gave you trouble. Kevin has seen that note.`;
+  return `${lead} you sent a note about this one.`;
+}
+
 export function buildPassport(reg, allOrders, currentOrder) {
   if (!reg) return null;
 

@@ -20,7 +20,7 @@ import {
   JOURNAL_KEY, CONTAINER_INVENTORY_KEY, COPIES_NOTE_KEY, ARCHIVE_HISTORY_KEY, SW_VERSION_KEY,
   SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
-  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY,
+  LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -221,11 +221,16 @@ export default function LTBOrderTracker() {
   // by someone who does not have Kevin to ask.
   const [copiesNote, setCopiesNote] = useState('');
   const [archiveHistory, setArchiveHistory] = useState([]);
-  // The equipment inventory. buildArchiveHtml has always accepted this and
-  // rendered a whole "The equipment these assume" section for it; nothing ever
-  // passed one, so the section could not render and the archive kept naming
-  // tools it never described. This is the missing half.
-  const [equipment, setEquipment] = useState([]);
+  // EQUIPMENT INVENTORY REMOVED Jul 30. It fed exactly one thing — the archive's
+  // "The equipment these assume" section — and Kevin killed that section from
+  // both the Record tab and the archive because it was pointless and looked bad.
+  // What remained was a seed file, a boot hydrate, a state hook, and a backup
+  // slot, all feeding nothing.
+  //
+  // The STORAGE KEY is deliberately left alone: ltb_equipment_v1 may still hold
+  // a list on Kevin's devices, and deleting it on upgrade would throw away data
+  // he typed in by hand for a section that could come back.
+
   // The real-data epoch. Null means unconfirmed, which is the safe default:
   // every dependent feature stays exactly where it is today rather than acting
   // on a guess. Confirming it STAMPS the affected orders so the flag rides the
@@ -504,7 +509,7 @@ export default function LTBOrderTracker() {
       setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
       setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
       setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-      setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues,
+      setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues,
       handledPendingRef, pollWorkerPending,
     });
     return () => { mounted = false; };
@@ -861,9 +866,9 @@ export default function LTBOrderTracker() {
     orders, shopping, weekDishes, regulars, inventory, ingredientsDb, visualCues, customerFlags,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
-    archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings,
+    archiveHistory, realDataEpoch, rowanLog, dishRankings,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, equipment, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1004,7 +1009,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 

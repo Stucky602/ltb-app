@@ -33,7 +33,7 @@ import {
   ORDERS_KEY, CHECKS_KEY, SHOPPING_KEY, WEEK_KEY, DELIVER_CHECKS_KEY,
   DISH_NOTES_KEY, FEEDBACK_KEY, PIPELINE_JOURNAL_KEY, JOURNAL_KEY,
   LAST_SEEN_WEEK_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY,
-  ARCHIVE_HISTORY_KEY, CUSTOMER_FLAGS_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
+  ARCHIVE_HISTORY_KEY, CUSTOMER_FLAGS_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
   INVENTORY_KEY, INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY,
   AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -45,7 +45,6 @@ import {
 } from './utils.js';
 import { normalizeJournal, migrateDishNotes, purgeTombstones, stampEntry } from './journal.js';
 import { DOSSIER_SEED } from './dossierSeed.js';
-import { SEED_EQUIPMENT } from './equipmentSeed.js';
 import { normalizeLedger } from './weekLedger.js';
 import { normalizeContainerConfig } from './containers.js';
 import { reconcileIngredients, pruneCostHistory, summarizeReconcile } from './seedReconcile.js';
@@ -60,7 +59,7 @@ export async function hydrateFromStorage(deps) {
     setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
     setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
     setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setNotice, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags,
+    setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags,
     handledPendingRef, pollWorkerPending,
   } = deps;
 
@@ -88,7 +87,7 @@ export async function hydrateFromStorage(deps) {
     await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
   }
 
-  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEquipment, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags] = await Promise.all([
+  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags] = await Promise.all([
     loadJSON(ORDERS_KEY, []),
     loadJSON(CHECKS_KEY, {}),
     loadJSON(SHOPPING_KEY, []),
@@ -103,7 +102,6 @@ export async function hydrateFromStorage(deps) {
     loadJSON(WEEK_LEDGER_KEY, null),
     loadJSON(COPIES_NOTE_KEY, ''),
     loadJSON(ARCHIVE_HISTORY_KEY, []),
-    loadJSON(EQUIPMENT_KEY, []),
     loadJSON(REAL_DATA_EPOCH_KEY, null),
     loadJSON(ROWAN_LOG_KEY, []),
     loadJSON(DISH_RANKING_KEY, null),
@@ -172,12 +170,6 @@ export async function hydrateFromStorage(deps) {
   setWeekLedger(normalizeLedger(loadedLedger));
   setCopiesNote(typeof loadedCopiesNote === 'string' ? loadedCopiesNote : '');
   setArchiveHistory(Array.isArray(loadedArchiveHistory) ? loadedArchiveHistory : []);
-  // Seeded ONLY when nothing is stored yet — Kevin's own edits always win.
-  // Walked and recorded Jul 27: what he actually owns, so the archive's
-  // long-dead "The equipment these assume" section has real content instead
-  // of an empty box the first time someone reads it.
-  const eq = Array.isArray(loadedEquipment) && loadedEquipment.length ? loadedEquipment : SEED_EQUIPMENT;
-  setEquipment(eq);
   setRealDataEpoch(typeof loadedEpoch === 'string' ? loadedEpoch : null);
   setRowanLog(Array.isArray(loadedRowan) ? loadedRowan : []);
   // Null (never saved) keeps the seeded ranking. An empty ARRAY is a deliberate

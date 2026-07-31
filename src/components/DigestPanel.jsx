@@ -14,7 +14,19 @@ const S = {
   dim: { color: C.dim },
 };
 
-// #6 The Monday briefing — everything the app knows, in one read.
+// #6 The Monday briefing.
+//
+// SLIMMED Jul 30. It used to open with alerts about problems Kevin does not
+// have: customers gone quiet, ingredients whose cost had drifted, margins on a
+// watchlist. src/digest.js had already stopped COMPUTING all three — they were
+// hardcoded to empty arrays — but the panel still carried the render blocks, so
+// the briefing looked like a dashboard that happened to have nothing to say
+// rather than a short read.
+//
+// What is left is what he actually acts on: what needs a decision, how the week
+// went, anything genuinely under the margin floor, and what customers said
+// about reheating. A brief that leads with an empty alert box teaches you to
+// skim past the part that matters.
 export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPullFeedback, onCloseOut }) {
   const [fbMsg, setFbMsg] = useState(null);
   const [open, setOpen] = useState(false);
@@ -81,12 +93,9 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
           </div>
           {d.week.top.length > 0 && <div style={{ ...S.p, ...S.dim }}>Top sellers: {d.week.top.map(([n, u]) => `${n} (${u})`).join(' · ')}</div>}
 
-          {d.quiet.length > 0 && (<>
-            <div style={S.h}>Gone quiet</div>
-            {d.quiet.map(q => <div key={q.display} style={S.p}>{q.display}: no order in {q.weeks} weeks ({q.orders} lifetime). Maybe a nudge?</div>)}
-          </>)}
+          
 
-          {(d.marginWatch.underFloor.length > 0 || d.marginWatch.watch.length > 0) && (<>
+          {d.marginWatch.underFloor.length > 0 && (<>
             <div style={S.h}>Margin watch</div>
             {d.marginWatch.underFloor.length > 0 && (<>
               <div style={{ ...S.p, color: C.bad, fontWeight: 700 }}>Under the floor</div>
@@ -97,21 +106,10 @@ export function DigestPanel({ orders, regulars, liveCostMap, baseCostMap, onPull
                 <div style={{ ...S.p, ...S.dim }}>+{d.marginWatch.underFloor.length - 4} more under the floor</div>
               )}
             </>)}
-            {d.marginWatch.watch.length > 0 && (<>
-              <div style={{ ...S.p, color: C.warn, fontWeight: 700, marginTop: d.marginWatch.underFloor.length > 0 ? 6 : 0 }}>Worth a look</div>
-              {d.marginWatch.watch.slice(0, 4).map(m => (
-                <div key={m.name} style={{ ...S.p, color: C.warn }}>{m.name}: worst variant {m.pct}%</div>
-              ))}
-              {d.marginWatch.watch.length > 4 && (
-                <div style={{ ...S.p, ...S.dim }}>+{d.marginWatch.watch.length - 4} more to watch</div>
-              )}
-            </>)}
+            
           </>)}
 
-          {d.drifters.length > 0 && (<>
-            <div style={S.h}>Cost movers</div>
-            {d.drifters.map(m => <div key={m.name} style={S.p}>{m.name}: costs {m.driftPct > 0 ? 'up' : 'down'} {Math.abs(m.driftPct)}% vs anchor.</div>)}
-          </>)}
+          
 
           {d.reheatReport && d.reheatReport.length > 0 && (<>
             <div style={S.h}>Reheat report (from kitchen pages)</div>

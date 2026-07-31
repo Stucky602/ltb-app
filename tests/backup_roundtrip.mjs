@@ -120,9 +120,15 @@ check('costHistory round-trips', Array.isArray(restored.costHistory));
 check('auditLog round-trips', Array.isArray(restored.auditLog) && restored.auditLog.length >= 1);
 check('handledPending round-trips', deps.handledPendingRef.current.p1 === STATE.handledPending.p1);
 
-check('equipment round-trips (it is typed by hand and held nowhere else)',
-  Array.isArray(restored.equipment) && restored.equipment.length === 2,
-  `got ${JSON.stringify(restored.equipment)}`);
+// EQUIPMENT NO LONGER RIDES BACKUP. It fed exactly one thing — the archive's
+// "The equipment these assume" section — which Kevin removed from both the
+// Record tab and the archive on Jul 30. What was left was a seed file, a boot
+// hydrate, a state hook, and this payload slot, all feeding nothing.
+//
+// Asserted as an ABSENCE so nobody re-adds the slot without re-adding a reader.
+check('equipment is no longer restored from a backup',
+  restored.equipment === undefined,
+  `got ${JSON.stringify(restored.equipment)} — an old payload still carries it, and restoring would repopulate a key nothing reads`);
 
 // THE REGRESSION. This is the bug that shipped.
 check('archiveHistory round-trips (the series counter survives a restore)',
@@ -179,6 +185,7 @@ check('archiveHistory round-trips (the series counter survives a restore)',
     BACKUP_STATE_KEY: 'health of the backup ring itself; restoring it would be circular',
     VAPID_PUBLIC_KEY: 'not a storage key, a push credential',
     PENDING_KEY: 'the worker is the durable queue; pending re-syncs on the next poll',
+    EQUIPMENT_KEY: 'fed only the archive section Kevin removed on Jul 30; the key is left in place so an existing device does not lose a hand-typed list, but nothing reads or restores it',
     WEEK_NOTES_KEY: 'per-week scratch, superseded by the journal',
     WEEK_NOTICE_KEY: 'published to the worker, not device state',
     OMAKASE_TEMPLATES_KEY: 'derived from the registry at boot',

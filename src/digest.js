@@ -140,7 +140,10 @@ export function buildWeeklyDigest(orders, regulars, ctx = {}) {
     revenueDeltaPct: prevWk.revenue > 0 ? Math.round(((thisWk.revenue - prevWk.revenue) / prevWk.revenue) * 100) : null,
     // `quiet` and `drifters` are gone; see the header. Kept as empty arrays
     // rather than removed keys so nothing downstream has to null-check, and so
-    // the removal reads as a decision rather than an oversight.
+    // the removal reads as a decision rather than an oversight. The PANEL's
+    // render blocks for them were removed on Jul 30 — they could never fire, and
+    // a briefing that looks like a dashboard with nothing to say teaches you to
+    // skim past the parts that do.
     quiet: [],
     marginWatch,
     drifters: [],

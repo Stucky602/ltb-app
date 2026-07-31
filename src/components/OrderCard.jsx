@@ -5,7 +5,7 @@ import { DISHES, ALL_ALWAYS_ITEMS } from '../dishes.js';
 import { carlStatus } from '../carl.js';
 import { unitOptionsFor, resolveDishVariant } from '../dishCosting.js';
 import { pastOmakasesFor } from '../omakase.js';
-import { buildPassport as buildPassportData } from '../passport.js';
+import { reheatHistoryFor, buildPassport as buildPassportData } from '../passport.js';
 import { buildTasteProfile } from '../regularsIntel.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
@@ -872,20 +872,50 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 {anyPending ? 'Set sous vide weights' : 'Update sous vide weights'} ({perLbIdxs.length})
               </button>
             )}
-            <div style={styles.statusRow}>
-              {STATUSES.map(s => (
-                <button
-                  key={s}
-                  style={{
-                    ...styles.statusOption,
-                    ...(order.status === s ? { background: STATUS_COLORS[s], color: '#1a1a1a', borderColor: STATUS_COLORS[s] } : {}),
-                  }}
-                  onClick={() => onUpdate({ status: s })}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            {/* ── Status ───────────────────────────────────────────────────
+                REORDERED Jul 30. The card gave Ordered, Cooking, Ready, and
+                Delivered equal weight, modelling a four-step workflow. Kevin
+                uses two of them: an order arrives, and later it is delivered.
+                Cooking and Ready were never touched.
+                
+                So the real step is one prominent button, and the other states
+                stay available underneath rather than being deleted — he may
+                want them on a heavy week, and removing a state from a record
+                that already has orders in it is not a UI change. */}
+            {order.status !== 'Delivered' && (
+              <button
+                style={{
+                  width: '100%', padding: '11px', borderRadius: 8, marginBottom: 8,
+                  border: `1px solid ${STATUS_COLORS.Delivered}`,
+                  background: `${STATUS_COLORS.Delivered}22`,
+                  color: STATUS_COLORS.Delivered,
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+                onClick={() => onUpdate({ status: 'Delivered' })}
+              >
+                Mark delivered
+              </button>
+            )}
+
+            <details>
+              <summary style={{ fontSize: 11, color: '#9aa5a0', cursor: 'pointer', userSelect: 'none', marginBottom: 6 }}>
+                {order.status === 'Delivered' ? 'Delivered \u00b7 change status' : `Currently ${order.status} \u00b7 other statuses`}
+              </summary>
+              <div style={styles.statusRow}>
+                {STATUSES.map(s => (
+                  <button
+                    key={s}
+                    style={{
+                      ...styles.statusOption,
+                      ...(order.status === s ? { background: STATUS_COLORS[s], color: '#1a1a1a', borderColor: STATUS_COLORS[s] } : {}),
+                    }}
+                    onClick={() => onUpdate({ status: s })}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </details>
 
             {starOpen && nearMisses.length > 0 && (
               <div style={{ background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 8, padding: 10, margin: '8px 0', fontSize: 12.5 }}>
@@ -939,7 +969,17 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 setCopyMsg('Kitchen link copied. Uploading the page…');
                 fetch(WORKER_BASE + '/companion', {
                   method: 'POST', headers: { 'content-type': 'application/json' },
-                  body: JSON.stringify({ token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, { passport: buildPassport(order, regulars, allOrders) }), context: companionContext(order, { passport: buildPassport(order, regulars, allOrders) }) }),
+                  body: JSON.stringify((() => {
+                    // Built once and reused for both the page and the context,
+                    // rather than computed twice as it was before.
+                    const reg = (regulars || []).find(r => (r.linkedOrderIds || []).includes(order.id))
+                      || (regulars || []).find(r => r.id === order.regularId) || null;
+                    const opts = {
+                      passport: buildPassport(order, regulars, allOrders),
+                      reheatHistory: reg ? reheatHistoryFor(reg, allOrders, order) : [],
+                    };
+                    return { token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, opts), context: companionContext(order, opts) };
+                  })()),
                 }).then(res => {
                   if (!res.ok) throw new Error('push failed');
                   // VERIFY, don't assume: read the page back before calling it

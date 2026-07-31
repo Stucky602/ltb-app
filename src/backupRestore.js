@@ -27,7 +27,7 @@ import {
   SHOPPING_KEY, WEEK_KEY, REGULARS_KEY, INVENTORY_KEY, PIPELINE_JOURNAL_KEY,
   JOURNAL_KEY, COPIES_NOTE_KEY, WEEK_LEDGER_KEY, CONTAINER_INVENTORY_KEY,
   INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY, HANDLED_PENDING_KEY,
-  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY, EQUIPMENT_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
+  AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -124,9 +124,6 @@ export function buildBackupPayload(state) {
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
-    // The equipment inventory. Typed in by hand, held nowhere else, and the
-    // thing the archive's "equipment these assume" section is built from.
-    equipment: state.equipment,
     // Confirmed once, by hand, from evidence. Recomputing it on another device
     // could land somewhere else, so it travels.
     realDataEpoch: state.realDataEpoch,
@@ -197,7 +194,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setEquipment, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -298,10 +295,11 @@ export async function applyBackupPayload(payload, deps) {
     setRealDataEpoch(payload.realDataEpoch);
     await saveJSON(REAL_DATA_EPOCH_KEY, payload.realDataEpoch);
   }
-  if (Array.isArray(payload.equipment)) {
-    setEquipment(payload.equipment);
-    await saveJSON(EQUIPMENT_KEY, payload.equipment);
-  }
+  // `equipment` is no longer written into new payloads (the section it fed was
+  // removed Jul 30), but an OLD backup still carries it. Restoring it would
+  // repopulate a key nothing reads, so it is deliberately ignored rather than
+  // round-tripped — and this comment exists so the key-accounting gate has an
+  // explicit answer rather than reporting it unaccounted for.
   if (Array.isArray(payload.archiveHistory)) {
     setArchiveHistory(payload.archiveHistory);
     await saveJSON(ARCHIVE_HISTORY_KEY, payload.archiveHistory);

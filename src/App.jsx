@@ -328,6 +328,9 @@ export default function LTBOrderTracker() {
   const [includeStaples, setIncludeStaples] = useState(() => localStore.get('ltb_staples_pref') === '1');
   const [weekDishes, setWeekDishes] = useState(DEFAULT_WEEK);
   const [loading, setLoading] = useState(true);
+  // Set only by the boot catch below. Non-null means hydration threw and the
+  // app must not render its normal UI on top of half-loaded state.
+  const [bootError, setBootError] = useState(null);
   const [error, setError] = useState(null);
   const [view, setView] = useState('orders');
   // P1: the screen sleeping mid-cook, by Kevin's own account probably the
@@ -510,7 +513,25 @@ export default function LTBOrderTracker() {
       setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
       setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
       setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues,
+      // setCustomerFlags was MISSING here while bootHydrate destructured it,
+      // so the moment a device had flags stored (i.e. the first publish with a
+      // flag set), boot threw "setCustomerFlags is not a function" and the app
+      // never left "Loading orders...". A device with no flags stored short-
+      // circuited the guard and booted fine, which is why this shipped green.
+      // tests/boot_deps.mjs now fails the build if this list drifts again.
+      setCustomerFlags,
       handledPendingRef, pollWorkerPending,
+    }).catch(err => {
+      // A rejected promise inside an effect does NOT reach an error boundary,
+      // so without this a boot throw is INVISIBLE: no message, no red screen,
+      // just the loading text forever. Show the real error instead.
+      //
+      // Deliberately does NOT fall through to the normal UI. A boot that threw
+      // halfway has some state hydrated and some still at its empty initial
+      // value, and letting the app render on top of that invites a save that
+      // overwrites good stored data with the empty half. Failing to a dead-end
+      // screen keeps localStorage untouched and recoverable.
+      if (mounted) setBootError((err && err.message) || String(err));
     });
     return () => { mounted = false; };
   }, []);
@@ -1390,6 +1411,22 @@ export default function LTBOrderTracker() {
   // Auto-regen wiped his in-progress list mid-shop (find an item missing today,
   // come back tomorrow, list rebuilt from scratch and lost his progress). The
   // list rebuilds ONLY when he taps the Refresh button. Leave it that way.
+
+  if (bootError) {
+    return (
+      <div style={styles.page}>
+        <div style={{ ...styles.loadingText, color: '#ff6b6b', fontWeight: 700 }}>
+          Startup failed
+        </div>
+        <div style={{ ...styles.loadingText, fontSize: 14, opacity: 0.85, padding: '0 20px' }}>
+          Your saved data has NOT been touched or changed. Nothing was lost.
+        </div>
+        <div style={{ ...styles.loadingText, fontSize: 13, opacity: 0.7, padding: '12px 20px', fontFamily: 'monospace', wordBreak: 'break-word' }}>
+          {bootError}
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

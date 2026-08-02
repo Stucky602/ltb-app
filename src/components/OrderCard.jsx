@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { whatWasInOrder, whatWasInOrderText } from '../whatWasInMine.js';
 import { companionHtml, companionContext } from '../companion.js';
 import { INGREDIENT_SEED } from '../ingredients.js';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../dishes.js';
@@ -416,7 +417,81 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
   );
 }
 
-export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost, weekDishes }) {
+
+// See the call site. Collapsed by default: it is an occasional question, not
+// part of the daily order-card read.
+function WhatWasInThis({ order, labelVersions }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const answer = useMemo(
+    () => (open ? whatWasInOrder(order, { labelVersions }) : null),
+    [open, order, labelVersions]);
+
+  if (!(order.items || []).length) return null;
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ background: 'none', border: '1px solid #2d3a36', borderRadius: 8,
+          color: '#9aa5a0', fontSize: 11.5, padding: '5px 10px', cursor: 'pointer' }}
+      >
+        {open ? 'Hide what was in this' : 'What was in this?'}
+      </button>
+      {open && answer && (
+        <div style={{ marginTop: 6, padding: '8px 10px', background: '#161d1b',
+          border: '1px solid #2d3a36', borderRadius: 8 }}>
+          {answer.items.map((it, i) => (
+            <div key={i} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#e8e6df' }}>
+                {it.dishName}{it.variant ? ` — ${it.variant}` : ''}
+              </div>
+              <div style={{ fontSize: 11.5, color: '#c9d1cd', marginTop: 3, lineHeight: 1.5 }}>
+                {it.card ? it.card.ingredients.join(', ') : 'No ingredient list could be produced.'}
+              </div>
+              {it.card && it.card.allergens && (
+                <div style={{ fontSize: 11.5, color: '#EF9F27', marginTop: 3 }}>
+                  Contains: {it.card.allergens}
+                </div>
+              )}
+              {it.labels.map((l, j) => (
+                <div key={j} style={{ fontSize: 11, color: '#9aa5a0', marginTop: 2 }}>
+                  {l.brand} {l.product}: {l.ingredientText}
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: '#7a8480', marginTop: 3 }}>
+                {it.versionWasRecorded ? it.versionLabel : 'Recipe version not recorded'}
+              </div>
+            </div>
+          ))}
+          {/* The gaps are shown, not hidden behind a disclaimer link. A partial
+              answer that looks complete is the failure this whole file guards. */}
+          {answer.gaps.length > 0 && (
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #2d3a36' }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: '#EF9F27' }}>What this does not know</div>
+              {answer.gaps.map((g, i) => (
+                <div key={i} style={{ fontSize: 11, color: '#9aa5a0', marginTop: 3, lineHeight: 1.45 }}>{g}</div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => {
+              try {
+                navigator.clipboard.writeText(whatWasInOrderText(answer));
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              } catch (e) { /* a failed copy must not break the panel */ }
+            }}
+            style={{ marginTop: 8, background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 8,
+              color: '#5DCAA5', fontSize: 11.5, padding: '6px 11px', cursor: 'pointer' }}
+          >{copied ? 'Copied' : 'Copy for a message'}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function OrderCard({ order, regulars, labelVersions, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost, weekDishes }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -850,10 +925,36 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
                 </div>
               </>
             ) : order.notes ? (
-              <div style={styles.orderNotes} onClick={startNotes} role="button" tabIndex={0}>
-                {order.notes}
-                <span style={styles.notesEditHint}> — tap to edit</span>
-              </div>
+              <>
+                <div style={styles.orderNotes} onClick={startNotes} role="button" tabIndex={0}>
+                  {order.notes}
+                  <span style={styles.notesEditHint}> — tap to edit</span>
+                </div>
+                {/* STANDING SCOPE = A PROPOSAL, NOT A SETTING.
+                    The customer said this should apply to every order. Nothing
+                    has been written to their profile and nothing will be
+                    without Kevin. This band exists so a standing request cannot
+                    quietly become one of two failures: a permanent narrowing of
+                    someone's menu that nobody decided, or a restriction that
+                    was meant to persist and got treated as a one-off.
+                    It says what was asked and leaves the decision alone;
+                    recording it against a regular is done in Regulars, where
+                    that data already lives. */}
+                {order.noteScope === 'standing' && (
+                  <div style={{ marginTop: 6, padding: '7px 10px', borderRadius: 8,
+                    background: 'rgba(212,160,80,0.10)', border: '1px solid #4a3a1e',
+                    fontSize: 11.5, color: '#EF9F27', lineHeight: 1.45 }}>
+                    They asked for this to apply to every order, not just this one.
+                    <span style={{ color: '#9aa5a0' }}> Nothing has been changed on their
+                    profile — that is yours to decide.</span>
+                  </div>
+                )}
+                {order.noteScope === 'order' && (
+                  <div style={{ marginTop: 5, fontSize: 11, color: '#7a8480' }}>
+                    They said this one is just for this order.
+                  </div>
+                )}
+              </>
             ) : (
               <button style={styles.addNoteBtn} onClick={startNotes}>
                 <Pencil size={13} />
@@ -861,6 +962,13 @@ export function OrderCard({ order, regulars, expanded, onToggle, onUpdate, onDel
               </button>
             )}
           </div>
+
+          {/* WHAT WAS IN THIS. The question a customer asks weeks later, and
+              the one the version stamping existed to make answerable. Renders
+              the ingredient lists as of the versions ACTUALLY SERVED, plus a
+              plain statement of everything the answer could not establish.
+              Copyable because Kevin answers this in a message, not in the app. */}
+          <WhatWasInThis order={order} labelVersions={labelVersions} />
 
           <div style={styles.orderCardFooter}>
             {perLbIdxs.length > 1 && (

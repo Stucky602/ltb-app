@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { customerFavorites } from '../favorites.js';
 import { preflightWeek } from '../publishPreflight.js';
+import { nextOrderDeadline } from '../timeBanners.js';
 import {
   Plus, Trash2, Check, ChevronDown, ChevronUp, X, Pencil, Copy, RotateCcw,
   ClipboardPaste, ArrowUpDown, Archive, ImageIcon, AlertTriangle, FileText,
@@ -102,6 +103,37 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   const [publishMsg, setPublishMsg] = useState(null);
   const [pdfUrl, setPdfUrl] = useState('');
   const [weekLabel, setWeekLabel] = useState('');
+
+  // ── Published deadlines ───────────────────────────────────────────────────
+  //
+  // Both fields have been READ by publishWeek.js since they were added and were
+  // never SENT by anything, so every publish shipped '' for both. That was safe
+  // — empty means "not set", and every consumer reads it as open — but it left
+  // amendments.js checking a close time that could never arrive. This is the
+  // producing half.
+  //
+  // ORDERS CLOSE is prefilled from nextOrderDeadline(), the same function the
+  // countdown banner uses, so the published instant and the banner can never
+  // disagree. Editable, because a holiday week is Kevin's call, not a rule's.
+  //
+  // AMENDMENTS CLOSE SHIPS BLANK ON PURPOSE. Kevin closes changes "once
+  // shopping starts", which is a Monday-ish habit and not an hour anybody has
+  // ever written down. Inventing a default here would publish a deadline he
+  // never chose and start rejecting real amendments at a time of my choosing.
+  // Blank preserves exactly today's behaviour until he sets one.
+  const toLocalInput = (d) => {
+    // datetime-local wants LOCAL wall-clock 'YYYY-MM-DDTHH:mm'. toISOString()
+    // would hand it UTC and silently shift the deadline by the offset.
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+  const fromLocalInput = (s) => {
+    if (!s) return '';
+    const t = new Date(s);            // parsed as local time, which is what we want
+    return isNaN(t.getTime()) ? '' : t.toISOString();
+  };
+  const [orderClosesAt, setOrderClosesAt] = useState(() => toLocalInput(nextOrderDeadline()));
+  const [amendmentsCloseAt, setAmendmentsCloseAt] = useState('');
   const [showConflicts, setShowConflicts] = useState(false);
 
   // ── Customer dish requests (informational; NOT wired into scoring) ─────────
@@ -195,7 +227,8 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     try {
       await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), {
         paused: true, pausedMsg: pauseMsg.trim(),
-      }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '', customerFlags });
+      }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '', customerFlags,
+        orderClosesAt: fromLocalInput(orderClosesAt), amendmentsCloseAt: fromLocalInput(amendmentsCloseAt) });
       setPublishMsg({ ok: true, text: 'Week paused. The form and menu now say you are off this week.' });
     } catch (e) {
       setPublishMsg({ ok: false, text: (e && e.message) || 'Could not pause the week.' });
@@ -216,6 +249,8 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
         requestCounts: requestCounts || {},
         favorites: favorites || [],
         notice: noticeOn ? notice.trim() : '',
+        orderClosesAt: fromLocalInput(orderClosesAt),
+        amendmentsCloseAt: fromLocalInput(amendmentsCloseAt),
       });
       setPublishMsg({ ok: true, text: "Published! The order form now shows this week's menu." });
     } catch (e) {
@@ -445,6 +480,35 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               ))}
             </div>
           )}
+          <div style={{ display: 'flex', gap: 8, margin: '10px 0 2px', flexWrap: 'wrap' }}>
+            <label style={{ flex: '1 1 150px', minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 11.5, color: '#c9d1cd', marginBottom: 4 }}>
+                Orders close
+              </span>
+              <input
+                type="datetime-local"
+                value={orderClosesAt}
+                onChange={e => setOrderClosesAt(e.target.value)}
+                style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }}
+              />
+            </label>
+            <label style={{ flex: '1 1 150px', minWidth: 0 }}>
+              <span style={{ display: 'block', fontSize: 11.5, color: '#c9d1cd', marginBottom: 4 }}>
+                Changes close <span style={{ color: '#7a8480' }}>(optional)</span>
+              </span>
+              <input
+                type="datetime-local"
+                value={amendmentsCloseAt}
+                onChange={e => setAmendmentsCloseAt(e.target.value)}
+                style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }}
+              />
+            </label>
+          </div>
+          <div style={{ fontSize: 10.5, color: '#7a8480', margin: '0 0 4px', lineHeight: 1.45 }}>
+            {amendmentsCloseAt
+              ? 'Published with the week. After the changes deadline, amendment requests are refused.'
+              : 'Orders close is prefilled from the usual Sunday night. Leave changes blank to keep accepting amendments right up to delivery, which is what happens today.'}
+          </div>
           <div style={styles.conflictBtnRow}>
             <button
               style={{ ...styles.saveBtn, marginTop: 0, flex: 1, background: publishMsg?.ok ? '#1D9E75' : undefined }}

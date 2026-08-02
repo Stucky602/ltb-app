@@ -1,5 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD } from '../styles.js';
+import {
+  addAnatomy, updateAnatomy, anatomyForDish, CRITICALITY, CRITICALITY_LABELS,
+} from '../anatomy.js';
+import { dishIdFor } from '../dishIdentity.js';
+import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 import { currency, itemCost, copyText, DISH_RENAMES } from '../utils.js';
 import { entriesForDish, publicEntries, latestPriceRationale } from '../journal.js';
 import { JournalPanel } from './JournalPanel.jsx';
@@ -239,7 +243,84 @@ function FeedbackStrip({ fb, dish, onReset, archive, archiveState }) {
   );
 }
 
-export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog, visualCues, onSaveCues }) {
+
+// One ingredient line, with its anatomy behind a tap. See the note at the call
+// site for why this lives here rather than in a tab of its own.
+function AnatomyLine({ line, dishId, anatomy, onSave }) {
+  const [open, setOpen] = useState(false);
+  const ingredientId = line.id || line.name;
+  const existing = useMemo(
+    () => (anatomyForDish(anatomy, dishId) || []).find(e => e.ingredientId === ingredientId) || null,
+    [anatomy, dishId, ingredientId]);
+  const [roles, setRoles] = useState('');
+  const [crit, setCrit] = useState('');
+  const [ifOmitted, setIfOmitted] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setRoles(((existing && existing.roles) || []).join(', '));
+    setCrit((existing && existing.criticality) || '');
+    setIfOmitted((existing && existing.ifOmitted) || '');
+  }, [open, existing]);
+
+  const save = () => {
+    const payload = {
+      dishId,
+      ingredientId,
+      roles: roles.split(',').map(r => r.trim()).filter(Boolean),
+      criticality: crit || null,
+      ifOmitted: ifOmitted.trim(),
+      status: 'confirmed',
+    };
+    onSave(prev => (existing
+      ? updateAnatomy(prev, existing.id, payload)
+      : addAnatomy(prev, payload)));
+    setOpen(false);
+  };
+
+  const fld = {
+    width: '100%', boxSizing: 'border-box', background: '#14201d', border: `1px solid ${C.border}`,
+    borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5, marginTop: 6,
+  };
+
+  return (
+    <>
+      <div style={{ ...S.row, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
+        <span style={{ color: line.staple ? C.faint : C.text }}>
+          {line.name}{line.staple ? ' \u2726' : ''}
+          {existing && existing.status === 'confirmed' && (
+            <span style={{ color: C.gold, marginLeft: 5 }} title="Anatomy recorded">&bull;</span>
+          )}
+        </span>
+        <span style={{ color: C.dim }}>{line.qty} {line.unit}</span>
+      </div>
+      {open && (
+        <div style={{ padding: '8px 10px', margin: '2px 0 8px', background: '#161d1b',
+          border: `1px solid ${C.border}`, borderRadius: 8 }}>
+          <div style={{ fontSize: 11, color: C.faint, lineHeight: 1.5 }}>
+            Why is this here? Nothing is guessed — this is blank until you write it.
+          </div>
+          <input value={roles} onChange={e => setRoles(e.target.value)} style={fld}
+            placeholder="What it does, comma separated" />
+          <select value={crit} onChange={e => setCrit(e.target.value)} style={fld}>
+            <option value="">How much does the dish depend on it?</option>
+            {CRITICALITY.map(c => <option key={c} value={c}>{CRITICALITY_LABELS[c]}</option>)}
+          </select>
+          <textarea value={ifOmitted} onChange={e => setIfOmitted(e.target.value)}
+            style={{ ...fld, minHeight: 54 }} placeholder="What happens if it is left out" />
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button style={{ ...S.collapseBtn, flex: 1, justifyContent: 'center', color: C.good }}
+              onClick={save}>Save</button>
+            <button style={{ ...S.collapseBtn, flex: 1, justifyContent: 'center' }}
+              onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, baseCostMap, costHistory, journal, onSaveJournal, knownNames, weekDishes, orders, pipelineJournal, onSavePipelineJournal, auditLog, visualCues, onSaveCues, anatomy, onSaveAnatomy }) {
   const [showRepricing, setShowRepricing] = useState(false);
   const repricing = useMemo(() => repricingScoreboard(auditLog || [], orders || []), [auditLog, orders]);
   const [dish, setDish] = useState('');
@@ -374,6 +455,8 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
     [fbHistory],
   );
   const fbArchiveState = !fbHistory ? 'loading' : (fbHistory.unavailable ? 'unavailable' : 'ready');
+
+  const [sub, setSub] = useState('dishes');
 
   // ── Pipeline section state ──────────────────────────────────────────────
   const [showPipeline, setShowPipeline] = useState(false); // collapsed by default
@@ -531,6 +614,31 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
       <h2 style={S.h2}>Recipes</h2>
       <p style={S.hint}>Full recipe, cost, and margin intelligence for any dinner. Pick a dish, then a version.</p>
 
+      {/* ══ SUB-TABS ═══════════════════════════════════════════════════════
+           This is the biggest component in the app and it stacked two
+           unrelated jobs in one scroll: the per-dish browser Kevin opens during
+           a cooking week, and the menu-development cluster (candidates, votes,
+           the Graveyard, the graduation wall) he opens when deciding what the
+           menu should BECOME. Those are never the same visit, and the
+           development cluster sat on top, so the common case scrolled past the
+           rare one every time.
+
+           Dishes is the default because a cooking week is the common case. The
+           Pipeline pane keeps its own internal collapsibles — this splits the
+           two jobs apart, it does not flatten what is inside them. ═══════ */}
+      <div style={styles.cookSubToggle}>
+        {[['dishes', 'Dishes'], ['pipeline', 'Pipeline']].map(([key, label]) => (
+          <button
+            key={key}
+            style={{ ...styles.cookSubBtn, ...(sub === key ? styles.cookSubBtnActive : {}) }}
+            onClick={() => setSub(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {sub === 'pipeline' && (<>
       {/* ── PIPELINE — candidates in testing ── */}
       <div style={S.section}>
         <button style={S.collapseBtn} onClick={() => setShowPipeline(o => !o)}>
@@ -809,8 +917,9 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
           </div>
         )}
       </div>
+      </>)}
 
-
+      {sub === 'dishes' && (<>
       {/* ── Portfolio radar ── */}
       <div style={S.section}>
         <button style={S.collapseBtn} onClick={() => setShowPortfolio(o => !o)}>
@@ -1306,11 +1415,27 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
               <div style={S.sectionTitle}>
                 Recipe{recipe.factor !== 1 ? ` · ×${recipe.factor} batch` : ''}
               </div>
+              {/* RECIPE ANATOMY sits on the ingredient LINE, per the systems
+                  master's rule that most capabilities belong inside existing
+                  workflows rather than in a new tab. Tapping a line is how the
+                  question "why is this here" gets asked in the one place where
+                  it naturally occurs.
+
+                  It ships with nothing in it. Every field is a food fact only
+                  Kevin can supply, and an invented ingredient role would
+                  propagate into accommodation decisions and customer copy. The
+                  dot is the ONLY thing that distinguishes an explained line
+                  from an unexplained one — without it, a line nobody has
+                  written about looks exactly like a line that needs no
+                  writing. */}
               {recipe.displayLines.map((ln, i) => (
-                <div key={i} style={S.row}>
-                  <span style={{ color: ln.staple ? C.faint : C.text }}>{ln.name}{ln.staple ? ' ✦' : ''}</span>
-                  <span style={{ color: C.dim }}>{ln.qty} {ln.unit}</span>
-                </div>
+                <AnatomyLine
+                  key={i}
+                  line={ln}
+                  dishId={dishIdFor(dish)}
+                  anatomy={anatomy}
+                  onSave={onSaveAnatomy}
+                />
               ))}
               {recipe.costDrivers.length > 0 && (
                 <div style={{ fontSize: 11.5, color: C.dim, marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
@@ -1560,6 +1685,7 @@ export function RecipesTab({ dishFeedback, onResetDishFeedback, liveCostMap, bas
         journal={journal}
         onSaveJournal={onSaveJournal}
       />
+      </>)}
     </div>
   );
 }

@@ -269,6 +269,24 @@ export const DISHES = [
     // exclusive. See HANDOFF deep-dive for what each path means.
     wowPath: ['familiarBeloved'],
     reheat: 'kit',
+    // RICE. Walk 2 (Jul 30) settled that this kit ships rice and always should
+    // have: 2 cups in a 16 oz round for a Small, 4 cups in a 32 oz round for a
+    // Large. The container map was rebuilt to carry those vessels, but this
+    // flag was never set, so the dish stayed out of RICE_DISHES and riceUnits()
+    // returned 0 — Kevin bought and packed the grain and the cost model never
+    // saw it. It was the ONLY flag-vs-recipe-line mismatch in the registry.
+    //
+    // The flag is the whole fix and no recipe line is added here. Every other
+    // rice dish carries a `Rice (included with order)` line that LINE_MAP marks
+    // [SKIP] at $0, so the money has always come from riceUnits() alone and a
+    // line would buy nothing but a recipe-version cut. Walk 1 owns the question
+    // of whether that documentary line should exist on all of them.
+    //
+    // Charges 1 unit Small / 2 units Large off the variant label, which is
+    // exactly Kevin's 2-cup / 4-cup answer. The container map is a byVariant
+    // entry, so containerTypesFor never consults the rice inference for this
+    // dish and the two cannot disagree.
+    rice: true,
     equipment: { fixed: ['dutch', 'largePot', 'ovenLow'] },
     servings: { small: 5.5, large: 9.5, bound: true },
     variants: [

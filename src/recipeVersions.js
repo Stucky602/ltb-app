@@ -139,4 +139,43 @@ export function describeDiffResult(d) {
   return out;
 }
 
+// ── Per-ITEM version stamping ───────────────────────────────────────────────
+//
+// WHY THIS EXISTS, AND WHY IT IS BIGGER THAN THE BACKLOG THOUGHT
+//
+// `offeredRecipeVersionId` and `servedRecipeVersionId` were added to the ORDER
+// in schema v4, and the backlog carried "move them to the line item" as a small
+// task. Checking the tree found something worse: they had ZERO write sites.
+// migrations.js created them as null, chronicle.js read them, and nothing in
+// the app ever set either one. So the Chronicle's version column has been
+// answering from `currentVersionFor()` on every chapter — that is, from the
+// recipe as it stands TODAY — and honestly reporting that as a gap. The job
+// was never "move them", it was "record them at all".
+//
+// PER ITEM, NOT PER ORDER. A single order can hold four dishes, and Kevin can
+// refine one of them between Sunday's close and Tuesday's cook. One id on the
+// order cannot describe four dishes, and the Chronicle's own in-file note says
+// so. An order-level id is only reliable when every dish in it happened to be
+// at its current version, which is the normal case and not a guarantee.
+//
+// STAMP ONCE, NEVER OVERWRITE. Each field fills only when it is null or
+// absent, so re-tapping Delivered, or an order passing through Delivered twice,
+// cannot rewrite a version that was already recorded. The first recording is
+// the true one; a later one would be a guess wearing the same field name.
+//
+// NULL WHEN UNKNOWN. An item whose name the registry cannot resolve to a dish
+// id gets null, exactly like the v3→v4 migration's refusal to backfill. An
+// unrecorded version renders as "Legacy — exact recipe version unrecorded",
+// which is honest. Inventing one would defeat the entire point of an immutable
+// registry, which is that it does not lie about history.
+export function stampItemVersions(items, field) {
+  return (items || []).map(it => {
+    if (!it || typeof it !== 'object') return it;
+    if (it[field]) return it; // already recorded — never overwrite
+    const id = it.dishId || dishIdFor(it.name);
+    const cur = id ? currentVersionFor(id) : null;
+    return { ...it, [field]: (cur && cur.id) || null };
+  });
+}
+
 export { RECIPE_VERSIONS };

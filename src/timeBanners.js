@@ -34,11 +34,21 @@ export function currentWeekInfo(now) {
 // Decision (Jul 24): orders close at midnight Sunday evening — i.e. the
 // instant Sunday becomes Monday, local time. If "now" IS Sunday, the
 // deadline is tonight; any other day, it's the coming Sunday.
-export function msUntilDeadline(now) {
+// The deadline INSTANT, not the countdown. Extracted Aug 1 so the publish
+// card's prefilled "orders close" field derives from the same rule the banner
+// counts down to. Before this, publishing an explicit orderClosesAt would have
+// meant a second copy of the Sunday rule, and the whole reason that field is
+// being published is that prose deadlines are fine for a person and useless to
+// a validator — two rules that could disagree would be worse than none.
+export function nextOrderDeadline(now) {
   const n = now || new Date();
   const daysUntilSunday = (7 - n.getDay()) % 7; // Sunday itself → 0 (tonight)
-  const deadline = new Date(n.getFullYear(), n.getMonth(), n.getDate() + daysUntilSunday, 23, 59, 59, 999);
-  return deadline.getTime() - n.getTime();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate() + daysUntilSunday, 23, 59, 59, 999);
+}
+
+export function msUntilDeadline(now) {
+  const n = now || new Date();
+  return nextOrderDeadline(n).getTime() - n.getTime();
 }
 
 export function formatCountdown(ms) {

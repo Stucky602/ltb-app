@@ -59,13 +59,10 @@ function looseJson(v) {
   return JSON.stringify(v);
 }
 
-// Read once per build, not once per marker: six markers across two pages, and
-// the file is 90 KB.
-let _logo = null;
-function logoB64() {
-  if (_logo === null) _logo = readFileSync(at('src/pages/_partials/ltb-logo.b64'), 'utf8').trim();
-  return _logo;
-}
+// The base64 logo reader lived here and is gone: the three icon generators
+// below now emit a URL, so nothing reads src/pages/_partials/ltb-logo.b64 any
+// more. That file is now an orphan and is listed in tools/checkRepoStructure.mjs
+// for Kevin to delete by hand, since a zip cannot ship a deletion.
 
 // ── Generators ──────────────────────────────────────────────────────────────
 // A generator renders content that ALREADY HAS A SOURCE OF TRUTH elsewhere in
@@ -113,23 +110,32 @@ const GENERATORS = {
     return `<button class="filter-btn on" data-filter="all">All ${n}</button>`;
   },
 
-  // ── The inline icon set ───────────────────────────────────────────────────
-  // form.html and main-menu.html each carry the LTB logo base64 THREE times,
-  // and all six payloads are byte-identical: one 90 KB image stored six times,
-  // 540 KB of the two pages' combined 695 KB.
+  // ── The icon set ──────────────────────────────────────────────────────────
   //
-  // It stays INLINE in the output on purpose. A home-screen icon that 404s
-  // gives an install with no icon, and inlining removes that failure mode
-  // entirely. What changes is that the repo now stores it ONCE, in
-  // src/pages/_partials/ltb-logo.b64, instead of six times.
+  // NOW REFERENCED BY URL, NOT INLINED (Kevin, Aug 1). These three markers used
+  // to emit `data:image/png;base64,…` and the same 88 KB payload landed THREE
+  // times in form.html and three times in main-menu.html.
   //
-  // Worth knowing: the third one is NOT an icon. It is an <img class="logo">,
-  // a content image, and order.html, menu.html, and pipeline.html all render
-  // the same thing from /ltb-logo.png. That inconsistency is reported, not
-  // fixed — changing it is a page-weight decision, not a refactor.
-  iconAppleTouch: () => `<link rel="apple-touch-icon" href="data:image/png;base64,${logoB64()}">`,
-  iconLink: () => `<link rel="icon" href="data:image/png;base64,${logoB64()}">`,
-  logoImg: () => `<img class="logo" src="data:image/png;base64,${logoB64()}" alt="LTB">`,
+  // WHY THAT WAS WORSE THAN IT LOOKED. Gzip's window is 32 KB and the copies sat
+  // roughly 100 KB apart, so it could not deduplicate them at all: the two pages
+  // compressed to about 229 KB each where the same pages without the logo
+  // compress to 29 KB. main-menu.html is the kitchen page — the one somebody
+  // loads standing over a container, sometimes on bad signal — so 200 KB of
+  // avoidable transfer sat directly on the path that matters most.
+  //
+  // THE 404 ARGUMENT NO LONGER APPLIES, and it is worth writing down why rather
+  // than leaving the old reasoning to look sound. The previous note kept these
+  // inline so a home-screen icon could never 404. But /ltb-logo.png is already
+  // at the repo root, is not in .assetsignore, and is ALREADY relied on by
+  // order.html, menu.html, pipeline.html, and by sw.js for push notification
+  // icons. The risk was already being taken everywhere else; these two pages
+  // were the inconsistency, not the safe case.
+  //
+  // The service worker caches it on first fetch like any other asset, so the
+  // offline story is unchanged after one visit.
+  iconAppleTouch: () => '<link rel="apple-touch-icon" href="/ltb-logo.png">',
+  iconLink: () => '<link rel="icon" href="/ltb-logo.png">',
+  logoImg: () => '<img class="logo" src="/ltb-logo.png" alt="LTB">',
 
   // ── menu.html's LIBRARY ───────────────────────────────────────────────────
   // The 26 DINNER entries are built from dishes.js. They always had to match it

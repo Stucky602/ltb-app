@@ -188,7 +188,14 @@ const ok = (n, c, x) => { c ? (p++, console.log('  ✓ ' + n)) : (f++, console.l
     'backfilling to the oldest recorded version would assert a fact nobody knows');
   ok('and it is idempotent',
     migrateForward(migrated, 3).orders[0].offeredRecipeVersionId === null);
-  ok('SCHEMA_VERSION advanced to 4', SCHEMA_VERSION === 4);
+  // AT LEAST 4, not exactly 4. The intent of this line is "the schema advanced
+  // when recipe versioning landed", and versioning landed at v4. Pinning the
+  // literal made it a tripwire on every LATER migration instead: v5 (recipe
+  // versions moving to the line item) broke it while changing nothing this file
+  // tests. Same lesson as the container-count assertions — assert the property,
+  // not a number that the registry is expected to outgrow.
+  ok('SCHEMA_VERSION is at or past the recipe-versioning migration (v4)',
+    SCHEMA_VERSION >= 4, `SCHEMA_VERSION is ${SCHEMA_VERSION}`);
 }
 
 // ── Diffs describe food, not JSON ───────────────────────────────────────────

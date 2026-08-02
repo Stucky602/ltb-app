@@ -71,6 +71,28 @@ export const EQUIPMENT_KEY = 'ltb_equipment_v1';
 // see realDataEpoch.js.
 // The son's food log. Menu dishes only, by design — see rowan.js.
 export const ROWAN_LOG_KEY = 'ltb_rowan_log_v1';
+// The practice library: how Kevin works when the knowledge belongs to no
+// single dish. Private, Kevin-confirmed only, rides the backup.
+export const PRACTICES_KEY = 'ltb_practices_v1';
+// The capture inbox: shared artifacts saved before they are classified.
+// Text and metadata only; blobs live in R2 or the pending Cache bucket.
+export const CAPTURE_INBOX_KEY = 'ltb_capture_inbox_v1';
+// Packaged-product label versions: what was actually printed on the package,
+// and when. Ships empty; fills only as Kevin records labels.
+export const LABEL_VERSIONS_KEY = 'ltb_label_versions_v1';
+// Answers Kevin gives inside a walk. Saved per item as he goes; there is no
+// submit, so this is the only thing standing between a walk and losing it.
+export const WALK_ANSWERS_KEY = 'ltb_walk_answers_v1';
+// The knowledge core's three stores. Terms and anatomy are Kevin's words about
+// food and language; derivatives are the single approved gate between a private
+// record and any other reader.
+export const TERMS_KEY = 'ltb_terms_v1';
+export const ANATOMY_KEY = 'ltb_anatomy_v1';
+export const DERIVATIVES_KEY = 'ltb_derivatives_v1';
+// Rowan's questions, and the Future Reader Test's queue of records a later
+// reader could not follow.
+export const ROWAN_QUESTIONS_KEY = 'ltb_rowan_questions_v1';
+export const CLARIFICATIONS_KEY = 'ltb_clarifications_v1';
 // Kevin's own ranking of the menu, kept as a dated SERIES rather than a single
 // list, because the whole reason he wanted it recorded is that it drifts.
 export const DISH_RANKING_KEY = 'ltb_dish_rankings_v1';

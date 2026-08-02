@@ -1,0 +1,2054 @@
+{
+  "recordedAt": "2026-08-01T19:17:19.696Z",
+  "version": "10.2.0",
+  "gateCommands": 78,
+  "schemaVersion": 5,
+  "storageKeys": [
+    "ANATOMY_KEY",
+    "ARCHIVE_HISTORY_KEY",
+    "AUDIT_LOG_KEY",
+    "BACKUP_STATE_KEY",
+    "CAPTURE_INBOX_KEY",
+    "CHECKS_KEY",
+    "CLARIFICATIONS_KEY",
+    "CONTAINER_INVENTORY_KEY",
+    "COPIES_NOTE_KEY",
+    "COST_HISTORY_KEY",
+    "CUSTOMER_FLAGS_KEY",
+    "DELIVER_CHECKS_KEY",
+    "DERIVATIVES_KEY",
+    "DISH_NOTES_KEY",
+    "DISH_RANKING_KEY",
+    "EQUIPMENT_KEY",
+    "FEEDBACK_KEY",
+    "HANDLED_PENDING_KEY",
+    "INGREDIENTS_KEY",
+    "INVENTORY_KEY",
+    "JOURNAL_KEY",
+    "LABEL_VERSIONS_KEY",
+    "LAST_SEEN_WEEK_KEY",
+    "MENU_FINGERPRINT_KEY",
+    "OMAKASE_REG_QUEUE_KEY",
+    "OMAKASE_TEMPLATES_KEY",
+    "ORDERS_KEY",
+    "PENDING_KEY",
+    "PIPELINE_JOURNAL_KEY",
+    "PRACTICES_KEY",
+    "REAL_DATA_EPOCH_KEY",
+    "RECEIPT_ALIASES_KEY",
+    "REGULARS_KEY",
+    "ROWAN_LOG_KEY",
+    "ROWAN_QUESTIONS_KEY",
+    "SHOPPING_KEY",
+    "SW_VERSION_KEY",
+    "TERMS_KEY",
+    "VAPID_PUBLIC_KEY",
+    "VISUAL_CUES_KEY",
+    "WALK_ANSWERS_KEY",
+    "WEEK_KEY",
+    "WEEK_LEDGER_KEY",
+    "WEEK_NOTES_KEY",
+    "WEEK_NOTICE_KEY"
+  ],
+  "workerRoutes": [
+    "/amendments",
+    "/amendments/decide",
+    "/ask",
+    "/ask-log",
+    "/backup",
+    "/backup/list",
+    "/capture",
+    "/companion",
+    "/config",
+    "/config-history",
+    "/config-restore",
+    "/content",
+    "/customer-away",
+    "/customer-device/bind",
+    "/customer-device/claim",
+    "/customer-device/claim-code",
+    "/customer-device/revoke",
+    "/customer-home",
+    "/customer-profiles/publish",
+    "/feedback",
+    "/feedback/clear",
+    "/feedback/history",
+    "/feedback/pending",
+    "/feedback/seen",
+    "/k",
+    "/parse-amendment",
+    "/parse-notes",
+    "/parse-order",
+    "/parse-receipt",
+    "/pending",
+    "/pending/clear",
+    "/push/subscribe",
+    "/requestable",
+    "/requests",
+    "/sheet",
+    "/submit",
+    "/votes",
+    "/votes/full"
+  ],
+  "files": {
+    "src/App.jsx": {
+      "bytes": 104439,
+      "exports": []
+    },
+    "src/ReceiptScan.jsx": {
+      "bytes": 55917,
+      "exports": [
+        "ReceiptScan"
+      ]
+    },
+    "src/amendments.js": {
+      "bytes": 12978,
+      "exports": [
+        "AMENDMENT_STATUS",
+        "OPS",
+        "acceptAmendment",
+        "applyPatch",
+        "describePatch",
+        "makeAmendment",
+        "priceDelta",
+        "priceOrder",
+        "rejectAmendment",
+        "supersedePending",
+        "validatePatch"
+      ]
+    },
+    "src/anatomy.js": {
+      "bytes": 8016,
+      "exports": [
+        "ANATOMY_STATUSES",
+        "ANATOMY_VERSION",
+        "CRITICALITY",
+        "CRITICALITY_LABELS",
+        "addAnatomy",
+        "anatomyCounts",
+        "anatomyCoverage",
+        "anatomyFor",
+        "anatomyForDish",
+        "anatomyId",
+        "emptyAnatomy",
+        "normalizeAnatomy",
+        "removalConsequence",
+        "updateAnatomy"
+      ]
+    },
+    "src/archiveExport.js": {
+      "bytes": 24871,
+      "exports": [
+        "ARCHIVE_FIELD_NOTES",
+        "ARCHIVE_INTRO",
+        "ARCHIVE_SCHEMA",
+        "archiveGapYears",
+        "archiveSeriesLine",
+        "buildArchiveHtml",
+        "buildRecordsHtml",
+        "esc"
+      ]
+    },
+    "src/auditLog.js": {
+      "bytes": 9980,
+      "exports": [
+        "AUDIT_CAP",
+        "AUDIT_MAX_AGE_MS",
+        "SOURCES",
+        "appendAudit",
+        "auditEntry",
+        "diffAliases",
+        "diffIngredientCosts",
+        "diffMenuFingerprint",
+        "diffReconcile",
+        "menuFingerprint"
+      ]
+    },
+    "src/backupRestore.js": {
+      "bytes": 20684,
+      "exports": [
+        "applyBackupPayload",
+        "buildBackupPayload",
+        "djb2",
+        "fetchBackupList",
+        "fetchBackupSnapshot",
+        "postBackupSnapshot",
+        "relativeAge",
+        "resolveRestoreOptions"
+      ]
+    },
+    "src/books.js": {
+      "bytes": 6741,
+      "exports": [
+        "costDrivers",
+        "marginTrend",
+        "monthlyPnl",
+        "pnlToCsv"
+      ]
+    },
+    "src/bootHydrate.js": {
+      "bytes": 20332,
+      "exports": [
+        "hydrateFromStorage"
+      ]
+    },
+    "src/canonRules.js": {
+      "bytes": 10056,
+      "exports": [
+        "CANON_RULES",
+        "UNDIVIDABLE_MODES",
+        "canonRuleCount",
+        "checkBagIsVessel",
+        "checkFreezeClaims",
+        "checkPartialHeatHasDivision",
+        "checkProjectionsApproved",
+        "checkTwoNightIndependence",
+        "runCanonChecks"
+      ]
+    },
+    "src/captureInbox.js": {
+      "bytes": 8774,
+      "exports": [
+        "CAPTURE_CACHE",
+        "CAPTURE_SOURCES",
+        "CAPTURE_STATUSES",
+        "CAPTURE_VERSION",
+        "FILE_DESTINATIONS",
+        "addCapture",
+        "captureId",
+        "discardCapture",
+        "emptyInbox",
+        "fileCapture",
+        "inboxCounts",
+        "markMediaStored",
+        "normalizeInbox",
+        "pendingMediaCaptures",
+        "proposeFor",
+        "unsortedCaptures"
+      ]
+    },
+    "src/carl.js": {
+      "bytes": 28493,
+      "exports": [
+        "CARL_ALLOW",
+        "CARL_CATEGORIES",
+        "CARL_EXCLUDED",
+        "CARL_PATTERNS",
+        "CARL_RULINGS",
+        "DECLARED_TO_CATEGORY",
+        "SWAPS",
+        "carlCardSummary",
+        "carlMenu",
+        "carlScan",
+        "carlSentence",
+        "carlShoppingAdditions",
+        "carlStatus"
+      ]
+    },
+    "src/chronicle.js": {
+      "bytes": 11158,
+      "exports": [
+        "buildChapter",
+        "buildChronicle",
+        "chapterFingerprint",
+        "narrateChapter"
+      ]
+    },
+    "src/clarifications.js": {
+      "bytes": 6494,
+      "exports": [
+        "CLARIFICATIONS_VERSION",
+        "CLARIFICATION_STATUSES",
+        "READER_REASONS",
+        "READER_REASON_IDS",
+        "clarificationCounts",
+        "clarificationsByReason",
+        "clarificationsFor",
+        "dismissClarification",
+        "emptyClarifications",
+        "flagRecord",
+        "normalizeClarifications",
+        "openClarifications",
+        "resolveClarification"
+      ]
+    },
+    "src/companion.js": {
+      "bytes": 62951,
+      "exports": [
+        "companionContext",
+        "companionHtml"
+      ]
+    },
+    "src/components/AmendmentQueue.jsx": {
+      "bytes": 6905,
+      "exports": [
+        "AmendmentQueue"
+      ]
+    },
+    "src/components/AppHeader.jsx": {
+      "bytes": 5618,
+      "exports": [
+        "AppHeader"
+      ]
+    },
+    "src/components/AuditPanel.jsx": {
+      "bytes": 4609,
+      "exports": [
+        "AuditPanel"
+      ]
+    },
+    "src/components/BackupModal.jsx": {
+      "bytes": 4559,
+      "exports": [
+        "BackupModal"
+      ]
+    },
+    "src/components/BooksPanel.jsx": {
+      "bytes": 6396,
+      "exports": [
+        "BooksPanel"
+      ]
+    },
+    "src/components/BulkActionBar.jsx": {
+      "bytes": 2545,
+      "exports": [
+        "BulkActionBar"
+      ]
+    },
+    "src/components/ConflictModal.jsx": {
+      "bytes": 4894,
+      "exports": [
+        "ConflictModal"
+      ]
+    },
+    "src/components/CookTabs.jsx": {
+      "bytes": 8701,
+      "exports": [
+        "ArchiveDeliveredButton",
+        "CookingList",
+        "DeliverList"
+      ]
+    },
+    "src/components/CueAtlas.jsx": {
+      "bytes": 10884,
+      "exports": [
+        "CueCapture",
+        "CueGallery",
+        "cueSrc"
+      ]
+    },
+    "src/components/DigestPanel.jsx": {
+      "bytes": 9162,
+      "exports": [
+        "DigestPanel"
+      ]
+    },
+    "src/components/DossierRecord.jsx": {
+      "bytes": 7091,
+      "exports": [
+        "DossierRecord"
+      ]
+    },
+    "src/components/ErrorBoundary.jsx": {
+      "bytes": 4372,
+      "exports": []
+    },
+    "src/components/FeedbackCard.jsx": {
+      "bytes": 2793,
+      "exports": [
+        "FeedbackCard"
+      ]
+    },
+    "src/components/ImportModal.jsx": {
+      "bytes": 3126,
+      "exports": [
+        "ImportModal"
+      ]
+    },
+    "src/components/IngredientsTab.jsx": {
+      "bytes": 29478,
+      "exports": [
+        "IngredientsTab"
+      ]
+    },
+    "src/components/JournalPanel.jsx": {
+      "bytes": 11601,
+      "exports": [
+        "JournalPanel"
+      ]
+    },
+    "src/components/LabelsSheet.jsx": {
+      "bytes": 2721,
+      "exports": [
+        "LabelsSheet"
+      ]
+    },
+    "src/components/LearnedDataPanel.jsx": {
+      "bytes": 8080,
+      "exports": [
+        "LearnedDataPanel"
+      ]
+    },
+    "src/components/Modals.jsx": {
+      "bytes": 25956,
+      "exports": [
+        "IngredientCardModal",
+        "InvoiceModal",
+        "ReheatModal",
+        "WeightPhotoModal",
+        "perLbEstimate"
+      ]
+    },
+    "src/components/MoneyTab.jsx": {
+      "bytes": 26539,
+      "exports": [
+        "MoneyTab",
+        "OrderPhotos",
+        "ProfitChart",
+        "compactMoney",
+        "shortLabel"
+      ]
+    },
+    "src/components/OrderBanners.jsx": {
+      "bytes": 6688,
+      "exports": [
+        "OrderBanners"
+      ]
+    },
+    "src/components/OrderCard.jsx": {
+      "bytes": 60037,
+      "exports": [
+        "OrderCard"
+      ]
+    },
+    "src/components/OrderForm.jsx": {
+      "bytes": 33598,
+      "exports": [
+        "OrderForm"
+      ]
+    },
+    "src/components/OrderInputs.jsx": {
+      "bytes": 26734,
+      "exports": [
+        "AmendOrderCard",
+        "PasteOrderCard",
+        "QtyControl",
+        "ReviewModal",
+        "StatsBar"
+      ]
+    },
+    "src/components/OrderListControls.jsx": {
+      "bytes": 2631,
+      "exports": [
+        "OrderListControls"
+      ]
+    },
+    "src/components/PendingOrders.jsx": {
+      "bytes": 7334,
+      "exports": [
+        "PendingOrders"
+      ]
+    },
+    "src/components/PlannerPanel.jsx": {
+      "bytes": 4730,
+      "exports": [
+        "PlannerPanel"
+      ]
+    },
+    "src/components/ReceiptScan.jsx": {
+      "bytes": 52427,
+      "exports": [
+        "ReceiptScan"
+      ]
+    },
+    "src/components/RecipesTab.jsx": {
+      "bytes": 97073,
+      "exports": [
+        "RecipesTab"
+      ]
+    },
+    "src/components/RecordTab.jsx": {
+      "bytes": 68650,
+      "exports": [
+        "RecordTab"
+      ]
+    },
+    "src/components/RegularsIntelPanel.jsx": {
+      "bytes": 10156,
+      "exports": [
+        "RegularsIntelPanel"
+      ]
+    },
+    "src/components/RegularsTab.jsx": {
+      "bytes": 41653,
+      "exports": [
+        "LinkRegularPrompt",
+        "RegularForm",
+        "RegularProfile",
+        "RegularsTab"
+      ]
+    },
+    "src/components/RowanLogCard.jsx": {
+      "bytes": 10520,
+      "exports": [
+        "RowanLogCard"
+      ]
+    },
+    "src/components/RowanTab.jsx": {
+      "bytes": 17470,
+      "exports": [
+        "RowanTab"
+      ]
+    },
+    "src/components/SchedulePanel.jsx": {
+      "bytes": 2250,
+      "exports": [
+        "SchedulePanel"
+      ]
+    },
+    "src/components/ShoppingList.jsx": {
+      "bytes": 24824,
+      "exports": [
+        "ShoppingList"
+      ]
+    },
+    "src/components/VoiceMode.jsx": {
+      "bytes": 5190,
+      "exports": [
+        "VoiceMode"
+      ]
+    },
+    "src/components/WalkEngine.jsx": {
+      "bytes": 10389,
+      "exports": [
+        "WalkEngine"
+      ]
+    },
+    "src/components/WeekTab.jsx": {
+      "bytes": 36862,
+      "exports": [
+        "WeekTab"
+      ]
+    },
+    "src/components/WeeklySummary.jsx": {
+      "bytes": 10708,
+      "exports": [
+        "WeeklySummaryModal"
+      ]
+    },
+    "src/config.js": {
+      "bytes": 10596,
+      "exports": [
+        "ANATOMY_KEY",
+        "ARCHIVE_HISTORY_KEY",
+        "AUDIT_LOG_KEY",
+        "BACKUP_STALE_MS",
+        "BACKUP_STATE_KEY",
+        "CAPTURE_INBOX_KEY",
+        "CHECKS_KEY",
+        "CLARIFICATIONS_KEY",
+        "CONFIG_PUBLISH_URL",
+        "CONTAINER_INVENTORY_KEY",
+        "COPIES_NOTE_KEY",
+        "COST_HISTORY_KEY",
+        "CUSTOMER_FLAGS_KEY",
+        "DELIVER_CHECKS_KEY",
+        "DERIVATIVES_KEY",
+        "DISH_NOTES_KEY",
+        "DISH_RANKING_KEY",
+        "EQUIPMENT_KEY",
+        "FEEDBACK_KEY",
+        "HANDLED_PENDING_KEY",
+        "INGREDIENTS_KEY",
+        "INVENTORY_KEY",
+        "JOURNAL_KEY",
+        "LABEL_VERSIONS_KEY",
+        "LAST_SEEN_WEEK_KEY",
+        "MENU_FINGERPRINT_KEY",
+        "OMAKASE_REG_QUEUE_KEY",
+        "OMAKASE_TEMPLATES_KEY",
+        "ORDERS_KEY",
+        "PENDING_KEY",
+        "PENDING_POLL_URL",
+        "PIPELINE_JOURNAL_KEY",
+        "PRACTICES_KEY",
+        "REAL_DATA_EPOCH_KEY",
+        "RECEIPT_ALIASES_KEY",
+        "REGULARS_KEY",
+        "ROWAN_LOG_KEY",
+        "ROWAN_QUESTIONS_KEY",
+        "SHOPPING_KEY",
+        "SURCHARGE",
+        "SW_VERSION_KEY",
+        "TERMS_KEY",
+        "VAPID_PUBLIC_KEY",
+        "VISUAL_CUES_KEY",
+        "WALK_ANSWERS_KEY",
+        "WEEK_KEY",
+        "WEEK_LEDGER_KEY",
+        "WEEK_NOTES_KEY",
+        "WEEK_NOTICE_KEY",
+        "WORKER_BASE",
+        "ensurePublishToken",
+        "setPublishToken"
+      ]
+    },
+    "src/containers.js": {
+      "bytes": 49051,
+      "exports": [
+        "BAGGED_NAMES",
+        "CATEGORY_TYPE_DEFAULTS",
+        "CATEGORY_TYPE_OVERRIDES",
+        "CONTAINER_AMBIGUITIES",
+        "CONTAINER_TYPES",
+        "CONTAINER_TYPE_ORDER",
+        "DEFAULT_DINNER_TYPE",
+        "DEFAULT_OWNED",
+        "DISH_CONTAINERS",
+        "MEAL_CONTAINER_EPOCH",
+        "UNTRACKED_TYPES",
+        "containerAuditStatus",
+        "containerCustody",
+        "containerEntryFor",
+        "containerReport",
+        "containerTypesFor",
+        "containersForDish",
+        "emptyBreakdown",
+        "isTrackedType",
+        "mealContainersOut",
+        "normalizeContainerConfig",
+        "orderContainerBreakdown",
+        "packagingCost",
+        "portionMultiplier",
+        "shortageWarningDue",
+        "sumBreakdowns"
+      ]
+    },
+    "src/cookList.js": {
+      "bytes": 2906,
+      "exports": [
+        "UNCATEGORIZED",
+        "buildCookList",
+        "categoryIndex"
+      ]
+    },
+    "src/cookSchedule.js": {
+      "bytes": 5562,
+      "exports": [
+        "buildCookSchedule"
+      ]
+    },
+    "src/cookingPatterns.js": {
+      "bytes": 7211,
+      "exports": [
+        "cookingPatterns",
+        "tasteVsPractice"
+      ]
+    },
+    "src/corpus.js": {
+      "bytes": 12654,
+      "exports": [
+        "CORPUS_KINDS",
+        "KIND_LABELS",
+        "buildCorpus",
+        "excerptFor",
+        "fromAnatomy",
+        "fromChronicle",
+        "fromJournal",
+        "fromPractices",
+        "fromRecipeVersions",
+        "fromReheatData",
+        "fromRowan",
+        "fromTerms",
+        "fromVisualCues",
+        "searchCorpus",
+        "tokenize"
+      ]
+    },
+    "src/customerDevice.js": {
+      "bytes": 12079,
+      "exports": [
+        "AWAY_KINDS",
+        "CLAIM_TTL_MS",
+        "DEVICE_KEY",
+        "awayIsActive",
+        "buildProfileSnapshot",
+        "claimIsUsable",
+        "describeAway",
+        "deviceLabel",
+        "ensureDeviceToken",
+        "ensureProfileId",
+        "forgetDevice",
+        "generateClaimCode",
+        "isClaimExpired",
+        "mintDeviceToken",
+        "sanitizeSnapshot",
+        "tickAway"
+      ]
+    },
+    "src/derivatives.js": {
+      "bytes": 6497,
+      "exports": [
+        "AUDIENCES",
+        "AUDIENCE_LABELS",
+        "DERIVATIVES_VERSION",
+        "approveDerivative",
+        "derivativeCounts",
+        "derivativeFor",
+        "derivativeId",
+        "derivativesForSource",
+        "draftDerivative",
+        "emptyDerivatives",
+        "normalizeDerivatives",
+        "pendingApproval",
+        "revokeDerivative"
+      ]
+    },
+    "src/digest.js": {
+      "bytes": 7541,
+      "exports": [
+        "buildWeeklyDigest",
+        "computeMarginAlerts",
+        "marginAlerts"
+      ]
+    },
+    "src/dishCosting.js": {
+      "bytes": 56292,
+      "exports": [
+        "LINE_MAP",
+        "MARGIN_BUFFER",
+        "PASSTHROUGH_IDS",
+        "applyPriceLinks",
+        "baselineCostMap",
+        "canonUnit",
+        "costDishVariant",
+        "costPipelineIngredients",
+        "dishDrift",
+        "driftBorder",
+        "driftColor",
+        "liveCostMapFrom",
+        "makeConv",
+        "pipelineMarginAt",
+        "resolveDishVariant",
+        "trueRawCost",
+        "unitOptionsFor"
+      ]
+    },
+    "src/dishIdentity.js": {
+      "bytes": 6193,
+      "exports": [
+        "DISH_ID_MANIFEST",
+        "dishById",
+        "dishIdFor",
+        "dishNameFor",
+        "resolveDishId",
+        "unresolvableNames",
+        "withDishId"
+      ]
+    },
+    "src/dishRanking.js": {
+      "bytes": 8566,
+      "exports": [
+        "SEED_RANKING",
+        "addRanking",
+        "drift",
+        "latest",
+        "rankOf",
+        "staleness",
+        "tasteVsSales",
+        "tasteVsSon"
+      ]
+    },
+    "src/dishReport.js": {
+      "bytes": 31301,
+      "exports": [
+        "buildDishReport",
+        "buildPortfolioSummary",
+        "buildServingAudit",
+        "buildServingCheck",
+        "costOverTime",
+        "decomposeVariants",
+        "dishSalesHistory",
+        "equipmentSummary",
+        "parseClaimedServings",
+        "parseServings",
+        "portfolioProfitContribution",
+        "priceToHoldFloor",
+        "recipeForVariant",
+        "reportableDishes",
+        "reportableProteins",
+        "reportableVeg",
+        "scalingCheck"
+      ]
+    },
+    "src/dishes.js": {
+      "bytes": 158810,
+      "exports": [
+        "ALL_ALWAYS_ITEMS",
+        "ALWAYS_ITEMS",
+        "DISHES",
+        "I",
+        "REPORTABLE_ALWAYS_ITEMS",
+        "REPORTABLE_BAG_PROTEINS",
+        "REPORTABLE_BAG_VEG",
+        "REPORTABLE_DISHES"
+      ]
+    },
+    "src/dossierPrompts.js": {
+      "bytes": 5599,
+      "exports": [
+        "STALE_MONTHS",
+        "weeklyDossierPrompt"
+      ]
+    },
+    "src/dossierSeed.js": {
+      "bytes": 14905,
+      "exports": [
+        "DOSSIER_SEED"
+      ]
+    },
+    "src/drinks.js": {
+      "bytes": 8748,
+      "exports": [
+        "ALC_KINDS",
+        "DRINKS",
+        "WINE_STYLES",
+        "WINE_STYLE_LABEL",
+        "ZERO_KINDS",
+        "isZeroProof",
+        "kindOf",
+        "styleOf"
+      ]
+    },
+    "src/equipmentConflict.js": {
+      "bytes": 12859,
+      "exports": [
+        "DISH_EQUIPMENT",
+        "EFFORT_BANDS",
+        "R",
+        "RESOURCE_LABELS",
+        "analyzeConflicts",
+        "effortBand",
+        "weekEffortSummary"
+      ]
+    },
+    "src/equipmentSeed.js": {
+      "bytes": 2671,
+      "exports": [
+        "EQUIPMENT_DOES_NOT_HAVE",
+        "SEED_EQUIPMENT"
+      ]
+    },
+    "src/favorites.js": {
+      "bytes": 5859,
+      "exports": [
+        "FAVORITE_RULES",
+        "customerFavorites",
+        "dishFeedbackSignal",
+        "dishOrderSignal",
+        "favoriteStatus"
+      ]
+    },
+    "src/featureFlags.js": {
+      "bytes": 8048,
+      "exports": [
+        "DEFAULT_FLAGS",
+        "FLAGS",
+        "FLAG_IDS",
+        "NEVER_FLAGGED",
+        "STAGES",
+        "STAGE_IDS",
+        "describeStage",
+        "flagEnabled",
+        "normalizeFlags",
+        "resolveForCustomer"
+      ]
+    },
+    "src/feedbackSync.js": {
+      "bytes": 7586,
+      "exports": [
+        "clearPageIfDone",
+        "closeOutWeek",
+        "feedbackHistoryByDish",
+        "fetchFeedbackHistory",
+        "ignoreFeedbackEntry",
+        "pullKitchenFeedback",
+        "resetDishFeedbackTally",
+        "saveFeedbackEntry"
+      ]
+    },
+    "src/icons.jsx": {
+      "bytes": 4232,
+      "exports": [
+        "AlertTriangle",
+        "Archive",
+        "ArrowUpDown",
+        "Bell",
+        "Camera",
+        "Check",
+        "ChevronDown",
+        "ChevronUp",
+        "ClipboardPaste",
+        "Copy",
+        "Download",
+        "FileText",
+        "Flame",
+        "Icon",
+        "ImageIcon",
+        "Pencil",
+        "Plus",
+        "RotateCcw",
+        "Scale",
+        "Trash2",
+        "Upload",
+        "X",
+        "_ci",
+        "_line",
+        "_p",
+        "_poly",
+        "_rect"
+      ]
+    },
+    "src/ingredientCard.js": {
+      "bytes": 8336,
+      "exports": [
+        "ALWAYS_PRESENT",
+        "BLEND_LABEL",
+        "UNLISTED_ADDITIONS",
+        "allIngredientCards",
+        "buildIngredientCard",
+        "cardsNeedingReview",
+        "ingredientCardText"
+      ]
+    },
+    "src/ingredientOps.js": {
+      "bytes": 6833,
+      "exports": [
+        "commitReceiptCosts",
+        "saveReceiptAliases",
+        "updateIngredients"
+      ]
+    },
+    "src/ingredientScaffold.js": {
+      "bytes": 5071,
+      "exports": [
+        "scaffoldIngredient",
+        "scaffoldIngredients"
+      ]
+    },
+    "src/ingredients.js": {
+      "bytes": 31942,
+      "exports": [
+        "CATEGORY_LABELS_ING",
+        "CATEGORY_ORDER",
+        "CONVERSIONS",
+        "INGREDIENT_SEED"
+      ]
+    },
+    "src/journal.js": {
+      "bytes": 31150,
+      "exports": [
+        "EDIT_HISTORY_MAX",
+        "GENERAL_CHAPTERS",
+        "JOURNAL_TYPES",
+        "JOURNAL_TYPE_ORDER",
+        "JOURNAL_VERSION",
+        "TRANSFERABLE_TYPES",
+        "UNDO_WINDOW_DAYS",
+        "UNNAMED_PRINCIPLE",
+        "addCustomType",
+        "addEntry",
+        "allTypeOrder",
+        "allTypes",
+        "canBeTransferable",
+        "canonDishName",
+        "chapterCounts",
+        "dossierComposition",
+        "dossierCoverage",
+        "editHistory",
+        "emptyJournal",
+        "entriesForChapter",
+        "entriesForDish",
+        "entriesOnThisDay",
+        "latestPriceRationale",
+        "latestRevision",
+        "migrateDishNotes",
+        "normalizeJournal",
+        "orphanedDishNames",
+        "principleIndex",
+        "publicEntries",
+        "purgeTombstones",
+        "recentlyDeleted",
+        "removeEntry",
+        "restoreEntry",
+        "staleByRevision",
+        "stampEntry",
+        "supersededIds",
+        "transferableEntries",
+        "updateEntry"
+      ]
+    },
+    "src/journalImport.js": {
+      "bytes": 5388,
+      "exports": [
+        "IMPORT_FORMAT_HELP",
+        "candidateToEntry",
+        "importSummary",
+        "parseImport"
+      ]
+    },
+    "src/labelVersions.js": {
+      "bytes": 8163,
+      "exports": [
+        "LABEL_STATUSES",
+        "LABEL_VERSIONS_VERSION",
+        "addLabel",
+        "currentLabelFor",
+        "diffLabels",
+        "emptyLabels",
+        "labelCounts",
+        "labelVersionAt",
+        "labelsFor",
+        "normalizeLabels",
+        "supersedeLabel",
+        "updateLabel"
+      ]
+    },
+    "src/labels.js": {
+      "bytes": 2934,
+      "exports": [
+        "buildLabelSheet"
+      ]
+    },
+    "src/learnedData.js": {
+      "bytes": 7188,
+      "exports": [
+        "ORIGIN",
+        "deleteLearnedEntry",
+        "learnedDataStats",
+        "originOf",
+        "remapLearnedEntry",
+        "summarizeLearnedData"
+      ]
+    },
+    "src/listControls.js": {
+      "bytes": 3557,
+      "exports": [
+        "DEFAULT_WINDOW",
+        "filterByStatus",
+        "orderHaystacks",
+        "regularHaystacks",
+        "searchList",
+        "sortList",
+        "windowList"
+      ]
+    },
+    "src/ltbLogo.js": {
+      "bytes": 90302,
+      "exports": [
+        "LTB_LOGO"
+      ]
+    },
+    "src/mediaClient.js": {
+      "bytes": 8017,
+      "exports": [
+        "AUDIO_MAX_BYTES",
+        "AUDIO_MAX_SECONDS",
+        "MAX_EDGE",
+        "QUALITY",
+        "TARGET_TYPE",
+        "audioKeyFor",
+        "checksumOf",
+        "compressImage",
+        "mediaKeyFor",
+        "uploadAudio",
+        "uploadCue"
+      ]
+    },
+    "src/menu.js": {
+      "bytes": 3815,
+      "exports": [
+        "ALL_DINNERS",
+        "ALWAYS_MENU",
+        "CATEGORY_LABELS",
+        "DEFAULT_WEEK",
+        "FULL_MENU",
+        "PER_LB_ITEMS",
+        "STATUSES",
+        "STATUS_COLORS",
+        "buildMenu",
+        "isPerLbItem"
+      ]
+    },
+    "src/menuLibrary.js": {
+      "bytes": 21682,
+      "exports": [
+        "DINNER_BAGGED",
+        "DINNER_ORDER",
+        "LIBRARY_COMMENT",
+        "MENU_ADDONS",
+        "MENU_BAG",
+        "MENU_SAUCES",
+        "MENU_STATIC",
+        "OFF_MENU_DISHES"
+      ]
+    },
+    "src/migrations.js": {
+      "bytes": 9992,
+      "exports": [
+        "REFUSE_MESSAGE",
+        "SCHEMA_VERSION",
+        "SCHEMA_VERSION_KEY",
+        "assessForwardCompat",
+        "migrateForward"
+      ]
+    },
+    "src/omakase.js": {
+      "bytes": 9088,
+      "exports": [
+        "expandOmakaseForShopping",
+        "expandOrderForReheat",
+        "isOmakaseItem",
+        "omakaseCustomReheat",
+        "omakaseItemsOf",
+        "omakasePriceUnsettled",
+        "omakaseStats",
+        "omakaseUndecided",
+        "pastOmakasesFor",
+        "resolveMenuKey",
+        "undecidedOmakases"
+      ]
+    },
+    "src/orderOps.js": {
+      "bytes": 23192,
+      "exports": [
+        "INVENTORY_ADDON_MAP",
+        "acceptPending",
+        "addRegular",
+        "adjustInventory",
+        "archiveDelivered",
+        "autoFillRegularContact",
+        "bulkUpdateOrders",
+        "deleteOrder",
+        "deleteRegular",
+        "dismissPending",
+        "doMergeRegulars",
+        "doUnmergeRegular",
+        "importOrders",
+        "linkOrderToRegular",
+        "linkOrderWithAlias",
+        "linkSuggestionToRegular",
+        "makeRegularFromOrder",
+        "persistOrders",
+        "persistRegulars",
+        "runBackfill",
+        "saveOrder",
+        "setInventoryCount",
+        "unlinkOrderFromRegular",
+        "updateOrder",
+        "updateRegular"
+      ]
+    },
+    "src/pages/_partials/amendRequest.js": {
+      "bytes": 7626,
+      "exports": []
+    },
+    "src/pages/_partials/carlFilter.js": {
+      "bytes": 4320,
+      "exports": []
+    },
+    "src/pages/_partials/customerDevice.js": {
+      "bytes": 3700,
+      "exports": []
+    },
+    "src/pages/_partials/esc.js": {
+      "bytes": 435,
+      "exports": []
+    },
+    "src/pages/_partials/household.js": {
+      "bytes": 5836,
+      "exports": []
+    },
+    "src/pages/_partials/noticeHtml.js": {
+      "bytes": 474,
+      "exports": []
+    },
+    "src/pages/_partials/orderWindow.js": {
+      "bytes": 431,
+      "exports": []
+    },
+    "src/pages/_partials/pausedHtml.js": {
+      "bytes": 1663,
+      "exports": []
+    },
+    "src/pages/_partials/personalize.js": {
+      "bytes": 9515,
+      "exports": []
+    },
+    "src/pages/_partials/requestBox.js": {
+      "bytes": 3067,
+      "exports": []
+    },
+    "src/pages/_partials/requestScope.js": {
+      "bytes": 6447,
+      "exports": []
+    },
+    "src/passport.js": {
+      "bytes": 14152,
+      "exports": [
+        "SWEETS_LABEL",
+        "buildPassport",
+        "describeReheatHistory",
+        "ordersForRegular",
+        "pageLabel",
+        "reheatHistoryFor",
+        "stampableDishes"
+      ]
+    },
+    "src/pendingPoll.js": {
+      "bytes": 5127,
+      "exports": [
+        "checkWorkerNow",
+        "mapSubmission",
+        "mergePending",
+        "pollWorkerPending"
+      ]
+    },
+    "src/pipelineDishes.js": {
+      "bytes": 25825,
+      "exports": [
+        "CUT_GATES",
+        "PIPELINE_DISHES"
+      ]
+    },
+    "src/practices.js": {
+      "bytes": 12554,
+      "exports": [
+        "PRACTICES_VERSION",
+        "PRACTICE_SEEDS",
+        "PRACTICE_STATUSES",
+        "addPractice",
+        "confirmedPractices",
+        "emptyPractices",
+        "normalizePractices",
+        "practiceCounts",
+        "removePractice",
+        "seedPractices",
+        "updatePractice"
+      ]
+    },
+    "src/promoteScaffold.js": {
+      "bytes": 6803,
+      "exports": [
+        "buildPromoteScaffold",
+        "newPromoteChecklist"
+      ]
+    },
+    "src/publishPreflight.js": {
+      "bytes": 3090,
+      "exports": [
+        "preflightWeek"
+      ]
+    },
+    "src/publishWeek.js": {
+      "bytes": 16292,
+      "exports": [
+        "fetchConfigHistory",
+        "publishWeek",
+        "restoreConfig"
+      ]
+    },
+    "src/realDataEpoch.js": {
+      "bytes": 10463,
+      "exports": [
+        "epochSummary",
+        "isBackfilled",
+        "proposeEpoch",
+        "realOrdersOnly",
+        "stampBackfilled",
+        "weeklyDensity"
+      ]
+    },
+    "src/receiptMatch.js": {
+      "bytes": 95596,
+      "exports": [
+        "ALIAS_SEED",
+        "AUTO_MARGIN",
+        "AUTO_SCORE",
+        "COUNT_ENTRY_UNITS",
+        "EACHISH_TO_UNITS",
+        "FAMILIES",
+        "FUZZY_STRONG",
+        "FUZZY_WEAK",
+        "MERGE_PRICE_TOL",
+        "PRICE_OUTLIER_HI",
+        "PRICE_OUTLIER_LO",
+        "SOLD_BY_EACH",
+        "WEIGHT_ENTRY_UNITS",
+        "autoApplyAllowed",
+        "buildReviewPlan",
+        "confidenceTier",
+        "containerPriceCheck",
+        "convertPerUnit",
+        "countBaseOf",
+        "defaultAccept",
+        "derivePerUnit",
+        "diceCoefficient",
+        "extractNameSizes",
+        "habitualStore",
+        "learnFromAcceptance",
+        "learnFromIgnores",
+        "learnStoreFact",
+        "looksFusedLine",
+        "mergeExtractions",
+        "normalizeUnit",
+        "offStoreHint",
+        "onePackPriceFor",
+        "packShiftAlarm",
+        "parsePastedReceipt",
+        "perUnitFromUserCount",
+        "perUnitFromUserWeight",
+        "priceDriftReport",
+        "reconcileReceipt",
+        "scoreNamePair",
+        "shouldAskCount",
+        "wineHint"
+      ]
+    },
+    "src/recipeVersions.generated.js": {
+      "bytes": 110596,
+      "exports": [
+        "RECIPE_VERSIONS"
+      ]
+    },
+    "src/recipeVersions.js": {
+      "bytes": 7516,
+      "exports": [
+        "LEGACY_LABEL",
+        "VERSIONING_EPOCH",
+        "currentVersionFor",
+        "describeDiff",
+        "describeDiffResult",
+        "diffSnapshots",
+        "diffVersions",
+        "lineage",
+        "stampItemVersions",
+        "versionById",
+        "versionLabel",
+        "versionsFor"
+      ]
+    },
+    "src/recipes.js": {
+      "bytes": 57021,
+      "exports": [
+        "ALWAYS_STAPLE",
+        "BAGGED_PASTA_DISHES",
+        "DINNER_REHEAT_BUCKET",
+        "INGREDIENT_SYNONYMS",
+        "NOODLE_DISHES",
+        "PASTA_DISHES",
+        "RECIPES",
+        "REHEAT_CUES",
+        "RICE_DISHES",
+        "SOUS_VIDE_VEG",
+        "STEW_VEG_COPY",
+        "VEG_REHEAT_COPY",
+        "buildAutoShoppingRows",
+        "buildReheatBlocks",
+        "generateShoppingItems",
+        "itemHandling",
+        "mergeShoppingRows",
+        "normalizeIngredientName",
+        "parseShoppingLine",
+        "rescueFor"
+      ]
+    },
+    "src/regularsIntel.js": {
+      "bytes": 6007,
+      "exports": [
+        "attachRates",
+        "buildTasteProfile",
+        "usualOrder"
+      ]
+    },
+    "src/reheatData.js": {
+      "bytes": 48577,
+      "exports": [
+        "DIVIDE_MODES",
+        "FREEZE_VERDICTS",
+        "REHEAT_DATA",
+        "beforeYouStart",
+        "componentsThatFreeze",
+        "componentsToHoldBack",
+        "headlineMinutes",
+        "heatOnlyWhatYouNeed",
+        "holdBackBeforeFreezing",
+        "narrateBeforeYouStart",
+        "narrateHeatOnly",
+        "narrateStoragePlan",
+        "reheatDataFor",
+        "storagePlan",
+        "vesselCount",
+        "waitsBeforeStarting",
+        "worstTiming"
+      ]
+    },
+    "src/repricing.js": {
+      "bytes": 3768,
+      "exports": [
+        "repricingScoreboard"
+      ]
+    },
+    "src/rowan.js": {
+      "bytes": 15466,
+      "exports": [
+        "BIRTH_MONTH",
+        "BIRTH_YEAR",
+        "RATING_LABELS",
+        "addEntry",
+        "ageAt",
+        "attachCapsule",
+        "capsuleCount",
+        "capsuleTimeline",
+        "coverage",
+        "dishSummary",
+        "editTranscript",
+        "formatAge",
+        "makeEntry",
+        "normalizeCapsule",
+        "seriesFor",
+        "topDishes",
+        "untried",
+        "vocabularyByAge",
+        "vocabularyTimeline",
+        "writtenEntries"
+      ]
+    },
+    "src/rowanQuestions.js": {
+      "bytes": 6247,
+      "exports": [
+        "QUESTIONS_VERSION",
+        "QUESTION_SUBJECTS",
+        "addQuestion",
+        "answerQuestion",
+        "answeredQuestions",
+        "attachQuestionCapsule",
+        "emptyQuestions",
+        "normalizeQuestions",
+        "questionCounts",
+        "questionsAbout",
+        "unansweredQuestions"
+      ]
+    },
+    "src/seedReconcile.js": {
+      "bytes": 10158,
+      "exports": [
+        "RECONCILE_ACTIONS",
+        "pruneCostHistory",
+        "reconcileIngredients",
+        "summarizeReconcile"
+      ]
+    },
+    "src/splitPackaging.js": {
+      "bytes": 8674,
+      "exports": [
+        "PACK_BLURBS",
+        "PACK_LABELS",
+        "PACK_SHAPES",
+        "SPLIT_PACKAGING",
+        "containerCount",
+        "containersForPack",
+        "describeFootprint",
+        "isSplitEligible",
+        "normalizePackShape",
+        "packAppliesToVersion",
+        "splitCandidates",
+        "splitEntryFor",
+        "splitPackagingStatus",
+        "surchargeCentsFor"
+      ]
+    },
+    "src/styles.js": {
+      "bytes": 74201,
+      "exports": [
+        "CARD",
+        "CREAM",
+        "DARK",
+        "GOLD",
+        "TEAL_DARK",
+        "TEAL_LIGHT",
+        "TEAL_MID",
+        "styles"
+      ]
+    },
+    "src/terms.js": {
+      "bytes": 10235,
+      "exports": [
+        "TERMS_VERSION",
+        "TERM_SEEDS",
+        "TERM_STATUSES",
+        "addTerm",
+        "confirmedTerms",
+        "emptyTerms",
+        "normalizeTerms",
+        "seedTerms",
+        "termCounts",
+        "termsMentionedIn",
+        "updateTerm"
+      ]
+    },
+    "src/timeBanners.js": {
+      "bytes": 4790,
+      "exports": [
+        "currentWeekInfo",
+        "formatCountdown",
+        "intakeVsMedian",
+        "msUntilDeadline",
+        "nextOrderDeadline",
+        "weekRolledOver"
+      ]
+    },
+    "src/usePreserveScroll.js": {
+      "bytes": 2105,
+      "exports": [
+        "usePreserveScroll"
+      ]
+    },
+    "src/useWakeLock.js": {
+      "bytes": 2606,
+      "exports": [
+        "useWakeLock"
+      ]
+    },
+    "src/utils.js": {
+      "bytes": 91293,
+      "exports": [
+        "DISH_CUISINE",
+        "DISH_RENAMES",
+        "FEEDBACK_VERDICTS",
+        "HOUSE_DISCOUNT_PERCENT",
+        "JAR_LEDGER_EPOCH",
+        "MIN_ORDERS_FOR_INSIGHT",
+        "PHOTO_PREFIX",
+        "PHOTO_TTL_DAYS",
+        "RENAME_HISTORY",
+        "VARIANT_RENAMES",
+        "anyAddonPending",
+        "applyAction",
+        "applyFeedbackSave",
+        "backfillRegularLinks",
+        "billableOrders",
+        "buildInsights",
+        "cleanupPhotos",
+        "copyText",
+        "currency",
+        "customChargesTotal",
+        "deletePhoto",
+        "dietMatch",
+        "diffOrders",
+        "discountAmount",
+        "dishCuisine",
+        "extractReceipt",
+        "fileToJpegBase64",
+        "fmtBytes",
+        "formatDate",
+        "groupKeyFor",
+        "houseOrderPatch",
+        "insightStamp",
+        "isHouseOrder",
+        "isQuotaError",
+        "itemAddons",
+        "itemAddonsTotal",
+        "itemCost",
+        "itemOptions",
+        "itemUnitMultiplier",
+        "itemsAddonsTotal",
+        "itemsBaseTotal",
+        "itemsUpchargeTotal",
+        "jarsOutForRegular",
+        "loadHtml2Canvas",
+        "loadJSON",
+        "loadPhoto",
+        "localStore",
+        "menuForPrompt",
+        "menuVariantFor",
+        "mergeRegulars",
+        "nameMatchType",
+        "normName",
+        "normalizeAddons",
+        "normalizePendingItems",
+        "noteWithoutOptions",
+        "onStorageFull",
+        "optionsSummary",
+        "orderCostInfo",
+        "orderOutboundJars",
+        "orderToText",
+        "orderTotal",
+        "parseAmendment",
+        "parseFormNotes",
+        "parseOrderText",
+        "perLbBagCharge",
+        "perLbBagCount",
+        "photoKey",
+        "photoStorageBytes",
+        "regularAllNames",
+        "regularDisplayName",
+        "regularMatchType",
+        "regularNames",
+        "repricePerLbItem",
+        "resetDishFeedback",
+        "round2",
+        "routeItemRequest",
+        "routeParsedDraft",
+        "salvageReceiptJson",
+        "saveError",
+        "saveJSON",
+        "savePhoto",
+        "stampItemCosts",
+        "storageFootprint",
+        "store",
+        "uid",
+        "unmergeRegular",
+        "urlBase64ToUint8Array",
+        "validateParsedOrder"
+      ]
+    },
+    "src/version.js": {
+      "bytes": 1810,
+      "exports": [
+        "APP_VERSION",
+        "APP_VERSION_LABEL"
+      ]
+    },
+    "src/visualCues.js": {
+      "bytes": 7868,
+      "exports": [
+        "BUNDLE_README",
+        "CUE_KINDS",
+        "CUE_STATUS",
+        "brokenCues",
+        "buildBundleManifest",
+        "cueComparisonSets",
+        "cuesForDish",
+        "makeCue",
+        "markFailed",
+        "markStored",
+        "unfinishedCues"
+      ]
+    },
+    "src/voiceCommands.js": {
+      "bytes": 5035,
+      "exports": [
+        "matchItemName",
+        "matchOrder",
+        "parseVoiceCommand"
+      ]
+    },
+    "src/walks.js": {
+      "bytes": 9524,
+      "exports": [
+        "WALKS",
+        "WALK_ANSWERS_VERSION",
+        "emptyWalkAnswers",
+        "freezeVerificationWalk",
+        "normalizeWalkAnswers",
+        "pipelineTriageWalk",
+        "priceStalenessWalk",
+        "recordWalkAnswer",
+        "splitPackagingWalk",
+        "walkProgress"
+      ]
+    },
+    "src/weekLedger.js": {
+      "bytes": 3612,
+      "exports": [
+        "LEDGER_MAX_WEEKS",
+        "normalizeLedger",
+        "recordWeek",
+        "sameMonthPreviousYears"
+      ]
+    },
+    "src/weekNotice.js": {
+      "bytes": 1929,
+      "exports": [
+        "NOTICE_MAX",
+        "extractNotice",
+        "normalizeNotice"
+      ]
+    },
+    "src/weekPlanner.js": {
+      "bytes": 7481,
+      "exports": [
+        "composeWeek",
+        "dishRunStats",
+        "scoreWeekCandidates",
+        "weekOneBottle"
+      ]
+    },
+    "src/whatWasInMine.js": {
+      "bytes": 8127,
+      "exports": [
+        "whatWasInItem",
+        "whatWasInOrder",
+        "whatWasInOrderText"
+      ]
+    },
+    "src/zipWriter.js": {
+      "bytes": 3670,
+      "exports": [
+        "buildZip"
+      ]
+    },
+    "tools/buildPages.mjs": {
+      "bytes": 16314,
+      "exports": [
+        "PAGES",
+        "buildAll",
+        "buildPage"
+      ]
+    },
+    "tools/checkDuplicateKeys.mjs": {
+      "bytes": 7794,
+      "exports": []
+    },
+    "tools/checkPageSync.mjs": {
+      "bytes": 8720,
+      "exports": []
+    },
+    "tools/checkPagesBuilt.mjs": {
+      "bytes": 3660,
+      "exports": []
+    },
+    "tools/checkRepoStructure.mjs": {
+      "bytes": 6630,
+      "exports": []
+    },
+    "tools/checkSwVersion.mjs": {
+      "bytes": 2978,
+      "exports": []
+    },
+    "tools/checkWorkerContract.mjs": {
+      "bytes": 5111,
+      "exports": []
+    },
+    "tools/handoffDelta.mjs": {
+      "bytes": 7452,
+      "exports": []
+    },
+    "tools/perfBudget.mjs": {
+      "bytes": 6326,
+      "exports": []
+    },
+    "tools/snapshotVersions.mjs": {
+      "bytes": 9976,
+      "exports": [
+        "RECIPE_VERSIONS",
+        "recipeHash"
+      ]
+    },
+    "tools/syncMainMenu.mjs": {
+      "bytes": 16850,
+      "exports": []
+    },
+    "tools/syncPipeline.mjs": {
+      "bytes": 10963,
+      "exports": []
+    },
+    "tests/allergens.mjs": {
+      "bytes": 12280,
+      "exports": []
+    },
+    "tests/amendments.mjs": {
+      "bytes": 10122,
+      "exports": []
+    },
+    "tests/app_render.mjs": {
+      "bytes": 12681,
+      "exports": []
+    },
+    "tests/archive.mjs": {
+      "bytes": 14299,
+      "exports": []
+    },
+    "tests/audit_log.mjs": {
+      "bytes": 6890,
+      "exports": []
+    },
+    "tests/backup_roundtrip.mjs": {
+      "bytes": 10955,
+      "exports": []
+    },
+    "tests/boot_deps.mjs": {
+      "bytes": 6011,
+      "exports": []
+    },
+    "tests/canon_rules.mjs": {
+      "bytes": 9795,
+      "exports": []
+    },
+    "tests/capture_inbox.mjs": {
+      "bytes": 7055,
+      "exports": []
+    },
+    "tests/carl.mjs": {
+      "bytes": 14189,
+      "exports": []
+    },
+    "tests/chronicle.mjs": {
+      "bytes": 7842,
+      "exports": []
+    },
+    "tests/companion_features.mjs": {
+      "bytes": 3694,
+      "exports": []
+    },
+    "tests/component_render.mjs": {
+      "bytes": 11582,
+      "exports": []
+    },
+    "tests/containers.mjs": {
+      "bytes": 33687,
+      "exports": []
+    },
+    "tests/conv_unit_contract.mjs": {
+      "bytes": 4023,
+      "exports": []
+    },
+    "tests/cookList.mjs": {
+      "bytes": 4240,
+      "exports": []
+    },
+    "tests/cooking_patterns.mjs": {
+      "bytes": 5187,
+      "exports": []
+    },
+    "tests/costing_property.mjs": {
+      "bytes": 11612,
+      "exports": []
+    },
+    "tests/count_entry.mjs": {
+      "bytes": 12387,
+      "exports": []
+    },
+    "tests/customer_identity.mjs": {
+      "bytes": 27508,
+      "exports": []
+    },
+    "tests/customer_pages.mjs": {
+      "bytes": 35388,
+      "exports": []
+    },
+    "tests/diet_flags.mjs": {
+      "bytes": 5410,
+      "exports": []
+    },
+    "tests/diff_snapshots.mjs": {
+      "bytes": 1485,
+      "exports": []
+    },
+    "tests/dishIdentity.mjs": {
+      "bytes": 5071,
+      "exports": []
+    },
+    "tests/dish_identity_consumers.mjs": {
+      "bytes": 6583,
+      "exports": []
+    },
+    "tests/dish_ranking.mjs": {
+      "bytes": 3649,
+      "exports": []
+    },
+    "tests/dossierPrompts.mjs": {
+      "bytes": 4771,
+      "exports": []
+    },
+    "tests/edge_cases.mjs": {
+      "bytes": 21064,
+      "exports": []
+    },
+    "tests/feature_flags.mjs": {
+      "bytes": 9549,
+      "exports": []
+    },
+    "tests/fixtures/state.mjs": {
+      "bytes": 8186,
+      "exports": [
+        "FIXTURE_ALL_ORDERS",
+        "FIXTURE_BACKFILLED_ORDERS",
+        "FIXTURE_CONTAINER_CONFIG",
+        "FIXTURE_DISH_NAMES",
+        "FIXTURE_JOURNAL",
+        "FIXTURE_KNOWN_NAMES",
+        "FIXTURE_NOW",
+        "FIXTURE_ORDERS",
+        "FIXTURE_REGULARS",
+        "FIXTURE_WEEK_DISHES",
+        "FIXTURE_WEEK_LEDGER"
+      ]
+    },
+    "tests/ingredient_card.mjs": {
+      "bytes": 10654,
+      "exports": []
+    },
+    "tests/invariants.mjs": {
+      "bytes": 155367,
+      "exports": []
+    },
+    "tests/journal.mjs": {
+      "bytes": 28315,
+      "exports": []
+    },
+    "tests/journalImport.mjs": {
+      "bytes": 5568,
+      "exports": []
+    },
+    "tests/jsx_symbols.mjs": {
+      "bytes": 4749,
+      "exports": []
+    },
+    "tests/kitchen_weight.mjs": {
+      "bytes": 7300,
+      "exports": []
+    },
+    "tests/knowledge_core.mjs": {
+      "bytes": 10842,
+      "exports": []
+    },
+    "tests/label_versions.mjs": {
+      "bytes": 7189,
+      "exports": []
+    },
+    "tests/learned_data.mjs": {
+      "bytes": 10209,
+      "exports": []
+    },
+    "tests/library_sync.mjs": {
+      "bytes": 13071,
+      "exports": []
+    },
+    "tests/listControls.mjs": {
+      "bytes": 3564,
+      "exports": []
+    },
+    "tests/migration_chain.mjs": {
+      "bytes": 8778,
+      "exports": []
+    },
+    "tests/migrations.mjs": {
+      "bytes": 6107,
+      "exports": []
+    },
+    "tests/no_secrets.mjs": {
+      "bytes": 10233,
+      "exports": []
+    },
+    "tests/practices_corpus.mjs": {
+      "bytes": 8143,
+      "exports": []
+    },
+    "tests/preserveScroll.mjs": {
+      "bytes": 7594,
+      "exports": []
+    },
+    "tests/property.mjs": {
+      "bytes": 11150,
+      "exports": []
+    },
+    "tests/publish_contract.mjs": {
+      "bytes": 10873,
+      "exports": []
+    },
+    "tests/real_data_epoch.mjs": {
+      "bytes": 3982,
+      "exports": []
+    },
+    "tests/receipt_scan.mjs": {
+      "bytes": 34979,
+      "exports": []
+    },
+    "tests/recipe_versions.mjs": {
+      "bytes": 11599,
+      "exports": []
+    },
+    "tests/reheat_copy_lint.mjs": {
+      "bytes": 16048,
+      "exports": []
+    },
+    "tests/reheat_data.mjs": {
+      "bytes": 24379,
+      "exports": []
+    },
+    "tests/reheat_method.mjs": {
+      "bytes": 8581,
+      "exports": []
+    },
+    "tests/request_scope.mjs": {
+      "bytes": 9937,
+      "exports": []
+    },
+    "tests/rowan.mjs": {
+      "bytes": 5882,
+      "exports": []
+    },
+    "tests/rowan_dialogue.mjs": {
+      "bytes": 9559,
+      "exports": []
+    },
+    "tests/seed_reconcile.mjs": {
+      "bytes": 14456,
+      "exports": []
+    },
+    "tests/shopping_merge.mjs": {
+      "bytes": 10678,
+      "exports": []
+    },
+    "tests/snapshot.mjs": {
+      "bytes": 5218,
+      "exports": []
+    },
+    "tests/split_packaging.mjs": {
+      "bytes": 8246,
+      "exports": []
+    },
+    "tests/state_checks.mjs": {
+      "bytes": 6745,
+      "exports": []
+    },
+    "tests/timeBanners.mjs": {
+      "bytes": 4808,
+      "exports": []
+    },
+    "tests/version_stamping.mjs": {
+      "bytes": 9446,
+      "exports": []
+    },
+    "tests/visual_cues.mjs": {
+      "bytes": 12582,
+      "exports": []
+    },
+    "tests/wakeLock.mjs": {
+      "bytes": 5697,
+      "exports": []
+    },
+    "tests/weekLedger.mjs": {
+      "bytes": 4149,
+      "exports": []
+    },
+    "tests/weekNotice.mjs": {
+      "bytes": 4102,
+      "exports": []
+    },
+    "tests/week_effort.mjs": {
+      "bytes": 3437,
+      "exports": []
+    },
+    "tests/what_was_in_mine.mjs": {
+      "bytes": 8408,
+      "exports": []
+    },
+    "tests/worker_sim.mjs": {
+      "bytes": 24375,
+      "exports": []
+    }
+  }
+}

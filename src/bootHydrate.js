@@ -29,11 +29,22 @@
 // the same points the old code read `mounted`.
 
 import { normalizeFlags } from './featureFlags.js';
+import { seedPractices } from './practices.js';
+import { normalizeInbox } from './captureInbox.js';
+import { normalizeLabels } from './labelVersions.js';
+import { normalizeWalkAnswers } from './walks.js';
+import { seedTerms } from './terms.js';
+import { normalizeAnatomy } from './anatomy.js';
+import { normalizeDerivatives } from './derivatives.js';
+import { normalizeQuestions } from './rowanQuestions.js';
+import { normalizeClarifications } from './clarifications.js';
 import {
   ORDERS_KEY, CHECKS_KEY, SHOPPING_KEY, WEEK_KEY, DELIVER_CHECKS_KEY,
   DISH_NOTES_KEY, FEEDBACK_KEY, PIPELINE_JOURNAL_KEY, JOURNAL_KEY,
   LAST_SEEN_WEEK_KEY, CONTAINER_INVENTORY_KEY, WEEK_LEDGER_KEY, COPIES_NOTE_KEY,
   ARCHIVE_HISTORY_KEY, CUSTOMER_FLAGS_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
+  PRACTICES_KEY, CAPTURE_INBOX_KEY, LABEL_VERSIONS_KEY, WALK_ANSWERS_KEY,
+  TERMS_KEY, ANATOMY_KEY, DERIVATIVES_KEY, ROWAN_QUESTIONS_KEY, CLARIFICATIONS_KEY,
   INVENTORY_KEY, INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY,
   AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -59,7 +70,7 @@ export async function hydrateFromStorage(deps) {
     setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
     setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
     setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags,
+    setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications,
     handledPendingRef, pollWorkerPending,
   } = deps;
 
@@ -87,7 +98,7 @@ export async function hydrateFromStorage(deps) {
     await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
   }
 
-  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags] = await Promise.all([
+  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags, loadedPractices, loadedCapture, loadedLabels, loadedWalks, loadedTerms, loadedAnatomy, loadedDerivatives, loadedQuestions, loadedClarifications] = await Promise.all([
     loadJSON(ORDERS_KEY, []),
     loadJSON(CHECKS_KEY, {}),
     loadJSON(SHOPPING_KEY, []),
@@ -107,6 +118,15 @@ export async function hydrateFromStorage(deps) {
     loadJSON(DISH_RANKING_KEY, null),
     loadJSON(VISUAL_CUES_KEY, []),
     loadJSON(CUSTOMER_FLAGS_KEY, null),
+    loadJSON(PRACTICES_KEY, null),
+    loadJSON(CAPTURE_INBOX_KEY, null),
+    loadJSON(LABEL_VERSIONS_KEY, null),
+    loadJSON(WALK_ANSWERS_KEY, null),
+    loadJSON(TERMS_KEY, null),
+    loadJSON(ANATOMY_KEY, null),
+    loadJSON(DERIVATIVES_KEY, null),
+    loadJSON(ROWAN_QUESTIONS_KEY, null),
+    loadJSON(CLARIFICATIONS_KEY, null),
   ]);
   if (!isMounted()) return;
   const migrated = loadedOrders.map(o => ({
@@ -182,6 +202,30 @@ export async function hydrateFromStorage(deps) {
   // Flags load through normalizeFlags so a stored value from an older shape, or
   // a hand-edited one, cannot put an unknown stage in front of customers.
   if (loadedFlags && typeof loadedFlags === 'object') setCustomerFlags(normalizeFlags(loadedFlags));
+  // The practice library, seeded on every boot. seedPractices is idempotent BY
+  // TEXT, so this adds nothing on a device that already has them and never
+  // reverts one Kevin has reworded — the same contract the dossier seeds use.
+  // Seeding at boot rather than behind a button is what makes the drafts
+  // present the first time he opens the tab, which is the whole point:
+  // correcting a draft beats composing from a blank page.
+  const seededPractices = seedPractices(loadedPractices);
+  setPractices(seededPractices);
+  if (!loadedPractices) await saveJSON(PRACTICES_KEY, seededPractices);
+  setCaptureInbox(normalizeInbox(loadedCapture));
+  setLabelVersions(normalizeLabels(loadedLabels));
+  setWalkAnswers(normalizeWalkAnswers(loadedWalks));
+  // Terms seed like practices do: idempotent by id AND text, so a term Kevin
+  // reworded is never replaced by the draft it came from.
+  const seededTerms = seedTerms(loadedTerms);
+  setTerms(seededTerms);
+  if (!loadedTerms) await saveJSON(TERMS_KEY, seededTerms);
+  // Anatomy has NO seeds. Every field in it is a food fact only Kevin can
+  // supply, and an invented ingredient role would propagate into accommodation
+  // decisions and customer copy. It ships empty on purpose.
+  setAnatomy(normalizeAnatomy(loadedAnatomy));
+  setDerivatives(normalizeDerivatives(loadedDerivatives));
+  setRowanQuestions(normalizeQuestions(loadedQuestions));
+  setClarifications(normalizeClarifications(loadedClarifications));
   setDishFeedback(loadedDishFeedback || {});
   if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
     setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });

@@ -28,8 +28,9 @@
 // different readers and merging them would make both worse: cooking notes
 // buried in sentiment, sentiment buried in cooking notes.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RATING_LABELS, formatAge, ageAt } from '../rowan.js';
+import { AUDIO_MAX_SECONDS } from '../mediaClient.js';
 import { ChevronDown } from '../icons.jsx';
 import { GOLD, styles } from '../styles.js';
 
@@ -43,14 +44,68 @@ export function RowanLogCard({ dishNames, onLog }) {
   const [familyNote, setFamilyNote] = useState('');
   const [fairTest, setFairTest] = useState(true);
   const [saved, setSaved] = useState(false);
+  // ── VOICE CAPSULE ─────────────────────────────────────────────────────────
+  // One tap, no prompt, no streak, and no nudge after a meal. This is offered
+  // and never asked for: a record that pressures you into filling it is one you
+  // start avoiding, and the point is that it survives decades, not that it is
+  // complete.
+  const [rec, setRec] = useState(null);      // live MediaRecorder
+  const [clip, setClip] = useState(null);    // { blob, seconds }
+  const [recErr, setRecErr] = useState('');
+  const [elapsed, setElapsed] = useState(0);
+
+  const canRecord = typeof window !== 'undefined'
+    && typeof window.MediaRecorder !== 'undefined'
+    && !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+
+  const startRec = async () => {
+    setRecErr('');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      const chunks = [];
+      const startedAt = Date.now();
+      mr.ondataavailable = ev => { if (ev.data && ev.data.size) chunks.push(ev.data); };
+      mr.onstop = () => {
+        // Release the mic. A page holding a live audio track shows a recording
+        // indicator on the phone forever and is the kind of thing that gets an
+        // app deleted.
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+        setClip({ blob, seconds: Math.round((Date.now() - startedAt) / 1000) });
+        setRec(null);
+      };
+      mr.start();
+      setRec(mr);
+      setElapsed(0);
+    } catch (e) {
+      // Denied permission is the common case and is not an error state to
+      // apologise for; it just says what happened.
+      setRecErr('No microphone available, or permission was declined.');
+    }
+  };
+  const stopRec = () => { try { rec && rec.state !== 'inactive' && rec.stop(); } catch (e) { setRec(null); } };
+
+  useEffect(() => {
+    if (!rec) return undefined;
+    const t = setInterval(() => setElapsed(e => {
+      const next = e + 1;
+      if (next >= AUDIO_MAX_SECONDS) stopRec();
+      return next;
+    }), 1000);
+    return () => clearInterval(t);
+  }, [rec]);
 
   const ready = !!dish && rating > 0;
   const age = formatAge(ageAt(new Date().toISOString()));
 
   const submit = () => {
     if (!ready) return;
-    onLog({ dish, rating, note, familyNote, fairTest });
+    // The clip rides along. onLog logs the entry FIRST and uploads after, so a
+    // failed upload costs the recording and never the rating.
+    onLog({ dish, rating, note, familyNote, fairTest, clip });
     setDish(''); setRating(0); setNote(''); setFamilyNote(''); setFairTest(true);
+    setClip(null); setRecErr('');
     setSaved(true);
     // Collapses itself after a log. The common case is one entry per sitting,
     // so leaving it open just re-occupies the screen it was asked to give back.
@@ -133,6 +188,40 @@ export function RowanLogCard({ dishNames, onLog }) {
         value={familyNote}
         onChange={e => setFamilyNote(e.target.value)}
       />
+
+      {canRecord && (
+        <div style={{ marginTop: 8 }}>
+          {!clip && !rec && (
+            <button
+              onClick={startRec}
+              style={{ ...field, marginTop: 0, cursor: 'pointer', textAlign: 'left', color: GOLD }}
+            >
+              Record his voice (optional)
+            </button>
+          )}
+          {rec && (
+            <button
+              onClick={stopRec}
+              style={{ ...field, marginTop: 0, cursor: 'pointer', textAlign: 'left', color: '#E24B4A' }}
+            >
+              Recording {elapsed}s — tap to stop
+            </button>
+          )}
+          {clip && (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ flex: 1, fontSize: 12.5, color: '#9aa5a0' }}>
+                {clip.seconds}s recorded
+              </span>
+              <button
+                onClick={() => setClip(null)}
+                style={{ background: 'none', border: '1px solid #2d3a36', borderRadius: 8,
+                  color: '#9aa5a0', fontSize: 12, padding: '6px 10px', cursor: 'pointer' }}
+              >Discard</button>
+            </div>
+          )}
+          {recErr && <div style={{ fontSize: 11.5, color: '#e0828a', marginTop: 4 }}>{recErr}</div>}
+        </div>
+      )}
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, fontSize: 12.5, color: '#9aa5a0', cursor: 'pointer' }}>
         <input type="checkbox" checked={!fairTest} onChange={e => setFairTest(!e.target.checked)} />

@@ -29,4 +29,31 @@ if (m[1] !== want) {
   process.exit(1);
 }
 console.log(`  ✓ sw.js SW_VERSION '${m[1]}' matches package.json ${pkg}`);
+
+// ── The THIRD copy: src/version.js, which is what the header prints ─────────
+//
+// Added Aug 1 after finding AppHeader.jsx hardcoded 'v10.0-GH' while
+// package.json said 10.1.0. sw.js was correct only because this file had been
+// guarding it since the v9.24 incident; the string Kevin actually READS on
+// screen was the one nobody watched. A stale version in the header sends him
+// hunting for a bug in a build that was never loaded.
+//
+// EXACT match here, unlike the loose major.minor rule for sw.js above. That
+// rule exists so a patch release does not have to bust every device's cache.
+// This one is display: there is no reason for it to be approximate.
+const vm = readFileSync('src/version.js', 'utf8').match(/export const APP_VERSION = '([^']+)'/);
+if (!vm) {
+  console.log('  ✗ src/version.js has no APP_VERSION constant');
+  console.log('\nSW VERSION: 1 FAILURES');
+  process.exit(1);
+}
+if (vm[1] !== pkg) {
+  console.log(`  ✗ src/version.js APP_VERSION is '${vm[1]}' but package.json is ${pkg}`);
+  console.log('    This is the string the header prints, so a mismatch means the app');
+  console.log('    tells Kevin it is running a build it is not. Bump all three together:');
+  console.log('    package.json, sw.js SW_VERSION, and src/version.js APP_VERSION.');
+  console.log('\nSW VERSION: 1 FAILURES');
+  process.exit(1);
+}
+console.log(`  ✓ src/version.js APP_VERSION '${vm[1]}' matches package.json ${pkg}`);
 console.log('\nSW VERSION: ALL PASS');

@@ -18,7 +18,7 @@
 // v9.24 while package.json said 10.0.0, which is exactly that failure.
 // tools/checkSwVersion.mjs now fails the gate if the two disagree; bump both
 // together or the build stops.
-const SW_VERSION = 'ltb-v10.1';
+const SW_VERSION = 'ltb-v10.2';
 // The owner app moved from '/' to '/kitchen.html' so that the site root could
 // become the customer door. '/' is now a redirect stub and is deliberately NOT
 // precached: caching a redirect makes the offline fallback point at a page that
@@ -46,10 +46,66 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ── WEB SHARE TARGET (PC only, and that limitation is the point) ────────────
+//
+// The manifest registers LTB as a share target so that on Kevin's PC, where the
+// PWA is installed, "share to LTB" appears in the OS share menu. This handler
+// catches the resulting POST, stashes the payload, and redirects into the app,
+// which drains it into the capture inbox on boot.
+//
+// THIS PATH DOES NOT WORK ON HIS PHONE AND IS NOT SUPPOSED TO. iOS Safari does
+// not implement the Web Share Target API, so no amount of manifest correctness
+// puts LTB in the iOS share sheet. The phone route is an iOS Shortcut posting
+// to the worker's /capture endpoint instead — see SHORTCUT_SETUP.md. Both feed
+// the same inbox. Do not delete this as dead code after testing on a phone and
+// finding it never fires; it is for the other device.
+//
+// THE STASH IS A CACHE, NOT localStorage. A shared screenshot is megabytes and
+// the whole app lives in about five of localStorage, which order photos already
+// strain. It is also the only storage a service worker can write that survives
+// the redirect.
+const SHARE_STASH = 'ltb-share-stash';
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+  const reqUrl = new URL(req.url);
+
+  if (req.method === 'POST' && reqUrl.pathname === '/kitchen.html' && reqUrl.searchParams.has('share')) {
+    event.respondWith((async () => {
+      try {
+        const form = await req.formData();
+        const files = form.getAll('files').filter(f => f && typeof f.arrayBuffer === 'function');
+        const cache = await caches.open(SHARE_STASH);
+        const stamp = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const refs = [];
+        for (let i = 0; i < files.length && i < 10; i++) {
+          const key = '/__share/' + stamp + '_' + i;
+          await cache.put(new Request(key), new Response(files[i], {
+            headers: { 'Content-Type': files[i].type || 'application/octet-stream' },
+          }));
+          refs.push(key);
+        }
+        await cache.put(new Request('/__share/' + stamp + '.json'), new Response(JSON.stringify({
+          id: 'cap_' + stamp,
+          source: 'share',
+          capturedAt: Date.now(),
+          title: form.get('title') || '',
+          text: form.get('text') || '',
+          url: form.get('url') || '',
+          fileRefs: refs,
+        }), { headers: { 'Content-Type': 'application/json' } }));
+      } catch (e) {
+        // A share that fails to stash must still land the user in the app
+        // rather than on an error page they cannot act on.
+      }
+      // 303 so the browser re-issues as GET; a 302 would repeat the POST.
+      return Response.redirect('/kitchen.html?shared=1', 303);
+    })());
+    return;
+  }
+
   if (req.method !== 'GET') return;
-  const url = new URL(req.url);
+  const url = reqUrl;
   if (url.origin !== self.location.origin) return; // never touch the worker API
 
   event.respondWith(

@@ -99,5 +99,32 @@ if (existsSync('wrangler.jsonc')) {
   fail('wrangler.jsonc is missing.');
 }
 
+// ── 5. Orphaned files, ADVISORY ONLY ─────────────────────────────────────────
+//
+// A zip cannot ship a deletion, so these two can only leave the repo by Kevin's
+// hand, and remembering them across sessions has already failed twice. This
+// prints the reminder every gate run instead.
+//
+// WHY THIS IS AN ADVISORY AND NOT A FAILURE — do not "harden" it later without
+// reading this. Cloudflare runs `npm test` on every deploy. If this failed the
+// build, then the moment Kevin pushed a zip BEFORE getting to the deletions,
+// the gate would go red and take the whole site down over two files that are
+// already inert: nothing imports either one, and .assetsignore keeps src/ from
+// being served, so their presence costs nothing in production. A check that can
+// black out the customer site to nag about dead code has its priorities
+// backwards. It nags; it does not hold the deploy hostage.
+const ORPHANS = [
+  ['src/equipmentSeed.js', 'the equipment chain that consumed it was removed in LTB_FIVE_FIXES'],
+  ['src/ReceiptScan.jsx', 'the real one is src/components/ReceiptScan.jsx, which is what App.jsx imports'],
+  ['src/pages/_partials/ltb-logo.b64', 'the pages reference /ltb-logo.png by URL now; nothing reads the base64 copy'],
+];
+const present = ORPHANS.filter(([f]) => existsSync(f));
+if (present.length) {
+  console.log(`  · ${present.length} orphaned file(s) still in the repo — delete by hand, a zip cannot:`);
+  for (const [f, why] of present) console.log(`      ${f}  (${why})`);
+} else {
+  ok('no orphaned files');
+}
+
 console.log(failed === 0 ? '\nREPO STRUCTURE: ALL PASS' : `\nREPO STRUCTURE: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

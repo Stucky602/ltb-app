@@ -24,6 +24,7 @@ import React from 'react';
 import { Bell, Download, Upload } from '../icons.jsx';
 import { GOLD, styles } from '../styles.js';
 import { VAPID_PUBLIC_KEY } from '../config.js';
+import { APP_VERSION_LABEL } from '../version.js';
 
 export function AppHeader({
   storageFull, storageBytes, swUpdate,
@@ -57,7 +58,7 @@ export function AppHeader({
     <div style={styles.logoMark}>LTB</div>
     <div style={styles.headerCenter}>
       <div style={styles.title}>Order tracker</div>
-      <div style={styles.subtitle}>Lettuce, Turnip, The Beet · v10.0-GH</div>
+      <div style={styles.subtitle}>Lettuce, Turnip, The Beet · {APP_VERSION_LABEL}</div>
     </div>
     <div style={styles.headerActions}>
       {VAPID_PUBLIC_KEY && notifPerm !== 'granted' && notifPerm !== 'unsupported' && (

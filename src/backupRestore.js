@@ -28,6 +28,8 @@ import {
   JOURNAL_KEY, COPIES_NOTE_KEY, WEEK_LEDGER_KEY, CONTAINER_INVENTORY_KEY,
   INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY, HANDLED_PENDING_KEY,
   AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
+  PRACTICES_KEY, CAPTURE_INBOX_KEY, LABEL_VERSIONS_KEY, WALK_ANSWERS_KEY,
+  TERMS_KEY, ANATOMY_KEY, DERIVATIVES_KEY, ROWAN_QUESTIONS_KEY, CLARIFICATIONS_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -121,6 +123,15 @@ export function buildBackupPayload(state) {
     archiveHistory: state.archiveHistory,
     visualCues: state.visualCues,
     customerFlags: state.customerFlags,
+    practices: state.practices,
+    captureInbox: state.captureInbox,
+    labelVersions: state.labelVersions,
+    walkAnswers: state.walkAnswers,
+    terms: state.terms,
+    anatomy: state.anatomy,
+    derivatives: state.derivatives,
+    rowanQuestions: state.rowanQuestions,
+    clarifications: state.clarifications,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
@@ -194,7 +205,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -318,6 +329,57 @@ export async function applyBackupPayload(payload, deps) {
   if (payload.customerFlags && typeof payload.customerFlags === 'object') {
     setCustomerFlags(payload.customerFlags);
     await saveJSON(CUSTOMER_FLAGS_KEY, payload.customerFlags);
+  }
+  // The practice library. Same object-not-array shape as flags, same reason for
+  // the explicit guard. Written by hand over years and held nowhere else, so it
+  // is in the same loss category as the journal.
+  if (payload.practices && typeof payload.practices === 'object') {
+    setPractices(payload.practices);
+    await saveJSON(PRACTICES_KEY, payload.practices);
+  }
+  // The capture inbox. Metadata only — image bytes live in R2 and are
+  // referenced by key, so a restore reconnects to them rather than carrying
+  // them. An item still marked media:'pending' on the source device does not
+  // survive to another one, which is correct: its bytes were never uploaded.
+  if (payload.captureInbox && typeof payload.captureInbox === 'object') {
+    setCaptureInbox(payload.captureInbox);
+    await saveJSON(CAPTURE_INBOX_KEY, payload.captureInbox);
+  }
+  // Label versions. Allergen-facing history: losing these on a restore would
+  // silently take every "what was in it" answer back to today's packaging.
+  if (payload.labelVersions && typeof payload.labelVersions === 'object') {
+    setLabelVersions(payload.labelVersions);
+    await saveJSON(LABEL_VERSIONS_KEY, payload.labelVersions);
+  }
+  // Walk answers. A walk is a sitting Kevin will not repeat cheerfully, so
+  // losing one to a restore would cost the thing the walk existed to collect.
+  if (payload.walkAnswers && typeof payload.walkAnswers === 'object') {
+    setWalkAnswers(payload.walkAnswers);
+    await saveJSON(WALK_ANSWERS_KEY, payload.walkAnswers);
+  }
+  // The knowledge core. Written by hand over years and held nowhere else, so
+  // these are in the same loss category as the journal.
+  if (payload.terms && typeof payload.terms === 'object') {
+    setTerms(payload.terms);
+    await saveJSON(TERMS_KEY, payload.terms);
+  }
+  if (payload.anatomy && typeof payload.anatomy === 'object') {
+    setAnatomy(payload.anatomy);
+    await saveJSON(ANATOMY_KEY, payload.anatomy);
+  }
+  if (payload.derivatives && typeof payload.derivatives === 'object') {
+    setDerivatives(payload.derivatives);
+    await saveJSON(DERIVATIVES_KEY, payload.derivatives);
+  }
+  // A child's questions exist nowhere else at all. Same loss category as the
+  // journal, and less replaceable: nobody can reconstruct what he asked.
+  if (payload.rowanQuestions && typeof payload.rowanQuestions === 'object') {
+    setRowanQuestions(payload.rowanQuestions);
+    await saveJSON(ROWAN_QUESTIONS_KEY, payload.rowanQuestions);
+  }
+  if (payload.clarifications && typeof payload.clarifications === 'object') {
+    setClarifications(payload.clarifications);
+    await saveJSON(CLARIFICATIONS_KEY, payload.clarifications);
   }
   // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
   // state back to the backup point, so the ledger of what was handled THEN is

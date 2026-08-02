@@ -30,7 +30,7 @@
 import { migrateDishNotes, normalizeJournal } from './journal.js';
 import { dishIdFor } from './dishIdentity.js';
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 export const SCHEMA_VERSION_KEY = 'ltb-schema-version';
 
 // Ordered, one function per step. Each MUST be:
@@ -123,6 +123,54 @@ const MIGRATIONS = {
         offeredRecipeVersionId: o.offeredRecipeVersionId ?? null,
         servedRecipeVersionId: o.servedRecipeVersionId ?? null,
       };
+    }) : data.orders;
+    return { ...data, orders };
+  },
+
+  // v4 → v5 (Aug 1 2026): RECIPE VERSIONS MOVE TO THE LINE ITEM.
+  // The v4 fields sat on the ORDER, so a four-dish order carried one id for all
+  // four. chronicle.js documented that as a known limitation in its own source.
+  // The fields now live per item, where a version can actually be true.
+  //
+  // THE ORDER-LEVEL FIELDS ARE LEFT IN PLACE, NOT DELETED. They are recorded
+  // history; a migration that strips them would destroy data to tidy a shape.
+  // chronicle.js reads item-level first and falls back to them.
+  //
+  // INHERITANCE CARRIES A MARKER. Where an order has a version id, each of its
+  // items inherits it and is flagged `versionInherited: true`. That flag is the
+  // whole honesty of this step. The order-level value was recorded truth, but
+  // it was truth about the ORDER, and applying it to each dish is an assumption
+  // — correct whenever every dish was at its current version, which is the
+  // normal case and not a guarantee. The marker is how the hedge travels with
+  // the value, the same principle as the `tested` flag on freeze verdicts.
+  //
+  // In practice this does almost nothing today: v3 → v4 deliberately set both
+  // fields to null and refused to backfill, and nothing has ever written them
+  // since, so nearly every order has nothing to inherit and is returned
+  // untouched. The step exists for correctness on any device that does hold a
+  // value, and so the chain is honest about when the shape changed.
+  //
+  // Additive and non-destructive, same as v3 and v4.
+  4: (data) => {
+    if (!data || typeof data !== 'object') return data;
+    const orders = Array.isArray(data.orders) ? data.orders.map((o) => {
+      if (!o || typeof o !== 'object' || !Array.isArray(o.items)) return o;
+      const offered = o.offeredRecipeVersionId ?? null;
+      const served = o.servedRecipeVersionId ?? null;
+      if (offered === null && served === null) return o; // nothing to inherit
+      let touched = false;
+      const items = o.items.map((it) => {
+        if (!it || typeof it !== 'object') return it;
+        if ('offeredRecipeVersionId' in it || 'servedRecipeVersionId' in it) return it;
+        touched = true;
+        return {
+          ...it,
+          offeredRecipeVersionId: offered,
+          servedRecipeVersionId: served,
+          versionInherited: true,
+        };
+      });
+      return touched ? { ...o, items } : o;
     }) : data.orders;
     return { ...data, orders };
   },

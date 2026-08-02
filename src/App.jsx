@@ -21,6 +21,8 @@ import {
   SHOPPING_KEY, WEEK_KEY,
   BACKUP_STATE_KEY, BACKUP_STALE_MS, AUDIT_LOG_KEY,
   LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY,
+  PRACTICES_KEY, CAPTURE_INBOX_KEY, LABEL_VERSIONS_KEY, WALK_ANSWERS_KEY,
+  TERMS_KEY, ANATOMY_KEY, DERIVATIVES_KEY, ROWAN_QUESTIONS_KEY, CLARIFICATIONS_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -89,6 +91,7 @@ import { PendingOrders } from './components/PendingOrders.jsx';
 import { OrderListControls } from './components/OrderListControls.jsx';
 import { BulkActionBar } from './components/BulkActionBar.jsx';
 import { hydrateFromStorage } from './bootHydrate.js';
+import { buildCorpus } from './corpus.js';
 // Namespaced rather than named: every one of these has a same-named thin
 // wrapper below, and `ops.updateOrder` inside `const updateOrder = ...` reads
 // unambiguously where a bare import would shadow itself.
@@ -105,7 +108,8 @@ import { jarsOutForRegular } from './utils.js';
 import { dishIdFor } from './dishIdentity.js';
 import { containerCustody } from './containers.js';
 import { proposeEpoch, stampBackfilled, epochSummary } from './realDataEpoch.js';
-import { makeEntry as makeRowanEntry, addEntry as addRowanEntry } from './rowan.js';
+import { makeEntry as makeRowanEntry, addEntry as addRowanEntry, attachCapsule, editTranscript } from './rowan.js';
+import { uploadAudio } from './mediaClient.js';
 import { RowanLogCard } from './components/RowanLogCard.jsx';
 import { RowanTab } from './components/RowanTab.jsx';
 import { cookingPatterns, tasteVsPractice } from './cookingPatterns.js';
@@ -241,6 +245,15 @@ export default function LTBOrderTracker() {
   // because the series IS the record and overwriting it would erase the only
   // thing this store exists to show.
   const [rowanLog, setRowanLog] = useState([]);
+  const [practices, setPractices] = useState(() => ({ version: 1, entries: [] }));
+  const [captureInbox, setCaptureInbox] = useState(() => ({ version: 1, items: [] }));
+  const [labelVersions, setLabelVersions] = useState(() => ({ version: 1, labels: [] }));
+  const [walkAnswers, setWalkAnswers] = useState(() => ({ version: 1, walks: {} }));
+  const [terms, setTerms] = useState(() => ({ version: 1, terms: [] }));
+  const [anatomy, setAnatomy] = useState(() => ({ version: 1, entries: [] }));
+  const [derivatives, setDerivatives] = useState(() => ({ version: 1, derivatives: [] }));
+  const [rowanQuestions, setRowanQuestions] = useState(() => ({ version: 1, questions: [] }));
+  const [clarifications, setClarifications] = useState(() => ({ version: 1, items: [] }));
   // Banner dismissals. Deliberately NOT persisted: these are warnings, and the
   // keys already scope them tightly (per-day for the deadline, per-shortage for
   // containers), so a reload restoring them is the right amount of insistence.
@@ -271,9 +284,106 @@ export default function LTBOrderTracker() {
     if (k) setDismissedBanners(prev => ({ ...prev, [k]: true }));
   }, []);
   const logRowan = useCallback((input) => {
+    // ORDER MATTERS: the entry is saved FIRST, synchronously, and the audio
+    // uploads after. A failed or slow upload then costs the recording and never
+    // the rating — and the rating is the thing the whole longitudinal series is
+    // built from. Doing it the other way round would mean a dropped connection
+    // silently loses a logged meal.
+    const { clip, ...rest } = input || {};
+    const entry = makeRowanEntry(rest);
     setRowanLog(prev => {
-      const next = addRowanEntry(prev || [], makeRowanEntry(input));
+      const next = addRowanEntry(prev || [], entry);
       saveJSON(ROWAN_LOG_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+    if (!clip || !clip.blob) return;
+    uploadAudio(entry.id, clip.blob, { workerBase: WORKER_BASE, token: PUBLISH_TOKEN })
+      .then(res => {
+        if (!res.ok) {
+          // Named plainly. The entry survived; only the recording did not, and
+          // Kevin needs to know which so he can decide whether to re-record.
+          setError('The note was saved but the recording did not upload: ' + res.reason);
+          return;
+        }
+        setRowanLog(prev => {
+          const next = attachCapsule(prev || [], entry.id, {
+            mediaKey: res.mediaKey, contentType: res.contentType,
+            seconds: clip.seconds, bytes: res.bytes, checksum: res.checksum,
+          });
+          saveJSON(ROWAN_LOG_KEY, next).then(r => setError(saveError(r)));
+          return next;
+        });
+      })
+      .catch(() => setError('The note was saved but the recording did not upload.'));
+  }, []);
+
+  const saveRowanTranscript = useCallback((entryId, text) => {
+    setRowanLog(prev => {
+      const next = editTranscript(prev || [], entryId, text);
+      saveJSON(ROWAN_LOG_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveRowanQuestions = useCallback((updater) => {
+    setRowanQuestions(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(ROWAN_QUESTIONS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveClarifications = useCallback((updater) => {
+    setClarifications(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(CLARIFICATIONS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveTerms = useCallback((updater) => {
+    setTerms(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(TERMS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveAnatomy = useCallback((updater) => {
+    setAnatomy(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(ANATOMY_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveDerivatives = useCallback((updater) => {
+    setDerivatives(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(DERIVATIVES_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveWalkAnswers = useCallback((updater) => {
+    setWalkAnswers(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(WALK_ANSWERS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveLabelVersions = useCallback((updater) => {
+    setLabelVersions(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(LABEL_VERSIONS_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const saveCaptureInbox = useCallback((updater) => {
+    setCaptureInbox(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(CAPTURE_INBOX_KEY, next).then(r => setError(saveError(r)));
+      return next;
+    });
+  }, []);
+  const savePractices = useCallback((updater) => {
+    setPractices(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveJSON(PRACTICES_KEY, next).then(r => setError(saveError(r)));
       return next;
     });
   }, []);
@@ -362,6 +472,7 @@ export default function LTBOrderTracker() {
   const [showPaste, setShowPaste] = useState(false);
   const [showAmend, setShowAmend] = useState(false);
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [waitingOpen, setWaitingOpen] = useState(true);
 
   // ── Amendments ────────────────────────────────────────────────────────────
   // Customer change requests. The worker stores them; nothing there ever writes
@@ -369,11 +480,45 @@ export default function LTBOrderTracker() {
   // so the order keeps exactly one writer.
   const [amendments, setAmendments] = useState([]);
 
+  // How many decisions are waiting, across all three queues.
+  //
+  // DECLARED HERE, BELOW `amendments`, AND THAT POSITION IS LOAD-BEARING. The
+  // first version sat next to `pendingOrders` about ten lines above this and
+  // crashed the whole app with "Cannot access 'amendments' before
+  // initialization" — a const is in its temporal dead zone until its own
+  // declaration runs, so reading one from a line above is a hard throw at mount,
+  // not a warning. Same failure that the updateRegular dep-array move caused.
+  // If this ever needs another input, declare it BELOW that input too.
+  //
+  // Derived rather than stored: each queue already owns its own truth
+  // (AmendmentQueue filters to status 'pending' internally and renders null
+  // when empty), so a second stored count could disagree with what is actually
+  // on screen — the container-custody lesson in a smaller place.
+  const waitingCount =
+    pendingFeedback.length +
+    (amendments || []).filter(a => a.status === 'pending').length +
+    pendingOrders.length;
+
   // Visual cue METADATA. The photographs themselves live in R2; this is the
   // record of what each one shows, which recipe version it belongs to, and
   // whether its bytes actually landed. Rides backup — the bytes do not, which
   // is exactly why the archive bundle carries checksums.
   const [visualCues, setVisualCues] = useState([]);
+
+  // The searchable corpus. Rebuilt when its stores change rather than
+  // persisted: it is derived data, and a stored index that drifted from the
+  // records would answer confidently with something no longer there.
+  //
+  // DECLARED HERE, BELOW ALL FOUR STORES IT READS, and the position is
+  // load-bearing. The first attempt sat next to `practices` and crashed the app
+  // at mount with "Cannot access 'visualCues' before initialization" — the same
+  // temporal-dead-zone throw that waitingCount hit in the batch before this
+  // one, in the same file, for the same reason. A const is unreadable until its
+  // own line runs. Twice in two batches: when adding a derived value, find the
+  // LAST of its inputs and go below that.
+  const corpus = useMemo(
+    () => buildCorpus({ journal, practices, visualCues, rowanLog, terms, anatomy }),
+    [journal, practices, visualCues, rowanLog, terms, anatomy]);
 
   // ── Customer feature flags ────────────────────────────────────────────────
   // Kill switches for optional customer capabilities. They publish WITH the
@@ -520,6 +665,15 @@ export default function LTBOrderTracker() {
       // circuited the guard and booted fine, which is why this shipped green.
       // tests/boot_deps.mjs now fails the build if this list drifts again.
       setCustomerFlags,
+      setPractices,
+      setCaptureInbox,
+      setLabelVersions,
+      setWalkAnswers,
+      setTerms,
+      setAnatomy,
+      setDerivatives,
+      setRowanQuestions,
+      setClarifications,
       handledPendingRef, pollWorkerPending,
     }).catch(err => {
       // A rejected promise inside an effect does NOT reach an error boundary,
@@ -887,9 +1041,9 @@ export default function LTBOrderTracker() {
     orders, shopping, weekDishes, regulars, inventory, ingredientsDb, visualCues, customerFlags,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
-    archiveHistory, realDataEpoch, rowanLog, dishRankings,
+    archiveHistory, realDataEpoch, rowanLog, dishRankings, practices, captureInbox, labelVersions, walkAnswers, terms, anatomy, derivatives, rowanQuestions, clarifications,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags, practices, captureInbox, labelVersions, walkAnswers, terms, anatomy, derivatives, rowanQuestions, clarifications]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1030,7 +1184,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 
@@ -1577,6 +1731,42 @@ export default function LTBOrderTracker() {
               </div>
             )}
 
+            {/* ══ WAITING ON YOU ═════════════════════════════════════════════
+                 Three separate decision queues — dish feedback, change
+                 requests, pending orders — each with its own header, stacked
+                 between the order-entry buttons and the order list. Each one is
+                 individually small; together they pushed the actual orders down
+                 a screen on any busy week, and none of them told Kevin how much
+                 was waiting in total without scrolling all three.
+
+                 One band, one number. It expands whenever anything is waiting,
+                 because these are decisions and a collapsed decision is a
+                 forgotten one. Collapsing is for when he has seen them and
+                 wants his order list back. When nothing is waiting the whole
+                 band disappears rather than sitting there saying zero.
+
+                 The queues inside are UNTOUCHED and keep their own headers and
+                 counts; this only stops them from being three unrelated things
+                 in a row. ═══════════════════════════════════════════════ */}
+            {waitingCount > 0 && !formMode && !showPaste && (
+              <div style={{ margin: '0 0 10px' }}>
+                <button
+                  onClick={() => setWaitingOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    background: 'rgba(212,160,80,0.10)', border: '1px solid #D4A050',
+                    borderRadius: 10, padding: '9px 11px', cursor: 'pointer',
+                    color: '#D4A050', fontSize: 12.5, fontWeight: 700, textAlign: 'left',
+                  }}
+                >
+                  <span style={{ ...styles.pendingBadge, background: GOLD, color: '#1a1a1a' }}>{waitingCount}</span>
+                  <span style={{ flex: 1 }}>Waiting on you</span>
+                  <span>{waitingOpen ? '▲' : '▼'}</span>
+                </button>
+              </div>
+            )}
+
+            {waitingOpen && (<>
             {pendingFeedback.length > 0 && !formMode && !showPaste && (
               <div style={styles.pendingSection}>
                 <div style={styles.pendingSectionHeader}>
@@ -1610,6 +1800,7 @@ export default function LTBOrderTracker() {
                 onDismiss={dismissPending}
               />
             )}
+            </>)}
 
             {undecidedOma.length > 0 && (
               <div style={{ background: 'rgba(212,160,80,0.10)', border: '1px solid #D4A050', borderRadius: 10, padding: '8px 10px', marginBottom: 10 }}>
@@ -1653,6 +1844,7 @@ export default function LTBOrderTracker() {
                     regulars={regulars}
                     expanded={expandedOrder === order.id}
                     onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    labelVersions={labelVersions}
                     onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
                     onDelete={() => { preserveScroll(); deleteOrder(order.id); }}
                     onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
@@ -1709,7 +1901,8 @@ export default function LTBOrderTracker() {
                       regulars={regulars}
                       expanded={expandedOrder === order.id}
                       onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                      onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
+                      labelVersions={labelVersions}
+                    onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
                       onDelete={() => { preserveScroll(); deleteOrder(order.id); }}
                       onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
                       onMakeRegular={makeRegularFromOrder}
@@ -1826,12 +2019,27 @@ export default function LTBOrderTracker() {
             onAnswerQuestion={({ dish, type, text }) => saveJournal(prev => addJournalEntry(prev, {
               subject: { kind: 'dish', dish }, type, text, origin: 'written',
             }))}
+            practices={practices}
+            onSavePractices={savePractices}
+            captureInbox={captureInbox}
+            onSaveCapture={saveCaptureInbox}
+            walkAnswers={walkAnswers}
+            onSaveWalk={saveWalkAnswers}
+            terms={terms}
+            onSaveTerms={saveTerms}
+            clarifications={clarifications}
+            onSaveClarifications={saveClarifications}
+            ingredients={ingredientsDb}
+            dishNames={ALL_MENU_DISH_NAMES}
+            corpus={corpus}
             onArchiveDownloaded={recordArchive}
           />
         )}
 
         {view === 'recipes' && (
           <RecipesTab auditLog={auditLog}
+            anatomy={anatomy}
+            onSaveAnatomy={saveAnatomy}
             dishFeedback={dishFeedback}
             onResetDishFeedback={resetDishFeedbackTally}
             liveCostMap={liveCostMap}
@@ -1886,10 +2094,10 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'rowan' && (
-          <RowanTab log={rowanLog} dishNames={ALL_MENU_DISH_NAMES} />
+          <RowanTab log={rowanLog} dishNames={ALL_MENU_DISH_NAMES} onSaveTranscript={saveRowanTranscript} questions={rowanQuestions} onSaveQuestions={saveRowanQuestions} />
         )}
         {view === 'ingredients' && (
-          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} aliases={receiptAliases} onSaveAliases={saveReceiptAliases} />
+          <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} aliases={receiptAliases} onSaveAliases={saveReceiptAliases} labelVersions={labelVersions} onSaveLabels={saveLabelVersions} />
         )}
       </main>
 

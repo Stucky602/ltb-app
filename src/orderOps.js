@@ -29,6 +29,7 @@
 // much more if ever, and they will be past issues."
 
 import { ensureProfileId } from './customerDevice.js';
+import { stampItemVersions } from './recipeVersions.js';
 import {
   ORDERS_KEY, REGULARS_KEY, INVENTORY_KEY, PENDING_KEY, HANDLED_PENDING_KEY,
   WORKER_BASE, PUBLISH_TOKEN,
@@ -135,9 +136,31 @@ export function importOrders(parsedOrders, deps) {
   setTimeout(() => setExportMsg(null), 4000);
 }
 
+// SERVED VERSION, per item, recorded the moment an order reaches Delivered.
+//
+// Applied by RESULT rather than by patch: any order that comes out of an update
+// sitting in Delivered gets stamped, whichever path put it there. That covers
+// the Mark Delivered button, the bulk action bar, a status change made through
+// the details toggle, and anything added later — none of which have to remember
+// to call this.
+//
+// Idempotent twice over. stampItemVersions never overwrites a field that is
+// already set, and an order already Delivered has nothing left to fill, so
+// re-tapping the button or bulk-marking an order that was already delivered
+// cannot rewrite history.
+function stampServed(order) {
+  if (!order || order.status !== 'Delivered') return order;
+  const items = stampItemVersions(order.items, 'servedRecipeVersionId');
+  // Preserve object identity when nothing changed. React children compare by
+  // reference, and handing back a fresh array on every unrelated status change
+  // would re-render every order card in the list for no reason.
+  const changed = items.some((it, i) => it !== (order.items || [])[i]);
+  return changed ? { ...order, items } : order;
+}
+
 export function updateOrder(id, patch, { setOrders, setError }) {
   setOrders(prev => {
-    const next = (prev || []).map(o => (o.id === id ? { ...o, ...patch } : o));
+    const next = (prev || []).map(o => (o.id === id ? stampServed({ ...o, ...patch }) : o));
     persist(ORDERS_KEY, next, setError);
     return next;
   });
@@ -168,7 +191,7 @@ export function archiveDelivered({ orders, persistOrders: persistOrdersFn }) {
 export function bulkUpdateOrders(ids, patch, { orders, persistOrders: persistOrdersFn }) {
   const idSet = ids instanceof Set ? ids : new Set(ids || []);
   if (idSet.size === 0) return;
-  persistOrdersFn((orders || []).map(o => (idSet.has(o.id) ? { ...o, ...patch } : o)));
+  persistOrdersFn((orders || []).map(o => (idSet.has(o.id) ? stampServed({ ...o, ...patch }) : o)));
 }
 
 // ── The pending-order drain ─────────────────────────────────────────────────
@@ -221,12 +244,20 @@ export function acceptPending(pending, deps) {
   // can't match keep any client value they carried.
   const stampedItems = stampItemCosts(normalizedItems, 'snapshot', { reStamp: true });
 
+  // OFFERED VERSION, per item, recorded here because acceptance is the moment
+  // it becomes true: the customer ordered against the recipe as it stood when
+  // Kevin accepted, and he may refine a dish between now and Tuesday's cook.
+  // Stamped AFTER normalizePendingItems and stampItemCosts, both of which
+  // rebuild the item objects — stamping before either would have the versions
+  // silently discarded by the next map.
+  const versionedItems = stampItemVersions(stampedItems, 'offeredRecipeVersionId');
+
   const order = {
     id: orderId,
     customer: pending.customer,
     address: pending.address || '',
     phone: pending.phone || '',
-    items: stampedItems,
+    items: versionedItems,
     jarSwaps: 0,
     containerReturns: 0,
     notes: pending.notes || '',

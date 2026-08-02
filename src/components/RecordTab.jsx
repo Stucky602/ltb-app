@@ -15,6 +15,20 @@ import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import { DISH_RENAMES } from '../utils.js';
 import { parseImport, candidateToEntry, importSummary, IMPORT_FORMAT_HELP } from '../journalImport.js';
 import { addEntry } from '../journal.js';
+import { styles } from '../styles.js';
+import { addPractice, updatePractice } from '../practices.js';
+import { searchCorpus, CORPUS_KINDS, KIND_LABELS } from '../corpus.js';
+import {
+  addCapture, fileCapture, discardCapture, unsortedCaptures, inboxCounts,
+  proposeFor, FILE_DESTINATIONS,
+} from '../captureInbox.js';
+import { WALKS, recordWalkAnswer, walkProgress } from '../walks.js';
+import { addTerm, updateTerm, termCounts } from '../terms.js';
+import {
+  flagRecord, resolveClarification, dismissClarification,
+  clarificationsByReason, clarificationCounts, READER_REASONS,
+} from '../clarifications.js';
+import { WalkEngine } from './WalkEngine.jsx';
 
 // The Record tab. NOT a new feature: a restructure.
 //
@@ -49,15 +63,586 @@ const S = {
 
 const fmtDate = (ts) => { try { return new Date(ts).toLocaleDateString(); } catch { return ''; } };
 
+
+
+
+
+
+// ── FUTURE READER TEST ──────────────────────────────────────────────────────
+// The queue of records somebody could not follow. Grouped by reason because
+// that is how they get answered efficiently: every "which version does this
+// apply to" is the same job done six times.
+//
+// Answering records the answer HERE and does not touch the flagged record.
+// Improving the original is a separate, deliberate edit where that record
+// lives, not a side effect of clearing a queue.
+function ClarificationsPane({ store, onSave, corpus }) {
+  const [answering, setAnswering] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [flagging, setFlagging] = useState(false);
+  const [pick, setPick] = useState('');
+  const [reason, setReason] = useState('');
+  const groups = clarificationsByReason(store);
+  const counts = clarificationCounts(store);
+
+  return (
+    <div style={S.card}>
+      <div style={S.h}>Hard to follow</div>
+      <div style={S.faint}>
+        {counts.open > 0
+          ? `${counts.open} record${counts.open === 1 ? '' : 's'} somebody could not follow.`
+          : 'Mark anything a later reader would not be able to act on. Nothing here edits what you wrote.'}
+      </div>
+
+      {flagging ? (
+        <>
+          <select value={pick} onChange={e => setPick(e.target.value)}
+            style={{ width: '100%', marginTop: 8, boxSizing: 'border-box', background: '#14201d',
+              border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}>
+            <option value="">Which record?</option>
+            {(corpus || []).slice(0, 200).map(r => (
+              <option key={r.id} value={r.id}>{r.title}</option>
+            ))}
+          </select>
+          <select value={reason} onChange={e => setReason(e.target.value)}
+            style={{ width: '100%', marginTop: 6, boxSizing: 'border-box', background: '#14201d',
+              border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}>
+            <option value="">What is wrong with it?</option>
+            {READER_REASONS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+          </select>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button style={S.btn(C.good)} disabled={!pick || !reason} onClick={() => {
+              const rec = (corpus || []).find(r => r.id === pick);
+              onSave(prev => flagRecord(prev, {
+                recordId: pick, recordTitle: rec ? rec.title : '', reason, reader: 'kevin',
+              }));
+              setFlagging(false); setPick(''); setReason('');
+            }}>Flag it</button>
+            <button style={S.btn()} onClick={() => setFlagging(false)}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <button style={{ ...S.btn(), marginTop: 8 }} onClick={() => setFlagging(true)}>
+          Flag a record
+        </button>
+      )}
+
+      {groups.map(g => (
+        <div key={g.id} style={{ borderTop: `1px solid ${C.border}`, paddingTop: 8, marginTop: 8 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: C.gold }}>{g.label}</div>
+          {g.items.map(c => (
+            <div key={c.id} style={{ marginTop: 6 }}>
+              <div style={S.p}>{c.recordTitle || c.recordId}</div>
+              {c.reader === 'rowan' && <div style={{ ...S.faint, color: C.good }}>Asked by Rowan</div>}
+              {answering === c.id ? (
+                <>
+                  <textarea value={draft} onChange={e => setDraft(e.target.value)}
+                    placeholder="What was missing"
+                    style={{ width: '100%', minHeight: 54, marginTop: 5, boxSizing: 'border-box',
+                      background: '#14201d', border: `1px solid ${C.border}`, borderRadius: 8,
+                      color: C.text, padding: 8, fontSize: 12.5 }} />
+                  <div style={{ display: 'flex', gap: 6, marginTop: 5 }}>
+                    <button style={{ ...S.btn(C.good), minHeight: 32, padding: '5px 11px', fontSize: 12 }}
+                      onClick={() => { onSave(prev => resolveClarification(prev, c.id, draft)); setAnswering(null); setDraft(''); }}>
+                      Save
+                    </button>
+                    <button style={{ ...S.btn(), minHeight: 32, padding: '5px 11px', fontSize: 12 }}
+                      onClick={() => { onSave(prev => dismissClarification(prev, c.id, 'Reads fine as it is.')); setAnswering(null); }}>
+                      It is fine as it is
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <button style={{ ...S.btn(), minHeight: 30, padding: '4px 10px', fontSize: 11.5, marginTop: 4 }}
+                  onClick={() => { setAnswering(c.id); setDraft(''); }}>Answer</button>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── TERMS OF ART ────────────────────────────────────────────────────────────
+// Lives beside Practices because it is the same act: recording something that
+// belongs to how Kevin works rather than to one dish. Seeded proposals arrive
+// with their source, same contract as the practice drafts.
+function TermsPane({ terms, onSave }) {
+  const [draft, setDraft] = useState('');
+  const [openId, setOpenId] = useState(null);
+  const [defDraft, setDefDraft] = useState('');
+  const entries = (terms && terms.terms) || [];
+  const counts = termCounts(terms);
+
+  const Row = ({ t }) => (
+    <div style={{ ...S.card, borderLeft: `3px solid ${t.status === 'confirmed' ? C.good : t.status === 'retired' ? C.faint : C.warn}` }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{t.term}</div>
+      <div style={{ ...S.p, marginTop: 3 }}>{t.definition}</div>
+      {(t.misreadings || []).map((m, i) => (
+        // The defensive half. Shown in the warning colour because it exists to
+        // stop a specific mistake, not to add detail.
+        <div key={i} style={{ ...S.faint, marginTop: 4, color: C.warn }}>Often misread: {m}</div>
+      ))}
+      {(t.examples || []).map((e, i) => <div key={i} style={{ ...S.faint, marginTop: 2 }}>e.g. {e}</div>)}
+      {(t.sources || []).map((src, i) => (
+        <div key={i} style={{ ...S.faint, marginTop: 4, fontStyle: 'italic' }}>Source: {src}</div>
+      ))}
+      {t.history.length > 0 && (
+        <div style={{ ...S.faint, marginTop: 5 }}>
+          {t.history.length} earlier definition{t.history.length === 1 ? '' : 's'} kept.
+        </div>
+      )}
+      {openId === t.id ? (
+        <>
+          <textarea
+            value={defDraft}
+            onChange={e => setDefDraft(e.target.value)}
+            style={{ width: '100%', minHeight: 70, marginTop: 6, boxSizing: 'border-box', background: '#14201d',
+              border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}
+          />
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button style={S.btn(C.good)} onClick={() => {
+              if (defDraft.trim()) onSave(prev => updateTerm(prev, t.id, { definition: defDraft.trim() }));
+              setOpenId(null);
+            }}>Save wording</button>
+            <button style={S.btn()} onClick={() => setOpenId(null)}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+          {t.status !== 'confirmed' && (
+            <button style={{ ...S.btn(C.good), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+              onClick={() => onSave(prev => updateTerm(prev, t.id, { status: 'confirmed' }))}>
+              That is what I mean
+            </button>
+          )}
+          <button style={{ ...S.btn(), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+            onClick={() => { setOpenId(t.id); setDefDraft(t.definition); }}>Reword</button>
+          {t.status !== 'retired' && (
+            <button style={{ ...S.btn(), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+              onClick={() => onSave(prev => updateTerm(prev, t.id, { status: 'retired' }))}>Not a term</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <div style={S.card}>
+        <div style={S.h}>Your words</div>
+        <div style={S.faint}>
+          What you mean by your own vocabulary, so a future reader does not have to guess.
+          {counts.confirmed} confirmed{counts.proposed > 0 ? `, ${counts.proposed} waiting on you` : ''}.
+        </div>
+        <input
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          placeholder="A term to define"
+          style={{ width: '100%', marginTop: 8, boxSizing: 'border-box', background: '#14201d',
+            border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}
+        />
+        <button style={{ ...S.btn(C.good), marginTop: 6 }} onClick={() => {
+          const t = draft.trim();
+          if (!t) return;
+          onSave(prev => addTerm(prev, { term: t, status: 'confirmed', sources: ['Written by Kevin'] }));
+          setDraft('');
+        }}>Add</button>
+      </div>
+      {entries.filter(t => t.status === 'proposed').length > 0 && (
+        <>
+          <div style={S.h}>Drafts waiting on you</div>
+          <div style={{ ...S.faint, marginBottom: 4 }}>
+            Read from how you already use these. Not your definition until you say so.
+          </div>
+          {entries.filter(t => t.status === 'proposed').map(t => <Row key={t.id} t={t} />)}
+        </>
+      )}
+      {entries.filter(t => t.status === 'confirmed').length > 0 && (
+        <>
+          <div style={{ ...S.h, marginTop: 12 }}>Yours</div>
+          {entries.filter(t => t.status === 'confirmed').map(t => <Row key={t.id} t={t} />)}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── WALKS ───────────────────────────────────────────────────────────────────
+// The first place WalkEngine has ever been mounted. It was built in July as the
+// one surface for "step through a list, answer per item, save as you go" and
+// then imported by nothing — which is why the standing ask to "click through
+// one walk" was impossible: there was no walk on any screen.
+//
+// Picking a walk is a deliberate two-step rather than a list of live walks
+// stacked on the page. A walk is a sitting, not a glance.
+function WalksPane({ answers, onSave, ingredients }) {
+  const [active, setActive] = useState(null);
+  const walk = useMemo(() => {
+    const def = WALKS.find(w => w.id === active);
+    return def ? def.build({ ingredients }) : null;
+  }, [active, ingredients]);
+
+  if (walk) {
+    const prog = walkProgress(answers, walk.id, walk.items.length);
+    return (
+      <div style={S.card}>
+        <button style={{ ...S.btn(), marginBottom: 10 }} onClick={() => setActive(null)}>
+          Back to walks
+        </button>
+        <div style={S.faint}>{walk.blurb}</div>
+        <div style={{ ...S.faint, marginTop: 4 }}>{prog.answered} of {prog.total} answered.</div>
+        {walk.items.length === 0 ? (
+          <div style={{ ...S.p, marginTop: 8 }}>Nothing to walk here right now.</div>
+        ) : (
+          <div style={{ marginTop: 10 }}>
+            <WalkEngine
+              title={walk.title}
+              items={walk.items}
+              itemKey={walk.itemKey}
+              itemLabel={walk.itemLabel}
+              itemSub={walk.itemSub}
+              fields={walk.fields}
+              prefill={walk.prefill}
+              initialAnswers={(answers && answers.walks && answers.walks[walk.id]) || {}}
+              onSave={(key, answer) => onSave(prev => recordWalkAnswer(prev, walk.id, key, answer))}
+              onDone={() => setActive(null)}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={S.card}>
+      <div style={S.h}>Walks</div>
+      <div style={S.faint}>
+        One question at a time, answered as you go. Stop anywhere; there is no submit.
+      </div>
+      {WALKS.map(w => {
+        const built = w.build({ ingredients });
+        const prog = walkProgress(answers, w.id, built.items.length);
+        return (
+          <button
+            key={w.id}
+            onClick={() => setActive(w.id)}
+            style={{ ...S.btn(prog.done ? C.good : C.border), width: '100%', marginTop: 8, textAlign: 'left' }}
+          >
+            {w.label}
+            <span style={{ display: 'block', fontSize: 11, color: C.faint, fontWeight: 400, marginTop: 2 }}>
+              {built.items.length === 0
+                ? 'nothing waiting'
+                : `${prog.answered} of ${built.items.length} answered`}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── CAPTURE INBOX ───────────────────────────────────────────────────────────
+// Sits at the top of Do because that is where the unsorted things are, and
+// because an inbox you have to navigate to is an inbox you stop draining.
+//
+// The capture box asks NOTHING. No dish, no type, no privacy toggle — Save is
+// the only control, and everything else happens later during review. That
+// ordering is the whole feature.
+function CaptureInbox({ inbox, onSave, dishNames }) {
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState(false);
+  const items = unsortedCaptures(inbox);
+  const counts = inboxCounts(inbox);
+
+  const save = () => {
+    const t = text.trim();
+    if (!t) return;
+    const isUrl = /^https?:\/\/\S+$/i.test(t);
+    onSave(prev => addCapture(prev, { source: 'app', raw: isUrl ? { url: t } : { text: t } }));
+    setText('');
+  };
+
+  return (
+    <div style={S.card}>
+      <div style={S.h}>Capture</div>
+      <div style={S.faint}>
+        Paste anything. It saves as it is and you decide what it is later.
+      </div>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="A note, a link, something you want to keep"
+        style={{ width: '100%', minHeight: 54, marginTop: 8, boxSizing: 'border-box', background: '#14201d',
+          border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}
+      />
+      <button style={{ ...S.btn(C.good), marginTop: 6 }} onClick={save}>Save</button>
+
+      {counts.unsorted > 0 && (
+        <>
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{ ...S.btn(C.gold), width: '100%', marginTop: 10, minHeight: 38, fontSize: 12.5 }}
+          >
+            {counts.unsorted} waiting to be sorted {open ? '▲' : '▼'}
+          </button>
+          {open && items.map(it => (
+            <CaptureRow key={it.id} item={it} onSave={onSave} dishNames={dishNames} />
+          ))}
+        </>
+      )}
+      {counts.pendingMedia > 0 && (
+        <div style={{ ...S.faint, marginTop: 6, color: C.warn }}>
+          {counts.pendingMedia} picture{counts.pendingMedia === 1 ? '' : 's'} still uploading.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CaptureRow({ item, onSave, dishNames }) {
+  const proposal = useMemo(() => proposeFor(item, dishNames || []), [item, dishNames]);
+  const [dest, setDest] = useState((proposal && proposal.destination) || '');
+  return (
+    <div style={{ ...S.card, background: '#161d1b' }}>
+      <div style={S.faint}>{fmtDate(item.capturedAt)} · from {item.source}</div>
+      {item.raw.url && <div style={{ ...S.p, wordBreak: 'break-all' }}>{item.raw.url}</div>}
+      {item.raw.text && <div style={S.p}>{item.raw.text.slice(0, 500)}</div>}
+      {item.raw.mediaRefs.length > 0 && (
+        <div style={S.faint}>{item.raw.mediaRefs.length} attachment{item.raw.mediaRefs.length === 1 ? '' : 's'}</div>
+      )}
+      {proposal && (
+        // A GUESS, LABELLED. It prefills the dropdown and says why, and it is
+        // never applied without a tap. Correcting a wrong guess is faster than
+        // choosing from cold; being told it is a guess is what keeps it honest.
+        <div style={{ ...S.faint, marginTop: 4, color: C.warn }}>
+          Guess: {proposal.why} Change it if that is wrong.
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+        <select
+          value={dest}
+          onChange={e => setDest(e.target.value)}
+          style={{ flex: 1, minWidth: 130, background: '#14201d', border: `1px solid ${C.border}`,
+            borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}
+        >
+          <option value="">File as…</option>
+          {FILE_DESTINATIONS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+        </select>
+        <button
+          style={{ ...S.btn(C.good), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+          disabled={!dest}
+          onClick={() => dest && onSave(prev => fileCapture(prev, item.id, { destination: dest }))}
+        >File</button>
+        <button
+          style={{ ...S.btn(), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+          onClick={() => onSave(prev => discardCapture(prev, item.id))}
+        >Discard</button>
+      </div>
+    </div>
+  );
+}
+
+// ── PRACTICES ───────────────────────────────────────────────────────────────
+// Kevin's own working practices. The whole design point is the status: a
+// PROPOSED entry is a draft Claude assembled from something he said, and it is
+// not canon until he confirms it. Proposals are visually distinct and never
+// counted as his word anywhere else in the app.
+function PracticesPane({ practices, onSave }) {
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [editText, setEditText] = useState('');
+  const entries = (practices && practices.entries) || [];
+  const proposed = entries.filter(e => e.status === 'proposed');
+  const confirmed = entries.filter(e => e.status === 'confirmed');
+  const retired = entries.filter(e => e.status === 'retired');
+
+  const setStatus = (id, status) => onSave(prev => updatePractice(prev, id, { status }));
+  const saveEdit = (id) => {
+    const t = editText.trim();
+    if (t) onSave(prev => updatePractice(prev, id, { text: t }));
+    setEditing(null); setEditText('');
+  };
+
+  const Row = ({ e }) => (
+    <div style={{ ...S.card, borderLeft: `3px solid ${e.status === 'confirmed' ? C.good : e.status === 'retired' ? C.faint : C.warn}` }}>
+      {editing === e.id ? (
+        <>
+          <textarea
+            value={editText}
+            onChange={ev => setEditText(ev.target.value)}
+            style={{ width: '100%', minHeight: 70, boxSizing: 'border-box', background: '#14201d',
+              border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}
+          />
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button style={S.btn(C.good)} onClick={() => saveEdit(e.id)}>Save</button>
+            <button style={S.btn()} onClick={() => { setEditing(null); setEditText(''); }}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={S.p}>{e.text}</div>
+          {e.why && <div style={{ ...S.faint, marginTop: 4 }}>{e.why}</div>}
+          {e.where && <div style={{ ...S.faint, marginTop: 2 }}>Where: {e.where}</div>}
+          {(e.sources || []).map((src, i) => (
+            <div key={i} style={{ ...S.faint, marginTop: 4, fontStyle: 'italic' }}>Source: {src}</div>
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            {e.status !== 'confirmed' && (
+              <button style={{ ...S.btn(C.good), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+                onClick={() => setStatus(e.id, 'confirmed')}>
+                {e.status === 'proposed' ? 'This is right' : 'Bring back'}
+              </button>
+            )}
+            <button style={{ ...S.btn(), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+              onClick={() => { setEditing(e.id); setEditText(e.text); }}>Reword</button>
+            {e.status !== 'retired' && (
+              <button style={{ ...S.btn(), minHeight: 34, padding: '6px 12px', fontSize: 12 }}
+                onClick={() => setStatus(e.id, 'retired')}>Not how I work</button>
+            )}
+          </div>
+          {e.lastConfirmedAt && (
+            <div style={{ ...S.faint, marginTop: 6 }}>Confirmed {fmtDate(e.lastConfirmedAt)}</div>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <div style={S.card}>
+        <div style={S.h}>How you work</div>
+        <div style={S.faint}>
+          Things that belong to no single dish. {confirmed.length} confirmed
+          {proposed.length > 0 ? `, ${proposed.length} waiting on you` : ''}.
+        </div>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          placeholder="Add one in your own words"
+          style={{ width: '100%', minHeight: 60, marginTop: 8, boxSizing: 'border-box', background: '#14201d',
+            border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 8, fontSize: 12.5 }}
+        />
+        <button
+          style={{ ...S.btn(C.good), marginTop: 6 }}
+          onClick={() => {
+            const t = draft.trim();
+            if (!t) return;
+            onSave(prev => addPractice(prev, { text: t, status: 'confirmed', sources: ['Written by Kevin'] }));
+            setDraft('');
+          }}
+        >Add</button>
+      </div>
+
+      {proposed.length > 0 && (
+        <>
+          <div style={S.h}>Drafts waiting on you</div>
+          <div style={{ ...S.faint, marginBottom: 4 }}>
+            Assembled from things you have said, with the source on each. Not counted as
+            yours until you say so.
+          </div>
+          {proposed.map(e => <Row key={e.id} e={e} />)}
+        </>
+      )}
+      {confirmed.length > 0 && (
+        <>
+          <div style={{ ...S.h, marginTop: 12 }}>Yours</div>
+          {confirmed.map(e => <Row key={e.id} e={e} />)}
+        </>
+      )}
+      {retired.length > 0 && (
+        <>
+          <div style={{ ...S.h, marginTop: 12 }}>No longer how you work</div>
+          <div style={{ ...S.faint, marginBottom: 4 }}>Kept: when something stopped being true is worth knowing.</div>
+          {retired.map(e => <Row key={e.id} e={e} />)}
+        </>
+      )}
+    </>
+  );
+}
+
+// ── ASK THE RECORD ──────────────────────────────────────────────────────────
+// Deterministic search over everything the record holds. It returns RECORDS,
+// never an answer it composed. When nothing matches it says so and stops, which
+// is the property that makes the hits worth trusting.
+function AskPane({ corpus }) {
+  const [q, setQ] = useState('');
+  const [kind, setKind] = useState('');
+  const results = useMemo(
+    () => (q.trim() || kind ? searchCorpus(corpus, q, { kinds: kind ? [kind] : null }) : []),
+    [corpus, q, kind]);
+  const asked = !!(q.trim() || kind);
+
+  return (
+    <>
+      <div style={S.card}>
+        <div style={S.h}>Ask the record</div>
+        <div style={S.faint}>
+          Searches {corpus.length} records: the journal, practices, recipe versions, the reheat
+          walk, the Chronicle, cues, and Rowan. It only ever shows you what is written down.
+        </div>
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="e.g. ice in the squash bag"
+          style={{ width: '100%', marginTop: 8, boxSizing: 'border-box', background: '#14201d',
+            border: `1px solid ${C.border}`, borderRadius: 8, color: C.text, padding: 9, fontSize: 13 }}
+        />
+        <div style={S.chipRow}>
+          {['', ...CORPUS_KINDS].map(k => (
+            <button
+              key={k || 'all'}
+              onClick={() => setKind(k)}
+              style={{ ...S.btn(kind === k ? C.gold : C.border), minHeight: 30, padding: '5px 10px', fontSize: 11.5 }}
+            >{k ? KIND_LABELS[k] : 'Everything'}</button>
+          ))}
+        </div>
+      </div>
+
+      {asked && results.length === 0 && (
+        <div style={S.card}>
+          <div style={S.p}>The record has nothing matching that.</div>
+          <div style={S.faint}>
+            It is not guessing on your behalf. If you know it happened, it was never written
+            down, and that is worth knowing on its own.
+          </div>
+        </div>
+      )}
+
+      {results.map(r => (
+        <div key={r.id} style={S.card}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: C.gold, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {KIND_LABELS[r.kind] || r.kind}
+            </span>
+            <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: C.text }}>{r.title}</span>
+            {r.date && <span style={S.faint}>{fmtDate(r.date)}</span>}
+          </div>
+          {r.excerpt && <div style={{ ...S.p, marginTop: 4 }}>{r.excerpt}</div>}
+        </div>
+      ))}
+    </>
+  );
+}
+
 export function RecordTab({
   journal, onSaveJournal, dishNames, weekDishes, orders, knownNames,
   weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit, archiveHistory, onArchiveDownloaded,
   onAnswerQuestion,
+  practices, onSavePractices, corpus,
+  captureInbox, onSaveCapture, dishNames: allDishNames,
+  walkAnswers, onSaveWalk, ingredients,
+  terms, onSaveTerms,
+  clarifications, onSaveClarifications,
   realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
   ranking, rankingDrift, tasteVsSales, tasteVsSon, rankingStale,
   patterns, tasteVsPractice, visualCues, amendments,
 }) {
   const [msg, setMsg] = useState(null);
+  const [sub, setSub] = useState('do');
+  const [showEpochDetail, setShowEpochDetail] = useState(false);
   const [showAllCoverage, setShowAllCoverage] = useState(false);
   const [noteDraft, setNoteDraft] = useState(null);
   const [paste, setPaste] = useState('');
@@ -182,8 +767,38 @@ export function RecordTab({
 
   return (
     <div style={S.wrap}>
-      {/* ══ WRITE ══════════════════════════════════════════════════════════ */}
-      <div style={S.group}>Write</div>
+      {/* ══ SUB-TABS ═══════════════════════════════════════════════════════
+           Record had FIFTEEN cards in one column under three group headings
+           that scrolled away, so the headings stopped orienting anything past
+           the first screen and every visit paid the scroll cost of all three
+           groups. The groups were already Kevin's own (Write / Read / Keep);
+           this only stops each one renting space from the other two.
+
+           Named for what he is DOING, not what the app is storing: "Do" is the
+           worklist, "Read" is the record looking back, "Keep" is getting it out
+           of this device. Same toggle component the Cook tab has used since it
+           had the same problem.
+
+           Deliberately NOT persisted and NOT in the router. There is one of
+           these per session, the default is the worklist, and a remembered
+           sub-tab would mean opening Record to whatever he happened to be doing
+           last week. ══════════════════════════════════════════════════════ */}
+      <div style={styles.cookSubToggle}>
+        {[['do', 'Do'], ['read', 'Read'], ['practice', 'Practice'], ['ask', 'Ask'], ['keep', 'Keep']].map(([key, label]) => (
+          <button
+            key={key}
+            style={{ ...styles.cookSubBtn, ...(sub === key ? styles.cookSubBtnActive : {}) }}
+            onClick={() => setSub(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {sub === 'do' && (<>
+      <CaptureInbox inbox={captureInbox} onSave={onSaveCapture} dishNames={allDishNames} />
+      <WalksPane answers={walkAnswers} onSave={onSaveWalk} ingredients={ingredients} />
+      <ClarificationsPane store={clarifications} onSave={onSaveClarifications} corpus={corpus} />
 
       {/* ── THE ANSWER LOOP ──
            This card used to end with directions: "Recipes tab → dish → Dossier."
@@ -366,8 +981,9 @@ export function RecordTab({
       </div>
       )}
 
-      {/* ══ READ ═══════════════════════════════════════════════════════════ */}
-      <div style={S.group}>Read</div>
+      </>)}
+
+      {sub === 'read' && (<>
 
       {onThisDay.length > 0 && (
         <div style={S.card}>
@@ -441,8 +1057,9 @@ export function RecordTab({
       </div>
       )}
 
-      {/* ══ KEEP ═══════════════════════════════════════════════════════════ */}
-      <div style={S.group}>Keep</div>
+      </>)}
+
+      {sub === 'keep' && (<>
 
       <div style={S.card}>
         <div style={S.h}>The durable record</div>
@@ -497,15 +1114,45 @@ export function RecordTab({
           <div style={S.h}>Where the real data starts</div>
           {realDataEpoch ? (
             <>
+              {/* CONFIRMED: one line, and the detail behind a toggle.
+                  This card is a one-tap decision that, once made, never needs
+                  making again — but it kept a full paragraph and a live Unset
+                  button permanently expanded among the export cards. A settled
+                  question should state its answer and get out of the way. Unset
+                  stays one tap away because the decision is reversible by
+                  design; it just stops taking a paragraph to say so.
+
+                  NOTE ON ITS HOME: this card lives under Keep because that is
+                  the heading it has always sat below. It is arguably a Do item
+                  — it is an unanswered one-tap decision, not a record — but
+                  re-homing Kevin's own cards is his call, not a refactor's.
+                  The UNCONFIRMED
+                  branches below are untouched: always-rendering them was a
+                  deliberate fix for a card that used to hide when it had
+                  nothing to propose, which made it indistinguishable from one
+                  that was never built. */}
               <div style={S.faint}>
-                Confirmed as {new Date(realDataEpoch).toLocaleDateString()}. Counts that would be
-                misleading over typed-in history now use {epochSummary?.real ?? 0} real order
-                {(epochSummary?.real ?? 0) === 1 ? '' : 's'} and set aside{' '}
-                {epochSummary?.backfilled ?? 0} entered from memory. Nothing was deleted.
+                Confirmed as {new Date(realDataEpoch).toLocaleDateString()} ·{' '}
+                {epochSummary?.real ?? 0} real order{(epochSummary?.real ?? 0) === 1 ? '' : 's'},{' '}
+                {epochSummary?.backfilled ?? 0} set aside.
               </div>
-              <button style={{ ...S.btn(C.border), marginTop: 8 }} onClick={() => onConfirmEpoch(null)}>
-                Unset
+              <button
+                style={{ ...S.btn(C.border), marginTop: 8, minHeight: 32, padding: '6px 12px', fontSize: 12 }}
+                onClick={() => setShowEpochDetail(v => !v)}
+              >
+                {showEpochDetail ? 'Hide detail' : 'Detail'}
               </button>
+              {showEpochDetail && (
+                <>
+                  <div style={{ ...S.faint, marginTop: 8 }}>
+                    Counts that would be misleading over typed-in history now use only the real
+                    orders and set aside the ones entered from memory. Nothing was deleted.
+                  </div>
+                  <button style={{ ...S.btn(C.border), marginTop: 8 }} onClick={() => onConfirmEpoch(null)}>
+                    Unset
+                  </button>
+                </>
+              )}
             </>
           ) : !epochProposal?.proposed ? (
             <>
@@ -771,6 +1418,18 @@ export function RecordTab({
             </div>
           ))}
         </div>
+      )}
+      </>)}
+
+      {sub === 'practice' && (
+        <>
+          <PracticesPane practices={practices} onSave={onSavePractices} />
+          <TermsPane terms={terms} onSave={onSaveTerms} />
+        </>
+      )}
+
+      {sub === 'ask' && (
+        <AskPane corpus={corpus} />
       )}
     </div>
   );

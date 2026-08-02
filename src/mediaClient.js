@@ -61,6 +61,71 @@ export function mediaKeyFor(cue, ext = 'webp') {
   return [safe(cue.dishId), safe(cue.step) || 'step', safe(cue.kind), cue.id.slice(-6)].join('_') + '.' + ext;
 }
 
+// ── AUDIO ───────────────────────────────────────────────────────────────────
+//
+// Rowan's voice capsules. Deliberately a SEPARATE function from uploadCue and
+// not a generalisation of it, because the two differ in the one place that
+// matters: an image is re-encoded through a canvas, which strips EXIF and
+// compresses it. Audio is uploaded AS RECORDED.
+//
+// WHY AUDIO IS NEVER RE-ENCODED. MediaRecorder already hands back a compressed
+// Opus stream, so a second pass would cost quality for almost no bytes. More to
+// the point, this recording is the artifact. It is a child's voice at a
+// particular age, it happens once, and the transcript beside it is a
+// convenience that can always be retyped. Anything that degrades the original
+// to save space has the value backwards.
+//
+// The worker's /media route already stores arbitrary keys and preserves the
+// Content-Type header, so this needs no new endpoint and no worker change.
+export const AUDIO_MAX_BYTES = 8 * 1024 * 1024; // the worker's own ceiling
+export const AUDIO_MAX_SECONDS = 180;
+
+export function audioKeyFor(entryId, ext = 'webm') {
+  const safe = String(entryId || '').replace(/[^A-Za-z0-9]+/g, '').slice(-12) || 'entry';
+  return `rowan_${safe}.${ext}`;
+}
+
+export async function uploadAudio(entryId, blob, { workerBase, token, fetchImpl } = {}) {
+  const doFetch = fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+  if (!doFetch) return { ok: false, reason: 'no network available' };
+  if (!token) return { ok: false, reason: 'not signed in' };
+  if (!blob || !blob.size) return { ok: false, reason: 'nothing was recorded' };
+  if (blob.size > AUDIO_MAX_BYTES) return { ok: false, reason: 'that recording is too long to store' };
+
+  const checksum = await checksumOf(blob);
+  const ext = (blob.type || '').includes('mp4') ? 'mp4' : 'webm';
+  const mediaKey = audioKeyFor(entryId, ext);
+
+  let res;
+  try {
+    res = await doFetch(workerBase + '/media/' + encodeURIComponent(mediaKey), {
+      method: 'POST',
+      headers: {
+        'Content-Type': blob.type || 'audio/webm',
+        'X-LTB-Token': token,
+        'X-LTB-Checksum': checksum,
+      },
+      body: blob,
+    });
+  } catch (e) {
+    return { ok: false, reason: 'the upload did not reach the server' };
+  }
+  if (!res.ok) {
+    return { ok: false, reason: res.status === 413 ? 'that recording is too large' : 'the server refused the upload' };
+  }
+  let body = null;
+  try { body = await res.json(); } catch (e) { body = null; }
+  // Same rule as a photograph, and it matters more here: a truncated recording
+  // of a two-year-old cannot be taken again.
+  if (!body || body.checksum !== checksum) {
+    return { ok: false, reason: 'the stored copy did not match what was sent' };
+  }
+  return { ok: true, checksum, mediaKey, bytes: blob.size, contentType: blob.type || 'audio/webm' };
+}
+//
+// Returns { ok, checksum, mediaKey, bytes, width, height } or { ok: false,
+// reason }. It never reports success on a response it did not verify, and the
+// caller must not mark a cue stored on anything but ok:true.
 // THE ONLY PATH TO A STORED CUE.
 //
 // Returns { ok, checksum, mediaKey, bytes, width, height } or { ok: false,

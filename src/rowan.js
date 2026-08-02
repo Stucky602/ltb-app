@@ -63,7 +63,7 @@ export function formatAge(months) {
 // One logged tasting. `fairTest: false` means he was tired, teething, or
 // already full — the entry is kept because it happened, and excluded from every
 // aggregate because it says nothing about the dish.
-export function makeEntry({ dish, rating, note, familyNote, fairTest = true, at }) {
+export function makeEntry({ dish, rating, note, familyNote, fairTest = true, at, capsule = null, servedRecipeVersionId = null }) {
   const when = at || new Date().toISOString();
   return {
     id: uid(),
@@ -78,7 +78,184 @@ export function makeEntry({ dish, rating, note, familyNote, fairTest = true, at 
     fairTest: !!fairTest,
     at: when,
     ageMonths: ageAt(when),
+    // VOICE CAPSULE, optional. Attached at log time or added later.
+    // { mediaKey, contentType, seconds, bytes, transcript, transcriptEditedAt }
+    // The RECORDING is the artifact and the transcript is a convenience beside
+    // it — see the capsule helpers below for why that ordering is enforced
+    // rather than assumed.
+    capsule: normalizeCapsule(capsule),
+    // WHICH VERSION HE ACTUALLY ATE. The systems master asks a capsule to carry
+    // "dish and served version", and after the schema v5 stamping the ORDERS
+    // know this but a rowan entry did not. Without it, a series showing he came
+    // around on a dish cannot tell whether the dish changed underneath him,
+    // which is the single most interesting thing that series could say.
+    //
+    // Null when unknown, and unknown is the honest answer for anything logged
+    // outside an order. Never back-filled from the current recipe: that would
+    // claim he ate today's version of a dish two years ago.
+    servedRecipeVersionId: servedRecipeVersionId || null,
   };
+}
+
+// ── Voice capsules ──────────────────────────────────────────────────────────
+//
+// THE RECORDING IS PRIMARY AND THE TRANSCRIPT IS NOT.
+//
+// A transcript is searchable, and that is the only thing it is better at. What
+// is actually being kept here is a child's voice at a particular age saying
+// something about a particular meal, once. So the audio is never re-encoded,
+// never replaced by its text, and editing a transcript cannot touch it. A
+// correction stamps `transcriptEditedAt` so a later reader can tell the words
+// were tidied and the recording was not.
+//
+// THERE IS NO AUTOMATIC TRANSCRIPTION and that is a deliberate absence rather
+// than an unfinished feature. This stack has no speech-to-text service, and
+// adding one is a dependency decision (a third party, a cost, and a recording
+// of a small child leaving the house) that is Kevin's to make and not one to
+// arrive as a side effect of a capsule feature. Typing a sentence on a PC is
+// the interim, and it is a fine one: the audio is already safe.
+export function normalizeCapsule(c) {
+  if (!c || typeof c !== 'object' || !c.mediaKey) return null;
+  return {
+    mediaKey: String(c.mediaKey).slice(0, 200),
+    contentType: String(c.contentType || 'audio/webm').slice(0, 60),
+    seconds: Math.max(0, Math.round(Number(c.seconds) || 0)),
+    bytes: Math.max(0, Math.round(Number(c.bytes) || 0)),
+    checksum: String(c.checksum || '').slice(0, 80),
+    transcript: String(c.transcript || '').slice(0, 4000),
+    transcriptEditedAt: typeof c.transcriptEditedAt === 'number' ? c.transcriptEditedAt : null,
+  };
+}
+
+// Attach a capsule to an existing entry. Used when the recording finishes after
+// the entry was already logged, which is the common case: log first so the
+// rating is safe, then the audio lands when the upload completes.
+export function attachCapsule(log, entryId, capsule) {
+  const c = normalizeCapsule(capsule);
+  if (!c) return log || [];
+  return (log || []).map(e => (e.id === entryId ? { ...e, capsule: c } : e));
+}
+
+// Edit the words. NEVER touches mediaKey, seconds, bytes, or checksum.
+export function editTranscript(log, entryId, transcript, now = Date.now()) {
+  return (log || []).map(e => {
+    if (e.id !== entryId || !e.capsule) return e;
+    return {
+      ...e,
+      capsule: {
+        ...e.capsule,
+        transcript: String(transcript || '').slice(0, 4000),
+        transcriptEditedAt: now,
+      },
+    };
+  });
+}
+
+// Every capsule, oldest first. This is the view that is the point of the
+// feature: played in order, it is how his vocabulary and his relationship to
+// the food changed over years.
+export function capsuleTimeline(log) {
+  return (log || [])
+    .filter(e => e.capsule && e.capsule.mediaKey)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+// ── PALATE VOCABULARY TIMELINE ──────────────────────────────────────────────
+//
+// A DERIVED VIEW, not a store. It reads the words already in the log — the food
+// notes, the family notes, and the transcripts Kevin typed against the voice
+// capsules — and reports when each one first appeared and at what age.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// WHAT THIS MUST NEVER BECOME
+//
+// It does not grade, score, or count toward anything. It does not compare him
+// to other children or to an expected range, and it does not treat a technical
+// word as better than a plain one. A child saying "spicy" at two is not behind
+// a child saying "piquant"; those are different sentences, not different marks.
+// The moment this reads as an assessment it stops being a record of a
+// relationship with food and becomes a report card, and nobody asked for one.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// EVERY WORD LINKS BACK, AND SAYS WHOSE IT IS
+//
+// `source` names the entry the word came from, so a word can always be checked
+// against what was actually said. `voice` distinguishes a word Rowan said —
+// from a transcript Kevin typed against a recording — from one that appears
+// only in a parent's own note ABOUT him. Those are genuinely different claims:
+// one is his vocabulary, the other is his father describing him. Collapsing
+// them would put words in a child's mouth in the one document meant to prove
+// they were his.
+
+// Words too common to be interesting, and pronouns and fillers that would
+// otherwise dominate every timeline. Deliberately short: over-filtering would
+// drop the plain words that ARE his vocabulary at two.
+const VOCAB_STOP = new Set(['the', 'and', 'but', 'for', 'was', 'with', 'that', 'this', 'his', 'her',
+  'him', 'she', 'they', 'them', 'you', 'your', 'not', 'all', 'are', 'has', 'had', 'did', 'its',
+  'from', 'have', 'were', 'been', 'said', 'says', 'then', 'than', 'when', 'what', 'some', 'more',
+  'very', 'just', 'like', 'about', 'into', 'over', 'again', 'still', 'would', 'could']);
+
+function vocabWords(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z\s'-]/g, ' ')
+    .split(/\s+/)
+    .map(w => w.replace(/^[''-]+|[''-]+$/g, ''))
+    .filter(w => w.length > 2 && !VOCAB_STOP.has(w));
+}
+
+export function vocabularyTimeline(log) {
+  const first = new Map();
+  const ordered = [...(log || [])].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  for (const e of ordered) {
+    // 'rowan' = words he said, taken from a transcript Kevin typed against a
+    // recording. 'parent' = words from Kevin's own note about the meal. The
+    // capsule transcript is checked FIRST so a word appearing in both is
+    // credited to him.
+    const sources = [
+      { text: e.capsule && e.capsule.transcript, voice: 'rowan', source: 'transcript' },
+      { text: e.note, voice: 'parent', source: 'note' },
+      { text: e.familyNote, voice: 'parent', source: 'familyNote' },
+    ];
+    for (const src of sources) {
+      for (const w of vocabWords(src.text)) {
+        const prev = first.get(w);
+        // A word already recorded in Rowan's own voice is never downgraded to a
+        // parent attribution by a later parent note.
+        if (prev && (prev.voice === 'rowan' || src.voice === 'parent')) continue;
+        first.set(w, {
+          word: w,
+          at: e.at,
+          ageMonths: e.ageMonths,
+          dish: e.dish,
+          entryId: e.id,
+          voice: src.voice,
+          source: src.source,
+        });
+      }
+    }
+  }
+  return [...first.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+}
+
+// Grouped by age band for reading, because the interesting thing is not the
+// list of words but how the list CHANGED. Bands are wide on purpose: narrow
+// ones would invite reading a gap as a plateau.
+export function vocabularyByAge(log, bandMonths = 6) {
+  const bands = new Map();
+  for (const w of vocabularyTimeline(log)) {
+    const age = Number.isFinite(w.ageMonths) ? w.ageMonths : 0;
+    const band = Math.floor(age / bandMonths) * bandMonths;
+    if (!bands.has(band)) bands.set(band, []);
+    bands.get(band).push(w);
+  }
+  return [...bands.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([from, words]) => ({ from, to: from + bandMonths - 1, words }));
+}
+
+export function capsuleCount(log) {
+  return capsuleTimeline(log).length;
 }
 
 export function addEntry(log, entry) {

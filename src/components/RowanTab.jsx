@@ -11,11 +11,15 @@
 // kept out of anything derived, because a rating given while teething is
 // evidence about a Tuesday and not about a dish.
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   RATING_LABELS, formatAge, topDishes, dishSummary, seriesFor,
-  coverage, untried, writtenEntries,
+  coverage, untried, writtenEntries, capsuleTimeline, vocabularyByAge,
 } from '../rowan.js';
+import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
+import {
+  addQuestion, answerQuestion, unansweredQuestions, answeredQuestions,
+} from '../rowanQuestions.js';
 import { GOLD, styles } from '../styles.js';
 
 const SWATCH = { 1: '#E24B4A', 2: '#C77B3A', 3: '#9aa5a0', 4: '#7FA86B', 5: '#4FA36B' };
@@ -33,12 +37,217 @@ const S = {
   }),
 };
 
-export function RowanTab({ log, dishNames }) {
+
+// ── QUESTIONS ───────────────────────────────────────────────────────────────
+// The unanswered ones come first and stay visible. A question with no answer is
+// not an incomplete record — it is a list of things Kevin still owes his son,
+// in his son's words, and it must not quietly resolve itself.
+function QuestionsPane({ questions, onSave }) {
+  const [draft, setDraft] = useState('');
+  const [answering, setAnswering] = useState(null);
+  const [answerDraft, setAnswerDraft] = useState('');
+  const open = unansweredQuestions(questions);
+  const done = answeredQuestions(questions);
+
+  const Row = ({ q }) => (
+    <div style={{ borderTop: '1px solid #2d3a36', paddingTop: 8, marginTop: 8 }}>
+      <div style={{ fontSize: 13, color: '#e8e6df' }}>&ldquo;{q.text}&rdquo;</div>
+      <div style={{ fontSize: 11, color: '#9aa5a0', marginTop: 2 }}>
+        {new Date(q.askedAt).toLocaleDateString()}
+        {Number.isFinite(q.ageMonths) ? ` \u00b7 ${formatAge(q.ageMonths)}` : ''}
+        {q.subjectId ? ` \u00b7 ${q.subjectId}` : ''}
+      </div>
+      {q.answer ? (
+        <div style={{ fontSize: 12.5, color: '#c9d1cd', marginTop: 5, paddingLeft: 8,
+          borderLeft: '2px solid #5DCAA5' }}>{q.answer}</div>
+      ) : answering === q.id ? (
+        <>
+          <textarea
+            value={answerDraft}
+            onChange={e => setAnswerDraft(e.target.value)}
+            placeholder="Your answer, in your words"
+            style={{ width: '100%', minHeight: 60, marginTop: 6, boxSizing: 'border-box',
+              background: '#14201d', border: '1px solid #2d3a36', borderRadius: 8,
+              color: '#e8e6df', fontSize: 12.5, padding: 8 }}
+          />
+          {/* No draft, no suggestion, no auto-fill anywhere near this box. A
+              child reading it in twenty years has to be able to trust that
+              every answer here came from his father. */}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button
+              onClick={() => { onSave(prev => answerQuestion(prev, q.id, answerDraft)); setAnswering(null); setAnswerDraft(''); }}
+              style={{ background: '#232d2a', border: '1px solid #5DCAA5', borderRadius: 8,
+                color: '#5DCAA5', fontSize: 12, fontWeight: 700, padding: '7px 12px', cursor: 'pointer' }}
+            >Save answer</button>
+            <button onClick={() => setAnswering(null)}
+              style={{ background: '#232d2a', border: '1px solid #2d3a36', borderRadius: 8,
+                color: '#9aa5a0', fontSize: 12, padding: '7px 12px', cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <button onClick={() => { setAnswering(q.id); setAnswerDraft(''); }}
+          style={{ marginTop: 6, background: 'none', border: '1px solid #2d3a36', borderRadius: 8,
+            color: '#D4A050', fontSize: 12, padding: '6px 11px', cursor: 'pointer' }}>
+          Answer this
+        </button>
+      )}
+    </div>
+  );
+
+  return (
+    <div style={S.card}>
+      <div style={S.h}>What he asked</div>
+      <div style={S.faint}>
+        {open.length > 0
+          ? `${open.length} still waiting on you.`
+          : 'Questions he asks, and what you told him.'}
+      </div>
+      <textarea
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        placeholder="Write down what he asked, in his words"
+        style={{ width: '100%', minHeight: 50, marginTop: 8, boxSizing: 'border-box',
+          background: '#14201d', border: '1px solid #2d3a36', borderRadius: 8,
+          color: '#e8e6df', fontSize: 12.5, padding: 8 }}
+      />
+      <button
+        onClick={() => { const t = draft.trim(); if (!t) return; onSave(prev => addQuestion(prev, { text: t })); setDraft(''); }}
+        style={{ marginTop: 6, background: '#232d2a', border: '1px solid #D4A050', borderRadius: 8,
+          color: '#D4A050', fontSize: 12.5, fontWeight: 700, padding: '8px 14px', cursor: 'pointer' }}
+      >Save the question</button>
+      {open.map(q => <Row key={q.id} q={q} />)}
+      {done.length > 0 && (
+        <>
+          <div style={{ ...S.h, marginTop: 14 }}>Answered</div>
+          {done.map(q => <Row key={q.id} q={q} />)}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── VOCABULARY ──────────────────────────────────────────────────────────────
+// Derived, sourced, and NOT a score. See the note in rowan.js: this must never
+// grade him, compare him to anyone, or imply a technical word beats a plain one.
+function VocabularyPane({ log }) {
+  const bands = useMemo(() => vocabularyByAge(log), [log]);
+  if (!bands.length) return null;
+  return (
+    <div style={S.card}>
+      <div style={S.h}>Words, as they arrived</div>
+      <div style={S.faint}>
+        First time each word shows up. Words from a recording are his; words from your own
+        notes are yours about him, and they are marked apart.
+      </div>
+      {bands.map(b => (
+        <div key={b.from} style={{ borderTop: '1px solid #2d3a36', paddingTop: 8, marginTop: 8 }}>
+          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#D4A050' }}>
+            {formatAge(b.from)} to {formatAge(b.to)}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
+            {b.words.map(w => (
+              <span key={w.word} title={`${w.dish} \u00b7 ${new Date(w.at).toLocaleDateString()}`}
+                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 999,
+                  border: '1px solid ' + (w.voice === 'rowan' ? '#5DCAA5' : '#2d3a36'),
+                  color: w.voice === 'rowan' ? '#5DCAA5' : '#9aa5a0' }}>
+                {w.word}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// One capsule. The audio element is the point; the transcript is a text field
+// beside it that can be corrected freely, because correcting words cannot touch
+// the recording — editTranscript only ever writes the transcript fields.
+function CapsuleRow({ entry, onSaveTranscript }) {
+  const c = entry.capsule;
+  const [text, setText] = useState(c.transcript || '');
+  const [editing, setEditing] = useState(false);
+
+  // FETCHED WITH A HEADER, NOT A QUERY STRING, then played from a blob URL.
+  //
+  // An <audio src> cannot carry a custom header, so the obvious version puts
+  // the publish token in the URL — which is exactly what worker.js's tokenOk()
+  // comment says to stop doing: a token in a URL lands in Cloudflare's request
+  // logs, in browser history, and in any Referer the page emits. The
+  // query-string branch is kept alive there only for un-updated callers, and
+  // adding a NEW one would push that cleanup further away rather than nearer.
+  //
+  // preload is 'none' by way of loading on demand: nothing is fetched until
+  // Kevin taps play, so opening the tab does not pull every recording he has.
+  const [src, setSrc] = useState(null);
+  const [loadErr, setLoadErr] = useState('');
+  const load = async () => {
+    if (src) return;
+    try {
+      const res = await fetch(`${WORKER_BASE}/media/${encodeURIComponent(c.mediaKey)}`, {
+        headers: { 'X-LTB-Token': PUBLISH_TOKEN },
+      });
+      if (!res.ok) { setLoadErr('That recording could not be loaded.'); return; }
+      setSrc(URL.createObjectURL(await res.blob()));
+    } catch (e) {
+      setLoadErr('That recording could not be loaded.');
+    }
+  };
+  // Object URLs are held by the document until revoked, so a long session
+  // scrolling this list would leak every clip it touched.
+  useEffect(() => () => { if (src) URL.revokeObjectURL(src); }, [src]);
+  return (
+    <div style={{ borderTop: '1px solid #2d3a36', paddingTop: 8, marginTop: 8 }}>
+      <div style={{ fontSize: 12, color: '#9aa5a0' }}>
+        {new Date(entry.at).toLocaleDateString()} · {formatAge(entry.ageMonths)} · {entry.dish}
+        {c.seconds ? ` · ${c.seconds}s` : ''}
+      </div>
+      {src
+        ? <audio controls autoPlay src={src} style={{ width: '100%', marginTop: 6 }} />
+        : (
+          <button
+            onClick={load}
+            style={{ width: '100%', marginTop: 6, background: '#232d2a', border: '1px solid #2d3a36',
+              borderRadius: 8, color: '#D4A050', fontSize: 12.5, fontWeight: 700,
+              padding: '9px', cursor: 'pointer' }}
+          >Play</button>
+        )}
+      {loadErr && <div style={{ fontSize: 11.5, color: '#e0828a', marginTop: 4 }}>{loadErr}</div>}
+      {editing ? (
+        <>
+          <textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            placeholder="What he said, in your words"
+            style={{ width: '100%', minHeight: 54, marginTop: 6, boxSizing: 'border-box',
+              background: '#14201d', border: '1px solid #2d3a36', borderRadius: 8,
+              color: '#e8e6df', fontSize: 12.5, padding: 8 }}
+          />
+          <button
+            onClick={() => { onSaveTranscript && onSaveTranscript(entry.id, text); setEditing(false); }}
+            style={{ marginTop: 6, background: '#232d2a', border: '1px solid #5DCAA5', borderRadius: 8,
+              color: '#5DCAA5', fontSize: 12, fontWeight: 700, padding: '7px 12px', cursor: 'pointer' }}
+          >Save words</button>
+        </>
+      ) : (
+        <div
+          onClick={() => setEditing(true)}
+          style={{ marginTop: 6, fontSize: 12.5, color: c.transcript ? '#e8e6df' : '#6b7570', cursor: 'pointer' }}
+        >
+          {c.transcript || 'Add what he said'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQuestions }) {
   const [open, setOpen] = useState(null);
   const ranked = topDishes(log);
   const cov = coverage(log, dishNames);
   const notYet = untried(log, dishNames);
   const family = writtenEntries(log, { familyOnly: true });
+  const capsules = capsuleTimeline(log);
 
   const movers = ranked
     .map(r => ({ ...r, s: dishSummary(log, r.dish) }))
@@ -121,6 +330,27 @@ export function RowanTab({ log, dishNames }) {
                 {m.s.latestFair.rating} at {formatAge(m.s.latestFair.ageMonths)}
               </span>
             </div>
+          ))}
+        </div>
+      )}
+
+      <QuestionsPane questions={questions} onSave={onSaveQuestions} />
+
+      <VocabularyPane log={log} />
+
+      {capsules.length > 0 && (
+        <div style={S.card}>
+          {/* CHRONOLOGICAL, and that ordering IS the feature. Any one capsule is
+              a toddler saying something about dinner. Played in order across
+              years, it is the thing this tab exists to hold: how his words and
+              his relationship to the food changed. Sorting by dish or by rating
+              would break the only view that shows it. */}
+          <div style={S.h}>His voice</div>
+          <div style={S.faint}>
+            {capsules.length} recording{capsules.length === 1 ? '' : 's'}, oldest first.
+          </div>
+          {capsules.map(e => (
+            <CapsuleRow key={e.id} entry={e} onSaveTranscript={onSaveTranscript} />
           ))}
         </div>
       )}

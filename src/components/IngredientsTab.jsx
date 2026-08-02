@@ -1,4 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import {
+  addLabel, supersedeLabel, labelsFor, currentLabelFor, diffLabels, labelCounts,
+} from '../labelVersions.js';
 import { Plus, Trash2, Pencil, X, RotateCcw, ArrowUpDown, Camera } from '../icons.jsx';
 import {
   INGREDIENT_SEED, CATEGORY_ORDER, CATEGORY_LABELS_ING,
@@ -69,7 +72,131 @@ function Sparkline({ points, width = 56, height = 18 }) {
   );
 }
 
-export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt, onDebugScan, aliases, onSaveAliases }) {
+
+// ── LABEL VERSIONS ──────────────────────────────────────────────────────────
+// Collapsed by default and empty until Kevin records something. It sits in
+// Ingredients because that is where the registry it keys against already lives.
+//
+// NO OCR, ON PURPOSE. An ingredient list is the one place in this app where a
+// plausible misread is worse than a blank, because someone decides whether they
+// can safely eat something on the strength of it. Text is typed or pasted, and
+// a label is `unresolved` until Kevin says otherwise.
+function LabelVersionsPanel({ ingredients, store, onSave }) {
+  const [open, setOpen] = useState(false);
+  const [ingId, setIngId] = useState('');
+  const [brand, setBrand] = useState('');
+  const [product, setProduct] = useState('');
+  const [text, setText] = useState('');
+  const [allergen, setAllergen] = useState('');
+  const counts = labelCounts(store);
+  const existing = ingId ? labelsFor(store, ingId) : [];
+  const current = ingId ? currentLabelFor(store, ingId) : null;
+
+  // A diff is only offered when there is something to compare against. Shown
+  // BEFORE saving, because the point is to notice a reformulation rather than
+  // to discover one later.
+  const pendingDiff = current && (text.trim() || allergen.trim())
+    ? diffLabels(current, { ingredientText: text, allergenText: allergen })
+    : null;
+
+  const save = (status) => {
+    if (!ingId || !text.trim()) return;
+    const payload = { ingredientId: ingId, brand: brand.trim(), product: product.trim(),
+      ingredientText: text.trim(), allergenText: allergen.trim(), status };
+    onSave(prev => (current ? supersedeLabel(prev, current.id, payload) : addLabel(prev, payload)));
+    setBrand(''); setProduct(''); setText(''); setAllergen('');
+  };
+
+  const fld = { width: '100%', background: '#14201d', border: '1px solid #2d3a36', borderRadius: 8,
+    color: '#e8e6df', fontSize: 12.5, padding: 8, boxSizing: 'border-box', marginTop: 6 };
+
+  return (
+    <div style={S.section}>
+      <button style={S.collapseBtn} onClick={() => setOpen(o => !o)}>
+        <span>Package labels · {counts.confirmed} recorded across {counts.ingredients} ingredient{counts.ingredients === 1 ? '' : 's'}</span>
+        <span>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11.5, color: '#9aa5a0', lineHeight: 1.5 }}>
+            What the package actually says, for the bought products whose formulation can change
+            underneath the name: stocks, sauces, blends, cheeses, miso, Worcestershire. Recording
+            one means a past order can still answer what was in it after a brand changes.
+          </div>
+
+          <select value={ingId} onChange={e => setIngId(e.target.value)} style={fld}>
+            <option value="">Pick an ingredient…</option>
+            {(ingredients || []).map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+
+          {ingId && (
+            <>
+              {current && (
+                <div style={{ fontSize: 11.5, color: '#9aa5a0', marginTop: 8, lineHeight: 1.5 }}>
+                  <b style={{ color: '#D4A050' }}>On record now:</b> {current.brand} {current.product}
+                  <div style={{ marginTop: 2 }}>{current.ingredientText}</div>
+                  {current.allergenText && <div style={{ marginTop: 2 }}>Allergens: {current.allergenText}</div>}
+                </div>
+              )}
+              <input value={brand} onChange={e => setBrand(e.target.value)} placeholder="Brand" style={fld} />
+              <input value={product} onChange={e => setProduct(e.target.value)} placeholder="Product" style={fld} />
+              <textarea value={text} onChange={e => setText(e.target.value)}
+                placeholder="Ingredients, exactly as printed" style={{ ...fld, minHeight: 70 }} />
+              <input value={allergen} onChange={e => setAllergen(e.target.value)}
+                placeholder="Allergen line, as printed" style={fld} />
+
+              {pendingDiff && (pendingDiff.added.length || pendingDiff.removed.length || pendingDiff.allergenChanged) ? (
+                <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 8,
+                  background: 'rgba(239,159,39,0.10)', border: '1px solid #4a3a1e', fontSize: 11.5, lineHeight: 1.5 }}>
+                  <b style={{ color: '#EF9F27' }}>This differs from what is on record.</b>
+                  {pendingDiff.added.length > 0 && <div>Added: {pendingDiff.added.join(', ')}</div>}
+                  {pendingDiff.removed.length > 0 && <div>Gone: {pendingDiff.removed.join(', ')}</div>}
+                  {pendingDiff.allergenChanged && <div>Allergen line changed.</div>}
+                  {/* Deliberately no verdict. What a change MEANS for a customer
+                      is a ruling, and rulings are Kevin's. */}
+                  <div style={{ color: '#9aa5a0', marginTop: 3 }}>
+                    Saving keeps the old record with an end date; it is not overwritten.
+                  </div>
+                </div>
+              ) : null}
+
+              <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => save('confirmed')} disabled={!text.trim()}
+                  style={{ ...S.collapseBtn, flex: 1, justifyContent: 'center', color: '#5DCAA5' }}>
+                  I have read this label
+                </button>
+                <button onClick={() => save('unresolved')} disabled={!text.trim()}
+                  style={{ ...S.collapseBtn, flex: 1, justifyContent: 'center' }}>
+                  Save unchecked
+                </button>
+              </div>
+
+              {existing.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#D4A050', letterSpacing: 0.5 }}>HISTORY</div>
+                  {existing.map(l => (
+                    <div key={l.id} style={{ fontSize: 11.5, color: '#9aa5a0', borderTop: '1px solid #2d3a36',
+                      paddingTop: 6, marginTop: 6, lineHeight: 1.5 }}>
+                      <div>
+                        {new Date(l.firstObserved).toLocaleDateString()}
+                        {l.supersededAt ? ` to ${new Date(l.supersededAt).toLocaleDateString()}` : ' — current'}
+                        {l.status !== 'confirmed' ? ` · ${l.status}` : ''}
+                      </div>
+                      <div style={{ color: '#e8e6df' }}>{l.brand} {l.product}</div>
+                      <div>{l.ingredientText}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function IngredientsTab({ ingredients, costHistory, onChange, onScanReceipt, onDebugScan, aliases, onSaveAliases, labelVersions, onSaveLabels }) {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // id being edited
   const [containerAsk, setContainerAsk] = useState(null); // { id, entered, converted, message }
@@ -193,6 +320,7 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
 
   return (
     <div style={S.wrap}>
+      <LabelVersionsPanel ingredients={ingredients} store={labelVersions} onSave={onSaveLabels} />
       {omaQueue.length > 0 && (
         <div style={{ background: '#1e2522', border: '1px solid #3a453f', borderRadius: 10, padding: 10, marginBottom: 12 }}>
           <button onClick={() => setShowOmaQueue(o => !o)} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', color: '#D4A050', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>

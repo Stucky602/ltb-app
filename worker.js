@@ -105,7 +105,7 @@ const ALLOWED_ORIGINS = [
 // copies are kept honest by tests/feature_flags.mjs, which asserts the flag ids
 // and stage ids match on both sides — a drifted copy here would silently hand
 // customers the wrong answer.
-const FLAG_DEFAULTS = { personalization:'on', amendments:'on', claimCode:'on', requestBox:'on', ingredientCards:'on', visualCues:'owner', freezerLens:'off', serveTogether:'off', awayMode:'off', jarReturn:'off', beforeYouStart:'owner', storagePlan:'owner', heatOnly:'owner' };
+const FLAG_DEFAULTS = { personalization:'on', amendments:'on', claimCode:'on', requestBox:'on', ingredientCards:'on', visualCues:'owner', freezerLens:'off', serveTogether:'off', awayMode:'off', jarReturn:'off', beforeYouStart:'owner', storagePlan:'owner', heatOnly:'owner', splitPack:'off' };
 function flagBucket(profileId) {
   const s = String(profileId || '');
   let h = 2166136261;
@@ -144,6 +144,7 @@ function tokenOk(request, url, env) {
   return url.searchParams.get('token') === env.PUBLISH_TOKEN;
 }
 
+const CAPTURE_PREFIX = 'capture:';
 const AMD_PREFIX = 'amd:';
 const AWAY_PREFIX = 'away:';
 const DEV_PREFIX = 'device:';
@@ -314,7 +315,37 @@ export default {
       // ── GET /config ──────────────────────────────────────────────────────────
       if (request.method === 'GET' && url.pathname === '/config') {
         const cfg = await env.LTB_KV.get(KV_CONFIG);
-        return json(cfg ? JSON.parse(cfg) : defaultConfig(), origin);
+        const parsed = cfg ? JSON.parse(cfg) : defaultConfig();
+        // ── REDACT THE FLAG INTERNALS ──────────────────────────────────────
+        //
+        // This route is UNAUTHENTICATED and hands back the stored config
+        // verbatim, which is fine for a menu and not fine for the flag record.
+        // The owner app publishes `customerFlags` in full — {stage, testers,
+        // percent} — because resolveFlags() needs all three to evaluate the
+        // testers and percent stages. But `testers` is a list of customer
+        // profile ids and `percent` is the size of a rollout, and the stated
+        // rule for this feature is that a customer must never be able to learn
+        // how many households are in a test. Anyone can curl this URL.
+        //
+        // STAGE SURVIVES ON PURPOSE. form.html reads
+        // `config.customerFlags.requestBox.stage === 'on'` as its fallback for
+        // someone who opens the form directly and has no personalization stash
+        // (that page never calls /customer-home). Dropping the field outright
+        // would silently push it back to the "absent means as it was before
+        // flags existed" branch and make that flag uncontrollable for direct
+        // visitors. A stage name on its own reveals nothing.
+        //
+        // The per-customer evaluation is unaffected: /customer-home reads the
+        // FULL object straight out of KV, not through this response.
+        if (parsed && parsed.customerFlags && typeof parsed.customerFlags === 'object') {
+          const safe = {};
+          for (const id of Object.keys(parsed.customerFlags)) {
+            const f = parsed.customerFlags[id] || {};
+            safe[id] = { stage: f.stage || 'off' };
+          }
+          parsed.customerFlags = safe;
+        }
+        return json(parsed, origin);
       }
 
       // ── POST /config ─────────────────────────────────────────────────────────
@@ -409,6 +440,19 @@ export default {
           phone: String(body.phone || '').slice(0, 40),
           items: Array.isArray(body.items) ? body.items.slice(0, 50) : [],
           notes: String(body.notes || '').slice(0, 1000),
+          // REQUEST SCOPE. Whether a restriction-shaped note applies to this
+          // order or is meant as a standing preference. '' means the customer
+          // was never asked or did not answer, which is every order placed
+          // before this shipped.
+          //
+          // A STANDING SCOPE IS A PROPOSAL AND NOTHING MORE. This worker stores
+          // the word and does not touch any profile. The customer must not be
+          // able to permanently reconfigure what they are offered by typing a
+          // sentence, and Kevin must not find a profile changed under him.
+          //
+          // The note itself is stored above, untouched and in full, exactly as
+          // it always was. This field sits beside it.
+          noteScope: (body.noteScope === 'order' || body.noteScope === 'standing') ? body.noteScope : '',
           // Carl mode. A BOOLEAN, never a stored swap list: the swaps are
           // derived from src/carl.js at display time, so an order placed today
           // still shows the current rulings after one changes. Storing the list
@@ -1092,6 +1136,78 @@ export default {
       // Stored against the DEVICE HASH, not the profile, so it works before
       // Kevin has linked anybody. It reaches him through the pending queue the
       // same way an order does.
+      // ── CAPTURE INBOX ────────────────────────────────────────────────────
+      //
+      // The one-handed capture path. Kevin is on an iPhone, and iOS Safari does
+      // not implement the Web Share Target API, so the PWA cannot register
+      // itself in the iOS share sheet the way it can on his PC. An iOS Shortcut
+      // posting here IS the share-sheet integration on that device — see
+      // SHORTCUT_SETUP.md in the repo.
+      //
+      // OWNER ONLY, token gated. This is not a customer surface: it holds
+      // whatever Kevin happened to share, which is private by default.
+      //
+      // TEXT AND METADATA ONLY. Images go through the existing /media/ route,
+      // which already does checksum verification, and their keys arrive here in
+      // mediaRefs. Nothing about binary handling is reinvented.
+      //
+      // The app DRAINS this: it reads items, saves them into its own inbox, and
+      // deletes them here. KV is a mailbox, not a store — the durable copy is
+      // the one in the app that rides the backup.
+      if (request.method === 'POST' && url.pathname === '/capture') {
+        if (!tokenOk(request, url, env)) return json({ error: 'unauthorized' }, origin, 401);
+        let body;
+        try { body = await request.json(); } catch (e) { return json({ error: 'bad json' }, origin, 400); }
+
+        // IDEMPOTENT BY CLIENT ID, same reasoning as /submit: a Shortcut on a
+        // bad connection retries, and a retry must overwrite itself rather than
+        // leave Kevin two copies of one screenshot to triage.
+        const id = (typeof body.id === 'string' && /^[A-Za-z0-9_-]{6,64}$/.test(body.id))
+          ? body.id
+          : 'cap_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+
+        const item = {
+          id,
+          capturedAt: Date.now(),
+          source: body.source === 'share' ? 'share' : 'shortcut',
+          raw: {
+            text: String(body.text || '').slice(0, 20000),
+            url: String(body.url || '').slice(0, 2000),
+            title: String(body.title || '').slice(0, 300),
+            mediaRefs: Array.isArray(body.mediaRefs)
+              ? body.mediaRefs.filter(x => typeof x === 'string').slice(0, 20)
+              : [],
+          },
+        };
+        if (!item.raw.text && !item.raw.url && !item.raw.mediaRefs.length) {
+          return json({ error: 'nothing to capture' }, origin, 400);
+        }
+        // 30 days. Long enough that a phone left in a drawer still drains;
+        // short enough that an undrained mailbox does not grow forever.
+        await env.LTB_KV.put(CAPTURE_PREFIX + id, JSON.stringify(item), { expirationTtl: 60 * 60 * 24 * 30 });
+        return json({ ok: true, id }, origin);
+      }
+
+      if (request.method === 'GET' && url.pathname === '/capture') {
+        if (!tokenOk(request, url, env)) return json({ error: 'unauthorized' }, origin, 401);
+        const listed = await env.LTB_KV.list({ prefix: CAPTURE_PREFIX, limit: 100 });
+        const items = [];
+        for (const k of listed.keys) {
+          const raw = await env.LTB_KV.get(k.name);
+          if (!raw) continue;
+          try { items.push(JSON.parse(raw)); } catch (e) { /* skip an unreadable one rather than failing the drain */ }
+        }
+        return json({ items }, origin);
+      }
+
+      if (request.method === 'DELETE' && url.pathname.startsWith('/capture/')) {
+        if (!tokenOk(request, url, env)) return json({ error: 'unauthorized' }, origin, 401);
+        const id = decodeURIComponent(url.pathname.slice('/capture/'.length));
+        if (!id || id.includes('..')) return json({ error: 'bad id' }, origin, 400);
+        await env.LTB_KV.delete(CAPTURE_PREFIX + id);
+        return json({ ok: true }, origin);
+      }
+
       if (request.method === 'POST' && url.pathname === '/customer-away') {
         const device = request.headers.get('X-LTB-Device');
         if (!device) return json({ error: 'device not recognised' }, origin, 401);
@@ -1174,6 +1290,10 @@ export default {
           status: 'pending',
           requestedPatch: body.patch.slice(0, 40),
           customerNote: String(body.customerNote || '').slice(0, 500),
+          // Same additive scope field as /submit. An amendment is exactly where
+          // "actually, no mushrooms from now on" gets written, so the question
+          // is as live here as it is on the order form.
+          noteScope: (body.noteScope === 'order' || body.noteScope === 'standing') ? body.noteScope : '',
           decision: { at: null, by: null, reason: null },
           idempotencyKey: key,
         };

@@ -218,7 +218,29 @@ const CUSTOMER_ENTRY_POINTS = [
   'tools/buildPages.mjs',
   'worker.js', 'sw.js',
 ];
-const PROTECTED = 'src/journal.js';
+// PROTECTED is a SET, not one file.
+//
+// It was journal.js alone, which worked only because everything private
+// happened to import the journal. corpus.js does, so it is covered
+// transitively. practices.js does NOT — it is a standalone store — so a
+// customer surface could have imported it and the wall would have stayed
+// green while shipping Kevin's private working notes onto a public page.
+//
+// Anything holding material written for Kevin or for his son goes in here, and
+// the rule for the next one is simple: if a customer must never read it, add
+// it, and do not rely on it happening to import something already listed.
+const PROTECTED = new Set([
+  'src/journal.js',
+  'src/practices.js',
+  'src/corpus.js',
+  'src/rowan.js',
+  'src/captureInbox.js',
+  'src/labelVersions.js',
+  'src/terms.js',
+  'src/anatomy.js',
+  'src/rowanQuestions.js',
+  'src/clarifications.js',
+]);
 
 function resolveRel(fromFile, spec) {
   const dir = fromFile.split('/').slice(0, -1);
@@ -253,7 +275,7 @@ function pathToJournal(entry) {
     for (const spec of specs) {
       const target = resolveRel(file, spec);
       const next = [...chain, target];
-      if (target === PROTECTED) return next;
+      if (PROTECTED.has(target)) return next;
       queue.push([target, next]);
     }
   }
@@ -266,7 +288,7 @@ for (const entry of CUSTOMER_ENTRY_POINTS) {
   scanned++;
   const chain = pathToJournal(entry);
   ok(chain === null,
-    `PRIVACY WALL: journal.js is reachable from ${entry}` +
+    `PRIVACY WALL: ${chain ? chain[chain.length - 1] : 'protected material'} is reachable from ${entry}` +
     (chain ? ` via ${chain.join(' -> ')}` : '') +
     ' — diary material stays off customer surfaces');
 }

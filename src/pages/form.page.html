@@ -71,6 +71,9 @@
   .request-box select, .request-box input { width:100%; box-sizing:border-box; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid var(--teal-mid); background:#0e1a17; color:var(--body); font-size:14px; }
   .request-box button { width:100%; padding:11px; border:none; border-radius:8px; background:var(--teal-mid); color:#04342C; font-weight:700; font-size:14px; cursor:pointer; }
   .request-box button:disabled { opacity:0.5; cursor:default; }
+  /* Scope buttons: sized for a thumb, and visually a QUESTION rather than an
+     action, so nobody reads them as another submit control. */
+  .scope-btn { flex:1; min-width:120px; min-height:40px; padding:9px 12px; border:1px solid var(--teal-mid); border-radius:8px; background:#232d2a; color:#c9d1cd; font-size:13px; font-weight:600; cursor:pointer; }
   .request-done { font-size:12.5px; margin-top:8px; min-height:16px; }
   .request-done.ok { color:var(--teal-light); }
   .request-done.err { color:#d98a7a; }
@@ -511,6 +514,31 @@
                 '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Pasta shape (optional)</div>' +
                 '<input type="text" placeholder="' + esc(pastaPh) + '" value="' + esc(pastaVal) + '" oninput="setPasta(\'' + vk + '\', this.value)" style="margin-top:0;"></div>';
             }
+            // ── PACK CHOICE + FOOTPRINT, one interaction ──────────────────
+            // The systems master is explicit that choosing the packaging shape
+            // and seeing what it costs you in fridge space are the SAME
+            // decision, not a choice followed by a surprise. So each option
+            // states its container makeup on the line the customer picks it on.
+            //
+            // Renders only when the published week carried `packs` for this
+            // exact variant, which happens only for dishes Kevin has declared
+            // splittable. Nothing is declared today, so this is dark until he
+            // runs the two-night walk — an option offered for a pack he cannot
+            // physically make on Tuesday is worse than no option.
+            //
+            // Flag-gated too, so it can be pulled without a deploy.
+            if (v.packs && __ltbPackFlag()) {
+              var packSel = packSelections[vk] || 'family';
+              var sur = (v.packs.twoNight && v.packs.twoNight.surchargeCents) || 0;
+              panel += '<div style="margin-top:8px;">' +
+                '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">How would you like it packed?</div>' +
+                '<div style="display:flex;gap:6px;flex-wrap:wrap;">';
+              panel += packBtnHtml(vk, 'family', 'Family pack',
+                v.packs.family.footprint, 'Heat it all at once', packSel === 'family', 0);
+              panel += packBtnHtml(vk, 'twoNight', 'Two-night pack',
+                v.packs.twoNight.footprint, 'Heat one half, leave the other sealed', packSel === 'twoNight', sur);
+              panel += '</div></div>';
+            }
             if (opts.parmOffer) {
               panel += '<div id="parm_' + vk + '" style="margin-top:8px;">' +
                 '<div style="font-size:12px;color:var(--dim);margin-bottom:5px;">Want me to grab a block of good parm for you at cost ($10\u201315 on avg)?</div>' +
@@ -549,6 +577,10 @@
         '<input type="tel" id="custPhone" placeholder="Phone number" autocomplete="tel">' +
         '<label class="field-label">Notes (optional)</label>' +
         '<textarea id="custNotes" placeholder="Spice level, substitutions, delivery notes, anything else"></textarea>' +
+        // REQUEST SCOPE. Hidden until the note looks like a restriction, so the
+        // ordinary "leave it on the porch" note is not interrogated. Guarded
+        // because a page rendered before the partial loads must still submit.
+        (typeof __ltbScopeRowHtml === 'function' ? __ltbScopeRowHtml() : '') +
         '</div>';
 
       // Placed after the order and before the review button. By this point they
@@ -588,7 +620,44 @@
       // classes, so a filter left on would forget itself on the next redraw.
       if (typeof __carlApply === 'function') __carlApply();
       if (typeof wireRequestBox === 'function') wireRequestBox();
+      if (typeof __ltbWireScope === 'function') __ltbWireScope();
       prefillIdentity();
+    }
+
+    // Pack selections, keyed the same way spice and pasta are. Defaults to
+    // 'family' everywhere, which is exactly today's behaviour.
+    var packSelections = {};
+    function setPack(vk, shape) {
+      packSelections[vk] = shape;
+      saveDraftSoon();
+      render();
+    }
+    // Flag check with the same two-source fallback the request box uses: the
+    // personalization stash when there is one, the published config otherwise.
+    // ABSENT MEANS OFF here, unlike the request box — this feature did not
+    // exist before today, so there is no prior behaviour to preserve and the
+    // safe reading of "no answer" is not to offer a pack Kevin may not make.
+    function __ltbPackFlag() {
+      if (typeof __ltbPersonal !== 'undefined' && __ltbPersonal.flags
+          && typeof __ltbPersonal.flags.splitPack === 'boolean') {
+        return __ltbPersonal.flags.splitPack;
+      }
+      return !!(config.customerFlags && config.customerFlags.splitPack
+        && config.customerFlags.splitPack.stage === 'on');
+    }
+    function packBtnHtml(vk, shape, title, footprint, blurb, on, surchargeCents) {
+      var extra = surchargeCents > 0
+        ? '<div style="font-size:11px;color:var(--gold,#D4A050);margin-top:3px;">+$'
+          + (surchargeCents / 100).toFixed(2) + ' packaging</div>'
+        : '';
+      return '<button type="button" onclick="setPack(\'' + vk + '\',\'' + shape + '\')" '
+        + 'style="flex:1;min-width:140px;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer;'
+        + 'border:1px solid ' + (on ? 'var(--teal-light)' : 'var(--teal-mid)') + ';'
+        + 'background:' + (on ? 'var(--teal-mid)' : '#1a201e') + ';color:' + (on ? '#fff' : '#c8cfc9') + ';">'
+        + '<div style="font-weight:700;font-size:13px;">' + title + '</div>'
+        + '<div style="font-size:11px;opacity:0.85;margin-top:2px;">' + esc(footprint) + '</div>'
+        + '<div style="font-size:11px;opacity:0.7;margin-top:2px;">' + blurb + '</div>'
+        + extra + '</button>';
     }
 
     function changeQty(key, delta) {
@@ -669,6 +738,7 @@
 
     <!-- @generate dinnerNames -->
     <!-- @include _partials/requestBox.js -->
+    <!-- @include _partials/requestScope.js -->
     <!-- @include _partials/pausedHtml.js -->
     <!-- @include _partials/customerDevice.js -->
     // Handed over by order.html, which is where the worker was asked. This
@@ -820,6 +890,10 @@
         }
         var item = { name: dish.name, variant: v.label, price: v.price, cost: v.cost || 0, qty: cart[key], note: noteparts.join(". "), perLb: !!dish.perLb, avgWeightLb: dish.avgWeightLb };
         if (itemOptions.spice != null || itemOptions.pasta) item.options = itemOptions;
+        // Only sent when the customer actually had the choice AND took the
+        // non-default. An item with no packShape means Family, which is what
+        // every order has always been.
+        if (v.packs && packSelections[vk2] === 'twoNight') item.packShape = 'twoNight';
         if (addons.length) item.addons = addons;
         items.push(item);
       });
@@ -981,7 +1055,10 @@
       // from src/carl.js when Kevin's order card renders, so a ruling change
       // updates every existing order instead of leaving stale substitutions
       // frozen into the ones already placed.
-      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, clientId: orderAttemptId(), carlMode: (typeof __carlOn !== 'undefined' && __carlOn) === true };
+      // noteScope rides ALONGSIDE the note and never modifies it. '' means the
+      // question was never asked or never answered, which is the same as today.
+      var __scope = (typeof __ltbNoteScope === 'function') ? __ltbNoteScope() : '';
+      var submitPayload = { customer: name, address: address, phone: phone, items: items, notes: notes, noteScope: __scope, clientId: orderAttemptId(), carlMode: (typeof __carlOn !== 'undefined' && __carlOn) === true };
 
       // Device enrollment rides the order. Minted here rather than on page load
       // so a browser that only ever reads the menu never gets one — nobody who

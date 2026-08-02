@@ -61,21 +61,41 @@ export function buildChapter({
     // inherited a different dish's — the exact class of confident wrong answer
     // this file is supposed to prevent.
     //
-    // A KNOWN LIMITATION worth stating: the version fields live on the ORDER,
-    // not the line item, so a multi-dish order carries one id for everything in
-    // it. That is only reliable when every dish in the order was at its current
-    // version, which is the normal case but not a guarantee. Moving the fields
-    // to the item is the fix; until then a chapter reports what it has and the
-    // gap below says how it got it.
-    const orderVersion = orders
-      .filter(o => inWeek(o.createdAt || o.date))
-      .filter(o => (o.items || []).some(it => (it.dishId || dishIdFor(it.name)) === dishId))
-      .map(o => o.servedRecipeVersionId || o.offeredRecipeVersionId)
-      .find(Boolean) || null;
+    // RESOLVED Aug 1 (schema v5): the version fields now live on the LINE ITEM,
+    // so a multi-dish order no longer carries one id for everything in it. This
+    // reads the item for THIS dish first and only then falls back to the
+    // order-level fields, which are kept for orders recorded before v5.
+    //
+    // An inherited value is reported as a gap even though it has a version. It
+    // came from the order, which means it is an assumption about this
+    // particular dish rather than a record of it, and a chapter that presents
+    // an assumption as a recording is exactly the failure `gaps` exists to
+    // prevent. This is the document meant for Rowan; it does not get to sound
+    // more certain than it is.
+    const inWeekOrders = orders.filter(o => inWeek(o.createdAt || o.date));
+    const matchingItems = inWeekOrders.flatMap(o =>
+      (o.items || [])
+        .filter(it => (it.dishId || dishIdFor(it.name)) === dishId)
+        .map(it => ({ it, o })));
+
+    const itemHit = matchingItems
+      .find(({ it }) => (it.servedRecipeVersionId || it.offeredRecipeVersionId));
+    const itemVersion = itemHit
+      ? (itemHit.it.servedRecipeVersionId || itemHit.it.offeredRecipeVersionId)
+      : null;
+    const inherited = !!(itemHit && itemHit.it.versionInherited);
+
+    const legacyOrderVersion = itemVersion ? null : (matchingItems
+      .map(({ o }) => o.servedRecipeVersionId || o.offeredRecipeVersionId)
+      .find(Boolean) || null);
+
+    const orderVersion = itemVersion || legacyOrderVersion;
 
     const version = orderVersion || (dishId ? (currentVersionFor(dishId) || {}).id : null);
     if (!orderVersion) {
       gaps.push(`No order recorded a recipe version for ${name}; the version shown is the one current when this chapter was built.`);
+    } else if (inherited || legacyOrderVersion) {
+      gaps.push(`The recipe version for ${name} was recorded on the order rather than the dish, so it is the version that order carried overall, not a record of this dish specifically.`);
     }
     return {
       name,
@@ -83,6 +103,7 @@ export function buildChapter({
       recipeVersionId: version,
       versionLabel: versionLabel(version),
       versionWasRecorded: !!orderVersion,
+      versionWasInherited: !!(inherited || legacyOrderVersion),
       packaging: (dishId && containersForDish(dishId)) || null,
     };
   });

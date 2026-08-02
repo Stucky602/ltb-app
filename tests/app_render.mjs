@@ -208,11 +208,51 @@ check('no order card fell into its error boundary', caught.length === 0, caught[
 // The epoch card renders ONLY from the Record tab, and it was invisible for a
 // week because its render condition required a proposal the detector will not
 // make on a young order history. Assert it is on the page.
+//
+// Record now has sub-tabs (Do / Read / Keep) mapped 1:1 onto the group headings
+// it already had, so the epoch card sits behind "Keep" where its heading always
+// put it. Walk every pane: a broken toggle would otherwise ship silently, since
+// a pane that renders nothing looks exactly like a pane whose content moved.
 await clickByText('Record');
+
+await clickByText('Do');
+check('Record → Do renders the worklist',
+  (container.textContent || '').includes('Coverage'),
+  `Do pane has ${(container.textContent || '').length} chars`);
+
+// The walk engine was built in July and imported by NOTHING — zero references
+// outside its own file — so the standing ask to "click through one walk" had no
+// walk to click. It renders here for the first time; assert it is actually on
+// the page rather than trusting that mounting it worked.
+check('Record → Do renders the walks pane',
+  (container.textContent || '').includes('Walks'),
+  'WalkEngine had no consumer at all before this batch');
+
+await clickByText('Read');
+check('Record → Read renders',
+  (container.textContent || '').length > 200,
+  'Read pane came back empty');
+
+await clickByText('Keep');
 const recordText = container.textContent || '';
 check('the Record tab shows the real-data epoch card',
   recordText.includes('Where the real data starts'),
-  `Record tab has ${recordText.length} chars and does not mention it`);
+  `Keep pane has ${recordText.length} chars and does not mention it`);
+check('Record → Keep renders the durable-record export',
+  recordText.includes('The durable record'),
+  'the export card is missing from Keep');
+
+// Recipes splits the per-dish browser from the menu-development cluster.
+// Same reasoning: assert a known card in each pane.
+await clickByText('Recipes');
+check('Recipes → Dishes is the default pane',
+  (container.textContent || '').includes('Menu overview'),
+  `Dishes pane has ${(container.textContent || '').length} chars`);
+
+await clickByText('Pipeline');
+check('Recipes → Pipeline renders the candidate board',
+  (container.textContent || '').includes('in testing'),
+  'the pipeline pane did not render its candidates');
 
 await act(async () => { root.unmount(); });
 console.error = realError;

@@ -40,6 +40,7 @@ export const FLAGS = [
   { id: 'beforeYouStart', label: 'Before you start', why: 'A card at the top of the kitchen page: how long, what to do first, what pans you need.' },
   { id: 'storagePlan', label: 'What to eat first', why: 'Per-component storage plan: what to eat now, what holds, what to freeze.' },
   { id: 'heatOnly', label: 'Cooking for fewer', why: 'How to heat part of an order without ruining the rest.' },
+  { id: 'splitPack', label: 'Two-night packs', why: 'Lets a customer choose a divided pack on the order form. Shows nothing until a dish is declared splittable.' },
 ];
 
 export const FLAG_IDS = FLAGS.map(f => f.id);
@@ -75,6 +76,9 @@ export const DEFAULT_FLAGS = {
   beforeYouStart: { stage: 'owner' },
   storagePlan: { stage: 'owner' },
   heatOnly: { stage: 'owner' },
+  // Off rather than owner: SPLIT_PACKAGING is empty, so even Kevin would see
+  // nothing. It turns on after he runs the two-night walk.
+  splitPack: { stage: 'off' },
 };
 
 export function normalizeFlags(raw) {

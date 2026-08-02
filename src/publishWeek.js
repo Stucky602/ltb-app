@@ -31,6 +31,12 @@ import {
 } from './config.js';
 import { ALL_DINNERS, PER_LB_ITEMS, buildMenu } from './menu.js';
 import { PIPELINE_DISHES } from './pipelineDishes.js';
+import { normalizeFlags } from './featureFlags.js';
+import {
+  isSplitEligible, containersForPack, surchargeCentsFor, describeFootprint, containerCount,
+} from './splitPackaging.js';
+import { CONTAINER_TYPES } from './containers.js';
+import { dishIdFor } from './dishIdentity.js';
 import { saveJSON } from './utils.js';
 import { recordWeek } from './weekLedger.js';
 import { extractNotice } from './weekNotice.js';
@@ -71,9 +77,40 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
         variants: [{ label: 'By weight', price: info.pricePerLb, cost: info.costPerLb }],
       };
     }
+    // PACK OPTIONS. Emitted per variant, and ONLY for variants Kevin has
+    // declared splittable — SPLIT_PACKAGING is empty today, so this adds
+    // nothing to the payload until he runs the two-night walk. form.html is
+    // standalone ES5 and cannot import the registry, so eligibility, container
+    // makeup, footprint wording, and surcharge all have to travel with the
+    // published week or the page cannot offer the choice at all.
+    //
+    // The footprint text is generated HERE rather than on the page, so the
+    // words a customer reads come from the same container map the kitchen packs
+    // from and cannot drift into a second description of the same thing.
+    const packsFor = (label) => {
+      if (!isSplitEligible(dishIdFor(item.name), label)) return null;
+      const id = dishIdFor(item.name);
+      const family = containersForPack(id, label, 'family');
+      const twoNight = containersForPack(id, label, 'twoNight');
+      if (!family || !twoNight) return null;
+      return {
+        family: { footprint: describeFootprint(family, CONTAINER_TYPES), containers: containerCount(family) },
+        twoNight: {
+          footprint: describeFootprint(twoNight, CONTAINER_TYPES),
+          containers: containerCount(twoNight),
+          surchargeCents: surchargeCentsFor(id, label, 'twoNight'),
+        },
+      };
+    };
     return {
       name: item.name,
-      variants: (item.variants || []).map(v => ({ label: v.label, price: v.price, cost: v.cost || 0 })),
+      variants: (item.variants || []).map(v => {
+        const packs = packsFor(v.label);
+        return {
+          label: v.label, price: v.price, cost: v.cost || 0,
+          ...(packs ? { packs } : {}),
+        };
+      }),
       ...(item.spotlight ? { spotlight: true } : {}), // spotlight dinners route to their own form header
       ...(item.options ? { options: item.options } : {}), // form.html renders pickers from this (Batch 3)
       ...(item.diet ? { diet: item.diet } : {}), // menu.html dietary filter reads veg/pesc tags from this
@@ -149,6 +186,35 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
     // publish gap would silently stop all amendments.
     orderClosesAt: String((extras && extras.orderClosesAt) || ''),
     amendmentsCloseAt: String((extras && extras.amendmentsCloseAt) || ''),
+    // CUSTOMER FEATURE FLAGS. The FOURTH instance of the bug documented at the
+    // top of this file: WeekTab has always put `customerFlags` in the extras
+    // bag on BOTH publish paths, and this function never read it. The flag
+    // panel wrote to localStorage, rode the backup, and never left the device,
+    // so every stage change Kevin made was inert. Nothing looked broken
+    // because the worker falls back to its own FLAG_DEFAULTS when the field is
+    // absent, which resolves the five 'on' flags on — so the failure was
+    // invisible in exactly the cases people would have noticed it.
+    //
+    // The `dropped` array cannot catch this class. It guards fields SENT but
+    // not whitelisted; this was whitelisted but never sent, and
+    // checkWorkerContract read that as forward-compatibility. tests/
+    // publish_contract.mjs now closes the gap in both directions.
+    //
+    // ALWAYS SENT, never conditional. The worker rebuilds its stored config
+    // from CONFIG_FIELDS on every publish, so omitting this field would reset
+    // every customer to FLAG_DEFAULTS — which is the bug, not a safe default.
+    // normalizeFlags fills the full {stage, testers, percent} shape the
+    // worker's resolveFlags needs to evaluate testers and percentage stages.
+    //
+    // ON THE FULL SHAPE GOING OVER THE WIRE: GET /config is unauthenticated
+    // and returns the stored config verbatim, so the worker REDACTS this field
+    // down to {stage} per flag on the way out (see PASTE_NOTES). Stage alone is
+    // what form.html reads and reveals nothing; the tester list and percentage
+    // are what the booleans-only rule exists to protect. Until that paste
+    // lands, do not use the 'testers' or 'percent' stages — every flag ships
+    // with an empty tester list and percent 0 today, so the window is empty in
+    // practice, but it stops being empty the moment one is set.
+    customerFlags: normalizeFlags((extras && extras.customerFlags) || null),
   };
   const res = await fetch(CONFIG_PUBLISH_URL, {
     method: 'POST',

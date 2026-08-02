@@ -688,5 +688,41 @@ console.log('\npipeline.html');
     !!trulyEmpty.window.document.querySelector('.empty'));
 }
 
+// ── NO DOUBLED UNICODE ESCAPES ──────────────────────────────────────────────
+//
+// `'\\u2715'` in source renders as the literal text \u2715 on screen. It
+// compiles, passes every logic test, and only shows up when somebody looks at
+// the page — Kevin has now reported it twice, and it has been introduced six
+// times, always by a scripted edit writing a Python string into JS.
+//
+// Cheap to check, so it is checked. Use the real character.
+{
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const roots = ['src', 'tests', 'tools'];
+  const offenders = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      const full = path.join(dir, name);
+      if (fs.statSync(full).isDirectory()) { walk(full); continue; }
+      if (!/\.(js|jsx|mjs)$/.test(name)) continue;
+      const src = fs.readFileSync(full, 'utf8');
+      src.split('\n').forEach((line, i) => {
+        // Two literal backslashes before a unicode escape. A single one is
+        // correct; a regex or a doc example may legitimately have two, so
+        // comment lines are skipped.
+        if (/\\\\u[0-9a-fA-F]{4}/.test(line) && !/^\s*(\/\/|\*)/.test(line)) {
+          offenders.push(`${full}:${i + 1}`);
+        }
+      });
+    }
+  };
+  for (const r of roots) if (fs.existsSync(r)) walk(r);
+  check(`no doubled unicode escapes in source (${roots.join(', ')})`,
+    offenders.length === 0,
+    offenders.join(', '));
+}
+
+
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

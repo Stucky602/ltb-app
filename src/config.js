@@ -87,6 +87,13 @@ export const WALK_ANSWERS_KEY = 'ltb_walk_answers_v1';
 // the reasoning attached. Both private; both ship empty.
 export const NOTES_ROWAN_KEY = 'ltb_notes_rowan_v1';
 export const DECISION_LEDGER_KEY = 'ltb_decision_ledger_v1';
+// Rowan's long-running questions, and the roles he took during a cook.
+export const ROWAN_BOARDS_KEY = 'ltb_rowan_boards_v1';
+export const ROWAN_ROLES_KEY = 'ltb_rowan_roles_v1';
+// What a household says a dish means to them, in their own words.
+export const HOUSEHOLD_MEMORIES_KEY = 'ltb_household_memories_v1';
+// How a household arranges its own passport stamps.
+export const PASSPORT_CABINETS_KEY = 'ltb_passport_cabinets_v1';
 // The knowledge core's three stores. Terms and anatomy are Kevin's words about
 // food and language; derivatives are the single approved gate between a private
 // record and any other reader.

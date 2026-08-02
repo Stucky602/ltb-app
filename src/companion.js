@@ -1023,7 +1023,7 @@ function fbRemember(dish, label) {
     if (already[d]) {
       fbSent[d] = true;
       var done = document.createElement('div'); done.className = 'fbdone';
-      done.textContent = 'You said: ' + already[d] + ' \\u2713';
+      done.textContent = 'You said: ' + already[d] + ' ✓';
       done.setAttribute('data-fbdone', '1');
       row.appendChild(nm); row.appendChild(done); wrap.appendChild(row);
       return;

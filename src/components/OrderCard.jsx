@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { whatWasInOrder, whatWasInOrderText } from '../whatWasInMine.js';
 import { isOmakaseItem } from '../utils.js';
 import { RETURNABLE_TYPES } from '../containers.js';
+import { bakeDeskAnswers } from '../answerDesk.js';
 import { companionHtml, companionContext } from '../companion.js';
 import { INGREDIENT_SEED } from '../ingredients.js';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../dishes.js';
@@ -383,7 +384,7 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
       )}
 
       <div style={{ marginBottom: 8 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="+ ingredient (type to search)" style={{ ...inp, width: '100%' }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="+ ingredient (type to search)" style={{ ...inp, width: '100%', boxSizing: 'border-box' }} />
         {search.trim().length >= 2 && (
           <div style={{ marginTop: 4, border: '1px solid #3a4441', borderRadius: 6, overflow: 'hidden' }}>
             {matches.map(m => (
@@ -1220,7 +1221,16 @@ export function OrderCard({ order, regulars, labelVersions, customerFlags, expan
                       heatOnly: stageOn('heatOnly'),
                       ingredientCards: stageOn('ingredientCards'),
                     };
-                    return { token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, opts), context: companionContext(order, opts) };
+                    // deskAnswers rides along with the page. The worker cannot
+                    // compute them — it has no registry — so they are baked here
+                    // where the dish, variant, version, and packaging are all
+                    // already resolved for this specific order.
+                    return {
+                      token: PUBLISH_TOKEN, id: cid,
+                      html: companionHtml(order, cid, opts),
+                      context: companionContext(order, opts),
+                      deskAnswers: bakeDeskAnswers(order, {}),
+                    };
                   })()),
                 }).then(res => {
                   if (!res.ok) throw new Error('push failed');

@@ -512,6 +512,13 @@ export default {
         if (typeof body.context === 'string' && body.context.length <= 8000) {
           await env.LTB_KV.put('companionctx:' + body.id, body.context, { expirationTtl: 60 * 60 * 24 * 30 });
         }
+        // Baked answers from the Answer Desk. Precomputed app-side because this
+        // worker has no access to the registry, the reheat data, or the
+        // ingredient cards. Optional: a page pushed by an older build simply has
+        // none, and /ask behaves exactly as it did before.
+        if (Array.isArray(body.deskAnswers) && body.deskAnswers.length) {
+          await env.LTB_KV.put('companiondesk:' + body.id, JSON.stringify(body.deskAnswers), { expirationTtl: 60 * 60 * 24 * 30 });
+        }
         return json({ ok: true, id: body.id }, origin);
       }
       // ── Kitchen companion Q&A (v7) ──────────────────────────────────────
@@ -539,6 +546,50 @@ export default {
           log.unshift({ at: new Date().toISOString(), pageId: id, question: question });
           await env.LTB_KV.put(KV_ASK_LOG, JSON.stringify(log.slice(0, ASK_LOG_MAX)));
         } catch (e) { /* logging must never block an answer */ }
+
+        // ── THE ANSWER DESK GOES FIRST ────────────────────────────────────
+        //
+        // If Kevin has a RECORDED answer for this question about this dish, the
+        // customer gets that and no model runs. It matters most exactly where
+        // the model is weakest:
+        //
+        //   * Ingredients and allergens. The prompt below refuses these outright
+        //     and tells the customer to text Kevin. The Desk can answer them
+        //     from the actual ingredient card — and stays silent on the dishes
+        //     whose cards are withheld for an unresolved spice blend, which is
+        //     the one case where deferring to him is genuinely right.
+        //   * Freezing. The prompt reasons from general culinary knowledge
+        //     ("potatoes turn grainy"). The Desk returns what Kevin actually
+        //     wrote about THIS dish.
+        //
+        // Everything the Desk has no recorded answer for falls through to the
+        // model unchanged, so nothing that worked before stops working.
+        try {
+          const bakedRaw = await env.LTB_KV.get('companiondesk:' + id);
+          if (bakedRaw) {
+            const baked = JSON.parse(bakedRaw);
+            // Word-boundary, matching src/answerDesk.js. A plain substring
+            // check treats a short dish name as named whenever its letters
+            // appear — "Rice" would match a question about a different dish.
+            const named = baked.filter(b => {
+              const d = String(b.dish || '').trim();
+              if (!d) return false;
+              try {
+                return new RegExp('(^|\\W)' + d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\W|$)', 'i').test(question);
+              } catch (e) { return false; }
+            });
+            const dishes = new Set(baked.map(b => b.dish));
+            // Only answer unnamed questions when there is one dish to mean.
+            const pool = named.length ? named : (dishes.size === 1 ? baked : []);
+            for (const b of pool) {
+              let re = null;
+              try { re = new RegExp(b.pattern, b.flags || 'i'); } catch (e) { re = null; }
+              if (re && re.test(question)) {
+                return json({ answer: b.text, source: 'desk', recordIds: b.recordIds || [] }, origin);
+              }
+            }
+          }
+        } catch (e) { /* a bad payload must never take the ask box down */ }
         const usedRaw = await env.LTB_KV.get('companionask:' + id);
         const used = usedRaw ? parseInt(usedRaw, 10) || 0 : 0;
         if (used >= 5) return json({ error: 'limit', remaining: 0 }, origin, 429);

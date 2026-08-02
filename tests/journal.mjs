@@ -241,6 +241,10 @@ const PROTECTED = new Set([
   'src/rowanQuestions.js',
   'src/clarifications.js',
   'src/notesForRowan.js',
+  'src/rowanParticipation.js',
+  'src/householdMemories.js',
+  'src/passportCabinets.js',
+  'src/householdMemories.js',
 ]);
 
 function resolveRel(fromFile, spec) {
@@ -293,6 +297,18 @@ for (const entry of CUSTOMER_ENTRY_POINTS) {
     (chain ? ` via ${chain.join(' -> ')}` : '') +
     ' — diary material stays off customer surfaces');
 }
+// The Answer Desk is customer-FACING by design, so it is deliberately NOT in
+// PROTECTED. What matters is the other direction: it must never reach a walled
+// store. Its own test asserts that too; this is the wall's copy of the rule,
+// because the wall is where someone will look.
+{
+  const deskSrc = readFileSync('src/answerDesk.js', 'utf8');
+  const walled = [...PROTECTED].map(p => p.replace('src/', './'));
+  const reached = walled.filter(w => deskSrc.includes(w));
+  ok(reached.length === 0,
+    `PRIVACY WALL: src/answerDesk.js imports ${reached.join(', ')} — it answers customers`);
+}
+
 console.log(`  (privacy wall walked the import graph from ${scanned} customer entry point${scanned === 1 ? '' : 's'})`);
 
 

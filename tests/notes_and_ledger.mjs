@@ -195,5 +195,280 @@ const ok = (label, cond, detail = '') => {
     'a bag is not a returnable and never comes back');
 }
 
+// ── LIVING MYSTERY BOARDS ───────────────────────────────────────────────────
+//
+// A genuine long-running question of Rowan's, with evidence accumulating over
+// years. Not a quiz and not a project with a due date.
+{
+  const {
+    emptyBoards, openBoard, addEvidence, answerBoard, openBoards, answeredBoards,
+    boardTimeline, boardCounts, EVIDENCE_KINDS,
+  } = await import('../src/rowanParticipation.js');
+  const fs = await import('node:fs');
+
+  ok('it ships empty', emptyBoards().boards.length === 0);
+
+  let s = openBoard(emptyBoards(), 'Why does the bread get hard?');
+  ok('a board opens from a real question', s.boards.length === 1);
+  ok('a board with no question is refused',
+    openBoard(emptyBoards(), '   ').boards.length === 0,
+    'nothing here generates a question for him to be curious about');
+
+  const id = s.boards[0].id;
+  ok('an open board has no answer and that is a valid state',
+    openBoards(s).length === 1 && answeredBoards(s).length === 0,
+    'it may stay open for years; nothing nags, expires, or marks it overdue');
+
+  s = addEvidence(s, id, { kind: 'capsule', ref: 'cap_1', at: 100 });
+  s = addEvidence(s, id, { kind: 'explanation', text: 'The starch goes firm again as it cools.', at: 200 });
+  s = addEvidence(s, id, { kind: 'explanation', text: 'It is called retrogradation.', at: 300 });
+  ok('explanations APPEND rather than replace',
+    boardTimeline(s, id).filter(e => e.kind === 'explanation').length === 2,
+    'how his answer changed as Rowan got older is the interesting part; overwriting leaves only the last one');
+  ok('and the timeline runs oldest first',
+    boardTimeline(s, id)[0].kind === 'capsule');
+
+  ok('evidence pointing at nothing and saying nothing is refused',
+    addEvidence(s, id, { kind: 'photo' }).boards[0].entries.length === 3);
+  ok('an unknown evidence kind is refused',
+    addEvidence(s, id, { kind: 'invention', text: 'x' }).boards[0].entries.length === 3,
+    'never invent evidence — the kinds are a whitelist');
+
+  s = answerBoard(s, id, 'Retrogradation. It firms up as it cools.');
+  ok('a final answer does not delete the journey',
+    boardTimeline(s, id).length === 3 && !!s.boards[0].finalAnswer,
+    'the point is the sequence, not the conclusion');
+  ok('and it moves the board to answered',
+    answeredBoards(s).length === 1 && openBoards(s).length === 0);
+  ok('counts add up', boardCounts(s).evidence === 3);
+
+  const src = fs.readFileSync(new URL('../src/rowanParticipation.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('nothing generates a question or an answer',
+    !/generate|suggest|prompt|autoAnswer/i.test(code),
+    'real curiosity only');
+}
+
+// ── KITCHEN ROLES ───────────────────────────────────────────────────────────
+//
+// THE WHOLE DESIGN IS THE ABSENCE. Kevin: no points, levels, badges, streaks,
+// or mastery. A streak turns a Tuesday with his father into something he is
+// failing to keep up.
+{
+  const {
+    emptyRoleLog, logRoles, rolesTimeline, KITCHEN_ROLES, ROLE_IDS,
+  } = await import('../src/rowanParticipation.js');
+  const fs = await import('node:fs');
+
+  let r = logRoles(emptyRoleLog(), ['smell', 'questions'], {}, 500);
+  ok('a session records the roles he took', rolesTimeline(r).length === 1);
+  ok('an unknown role is dropped rather than stored',
+    logRoles(emptyRoleLog(), ['ceo']).sessions.length === 0);
+  ok('every role has a label and something he can actually do',
+    KITCHEN_ROLES.every(x => x.id && x.label && x.what) && ROLE_IDS.length === 5);
+
+  r = logRoles(r, ['observer'], {}, 900);
+  ok('the timeline runs oldest first and nothing else is derived',
+    rolesTimeline(r).length === 2 && rolesTimeline(r)[0].at === 500);
+
+  const exported = Object.keys(await import('../src/rowanParticipation.js'));
+  const scoreish = exported.filter(k => /streak|score|total|count|level|badge|mastery|best|longest|favourite|favorite/i.test(k)
+    && !/boardCounts/.test(k));
+  ok('the module exports NO reader that scores or totals participation',
+    scoreish.length === 0,
+    scoreish.join(', '));
+
+  const src = fs.readFileSync(new URL('../src/rowanParticipation.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('and no streak, badge, level, or mastery anywhere in the code',
+    !/streak|badge|\blevel\b|mastery|points/i.test(code),
+    'the participation itself is the reward');
+}
+
+// ── HOUSEHOLD MEMORIES ──────────────────────────────────────────────────────
+//
+// What a dish means to the family that ate it, IN THEIR OWN WORDS.
+//
+// This is the inverse of Passport Story Doors, which Kevin rejected because
+// inferred narrative goes inaccurate or over-generated. Nothing here is
+// inferred, so there is nothing to over-generate.
+{
+  const {
+    emptyMemories, addMemory, updateMemory, removeMemory, memoriesForDish,
+    memoriesForHousehold, dishMemorySummary, publiclyShareable, memoryCounts,
+  } = await import('../src/householdMemories.js');
+  const fs = await import('node:fs');
+
+  ok('it ships empty', emptyMemories().memories.length === 0);
+
+  let s = addMemory(emptyMemories(), {
+    dishName: 'Bolognese', householdId: 'h1',
+    text: 'First thing we ate in the new house.',
+  });
+  ok('a household writes its own memory', s.memories.length === 1);
+  ok('and it is shared with Kevin by default',
+    s.memories[0].shareWithKevin === true,
+    'there is no reason to write it otherwise');
+  ok('but NOT shared publicly by default',
+    s.memories[0].sharePublicly === false,
+    'their memory of a dinner is not menu copy');
+
+  // THE OCCASION LIST IS GONE. It was a fixed set I had written, and Passport
+  // Cabinets do that job better because the household names the cabinet itself.
+  // This store is now purely the story half.
+  ok('a memory with no words is refused',
+    addMemory(emptyMemories(), { dishName: 'X' }).memories.length === 0);
+
+  s = addMemory(s, { dishName: 'Bolognese', householdId: 'h2', text: 'Sunday one.' });
+  s = addMemory(s, { dishName: 'Chili', householdId: 'h1', text: 'Cold week.' });
+
+  ok('memories group by dish', memoriesForDish(s, 'bolognese').length === 2,
+    'the lookup is case-insensitive because a customer typed the name');
+  ok('and by household', memoriesForHousehold(s, 'h1').length === 2);
+
+  const sum = dishMemorySummary(s, 'Bolognese');
+  ok('Kevin sees their words', sum.shared === 2 && sum.notes.length === 2);
+
+  const hidden = addMemory(s, { dishName: 'Gumbo', householdId: 'h3', text: 'private', shareWithKevin: false });
+  ok('a memory withheld from Kevin does not reach him',
+    dishMemorySummary(hidden, 'Gumbo').shared === 0);
+
+  ok('nothing is publicly shareable unless explicitly marked',
+    publiclyShareable(s).length === 0,
+    'showing one household\'s words to another is a separate, explicit act');
+
+  // Their words, their call.
+  const id = s.memories[0].id;
+  ok('a household can edit its own memory',
+    updateMemory(s, id, { text: 'Second thing, actually.' }).memories[0].text === 'Second thing, actually.');
+  ok('and delete it outright',
+    removeMemory(s, id).memories.length === s.memories.length - 1,
+    'an app that preserved somebody\'s words about their own dinner against their wishes has overruled them');
+
+  ok('counts add up', memoryCounts(s).total === 3);
+
+  const src = fs.readFileSync(new URL('../src/householdMemories.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('NOTHING is inferred, suggested, or generated here',
+    !/infer|suggest|generate|recommend|predict/i.test(code),
+    'that is exactly why this can exist while Passport Story Doors could not');
+  ok('and no reader ranks dishes as popular or best-for',
+    !/popular|bestFor|topDish|ranking/i.test(code),
+    'Kevin reads the counts and decides; the app does not tell a customer a dish is good for weeknights');
+}
+
+// ── PASSPORT CABINETS ───────────────────────────────────────────────────────
+//
+// A household arranging its own passport stamps into collections it named
+// itself. "Everyone agrees" is a thing a family knows about itself and no list
+// of mine would have contained it.
+//
+// It survives where two neighbours did not: Story Doors inferred narrative
+// (nothing here is inferred) and Superlatives crowned one winner (a cabinet
+// holds as many dishes as they want).
+{
+  const c = await import('../src/passportCabinets.js');
+  const fs = await import('node:fs');
+
+  ok('it ships empty', c.emptyCabinets().cabinets.length === 0);
+
+  let s = c.createCabinet(c.emptyCabinets(), 'h1', 'Meals we serve guests');
+  const id = s.cabinets[0].id;
+  ok('a household names its own cabinet', s.cabinets[0].name === 'Meals we serve guests');
+  ok('an unnamed cabinet is refused', c.createCabinet(s, 'h1', '  ').cabinets.length === 1);
+
+  s = c.fileDish(s, id, 'Bo Ssam');
+  s = c.fileDish(s, id, 'Bolognese');
+  s = c.fileDish(s, id, 'Bo Ssam');
+  ok('dishes file, and a duplicate does not double up',
+    c.dishesIn(s, id).length === 2);
+  ok('and MANY dishes can hold the same role',
+    c.dishesIn(s, id).length > 1,
+    'this is the difference from the rejected Superlatives, which crowned one winner');
+  ok('order is preserved as the household arranged it',
+    c.dishesIn(s, id)[0] === 'Bo Ssam',
+    'nothing sorts this alphabetically; the order they chose is part of what they made');
+
+  // THE RULE.
+  let p = c.proposeCabinet(s, 'h1', 'Best busy-night dinners', 'You ordered these on five weeknights.', ['Gumbo']);
+  const pid = p.cabinets[p.cabinets.length - 1].id;
+  ok('LTB may propose a cabinet', c.proposalsFor(p, 'h1').length === 1);
+  ok('and the proposal says WHY, so they can disagree with the reasoning',
+    c.proposalsFor(p, 'h1')[0].because.length > 0);
+  ok('a proposal is NOT one of their cabinets until accepted',
+    c.cabinetsFor(p, 'h1').length === 1,
+    'nothing reads a proposed cabinet as belonging to the household');
+  ok('and NOTHING can be filed into a proposed cabinet',
+    c.fileDish(p, pid, 'Chili').cabinets.find(x => x.id === pid).dishes.length === 1,
+    'a dish entering their cabinet without their say is the app deciding what their food means');
+
+  p = c.acceptProposal(p, pid);
+  ok('accepting makes it theirs', c.cabinetsFor(p, 'h1').length === 2);
+  ok('and filing works from then on',
+    c.dishesIn(c.fileDish(p, pid, 'Chili'), pid).length === 2);
+  ok('declining removes it entirely',
+    c.proposalsFor(c.declineProposal(p, pid), 'h1').length === 0);
+
+  // The returning-dish line.
+  ok('a dish reports which cabinets hold it',
+    c.cabinetsHolding(s, 'h1', 'bo ssam')[0].name === 'Meals we serve guests',
+    'case-insensitive: the customer typed the name');
+  const proposedOnly = c.proposeCabinet(c.emptyCabinets(), 'h1', 'Guessed', 'why', ['Chili']);
+  ok('a proposed cabinet never claims to hold a dish',
+    c.cabinetsHolding(proposedOnly, 'h1', 'Chili').length === 0,
+    'they should never be told a dish is in something they have not agreed to');
+
+  s = c.renameCabinet(s, id, 'For company');
+  ok('cabinets rename', c.cabinetsFor(s, 'h1')[0].name === 'For company');
+  ok('and delete', c.deleteCabinet(s, id).cabinets.filter(x => x.householdId === 'h1' && x.status === 'kept').length === 0);
+  ok('unfiling removes just the one dish', c.dishesIn(c.unfileDish(s, id, 'Bo Ssam'), id).length === 1);
+
+  let many = c.createCabinet(c.createCabinet(c.emptyCabinets(), 'h1', 'A'), 'h1', 'B');
+  const ids = many.cabinets.map(x => x.id);
+  many = c.reorderCabinets(many, 'h1', [ids[1], ids[0]]);
+  ok('cabinets reorder', c.cabinetsFor(many, 'h1')[0].name === 'B');
+
+  const src = fs.readFileSync(new URL('../src/passportCabinets.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('no completion, progress, streak, or unlock mechanic',
+    !/complete|progress|streak|badge|unlock/i.test(code),
+    'a checklist is Kevin\'s idea of what they should try; a cabinet is their idea of what their food is for');
+
+  // ── RECALL IS ALLOWED. RECOMMENDATION IS NOT. ─────────────────────────────
+  //
+  // I first ruled out anything resembling "suggest a dish" and that was too
+  // broad. Kevin pushed back and the line is worth keeping explicit:
+  //
+  //   RECALL — naming a dish THEY filed which is on the menu now. The household
+  //   already said what it is for; the only new fact is availability.
+  //   RECOMMENDATION — "you might like Rendang". Inferred taste, which is the
+  //   exact thing Passport Story Doors was rejected for.
+  let w = c.createCabinet(c.emptyCabinets(), 'h1', 'Best busy-night dinners');
+  const wid = w.cabinets[0].id;
+  w = c.fileDish(w, wid, 'Bolognese');
+  w = c.fileDish(w, wid, 'Gumbo');
+
+  const wk = c.thisWeekFromCabinets(w, 'h1', ['Bolognese', 'Chili', 'Gumbo']);
+  ok('a cabinet reports which of ITS dishes are on the menu this week',
+    wk.length === 1 && wk[0].dishes.length === 2);
+  ok('and it CANNOT surface a dish the household never filed',
+    !wk.some(x => x.dishes.includes('Chili')),
+    'there is nothing for it to be wrong about, because it only recalls their own choices');
+  ok('a household with no cabinets gets silence, not a suggestion',
+    c.thisWeekFromCabinets(c.emptyCabinets(), 'h1', ['Bolognese']).length === 0);
+  ok('and an empty menu returns nothing rather than everything',
+    c.thisWeekFromCabinets(w, 'h1', []).length === 0);
+  ok('it never says how many of a cabinet are available or left to try',
+    wk.every(x => !('remaining' in x) && !('of' in x) && !('total' in x)),
+    'a cabinet is not a set to finish');
+
+  ok('a dish in a cabinet gets the recall line',
+    /This is in your Best busy-night dinners cabinet\./.test(c.cabinetLineFor(w, 'h1', 'Gumbo')));
+  ok('a dish in none of their cabinets gets NULL, not a cheerful nothing',
+    c.cabinetLineFor(w, 'h1', 'Chili') === null);
+  ok('and cabinet counts do not rank anything',
+    !/rank|popular|top/i.test(code));
+}
+
 console.log(failed === 0 ? '\nNOTES + LEDGER: ALL PASS' : `\nNOTES + LEDGER: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

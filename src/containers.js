@@ -43,7 +43,7 @@
 
 import { itemHandling } from './recipes.js';
 import { isPerLbItem } from './menu.js';
-import { perLbBagCount, orderOutboundJars, jarsOutForRegular, JAR_LEDGER_EPOCH } from './utils.js';
+import { perLbBagCount, orderOutboundJars, jarsOutForRegular, JAR_LEDGER_EPOCH, isOmakaseItem } from './utils.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
 import { dishIdFor, resolveDishId } from './dishIdentity.js';
 import { ALWAYS_MENU } from './menu.js';
@@ -704,10 +704,45 @@ export function containerTypesFor(it) {
 // packages does this line produce" — the cantaloupe and cookies bugs live
 // there). tests/containers.mjs cross-checks this against buildLabelSheet on
 // the same order, so the two implementations cannot drift apart silently.
+// The types a customer can actually give back, for the omakase entry.
+//
+// EXCLUDES `bag` — a sous vide bag is not a returnable and never comes back,
+// which is Kevin's ruling and the reason the omakase card says so out loud.
+// Everything else in the fleet is a real object that cycles.
+export const RETURNABLE_TYPES = CONTAINER_TYPE_ORDER
+  .filter(t => t !== 'bag')
+  .map(t => ({ id: t, label: (CONTAINER_TYPES[t] || {}).label || t }));
+
 export function orderContainerBreakdown(order) {
   const out = emptyBreakdown();
   for (const it of ((order && order.items) || [])) {
-    if (!it || !it.name || it.omakase) continue; // omakase items are priced, not packed, until they become real lines
+    if (!it || !it.name) continue;
+    // OMAKASE COUNTS ONCE KEVIN HAS SAID WHAT IT USED.
+    //
+    // It used to be skipped outright — "priced, not packed" — which was true
+    // while there was no way to record its containers. There is now: the
+    // omakase card takes a per-TYPE count, and this is what makes that entry
+    // reconcile rather than just sit in the order.
+    //
+    // NOTHING NEEDS UNDOING WHEN HE CHANGES IT. Demand is DERIVED from the live
+    // orders on every read, so removing a row or dropping a count to zero
+    // simply produces a smaller number next time. A delta-based version that
+    // subtracted from a stored total would need reversal bookkeeping and would
+    // drift the first time a save was interrupted.
+    //
+    // `unspecified` is deliberately not counted against any type. It is the
+    // migration bucket for orders logged before types were recorded, and
+    // charging an untyped container to a real type would be a guess — the same
+    // rule the audit already applies to its own undercount.
+    if (isOmakaseItem(it)) {
+      const used = it.containersUsed;
+      if (used && typeof used === 'object') {
+        for (const [type, n] of Object.entries(used)) {
+          if (type in out) out[type] += Number(n) || 0;
+        }
+      }
+      continue;
+    }
     const qty = Number(it.qty) || 1;
     const perLb = !!it.perLb || isPerLbItem(it.name);
     const h = itemHandling(it.name, { category: CATEGORY_OF[it.name] || null, isPerLb: perLb });

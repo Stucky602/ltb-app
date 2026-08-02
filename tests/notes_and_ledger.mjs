@@ -137,5 +137,63 @@ const ok = (label, cond, detail = '') => {
   ok('every status is distinct', new Set(DECISION_STATUSES).size === DECISION_STATUSES.length);
 }
 
+// ── OMAKASE CONTAINERS ACTUALLY RECONCILE ───────────────────────────────────
+//
+// Kevin: "make sure it ACTUALLY reconciles vs inventory, and also reconciles
+// back if I say add one to begin with but then remove it before delivered.
+// Double check it's an actual function doing something vs just storing data."
+//
+// It is not stored-and-forgotten. Container demand and custody are DERIVED from
+// the live orders on every read, so an omakase's recorded containers feed both,
+// and editing or removing them simply produces a smaller number next time.
+// A delta-based design would have needed reversal bookkeeping and would drift
+// the first time a save was interrupted.
+{
+  const { orderContainerBreakdown, sumBreakdowns, containerCustody, RETURNABLE_TYPES } =
+    await import('../src/containers.js');
+
+  const withUsed = (used, status = 'Ordered') => ({
+    status, createdAt: new Date().toISOString(),
+    items: [{ name: 'Omakase', omakase: true, ...(used ? { containersUsed: used } : {}) }],
+  });
+
+  ok('an omakase with no containers recorded contributes nothing',
+    orderContainerBreakdown(withUsed(null)).round16 === 0,
+    'it used to be skipped outright, which was right while there was no way to record them');
+
+  const b = orderContainerBreakdown(withUsed({ round16: 2, round32: 1 }));
+  ok('recorded containers reach the weekly demand, BY TYPE',
+    b.round16 === 2 && b.round32 === 1,
+    'a flat count cannot reconcile: the fleet has 16 of the 16oz and 5 of the 32');
+
+  ok('the migration bucket is NOT charged to a real type',
+    orderContainerBreakdown(withUsed({ unspecified: 3 })).round16 === 0,
+    'orders logged before types existed have an untyped debt; guessing a type would be a guess');
+
+  // THE REVERSAL, which is the part Kevin asked about.
+  ok('removing a row reduces demand with no undo step',
+    sumBreakdowns([withUsed({ round16: 2 })]).round16 === 2
+    && sumBreakdowns([withUsed({ round16: 0 })]).round16 === 0
+    && sumBreakdowns([withUsed(null)]).round16 === 0,
+    'demand is recomputed from the orders, so there is nothing to reverse');
+
+  ok('and lowering a count lowers it rather than adding again',
+    sumBreakdowns([withUsed({ round16: 1 })]).round16 === 1,
+    'a delta-based version would have double-counted on a second save');
+
+  // Custody: once delivered, they are out at a household.
+  const cust = containerCustody([withUsed({ round16: 2 }, 'Delivered')], []);
+  const row = cust.rows.find(r => r.type === 'round16');
+  ok('a DELIVERED omakase shows its containers as out',
+    row.out === 2 && row.onHandMin === row.owned - 2,
+    JSON.stringify(row));
+  ok('and the household appears as a holder',
+    cust.holders.length === 1 && cust.holders[0].outstanding === 2);
+
+  ok('sous vide bags are not offered as returnables',
+    !RETURNABLE_TYPES.some(t => t.id === 'bag'),
+    'a bag is not a returnable and never comes back');
+}
+
 console.log(failed === 0 ? '\nNOTES + LEDGER: ALL PASS' : `\nNOTES + LEDGER: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

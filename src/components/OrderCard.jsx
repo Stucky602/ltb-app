@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { whatWasInOrder, whatWasInOrderText } from '../whatWasInMine.js';
 import { isOmakaseItem } from '../utils.js';
+import { RETURNABLE_TYPES } from '../containers.js';
 import { companionHtml, companionContext } from '../companion.js';
 import { INGREDIENT_SEED } from '../ingredients.js';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../dishes.js';
@@ -113,10 +114,32 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
   const menuValue = round2(rows.reduce((s, c) => s + (Number(c.refPrice) || 0), 0));
   // Seeded from whatever was saved before, so reopening the card shows the
   // count rather than resetting it to zero and quietly losing the record.
-  const [containersOut, setContainersOut] = useState(() => {
-    const om = (order.items || []).find(x => x.omakase);
-    return (om && Number(om.containersOut)) || 0;
+  // PER TYPE, NOT A FLAT COUNT. Kevin, Aug 2: he wants to pick the container
+  // type and say how many, so the record reconciles against the container
+  // inventory. "4 containers" cannot — the fleet has 16 of the 16 oz round and
+  // 5 of the 32, and those are different constraints.
+  //
+  // Seeded from the map when there is one, and from the OLD flat number when
+  // there is not, so an order logged before this change still shows its count
+  // rather than silently resetting to zero. The migrated ones land under an
+  // `unspecified` key because the type genuinely was not recorded — inventing a
+  // type for them would be worse than admitting the gap.
+  const [containerRows, setContainerRows] = useState(() => {
+    const om = (order.items || []).find(x => isOmakaseItem(x));
+    const used = om && om.containersUsed;
+    if (used && typeof used === 'object') {
+      const rows = Object.entries(used).filter(([, n]) => n > 0).map(([type, n]) => ({ type, n }));
+      if (rows.length) return rows;
+    }
+    const legacy = (om && Number(om.containersOut)) || 0;
+    return legacy > 0 ? [{ type: 'unspecified', n: legacy }] : [];
   });
+  const containersUsed = containerRows.reduce((acc, r) => {
+    if (!r.type || !r.n) return acc;
+    acc[r.type] = (acc[r.type] || 0) + Number(r.n);
+    return acc;
+  }, {});
+  const containersOut = Object.values(containersUsed).reduce((a, b) => a + b, 0);
   const chargeNum = Math.min(budgetMax, Math.max(0, parseFloat(charge) || 0));
   const marginPct = chargeNum > 0 ? Math.round((1 - estCost / chargeNum) * 100) : 0;
   const pctOfBudget = budgetMax > 0 ? Math.round((estCost / budgetMax) * 100) : 0;
@@ -219,6 +242,10 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
         cost: estCost,
         costSource: 'manual',
         price: chargeNum,
+        // Both are stored on purpose. The MAP is the record and is what
+        // reconciles against inventory; the TOTAL is what the returnables
+        // ledger reads, so it does not have to know about container types.
+        containersUsed,
         containersOut,
         ...(underNote.trim() ? { underNote: underNote.trim() } : {}),
         ...(reheatCard.trim() ? { reheatCard: reheatCard.trim() } : {}),
@@ -284,28 +311,36 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
               <input type="checkbox" checked={!!sel[i]} onChange={e => setSel(s => ({ ...s, [i]: e.target.checked }))} />
             )}
             {row.fromMenu ? (
-              <select value={row.menuKey || ''} onChange={e => pickMenu(i, e.target.value)} style={{ ...inp, flex: 1 }}>
+              // minWidth:0 IS LOad-BEARING. A <select> sizes itself to its
+              // longest option, and a flex child will not shrink below its
+              // content width without this — so the dish names pushed the cost
+              // box and the ✕ clean off the right edge of the phone. The
+              // off-menu row never showed the bug because a text input has no
+              // intrinsic content width.
+              <select value={row.menuKey || ''} onChange={e => pickMenu(i, e.target.value)} style={{ ...inp, flex: 1, minWidth: 0 }}>
                 <option value="">Pick a dish…</option>
                 {OMAKASE_CATALOG.map(c => <option key={c.key} value={c.key}>{c.name} ({c.variant})</option>)}
               </select>
             ) : row.ing ? (
-              <div style={{ flex: 1, display: 'flex', gap: 4, alignItems: 'center' }}>
-                <span style={{ fontSize: 12.5, color: '#e8ede9', flex: 1 }}>{(OMA_ING_BY_ID[row.ingredientId] || {}).name || row.ingredientId}</span>
-                <input type="number" step="0.25" min="0" value={row.qty} onChange={e => setIngAmount(i, row, parseFloat(e.target.value) || 0, null)} style={{ ...inp, width: 58 }} />
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontSize: 12.5, color: '#e8ede9', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(OMA_ING_BY_ID[row.ingredientId] || {}).name || row.ingredientId}</span>
+                <input type="number" step="0.25" min="0" value={row.qty} onChange={e => setIngAmount(i, row, parseFloat(e.target.value) || 0, null)} style={{ ...inp, width: 58, flexShrink: 0 }} />
                 {(() => {
                   const opts = unitOptionsFor(row.ingredientId);
                   return opts.length > 1 ? (
-                    <select value={row.unit} onChange={e => setIngAmount(i, row, null, e.target.value)} style={{ ...inp, width: 68 }}>
+                    <select value={row.unit} onChange={e => setIngAmount(i, row, null, e.target.value)} style={{ ...inp, width: 68, flexShrink: 0 }}>
                       {opts.map(o => <option key={o.label} value={o.label}>{o.label}</option>)}
                     </select>
                   ) : <span style={{ fontSize: 11, color: '#7a8480', width: 68 }}>{row.unit}</span>;
                 })()}
               </div>
             ) : (
-              <input value={row.label} placeholder="What you made" onChange={e => setRow(i, { label: e.target.value })} style={{ ...inp, flex: 1 }} />
+              <input value={row.label} placeholder="What you made" onChange={e => setRow(i, { label: e.target.value })} style={{ ...inp, flex: 1, minWidth: 0 }} />
             )}
-            <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 66 }} title="cost" />
-            <button onClick={() => dropRow(i)} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14 }}>✕</button>
+            {/* flexShrink:0 so these two are never the ones squeezed out. They
+                are the controls the row exists for. */}
+            <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 66, flexShrink: 0 }} title="cost" />
+            <button onClick={() => dropRow(i)} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14, flexShrink: 0 }}>✕</button>
           </div>
           <div style={{ paddingLeft: selMode ? 22 : 0 }}>
             {row.fromMenu && row.dishName && weekNames.has(row.dishName) && tag('on this week\u2019s menu', '#5DCAA5')}
@@ -408,28 +443,61 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
         </div>
       )}
 
-      {/* REUSABLE CONTAINERS ON AN OMAKASE. There is no dish registry to derive
-          this from — Kevin decides what he cooks and therefore what he packs it
-          in — so it is the one case where the count has to be entered by hand.
-          Every other order gets its container count from the dish map.
+      {/* REUSABLE CONTAINERS ON AN OMAKASE.
+          There is no dish registry to derive this from — Kevin decides what he
+          cooks and therefore what he packs it in — so it is the one case where
+          the count is entered by hand. Every other order gets its containers
+          from the dish map.
 
-          NO SOUS VIDE BAGS HERE, per Kevin: bags are not returnables and never
-          come back. This is the reusable count only.
+          BY TYPE, so it reconciles against the fleet. NO SOUS VIDE BAGS: a bag
+          is not a returnable and never comes back. */}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: '#c9d1cd' }}>Containers used?</span>
+          {containerRows.length === 0 && (
+            <button
+              onClick={() => setContainerRows([{ type: '', n: 1 }])}
+              style={{ ...inp, width: 'auto', padding: '5px 12px', cursor: 'pointer', color: '#5DCAA5' }}
+            >Yes</button>
+          )}
+          {containersOut > 0 && (
+            <span style={{ fontSize: 11, color: '#7a8480' }}>
+              {containersOut} total \u00b7 no bags, they do not come back
+            </span>
+          )}
+        </div>
 
-          It feeds the returnables trace, so this number is what makes an
-          omakase household appear in the ledger at all. */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: '#c9d1cd' }}>Reusable containers packed</span>
-        <select
-          value={String(containersOut)}
-          onChange={e => setContainersOut(Number(e.target.value))}
-          style={{ ...inp, width: 70 }}
-        >
-          {Array.from({ length: 13 }, (_, i) => (
-            <option key={i} value={i}>{i}</option>
-          ))}
-        </select>
-        <span style={{ fontSize: 10.5, color: '#7a8480' }}>no bags — they do not come back</span>
+        {containerRows.map((row, i) => (
+          <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 5 }}>
+            <select
+              value={row.type}
+              onChange={e => setContainerRows(rs => rs.map((r, k) => (k === i ? { ...r, type: e.target.value } : r)))}
+              style={{ ...inp, flex: 1, minWidth: 0 }}
+            >
+              <option value="">Which container…</option>
+              {RETURNABLE_TYPES.map(t => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+              {row.type === 'unspecified' && <option value="unspecified">Type not recorded</option>}
+            </select>
+            <input
+              type="number" min="0" step="1" value={row.n}
+              onChange={e => setContainerRows(rs => rs.map((r, k) => (k === i ? { ...r, n: Math.max(0, parseInt(e.target.value, 10) || 0) } : r)))}
+              style={{ ...inp, width: 62, flexShrink: 0 }}
+            />
+            <button
+              onClick={() => setContainerRows(rs => rs.filter((_, k) => k !== i))}
+              style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14, flexShrink: 0 }}
+            >\u2715</button>
+          </div>
+        ))}
+
+        {containerRows.length > 0 && (
+          <button
+            onClick={() => setContainerRows(rs => [...rs, { type: '', n: 1 }])}
+            style={{ ...inp, width: 'auto', padding: '5px 12px', marginTop: 5, cursor: 'pointer', color: '#9aa5a0' }}
+          >+ add another</button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

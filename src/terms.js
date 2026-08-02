@@ -133,6 +133,21 @@ export function termsMentionedIn(store, text) {
 // ═══════════════════════════════════════════════════════════════════════════
 // SEEDS
 //
+// PROVENANCE CAUTION, Aug 2. Kevin flagged that these five carry the same kind
+// of `sources` claim that produced four bad practice seeds — entries that cited
+// a specification's illustrative examples as though they were his recorded
+// statements. He has NOT reviewed these yet.
+//
+// They are in better shape than those four were: `wow path` points at a real
+// field in dishes.js, `bag is the vessel` at a real divide mode in
+// reheatData.js, `customer clock` at the deadline rule in timeBanners.js. But
+// `reheat gate` and `prospecting` are read from how the words get used across
+// the project rather than from a place he defined them, and the `sources` lines
+// below say so rather than implying more.
+//
+// SAME RULE AS THE PRACTICES: if a citation cannot be followed to somewhere
+// Kevin said it, delete the entry rather than rewording it.
+//
 // Every one is a term already in active use in this project's own materials,
 // with the definition drawn from how it is actually used there rather than
 // invented. All `proposed`: the wording below is Claude's reading, and a term
@@ -149,7 +164,7 @@ export const TERM_SEEDS = [
     examples: ['A braise that is better on Wednesday than it was on Tuesday passes easily.'],
     nonExamples: ['Anything depending on a crust or a foam that exists for ten minutes.'],
     misreadings: ['It is not a quality bar in general. A dish can be superb and still fail the reheat gate.'],
-    sources: ['Used throughout the LTB menu pipeline and the feature systems master'],
+    sources: ['Read from how the term is used across the menu pipeline. NOT traced to a definition Kevin gave \u2014 unreviewed.'],
     status: 'proposed',
   },
   {
@@ -195,7 +210,7 @@ export const TERM_SEEDS = [
       + 'has thought of yet. It is exploration for its own sake first and a source of candidates second.',
     misreadings: ['Repeatedly mistaken for menu development or feature shortlisting, which is nearly the '
       + 'opposite: narrowing toward what ships, rather than widening to see what exists.'],
-    sources: ['The polyglot work; corrected once when the scope was read as menu prospecting'],
+    sources: ['Read from the polyglot work, where the scope was once misread as menu prospecting. NOT traced to a definition Kevin gave \u2014 unreviewed.'],
     status: 'proposed',
   },
 ];

@@ -32,28 +32,46 @@ const ok = (label, cond, detail = '') => {
 // ── The status contract ─────────────────────────────────────────────────────
 {
   const seeded = seedPractices(emptyPractices());
-  ok('every seeded practice arrives as a PROPOSAL, never confirmed',
-    seeded.entries.length > 0 && seeded.entries.every(e => e.status === 'proposed'),
-    'a seed presented as confirmed would put words in Kevin\'s mouth in the record meant for his son');
-  ok('and confirmedPractices returns none of them',
-    confirmedPractices(seeded).length === 0,
-    'this is the accessor every other reader must use; if proposals leak through it they leak everywhere');
+  // CHANGED Aug 2. Four seeds arrive `confirmed` now because Kevin confirmed
+  // them IN WRITING in the walks side chat, and four others were DELETED because
+  // he did not recognise them — they had been seeded from a spec's list of
+  // hypothetical examples while claiming to cite his recorded statements.
+  //
+  // So the rule this asserts is no longer "everything starts proposed". It is
+  // the one that actually matters: NOTHING IS CONFIRMED WITHOUT A CITATION THAT
+  // NAMES WHERE HE SAID IT.
+  ok('every confirmed seed cites where Kevin confirmed it',
+    seeded.entries.filter(e => e.status === 'confirmed')
+      .every(e => (e.sources || []).some(src => /Kevin/.test(src))),
+    'a confirmed practice with no attributable source is words in his mouth');
+  ok('and anything not yet confirmed is a PROPOSAL',
+    seeded.entries.filter(e => e.status !== 'confirmed').every(e => e.status === 'proposed'));
+  ok('confirmedPractices returns only the ratified ones',
+    confirmedPractices(seeded).length === seeded.entries.filter(e => e.status === 'confirmed').length
+    && confirmedPractices(seeded).length > 0,
+    'this is the accessor every other reader must use');
+  ok('no deleted seed came back',
+    !seeded.entries.some(e => /correcting a draft|not for sale|freezer to stage/i.test(e.text)),
+    'Kevin said DELETE rather than reword: a reworded untraceable entry keeps the provenance claim '
+    + 'while losing the last link to whatever it came from');
 
   ok('every seed cites where it came from',
     seeded.entries.every(e => (e.sources || []).length > 0),
     'a draft he cannot trace is one he has to take on trust, which is the opposite of the point');
 
-  const confirmed = updatePractice(seeded, seeded.entries[0].id, { status: 'confirmed' });
+  const draft = seeded.entries.find(e => e.status === 'proposed');
+  const before = confirmedPractices(seeded).length;
+  const confirmed = updatePractice(seeded, draft.id, { status: 'confirmed' });
   ok('confirming moves it into canon',
-    confirmedPractices(confirmed).length === 1);
+    confirmedPractices(confirmed).length === before + 1);
   ok('and stamps WHEN it was confirmed',
-    !!confirmedPractices(confirmed)[0].lastConfirmedAt,
+    !!confirmedPractices(confirmed).find(e => e.id === draft.id).lastConfirmedAt,
     '"confirmed two years ago" is a different claim from "confirmed last month"');
 
-  const retired = updatePractice(confirmed, seeded.entries[0].id, { status: 'retired' });
+  const retired = updatePractice(confirmed, draft.id, { status: 'retired' });
   ok('retiring removes it from canon but keeps the record',
-    confirmedPractices(retired).length === 0 &&
-    normalizePractices(retired).entries.some(e => e.id === seeded.entries[0].id),
+    !confirmedPractices(retired).some(e => e.id === draft.id) &&
+    normalizePractices(retired).entries.some(e => e.id === draft.id),
     'when a practice stopped being true is itself worth knowing');
 }
 

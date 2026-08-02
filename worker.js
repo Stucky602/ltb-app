@@ -2034,6 +2034,23 @@ function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-LTB-Token',
+    // X-LTB-DEVICE WAS MISSING AND IT BROKE EVERY CUSTOMER-IDENTITY CALL.
+    //
+    // The site and this worker are on different origins
+    // (ltbmeals.com vs *.workers.dev), so every cross-origin request carrying a
+    // custom header gets a CORS preflight. A header absent from this list is
+    // REFUSED, and the browser fails the request before it is ever sent — so
+    // fetch() rejects and the page's .catch() runs.
+    //
+    // Five call sites send X-LTB-Device: the claim-code POST and the
+    // /customer-home personalization fetch among them. All of them failed
+    // silently. On the landing page that surfaced as "No connection. Try again
+    // in a moment." when pasting a perfectly good claim code, because a rejected
+    // preflight and a dead network are indistinguishable from inside .catch().
+    //
+    // ADD A HEADER HERE WHENEVER A PAGE STARTS SENDING ONE. There is no test
+    // that can catch this from inside the repo — it only fails in a real
+    // browser, against a real second origin.
+    'Access-Control-Allow-Headers': 'Content-Type, X-LTB-Token, X-LTB-Device, X-LTB-Checksum',
   };
 }

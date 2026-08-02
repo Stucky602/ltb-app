@@ -69,6 +69,12 @@
   .cat-filter-label { font-size:10.5px; letter-spacing:0.6px; text-transform:uppercase; color:#7a8480; min-width:64px; }
   .cat-chip { padding:4px 10px; border-radius:999px; border:1px solid #3a453f; background:transparent; color:#e8ede9; font-size:12px; cursor:pointer; font-family:inherit; }
   .cat-chip.on { border-color:#D4A050; background:rgba(212,160,80,0.15); color:#D4A050; font-weight:700; }
+  /* Colour is never the only signal: every box states its meaning in words,
+     because someone reading on a phone in sunlight should not decode a hue. */
+  .lens-box { font-size:12.5px; line-height:1.5; padding:8px 11px; border-radius:9px; margin:8px 0 0; }
+  .lens-clean { background:rgba(93,202,165,0.10); border:1px solid #2f6b58; color:#bfe6d8; }
+  .lens-caveat { background:rgba(212,160,80,0.10); border:1px solid #4a3a1e; color:#e8d3ae; }
+  .lens-minimal { background:rgba(226,75,74,0.09); border:1px solid #5a2b2b; color:#f0c4c2; }
   .cat-count { font-size:11.5px; color:#7a8480; margin-top:6px; }
   .fav-chip { display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#5DCAA5; border:1px solid #5DCAA5; border-radius:4px; padding:1px 6px; margin-left:8px; vertical-align:middle; }
   .thisweek { display:inline-block; font-size:10px; font-weight:700; letter-spacing:0.5px; text-transform:uppercase; color:#D4A050; border:1px solid #D4A050; border-radius:4px; padding:1px 6px; margin-left:8px; vertical-align:middle; }
@@ -92,6 +98,11 @@
   <div class="cat-filter">
     <div class="cat-filter-row"><span class="cat-filter-label">Diet</span><span id="dietChips"></span></div>
     <div class="cat-filter-row"><span class="cat-filter-label">Cuisine</span><span id="cuisineChips"></span></div>
+    <!-- FREEZER. On the catalog because this is the page with every dinner on
+         it — the one somebody browses when they are stocking up rather than
+         picking Tuesday's dinner. It is the view where "show me everything that
+         freezes" is a real question. -->
+    <div class="cat-filter-row" id="freezerRow" style="display:none"><span class="cat-filter-label">Freezer</span><span id="freezerChips"></span></div>
     <div class="cat-filter-row"><span class="cat-filter-label">Carl</span><span><button type="button" id="carlChip" class="cat-chip" aria-pressed="false" onclick="__carlToggle()">Carl-friendly</button></span></div>
     <div class="carl-note" id="carlNote" style="display:none">Hiding anything with gluten, egg, legumes, mushrooms, sesame, or white potato. Where a swap makes a dish work, the change is called out on the card. Ask about anything you don't see.</div>
     <div class="cat-count" id="catCount"></div>
@@ -158,6 +169,7 @@
   // re-renders, so nothing on the page can be lost.
   (function () {
     <!-- @generate workerBase -->
+    <!-- @generate freezerLens -->
     var dishes = [];
     var els = document.querySelectorAll('.dish[data-name]');
     for (var i = 0; i < els.length; i++) {
@@ -170,6 +182,18 @@
       });
     }
     var activeDiet = null, activeCuisine = null;
+    // ADDITIVE, unlike diet and cuisine, which are single-select. Somebody
+    // filling a freezer wants "freezes well" and "freezes with a step" on
+    // together; somebody planning the week wants only "best eaten fresh".
+    var freezerOn = {};
+    function freezerAny() { return !!(freezerOn.clean || freezerOn.caveat || freezerOn.minimal); }
+    function freezerEnabled() {
+      if (typeof window.__ltbFlag === 'function' && window.__ltbFlags
+          && ('freezerLens' in window.__ltbFlags)) return window.__ltbFlag('freezerLens');
+      // Absent means ON: flags only reach the worker on publish, and a
+      // default-on filter should not wait for an unrelated action.
+      return true;
+    }
 
     <!-- @include _partials/esc.js -->
     function chip(kind, value, label, on) {
@@ -193,6 +217,18 @@
       var h = '';
       for (var j = 0; j < list.length; j++) h += chip('cuisine', list[j], list[j], activeCuisine === list[j]);
       document.getElementById('cuisineChips').innerHTML = h;
+
+      var row = document.getElementById('freezerRow');
+      if (!freezerEnabled()) { row.style.display = 'none'; return; }
+      row.style.display = '';
+      var LABELS = { clean: 'Freezes well', caveat: 'Freezes, with a step', minimal: 'Best eaten fresh' };
+      var f = '';
+      for (var k in LABELS) {
+        if (!Object.prototype.hasOwnProperty.call(LABELS, k)) continue;
+        f += '<button type="button" class="cat-chip' + (freezerOn[k] ? ' on' : '')
+          + '" onclick="__freezerFilter(\'' + k + '\')">' + LABELS[k] + '</button>';
+      }
+      document.getElementById('freezerChips').innerHTML = f;
     }
     function apply() {
       var shown = 0;
@@ -200,8 +236,28 @@
         var d = dishes[i];
         var okDiet = !activeDiet || d.diet.indexOf(activeDiet) !== -1;
         var okCuisine = !activeCuisine || d.cuisine === activeCuisine;
-        var show = okDiet && okCuisine;
+        // A dish with no recorded freeze data is excluded from a FILTERED view
+        // rather than shown or hidden silently — claiming it belongs in any of
+        // the three states would be a verdict nobody gave.
+        var lensEntry = (typeof FREEZE_LENS !== 'undefined') ? FREEZE_LENS[d.name] : null;
+        var okFreezer = !freezerAny() || (lensEntry && freezerOn[lensEntry.state]);
+        var show = okDiet && okCuisine && okFreezer;
         d.el.style.display = show ? '' : 'none';
+
+        // THE BOX ONLY APPEARS WHEN A FILTER IS ON. Kevin's ruling: "I am not
+        // trying to overwhelm clients, just give options if they want it."
+        var box = d.el.querySelector('.lens-box');
+        if (show && freezerAny() && lensEntry) {
+          if (!box) {
+            box = document.createElement('div');
+            box.className = 'lens-box';
+            d.el.appendChild(box);
+          }
+          box.className = 'lens-box lens-' + lensEntry.state;
+          box.textContent = lensEntry.lead + (lensEntry.detail ? ' ' + lensEntry.detail : '');
+        } else if (box) {
+          box.parentNode.removeChild(box);
+        }
         if (show) shown++;
       }
       var note = document.getElementById('catCount');
@@ -210,6 +266,12 @@
         : (dishes.length + ' dinners in the catalog.');
     }
     <!-- @include _partials/carlFilter.js -->
+
+    window.__freezerFilter = function (state) {
+      freezerOn[state] = !freezerOn[state];
+      renderChips();
+      apply();
+    };
 
     window.__catFilter = function (kind, value) {
       if (kind === 'diet') activeDiet = (activeDiet === value) ? null : value;

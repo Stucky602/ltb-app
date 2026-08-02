@@ -69,6 +69,44 @@ function boot(html, cfg, store, dayISO) {
   });
 }
 
+// ── CORS: every header a page sends must be allowed by the worker ───────────
+//
+// The site and the worker are on different origins, so any custom header
+// triggers a preflight and a header missing from Access-Control-Allow-Headers
+// is REFUSED — the request never leaves the browser and fetch() rejects.
+//
+// This shipped: X-LTB-Device was sent by five call sites and allowed by none of
+// them. It surfaced as "No connection. Try again in a moment." on a valid claim
+// code, because a rejected preflight is indistinguishable from a dead network
+// inside a .catch(). Personalization failed the same way and just looked like
+// nothing happening.
+//
+// Nothing else in the gate can catch this — it only fails in a real browser
+// against a real second origin — so it is asserted statically here.
+{
+  const fs = await import('node:fs');
+  const worker = fs.readFileSync(new URL('../worker.js', import.meta.url), 'utf8');
+  const allowed = (worker.match(/'Access-Control-Allow-Headers': '([^']*)'/) || [, ''])[1]
+    .split(',').map(h => h.trim().toLowerCase()).filter(Boolean);
+
+  const sent = new Set();
+  const partialsDir = new URL('../src/pages/_partials/', import.meta.url);
+  const files = fs.readdirSync(partialsDir).map(f => new URL(f, partialsDir))
+    .concat(['order', 'menu', 'form', 'main-menu', 'pipeline']
+      .map(n => new URL(`../src/pages/${n}.page.html`, import.meta.url))
+      .filter(u => fs.existsSync(u)));
+  for (const f of files) {
+    const src = fs.readFileSync(f, 'utf8');
+    for (const m2 of src.matchAll(/['"](X-LTB-[A-Za-z-]+)['"]\s*:/g)) sent.add(m2[1].toLowerCase());
+  }
+
+  const missing = [...sent].filter(h => !allowed.includes(h));
+  check(`every custom header the pages send is allowed by the worker (${sent.size} sent)`,
+    missing.length === 0,
+    `NOT ALLOWED: ${missing.join(', ')} — the browser will refuse the preflight and the `
+    + 'page will report a network failure on a request that was never made');
+}
+
 console.log('form.html');
 {
   const dom = boot(form, CFG); await sleep(150);

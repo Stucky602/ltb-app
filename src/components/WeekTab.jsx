@@ -132,7 +132,11 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
     const t = new Date(s);            // parsed as local time, which is what we want
     return isNaN(t.getTime()) ? '' : t.toISOString();
   };
-  const [orderClosesAt, setOrderClosesAt] = useState(() => toLocalInput(nextOrderDeadline()));
+  // Held so Reset has something to go back to, and so the button can hide when
+  // the field already holds it. Computed once per mount: recomputing on every
+  // render would make Reset disappear the moment the clock crossed midnight.
+  const defaultOrderClose = useMemo(() => toLocalInput(nextOrderDeadline()), []);
+  const [orderClosesAt, setOrderClosesAt] = useState(defaultOrderClose);
   const [amendmentsCloseAt, setAmendmentsCloseAt] = useState('');
   const [showConflicts, setShowConflicts] = useState(false);
 
@@ -480,33 +484,61 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               ))}
             </div>
           )}
-          <div style={{ display: 'flex', gap: 8, margin: '10px 0 2px', flexWrap: 'wrap' }}>
-            <label style={{ flex: '1 1 150px', minWidth: 0 }}>
+          {/* STACKED, NOT SIDE BY SIDE. iOS renders datetime-local at a fixed
+              intrinsic width that ignores flex-basis, so two of them in a row
+              overflowed the card and clipped the first one mid-date. One per
+              line costs a few pixels of height and always fits.
+
+              EACH ONE HAS A WAY BACK. A datetime-local with no value jumps to
+              "now" the moment it is tapped, and there is no built-in way to
+              undo that — so setting Changes close by accident silently created
+              a deadline that starts refusing real amendments. Clear puts it
+              back to blank; Reset puts Orders close back to the Sunday rule. */}
+          <div style={{ margin: '10px 0 2px' }}>
+            <label style={{ display: 'block' }}>
               <span style={{ display: 'block', fontSize: 11.5, color: '#c9d1cd', marginBottom: 4 }}>
                 Orders close
               </span>
-              <input
-                type="datetime-local"
-                value={orderClosesAt}
-                onChange={e => setOrderClosesAt(e.target.value)}
-                style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }}
-              />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="datetime-local"
+                  value={orderClosesAt}
+                  onChange={e => setOrderClosesAt(e.target.value)}
+                  style={{ ...styles.input, flex: 1, minWidth: 0, boxSizing: 'border-box' }}
+                />
+                {orderClosesAt !== defaultOrderClose && (
+                  <button
+                    onClick={() => setOrderClosesAt(defaultOrderClose)}
+                    style={{ background: 'none', border: '1px solid #2d3a36', borderRadius: 8,
+                      color: '#9aa5a0', fontSize: 11.5, padding: '8px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >Reset</button>
+                )}
+              </div>
             </label>
-            <label style={{ flex: '1 1 150px', minWidth: 0 }}>
+            <label style={{ display: 'block', marginTop: 8 }}>
               <span style={{ display: 'block', fontSize: 11.5, color: '#c9d1cd', marginBottom: 4 }}>
                 Changes close <span style={{ color: '#7a8480' }}>(optional)</span>
               </span>
-              <input
-                type="datetime-local"
-                value={amendmentsCloseAt}
-                onChange={e => setAmendmentsCloseAt(e.target.value)}
-                style={{ ...styles.input, width: '100%', boxSizing: 'border-box' }}
-              />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input
+                  type="datetime-local"
+                  value={amendmentsCloseAt}
+                  onChange={e => setAmendmentsCloseAt(e.target.value)}
+                  style={{ ...styles.input, flex: 1, minWidth: 0, boxSizing: 'border-box' }}
+                />
+                {amendmentsCloseAt && (
+                  <button
+                    onClick={() => setAmendmentsCloseAt('')}
+                    style={{ background: 'none', border: '1px solid #2d3a36', borderRadius: 8,
+                      color: '#9aa5a0', fontSize: 11.5, padding: '8px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >Clear</button>
+                )}
+              </div>
             </label>
           </div>
           <div style={{ fontSize: 10.5, color: '#7a8480', margin: '0 0 4px', lineHeight: 1.45 }}>
             {amendmentsCloseAt
-              ? 'Published with the week. After the changes deadline, amendment requests are refused.'
+              ? 'Published with the week. After the changes deadline, amendment requests are refused — tap Clear if you did not mean to set one.'
               : 'Orders close is prefilled from the usual Sunday night. Leave changes blank to keep accepting amendments right up to delivery, which is what happens today.'}
           </div>
           <div style={styles.conflictBtnRow}>

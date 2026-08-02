@@ -165,7 +165,14 @@ export function whatWasInOrderText(answer) {
       out.push('  (no ingredient list could be produced)');
     }
     for (const l of item.labels) {
-      out.push(`  ${l.brand} ${l.product}: ${l.ingredientText}`);
+      // BRAND FIRST, and named rather than folded into the text. Kevin's reason
+      // for recording it: so somebody can go and look the product up themselves.
+      // An allergy-conscious customer trusts the manufacturer's own published
+      // list over one retyped by a cook, and the brand is what makes that
+      // possible. Printing only the ingredient text would keep the information
+      // and lose the point of it.
+      out.push(`  ${[l.brand, l.product].filter(Boolean).join(' ')}${l.brand ? ' (look it up if you want the full label)' : ''}`);
+      out.push(`    ${l.ingredientText}`);
     }
     out.push(`  Recipe version: ${item.versionWasRecorded ? item.recipeVersionId : 'not recorded'}`);
     out.push('');

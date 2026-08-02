@@ -169,5 +169,38 @@ const ok = (label, cond, detail = '') => {
     'a customer who filters to nothing must not see a blank page');
 }
 
+// ── The CATALOG page, where the filter earns its keep ───────────────────────
+//
+// menu.html is the weekly menu; main-menu.html is the catalog with every dinner
+// on it. Somebody stocking a freezer browses the catalog, so "show me
+// everything that freezes" is a real question only there.
+//
+// It also nearly went missing the same way twice: the first placement sat
+// inside the weekly dinners block, which does not render on a week Kevin
+// publishes bag sections only — so the toggles vanished with the section.
+{
+  const fs = await import('node:fs');
+  const cat = fs.readFileSync(new URL('../main-menu.html', import.meta.url), 'utf8');
+
+  ok('the catalog carries the lens data', /var FREEZE_LENS = \{/.test(cat));
+  ok('and a Freezer filter row beside Diet and Cuisine', cat.includes('id="freezerRow"'));
+  ok('the toggles are ADDITIVE, not single-select like diet and cuisine',
+    /freezerOn\[state\] = !freezerOn\[state\]/.test(cat),
+    'diet and cuisine clear their siblings; somebody filling a freezer wants two states on at once');
+  ok('the catalog list actually honours them', cat.includes('okFreezer'));
+  ok('a dish with no freeze data is excluded from a FILTERED view',
+    /lensEntry && freezerOn\[lensEntry\.state\]/.test(cat),
+    'claiming it belongs in any state would be a verdict nobody gave');
+  ok('the boxes appear ONLY while a filter is on',
+    /freezerAny\(\) && lensEntry/.test(cat),
+    'Kevin: "I am not trying to overwhelm clients, just give options if they want it"');
+  ok('and the box styles shipped with it', cat.includes('.lens-caveat'));
+
+  const weekly = fs.readFileSync(new URL('../menu.html', import.meta.url), 'utf8');
+  ok('on the weekly page the row sits in the always-present filter bar',
+    /return lensRowHtml\(\) \+ '<div class="diet-filter">/.test(weekly),
+    'inside the dinners block it disappeared entirely on a bag-sections-only week');
+}
+
 console.log(failed === 0 ? '\nFREEZER LENS: ALL PASS' : `\nFREEZER LENS: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

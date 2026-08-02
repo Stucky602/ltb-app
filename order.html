@@ -854,7 +854,17 @@
             : 'That did not work. Ask Kevin for a fresh code.';
           el('pgClaimGo').disabled = false;
         }).catch(function () {
-          msg.textContent = 'No connection. Try again in a moment.';
+          // THIS FIRES FOR MORE THAN A DEAD NETWORK, and saying otherwise cost a
+          // real debugging session. A refused CORS preflight lands here, and so
+          // does a response that is not JSON. For months X-LTB-Device was missing
+          // from the worker's Access-Control-Allow-Headers, so every claim
+          // attempt failed here and reported a connection problem on a perfectly
+          // good code and a perfectly good connection.
+          //
+          // The wording now admits it might be the site rather than the phone,
+          // because "try again in a moment" sends someone to retry forever on
+          // something retrying cannot fix.
+          msg.textContent = 'Could not reach the kitchen. That may be your connection, or it may be me \u2014 tell Kevin if it keeps happening.';
           el('pgClaimGo').disabled = false;
         });
       });

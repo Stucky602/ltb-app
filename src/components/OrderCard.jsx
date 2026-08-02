@@ -455,8 +455,13 @@ function WhatWasInThis({ order, labelVersions }) {
                 </div>
               )}
               {it.labels.map((l, j) => (
-                <div key={j} style={{ fontSize: 11, color: '#9aa5a0', marginTop: 2 }}>
-                  {l.brand} {l.product}: {l.ingredientText}
+                <div key={j} style={{ fontSize: 11, color: '#9aa5a0', marginTop: 3 }}>
+                  {/* The brand leads. It is recorded so a customer can go and read
+                      the manufacturer's own list, which they will trust more than
+                      a retyped one — so it must not be buried mid-sentence. */}
+                  <b style={{ color: '#c9d1cd' }}>{[l.brand, l.product].filter(Boolean).join(' ')}</b>
+                  <div>{l.ingredientText}</div>
+                  {l.allergenText && <div style={{ color: '#EF9F27' }}>{l.allergenText}</div>}
                 </div>
               ))}
               <div style={{ fontSize: 11, color: '#7a8480', marginTop: 3 }}>

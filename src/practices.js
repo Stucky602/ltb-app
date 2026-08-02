@@ -142,6 +142,38 @@ export function practiceCounts(store) {
 // ═══════════════════════════════════════════════════════════════════════════
 // SEEDS
 //
+// ═══════════════════════════════════════════════════════════════════════════
+// THE PROVENANCE RULE, WRITTEN DOWN AFTER BREAKING IT (Aug 2)
+//
+// Four seeds were deleted here, not reworded, on Kevin's instruction. He read
+// the drafts and did not recognise three of them; the audit found why, and it
+// is worth stating plainly so it does not recur.
+//
+// They were seeded from HANDOFF_28's description of this very feature, which
+// reads "Examples include treating the Monday-to-Tuesday refrigerator rest as
+// working time, correcting a prepared draft instead of composing from a blank
+// page, freezer staging, searing tofu before delivery..." — a spec listing
+// HYPOTHETICAL examples of what a practice library might hold. Those became
+// entries carrying a `sources` line that claimed they were recorded statements
+// of his. They never were.
+//
+// So: A SPEC IS NOT A SOURCE. Neither is another Claude-written document, and
+// neither is this file's own earlier draft. A seed needs a place where Kevin
+// said the thing — a walk transcript, a recorded ruling, or data in the repo he
+// entered. If the citation cannot be followed to one of those, DELETE the seed
+// rather than rewording it: a reworded untraceable entry keeps the provenance
+// claim while losing the last link to whatever it came from, which is strictly
+// worse than nothing.
+//
+// The survivors trace. Gentle-heat is the strongest — his own words sit in
+// reheatData.js. Fridge-rest appears in HANDOFF_28 as a statement rather than
+// an example. The remaining three were confirmed by him in writing on Aug 2.
+//
+// PROCESS NOTE, also his: a practice shown as a bare title is not confirmable.
+// He needs the full statement with its source attached, one at a time. The
+// Practices pane does this; anything that summarises these into a list for
+// review must not.
+//
 // Every one of these is something Kevin SAID, recorded at the time, with the
 // source named. None is inferred from his behaviour and none is a good idea
 // Claude had about how a kitchen should run — that distinction is the entire
@@ -159,71 +191,52 @@ export const PRACTICE_SEEDS = [
     text: 'The Monday-to-Tuesday rest in the fridge is working time, not waiting.',
     why: 'The menu deliberately favours dishes that get better over that rest, so the gap between cooking and delivery is doing something rather than being tolerated.',
     where: 'The whole cook week. It is part of why braises and stews dominate the board.',
-    sources: ['Kevin, recorded in the cook-week rhythm: close Sunday, shop and seal Monday, cook Tuesday, deliver Wednesday'],
-    status: 'proposed',
+    sources: ['Kevin, confirmed as written, walks side chat Aug 2. Also on record in HANDOFF_28: \'fridge rest is working time\'.'],
+    status: 'confirmed',
   },
   {
     id: 'pr_seed_cook_after_order',
     text: 'Nothing gets cooked until an order exists for it.',
     why: 'It is why there is no waste beyond trim, which the recipes already account for.',
     where: 'Every dinner. It is also why robustness ideas built around spoilage and overproduction do not apply here.',
-    sources: ['Kevin, Jul 25, rejecting operational generators: no waste beyond trim, because he only cooks after an order exists'],
-    status: 'proposed',
+    sources: ['Kevin, confirmed as written, walks side chat Aug 2.'],
+    status: 'confirmed',
   },
   {
     id: 'pr_seed_gentle_heat',
     text: 'Gentle heat, and do not boil. Thick things run hot on the outside while the middle is still cold.',
     why: 'Boiling does not get the centre there faster, it just damages the outside first.',
     where: 'Stated on Brunswick Stew and then repeated across the reheat walk, so it reads as general rather than per dish.',
-    sources: ['Kevin, Walk 2, given on Brunswick and repeated'],
-    status: 'proposed',
-  },
-  {
-    id: 'pr_seed_freezer_staging',
-    text: 'The freezer is used to stage components ahead of the cook day.',
-    why: 'It moves work off Tuesday, which is the day with the least room in it.',
-    where: 'Across the week rather than any one dish.',
-    sources: ['Kevin, Jul 25, noting he already does this when it was proposed to him as new'],
-    status: 'proposed',
+    sources: ['Kevin, confirmed as written, walks side chat Aug 2. His own words are in reheatData.js: thicker items run hot on the outside while the middle is still cold.'],
+    status: 'confirmed',
   },
   {
     id: 'pr_seed_inventory_before_shopping',
     text: 'Containers get counted before shopping, not after running out.',
     why: 'A missing container is only a problem if it is discovered on pack day; found on the shopping trip it is a two-dollar errand.',
     where: 'Weekly, before the H-E-B run.',
-    sources: ['Kevin, Jul 25: containers refill with a quick H-E-B trip and he inventories before shopping'],
-    status: 'proposed',
+    sources: ['Kevin, confirmed as written, walks side chat Aug 2 (\'count containers before shopping\').'],
+    status: 'confirmed',
   },
   {
     id: 'pr_seed_customer_verb_ceiling',
-    text: 'Some finishing work is deliberately kept out of the customer\u2019s kitchen.',
-    why: 'The customer is asked to sear a sous vide bag protein, boil a starch, reheat a bag, or run a broiler. Never to handle a raw protein, make a batter, or cook live shellfish. The line is about what can go wrong in someone else\u2019s kitchen, not about difficulty.',
-    where: 'Every dish on the menu; it constrains what can be on the menu at all.',
-    sources: ['Kevin, recorded as the customer verb ceiling in the food-science platform notes'],
-    status: 'proposed',
-  },
-  {
-    id: 'pr_seed_correcting_beats_composing',
-    text: 'Correcting a draft beats composing from a blank page, every time.',
-    why: 'Capture has to survive being done one-handed in a checkout line. A prefilled wrong answer gets fixed; an empty box gets closed.',
-    where: 'Every capture surface in the app, and how work should be handed to him generally.',
-    sources: ['Kevin, standing instruction, recorded in how-he-works'],
-    status: 'proposed',
-  },
-  {
-    id: 'pr_seed_weekly_unsold_dish',
-    text: 'One dish a week gets cooked that is not for sale.',
-    why: 'He was already doing this before it was ever suggested as a practice.',
-    where: 'Outside the order book entirely.',
-    sources: ['Kevin, Jul 24, noted as something he already does unprompted'],
-    status: 'proposed',
-  },
-  {
-    id: 'pr_seed_failure_prone_finishes',
-    text: 'Work that is easy to get wrong happens here, before delivery, not in the customer\u2019s kitchen.',
-    why: 'A finish that fails in someone else\u2019s kitchen fails on my name, and they have none of the context to rescue it.',
-    where: 'It is the reason behind the customer verb ceiling rather than a restatement of it.',
-    sources: ['Feature systems master, Aug 1, listing it among the practices already evident in how LTB runs'],
+    // CORRECTED BY KEVIN, Aug 2, and the correction reverses the draft. The
+    // original said he ABSORBS the work into the kitchen. He does not: he will
+    // not ask the customer to do it AT ALL. Those two readings produce different
+    // dishes — one takes a step off the customer's plate, the other removes the
+    // dish from consideration.
+    //
+    // The tofu sear was cited as an example of absorbed labour and that was
+    // wrong too. He sears it because it HOLDS ITS TEXTURE. A texture decision,
+    // not a labour one.
+    text: 'Past what I will ask a customer to do, I do not take the work on \u2014 the dish just does not happen.',
+    why: 'Two distinct triggers, and only the first is about cooking at all. (1) The verb is too hard: fried items simply get the boot. '
+      + '(2) The packaging burden is too high: pomegranate seeds, pepitas, pickled onions, rice, and tortillas all as separate things to pack and hand over is too much.',
+    where: 'It constrains what can be on the menu at all, rather than describing how a dish is prepped.',
+    examples: ['Fried items get the boot on the verb trigger.',
+      'The pomegranate-seeds-plus-pepitas-plus-pickled-onions-plus-rice-plus-tortillas case is the packaging trigger.'],
+    exceptions: 'The tofu sear is NOT an example of this. It is seared for texture, not to spare anyone the work.',
+    sources: ['Kevin, walks side chat Aug 2, correcting the earlier draft outright'],
     status: 'proposed',
   },
   {

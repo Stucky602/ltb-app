@@ -99,6 +99,15 @@ function LabelVersionsPanel({ ingredients, store, onSave }) {
     ? diffLabels(current, { ingredientText: text, allergenText: allergen })
     : null;
 
+  // BRAND IS RECORDED SO A CUSTOMER CAN LOOK IT UP THEMSELVES — Kevin's point,
+  // Aug 2, and it is about who the field serves rather than about data hygiene.
+  // Somebody with an allergy trusts a manufacturer's own published list more
+  // than a retyped one, and the brand is what lets them go and read it.
+  //
+  // NOT REQUIRED. An earlier version blocked saving without it, which read his
+  // answer backwards: he was describing a purpose, not asking for a gate. A
+  // half-filled record still answers "what did this say in March" and is worth
+  // more than a record he abandoned because a button was disabled.
   const save = (status) => {
     if (!ingId || !text.trim()) return;
     const payload = { ingredientId: ingId, brand: brand.trim(), product: product.trim(),
@@ -113,15 +122,21 @@ function LabelVersionsPanel({ ingredients, store, onSave }) {
   return (
     <div style={S.section}>
       <button style={S.collapseBtn} onClick={() => setOpen(o => !o)}>
-        <span>Package labels · {counts.confirmed} recorded across {counts.ingredients} ingredient{counts.ingredients === 1 ? '' : 's'}</span>
+        {/* Says what it is FOR, not just how empty it is. "0 recorded across 0
+            ingredients" is a status with no subject — meaningless to anyone who
+            has not read the code. */}
+        <span>{counts.confirmed > 0
+          ? 'Package labels · ' + counts.confirmed + ' recorded across ' + counts.ingredients + ' ingredient' + (counts.ingredients === 1 ? '' : 's')
+          : 'Package labels · what a bought product actually says on the jar'}</span>
         <span>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 11.5, color: '#9aa5a0', lineHeight: 1.5 }}>
             What the package actually says, for the bought products whose formulation can change
-            underneath the name: stocks, sauces, blends, cheeses, miso, Worcestershire. Recording
-            one means a past order can still answer what was in it after a brand changes.
+            underneath the name. All four categories are in scope: stocks; Worcestershire and miso;
+            sauces and spice blends; cheeses. Record the brand as well as the printed text — two
+            brands can print near-identical ingredient lines and differ on the allergen advisory.
           </div>
 
           <select value={ingId} onChange={e => setIngId(e.target.value)} style={fld}>
@@ -320,7 +335,6 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
 
   return (
     <div style={S.wrap}>
-      <LabelVersionsPanel ingredients={ingredients} store={labelVersions} onSave={onSaveLabels} />
       {omaQueue.length > 0 && (
         <div style={{ background: '#1e2522', border: '1px solid #3a453f', borderRadius: 10, padding: 10, marginBottom: 12 }}>
           <button onClick={() => setShowOmaQueue(o => !o)} style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', background: 'none', border: 'none', color: '#D4A050', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>
@@ -375,6 +389,16 @@ export function IngredientsTab({ ingredients, costHistory, onChange, onScanRecei
       {onSaveAliases && (
         <LearnedDataPanel aliases={aliases} ingredients={ingredients} onSave={onSaveAliases} />
       )}
+      {/* MOVED DOWN HERE (Aug 2). It was the first thing on the tab, above
+          "Scan receipt to update costs" — which put an empty, occasional-use
+          panel ahead of the button Kevin presses every shopping trip. It also
+          read as unexplained: a collapsed row saying "0 recorded across 0
+          ingredients" at the top of a tab gives no clue what it is for.
+
+          It sits with LearnedDataPanel because both are the same kind of thing:
+          reference material about products, consulted rarely, edited rarer.
+          The daily controls come first. */}
+      <LabelVersionsPanel ingredients={ingredients} store={labelVersions} onSave={onSaveLabels} />
       <div style={S.topBar}>
         <div style={S.searchBox}>
           <input

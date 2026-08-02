@@ -270,3 +270,71 @@ export function sanitizeSnapshot(snap) {
   for (const k of Object.keys(snap)) if (SNAPSHOT_ALLOWED.has(k)) out[k] = snap[k];
   return out;
 }
+
+// ── WHO IS ACTUALLY LINKED ──────────────────────────────────────────────────
+//
+// Kevin: "I don't have an easy real way to know it's working."
+//
+// He was right, and it was a real gap rather than a missing convenience. Device
+// records have existed since claim codes shipped and nothing could list them,
+// so a working link and a silently broken one looked identical from his side.
+// That is precisely how the CORS bug — which broke every claim attempt — went
+// unnoticed until he happened to try pasting a code himself.
+//
+// Fetches the owner-only /devices route and joins it to the regulars, so the
+// answer is a name rather than an opaque profile id.
+export async function fetchLinkedDevices({ workerBase, token, fetchImpl } = {}) {
+  const f = fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  if (!f || !workerBase || !token) return { ok: false, devices: [], error: 'not configured' };
+  try {
+    const res = await f(`${workerBase}/devices`, { headers: { 'X-LTB-Token': token } });
+    if (!res.ok) return { ok: false, devices: [], error: `HTTP ${res.status}` };
+    const data = await res.json();
+    return { ok: true, devices: Array.isArray(data.devices) ? data.devices : [], error: null };
+  } catch (e) {
+    // A network failure is NOT "nobody is linked". Saying so would be the same
+    // class of lie the claim box told when it reported a CORS refusal as "no
+    // connection".
+    return { ok: false, devices: [], error: 'could not reach the worker' };
+  }
+}
+
+// Joins device records to regulars. A regular with no device is reported
+// explicitly rather than omitted — "nobody has linked yet" is the answer Kevin
+// actually needs, and an absent row cannot say it.
+export function linkageByRegular(regulars, devices) {
+  const byProfile = new Map();
+  for (const d of devices || []) {
+    if (!d || !d.profileId || d.revoked) continue;
+    if (!byProfile.has(d.profileId)) byProfile.set(d.profileId, []);
+    byProfile.get(d.profileId).push(d);
+  }
+  return (regulars || []).map(r => {
+    const list = (r.profileId && byProfile.get(r.profileId)) || [];
+    const lastUsed = list
+      .map(d => Date.parse(d.lastUsed || 0) || 0)
+      .reduce((a, b) => Math.max(a, b), 0);
+    return {
+      id: r.id,
+      name: r.name,
+      // No profileId means they have never been issued one, which is a
+      // different problem from having one and never using it.
+      hasProfile: !!r.profileId,
+      deviceCount: list.length,
+      labels: list.map(d => d.label).filter(Boolean),
+      lastUsed: lastUsed || null,
+    };
+  });
+}
+
+export function linkageSummary(rows) {
+  const linked = (rows || []).filter(r => r.deviceCount > 0);
+  return {
+    regulars: (rows || []).length,
+    linked: linked.length,
+    devices: linked.reduce((n, r) => n + r.deviceCount, 0),
+    // The number that answers "is it working at all". Zero after sending codes
+    // out means something is broken, not that nobody bothered.
+    neverLinked: (rows || []).filter(r => r.deviceCount === 0).length,
+  };
+}

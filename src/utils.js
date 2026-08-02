@@ -342,7 +342,13 @@ export function itemsBaseTotal(items) {
   return round2((items || []).reduce((sum, it) => sum + (Number(it.price) || 0) * itemUnitMultiplier(it), 0));
 }
 
-export function orderTotal(items, jarSwaps, containerReturns, discountType, discountValue, customCharges, waiveSurcharge) {
+// `depositCents` is PASSED IN rather than derived here, and the reason is
+// structural: containers.js already imports from this file, so importing it
+// back would be circular. The caller computes it with
+// containerDeposits.depositsOutFor(order).
+//
+// Defaults to 0, so every existing call site behaves exactly as before.
+export function orderTotal(items, jarSwaps, containerReturns, discountType, discountValue, customCharges, waiveSurcharge, depositCents = 0) {
   const base = itemsBaseTotal(items);
   const upcharges = itemsUpchargeTotal(items);
   // At-cost add-ons (parm blocks, fixings): flat resolved amounts, OUTSIDE the
@@ -355,7 +361,12 @@ export function orderTotal(items, jarSwaps, containerReturns, discountType, disc
   // Floored at $0: over-crediting container returns or jar swaps can reduce
   // an order to free, never to Kevin owing money on it. Property-suite
   // invariant I1 (tests/property.mjs).
-  return Math.max(0, round2(base + upcharges + addons - disc + custom + surcharge - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1));
+  // THE DEPOSIT SITS OUTSIDE THE DISCOUNT BASE, like the at-cost add-ons above.
+  // Discounting a deposit would mean crediting back more than was charged, and
+  // the customer-facing rates are flat by Kevin's ruling: any jar $2, any
+  // container $1, whatever the order is worth.
+  const deposit = round2((Number(depositCents) || 0) / 100);
+  return Math.max(0, round2(base + upcharges + addons - disc + custom + surcharge + deposit - (jarSwaps || 0) * 2 - (containerReturns || 0) * 1));
 }
 
 // Recompute a per-lb item's price and cost from its weight (rounded to cents).

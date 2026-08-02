@@ -138,8 +138,36 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, orders, we
       .filter(r => week.has(r.dish) && !inDraft.has(r.dish) && r.appearances >= 2 && r.attachPct >= 60)
       .slice(0, 2);
   }, [entryRegular, orders, weekDishes, customer, items]);
-  const [jarSwaps, setJarSwaps] = useState(initial?.jarSwaps || 0);
-  const [containerReturns, setContainerReturns] = useState(initial?.containerReturns || 0);
+  // TYPED RETURNS, with the two old counters DERIVED from them rather than
+  // entered. `jarSwaps` and `containerReturns` still exist because the total,
+  // the receipt lines, and every historical order use them — but they are now
+  // outputs, so the two representations cannot disagree.
+  //
+  // Seeded from the typed map when there is one, and from the old bare counts
+  // when there is not, so an order recorded before this change still shows what
+  // came back. Old ones land under an untyped bucket because the type genuinely
+  // was not recorded.
+  const [returnRows, setReturnRows] = useState(() => {
+    const typed = initial && initial.containerReturnsByType;
+    if (typed && typeof typed === 'object') {
+      const rows = Object.entries(typed).filter(([, n]) => n > 0).map(([type, n]) => ({ type, n }));
+      if (rows.length) return rows;
+    }
+    const rows = [];
+    if (initial?.jarSwaps) rows.push({ type: 'jar', n: initial.jarSwaps });
+    if (initial?.containerReturns) rows.push({ type: 'untyped', n: initial.containerReturns });
+    return rows;
+  });
+
+  const containerReturnsByType = returnRows.reduce((acc, r) => {
+    if (!r.type || !r.n) return acc;
+    acc[r.type] = (acc[r.type] || 0) + Number(r.n);
+    return acc;
+  }, {});
+  const returned = returnSummary(containerReturnsByType);
+  const jarSwaps = returned.jars;
+  const containerReturns = returned.containers
+    + (returnRows.filter(r => r.type === 'untyped').reduce((n, r) => n + Number(r.n || 0), 0));
   const [notes, setNotes] = useState(initial?.notes || '');
   const [discountType, setDiscountType] = useState(initial?.discountType || null);
   const [discountValue, setDiscountValue] = useState(initial?.discountValue ? String(initial.discountValue) : '');
@@ -161,7 +189,10 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, orders, we
   const discNum = parseFloat(discountValue) || 0;
   const itemsTotal = itemsBaseTotal(items);
   const disc = discountAmount(itemsTotal, discountType, discNum);
-  const total = orderTotal(items, jarSwaps, containerReturns, discountType, discNum, customCharges, waiveSurcharge);
+  // The deposit is derived from what this order actually ships, so it moves
+  // with the items rather than being typed.
+  const depositCents = depositsOutFor({ items }).cents;
+  const total = orderTotal(items, jarSwaps, containerReturns, discountType, discNum, customCharges, waiveSurcharge, depositCents);
   const itemCount = items.reduce((s, it) => s + it.qty, 0);
 
   const findItemIndex = (category, name, variant) =>
@@ -250,12 +281,16 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, orders, we
       items,
       jarSwaps,
       containerReturns,
+      // The typed record. `containerReturns` above stays as the derived total
+      // so nothing downstream has to change at once.
+      containerReturnsByType,
+      depositCents,
       notes: notes.trim(),
       discountType: discNum > 0 ? discountType : null,
       discountValue: discNum > 0 ? discNum : 0,
       customCharges: cleanCharges,
       waiveSurcharge,
-      total: orderTotal(items, jarSwaps, containerReturns, discountType, discNum, cleanCharges, waiveSurcharge),
+      total: orderTotal(items, jarSwaps, containerReturns, discountType, discNum, cleanCharges, waiveSurcharge, depositCents),
       status: initial?.status || 'Ordered',
       paid: initial?.paid || false,
       archived: initial?.archived || false,
@@ -595,17 +630,48 @@ export function OrderForm({ menu, initial, recentCustomers, regulars, orders, we
         </div>
       )}
 
-      <div style={styles.loopRow}>
-        <div style={styles.loopField}>
-          <label style={styles.label}>Jar swaps</label>
-          <QtyControl value={jarSwaps} onChange={setJarSwaps} />
-          <div style={styles.loopHint}>−$2.00 each</div>
+      {/* RETURNS ARE TYPED NOW. The old pair of bare counters could not say
+          WHICH container came back, so a return could not be credited to the
+          right part of the fleet — the bug this whole walk was called to fix.
+
+          Same builder as the omakase card: pick a type, say how many, add
+          another. The 2 oz cup is absent because it never comes back.
+
+          The flat rates are unchanged and stay flat: any jar $2, any container
+          $1, whatever type it is. */}
+      <label style={styles.label}>Returned this week</label>
+      {returnRows.map((row, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 5 }}>
+          <select
+            value={row.type}
+            onChange={e => setReturnRows(rs => rs.map((r, k) => (k === i ? { ...r, type: e.target.value } : r)))}
+            style={{ ...styles.input, flex: 1, minWidth: 0 }}
+          >
+            <option value="">Which container…</option>
+            {RETURNABLE_TYPES.filter(t => !NON_RETURNABLE.has(t.id)).map(t => (
+              <option key={t.id} value={t.id}>{t.label}</option>
+            ))}
+          </select>
+          <input
+            type="number" min="0" step="1" value={row.n}
+            onChange={e => setReturnRows(rs => rs.map((r, k) => (k === i ? { ...r, n: Math.max(0, parseInt(e.target.value, 10) || 0) } : r)))}
+            style={{ ...styles.input, width: 62, flexShrink: 0 }}
+          />
+          <span style={{ fontSize: 11, color: '#7a8480', width: 44, flexShrink: 0 }}>
+            {row.type ? `\u2212$${(depositCentsFor(row.type) / 100).toFixed(2)}` : ''}
+          </span>
+          <button
+            onClick={() => setReturnRows(rs => rs.filter((_, k) => k !== i))}
+            style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14, flexShrink: 0 }}
+          >{'\u2715'}</button>
         </div>
-        <div style={styles.loopField}>
-          <label style={styles.label}>Containers returned</label>
-          <QtyControl value={containerReturns} onChange={setContainerReturns} />
-          <div style={styles.loopHint}>−$1.00 each</div>
-        </div>
+      ))}
+      <button
+        onClick={() => setReturnRows(rs => [...rs, { type: '', n: 1 }])}
+        style={{ ...styles.input, width: 'auto', padding: '5px 12px', cursor: 'pointer', color: '#9aa5a0' }}
+      >{returnRows.length ? '+ add another' : '+ record a return'}</button>
+      <div style={styles.loopHint}>
+        Jars $2, containers $1. Credited back off this order.
       </div>
 
       <label style={styles.label}>Discount</label>

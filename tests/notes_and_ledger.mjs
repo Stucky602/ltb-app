@@ -470,5 +470,183 @@ const ok = (label, cond, detail = '') => {
     !/rank|popular|top/i.test(code));
 }
 
+// ── GROUNDED RECOMMENDATIONS ────────────────────────────────────────────────
+//
+// Kevin: "only based on actual reasoning though (like the having had every
+// other similar dish) so it always has a grounded reasoning why."
+//
+// So a rule may only fire on something COUNTABLE in the household's own
+// records, and the reason shown is that same fact in words. No taste modelling:
+// "you would probably like this" is inferred preference, which is what Passport
+// Story Doors was rejected for and is unfalsifiable in a way a count is not.
+{
+  const rec = await import('../src/recommendations.js');
+  const { DISHES } = await import('../src/dishes.js');
+  const fs = await import('node:fs');
+
+  const now = Date.now();
+  const mk = (name, daysAgo) => ({
+    regularId: 'h1', createdAt: new Date(now - daysAgo * 86400000).toISOString(),
+    items: [{ name }],
+  });
+  const chinese = DISHES.filter(d => d.cuisine === 'Chinese').map(d => d.name);
+  const history = chinese.slice(0, 4).map((n, i) => mk(n, 300 - i * 20));
+  const all = (o) => rec.recommendationsFor({
+    orders: history, householdId: 'h1', weekDishNames: chinese, eligible: () => true, now, ...o,
+  });
+
+  const r = all();
+  ok('the cuisine rule fires when they have had every other one',
+    r.length === 1 && /every other Chinese dish/.test(r[0].why),
+    JSON.stringify(r));
+  ok('and the evidence travels with it so anyone can check the claim',
+    r[0].evidence.tried === 4 && r[0].evidence.total === chinese.length);
+
+  ok('a dish they have already tried is not recommended back to them',
+    !r.some(x => chinese.slice(0, 4).includes(x.dishName)));
+
+  // The hard refusals.
+  ok('NOTHING is recommended without a restriction filter',
+    rec.recommendationsFor({ orders: history, householdId: 'h1', weekDishNames: chinese, now }).length === 0,
+    'recommending food to somebody whose restrictions are unknown is the one failure here that could hurt');
+  ok('and nothing that fails the filter gets through',
+    all({ eligible: () => false }).length === 0);
+  ok('nothing off this week\'s menu is recommended',
+    all({ weekDishNames: [] }).length === 0,
+    'a perfect recommendation for something unavailable is an annoyance');
+  ok('nothing already in the order is recommended',
+    all({ alreadyOrdered: [chinese[4]] }).length === 0);
+
+  // A household with no history.
+  ok('a new household gets NOTHING rather than a padded list',
+    rec.recommendationsFor({ orders: [], householdId: 'h1', weekDishNames: chinese, eligible: () => true, now }).length === 0,
+    'padding with something weakly justified is how a feature like this stops being trusted');
+  ok('and that state is reportable rather than silent',
+    rec.hasEnoughHistory([], 'h1') === false && rec.hasEnoughHistory(history, 'h1') === true);
+
+  // The other two rules.
+  const repeat = rec.recommendationsFor({
+    orders: [mk('Bolognese', 10), mk('Bolognese', 40), mk('Bolognese', 70)],
+    householdId: 'h1', weekDishNames: ['Bolognese'], eligible: () => true, now,
+  });
+  ok('a repeat favourite states the count', /ordered this 3 times/.test(repeat[0].why));
+
+  const lapsed = rec.recommendationsFor({
+    orders: [mk('Bolognese', 300), mk('Bolognese', 290)],
+    householdId: 'h1', weekDishNames: ['Bolognese'], eligible: () => true, now,
+  });
+  ok('a lapsed dish states how long it has been',
+    /not in about \d+ months/.test(lapsed[0].why) && lapsed[0].evidence.daysSince >= 90);
+
+  ok('one dish gets ONE reason, not a stack of them',
+    repeat.length === 1 && Object.keys(repeat[0]).includes('ruleId'),
+    'stacking reasons reads as a sales pitch');
+
+  ok('thresholds are high enough that two orders is not "a favourite"',
+    rec.recommendationsFor({
+      orders: [mk('Bolognese', 10), mk('Bolognese', 40)],
+      householdId: 'h1', weekDishNames: ['Bolognese'], eligible: () => true, now,
+    }).length === 0,
+    'a rule that fires on two orders is noise dressed as insight');
+
+  const src = fs.readFileSync(new URL('../src/recommendations.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('nothing models taste, scores, or predicts a preference',
+    !/probably|might like|predict|affinity|similarity|score|weight/i.test(code),
+    'every reason has to be a fact that is either true or not');
+  ok('and every rule returns a `why` alongside its evidence',
+    (code.match(/ruleId:/g) || []).length === (code.match(/evidence:/g) || []).length,
+    'a recommendation without its evidence cannot be checked');
+}
+
+// ── CONTAINER DEPOSITS ──────────────────────────────────────────────────────
+//
+// Kevin's ruling: $1 a container, $2 a jar, charged out as an incentive to
+// return — "so if they don't return then I make a little extra."
+//
+// It is a DEPOSIT, not a passthrough. A passthrough is bought and resold at
+// cost and the money is never really his; a deposit IS his if it is not
+// reclaimed, so it cannot be modelled as pasta.
+{
+  const d = await import('../src/containerDeposits.js');
+  const { orderTotal } = await import('../src/utils.js');
+  const fs = await import('node:fs');
+  const now = Date.now();
+  const mk = (used, daysAgo, returns) => ({
+    status: 'Delivered', deliveredAt: new Date(now - daysAgo * 86400000).toISOString(),
+    items: [{ name: 'Omakase', omakase: true, containersUsed: used }],
+    ...(returns ? { containerReturnsByType: returns } : {}),
+  });
+
+  const out = d.depositsOutFor(mk({ round16: 2, jar: 1 }, 10));
+  ok('a jar is $2 and a container is $1, flat',
+    out.cents === 400 && out.byType.round16 === 2);
+  ok('and the outbound side is DERIVED, never typed',
+    Object.keys(out.byType).length === 2,
+    'the container map already knows; asking Kevin to type it asks for what he told the app');
+
+  // cup2.
+  ok('the 2 oz cup is NOT charged a deposit',
+    d.depositsOutFor(mk({ cup2: 5 }, 10)).cents === 0,
+    'a deposit that can never be reclaimed is not a deposit, it is a dollar for a seven-cent cup');
+  // Outbound-only: charged nothing, but the inventory still sees every one.
+  const { orderContainerBreakdown } = await import('../src/containers.js');
+  ok('but the container inventory still counts every one he gives out',
+    orderContainerBreakdown(mk({ cup2: 5, round16: 1 }, 10)).cup2 === 5,
+    'that asymmetry is deliberate, unlike the accidental one this walk fixes');
+  ok('and it cannot be recorded as returned either',
+    d.creditCentsFor({ cup2: 3 }) === 0);
+  ok('a sous vide bag is never in any of this',
+    d.depositsOutFor(mk({ bag: 4 }, 10)).cents === 0 && d.creditCentsFor({ bag: 2 }) === 0);
+
+  // Returns are typed.
+  const st = d.orderDepositState(mk({ round16: 2, jar: 1 }, 10, { round16: 1 }), now);
+  ok('a typed return credits the right rate',
+    st.creditedCents === 100 && st.chargedCents === 400);
+  ok('and what has not come back is reported BY TYPE',
+    st.outstanding.round16 === 1 && st.outstanding.jar === 1,
+    'a generic count cannot be credited back to the right part of the fleet — the bug this fixes');
+
+  // The 90-day rule.
+  ok('nothing is forfeited before 90 days',
+    d.orderDepositState(mk({ jar: 1 }, 89), now).forfeited === false);
+  ok('and it is deemed kept after',
+    d.orderDepositState(mk({ jar: 1 }, 91), now).forfeited === true,
+    'nothing fires when a container is NOT returned, so without a rule the money sits in limbo forever');
+
+  const income = d.forfeitedDepositIncome([mk({ jar: 1 }, 91), mk({ jar: 1 }, 10)], now);
+  ok('forfeited income counts only the aged ones', income.cents === 200 && income.orders === 1);
+
+  // The reversal property.
+  const late = mk({ jar: 1 }, 91, { jar: 1 });
+  ok('a LATE return simply makes the income smaller, with nothing to reverse',
+    d.forfeitedDepositIncome([late], now).cents === 0,
+    'it is recomputed from the orders every time and is never a stored balance');
+
+  ok('circulation excludes what has already been deemed kept',
+    d.inCirculation([mk({ jar: 1 }, 91)], now).cents === 0);
+
+  // The total.
+  const items = [{ name: 'X', price: 30, qty: 1 }];
+  ok('the deposit rides the invoice',
+    orderTotal(items, 0, 0, 'none', 0, [], true, 400) === 34,
+    'it has to be visible, or it cannot be an incentive');
+  ok('and existing call sites are unchanged',
+    orderTotal(items, 0, 0, 'none', 0, [], true) === 30);
+  ok('a discount does not shrink the deposit',
+    orderTotal(items, 0, 0, 'percent', 50, [], true, 400) === 19,
+    'crediting back more than was charged is the failure; the rates are flat by ruling');
+
+  // Margins.
+  const src = fs.readFileSync(new URL('../src/containerDeposits.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('the deposit module touches NEITHER margin calculation',
+    !/margin|blended|valueAdd/i.test(code),
+    'a dish must never look more profitable because a customer kept a tub, or less because they brought it back');
+  ok('and no reader breaks outstanding deposits down by household',
+    !/byRegular|byHousehold|owes|debt/i.test(code),
+    'nobody owes a container; a per-person outstanding list is a debtors\' register whatever it is labelled');
+}
+
 console.log(failed === 0 ? '\nNOTES + LEDGER: ALL PASS' : `\nNOTES + LEDGER: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

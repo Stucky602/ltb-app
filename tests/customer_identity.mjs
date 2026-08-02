@@ -544,5 +544,68 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('and the copy says it is a heads-up, not a rule', /heads-up, not a rule/.test(week));
 }
 
+// ── CAN KEVIN SEE THAT IT IS WORKING? ───────────────────────────────────────
+//
+// Until Aug 2 the answer was no. Device records had existed since claim codes
+// shipped and nothing could list them, so a working link and a silently broken
+// one looked identical from his side — which is exactly how the CORS bug that
+// broke EVERY claim attempt went unnoticed until he tried a code himself.
+{
+  const { linkageByRegular, linkageSummary, fetchLinkedDevices } =
+    await import('../src/customerDevice.js');
+
+  const regulars = [
+    { id: 'r1', name: 'Sarah', profileId: 'p1' },
+    { id: 'r2', name: 'Tom', profileId: 'p2' },
+    { id: 'r3', name: 'Ana' },
+  ];
+  const devices = [
+    { profileId: 'p1', label: 'iPhone', lastUsed: '2026-08-01T10:00:00Z' },
+    { profileId: 'p1', label: 'iPad', lastUsed: '2026-07-01T10:00:00Z' },
+    { profileId: 'p9', label: 'old', revoked: true },
+  ];
+  const rows = linkageByRegular(regulars, devices);
+
+  ok('a linked household reports its devices by name',
+    rows[0].deviceCount === 2 && rows[0].labels.includes('iPhone'));
+  ok('and the most recent use, not the oldest',
+    rows[0].lastUsed === Date.parse('2026-08-01T10:00:00Z'));
+  ok('a revoked device does not count as linked',
+    !rows.some(r => r.labels.includes('old')));
+
+  ok('a regular with NO device is listed, not omitted',
+    rows.length === 3,
+    '"nobody has linked yet" is the answer he needs, and an absent row cannot say it');
+  ok('and never-issued is distinguished from issued-but-unused',
+    rows[1].hasProfile === true && rows[2].hasProfile === false,
+    'those are different problems with different fixes');
+
+  const sum = linkageSummary(rows);
+  ok('the summary answers "is it working at all"',
+    sum.regulars === 3 && sum.linked === 1 && sum.devices === 2 && sum.neverLinked === 2);
+
+  // A network failure must not be reported as "nobody is linked".
+  const down = await fetchLinkedDevices({
+    workerBase: 'https://x', token: 't', fetchImpl: () => { throw new Error('offline'); },
+  });
+  ok('an unreachable worker reports an ERROR, not an empty list',
+    down.ok === false && down.devices.length === 0 && !!down.error,
+    'the claim box already taught this: a refused request reported as "no connection" cost a real debugging session');
+
+  const bad = await fetchLinkedDevices({
+    workerBase: 'https://x', token: 't', fetchImpl: async () => ({ ok: false, status: 401 }),
+  });
+  ok('and an unauthorized response says so rather than looking empty',
+    bad.ok === false && /401/.test(bad.error));
+
+  const worker = (await import('node:fs')).readFileSync(new URL('../worker.js', import.meta.url), 'utf8');
+  ok('the /devices route is token-gated',
+    /pathname === '\/devices'[\s\S]{0,200}tokenOk\(/.test(worker));
+  ok('and returns no hashes or tokens',
+    !/deviceHash[\s\S]{0,400}pathname === '\/devices'/.test(worker)
+    && /profileId: rec\.profileId/.test(worker),
+    'enough to answer "did it work", nothing replayable if the response leaked');
+}
+
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

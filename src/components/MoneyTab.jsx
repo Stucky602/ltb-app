@@ -35,6 +35,7 @@ import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from
 import { BooksPanel } from './BooksPanel.jsx';
 import { AuditPanel } from './AuditPanel.jsx';
 import { WeeklySummaryModal } from './WeeklySummary.jsx';
+import { forfeitedDepositIncome, inCirculation } from '../containerDeposits.js';
 
 export function ProfitChart({ series }) {
   const W = 320, H = 160;
@@ -431,6 +432,34 @@ export function MoneyTab({ orders, onUpdate, auditLog, costHistory, baseCostMap,
           <div style={{ ...styles.statValue, color: '#1D9E75' }}>{currency(totals.collected)}</div>
           <div style={styles.statLabel}>Collected</div>
         </div>
+
+        {/* DEPOSITS, ON THEIR OWN AND OUT OF BOTH MARGINS.
+            A dish must never look more profitable because a household kept a
+            tub, or less because they brought it back — the dish was cooked the
+            same either way. So this sits beside the margin figures rather than
+            inside them.
+
+            It is also the number that says whether the incentive is working,
+            which folding it into revenue would hide. */}
+        {(() => {
+          const kept = forfeitedDepositIncome(filtered);
+          const out = inCirculation(filtered);
+          if (!kept.cents && !out.cents) return null;
+          return (
+            <div style={styles.moneyStatTile}>
+              <div style={{ ...styles.statValue, color: '#1D9E75' }}>{currency(kept.cents / 100)}</div>
+              <div style={styles.statLabel}>Deposits kept</div>
+              <div style={styles.moneyFootnote}>
+                {currency(out.cents / 100)} still out
+                {/* Circulation, not debt. Kevin: "I hope to get them back
+                    someday, but I don't EXPECT them back." */}
+              </div>
+              <div style={styles.moneyFootnote}>
+                after {kept.afterDays} days
+              </div>
+            </div>
+          );
+        })()}
         <div style={styles.moneyStatTile}>
           <div style={{ ...styles.statValue, ...(totals.outstanding > 0 ? { color: '#EF9F27' } : {}) }}>
             {currency(totals.outstanding)}

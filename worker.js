@@ -1135,6 +1135,40 @@ export default {
       // and an error status would tempt a future client into showing a broken
       // state instead. Personalization is progressive enhancement: its absence
       // must never look like a fault.
+      // WHO IS ACTUALLY LINKED. Owner-only.
+      //
+      // Device records have existed since claim codes shipped, and NOTHING could
+      // list them — so Kevin had no way to tell a working link from a silently
+      // broken one. That is the whole reason the claim-code bug went unnoticed
+      // for as long as it did.
+      //
+      // Returns no hashes and no tokens: a profile id, the label the customer
+      // gave the device, and the two timestamps. Enough to answer "did it
+      // work", nothing that could be replayed if the response leaked.
+      if (request.method === 'GET' && url.pathname === '/devices') {
+        if (!tokenOk(request, url, env)) return json({ error: 'unauthorized' }, origin, 401);
+        const out = [];
+        let cursor;
+        do {
+          const page = await env.LTB_KV.list({ prefix: DEV_PREFIX, cursor });
+          for (const k of page.keys) {
+            try {
+              const rec = JSON.parse(await env.LTB_KV.get(k.name) || 'null');
+              if (!rec || !rec.profileId) continue;
+              out.push({
+                profileId: rec.profileId,
+                label: rec.label || 'Device',
+                firstSeen: rec.firstSeen || null,
+                lastUsed: rec.lastUsed || null,
+                revoked: !!rec.revoked,
+              });
+            } catch (e) { /* one bad record must not hide the rest */ }
+          }
+          cursor = page.list_complete ? null : page.cursor;
+        } while (cursor);
+        return json({ devices: out }, origin);
+      }
+
       if (request.method === 'GET' && url.pathname === '/customer-home') {
         // Flags for an anonymous visitor, computed once and reused on every
         // early return below. Without this, an unrecognised browser gets no

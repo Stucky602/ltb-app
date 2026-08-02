@@ -1851,3 +1851,31 @@ export function jarsOutForRegular(regularId, orders) {
   }
   return Math.max(0, out - credits);
 }
+
+// REUSABLE CONTAINERS A HOUSEHOLD IS HOLDING, from omakase orders.
+//
+// This is the first half of closing the asymmetry documented above: containers
+// could be RETURNED and credited but never counted going out, so a return with
+// no prior jar purchase floored at zero and vanished.
+//
+// It starts with omakase because that is where Kevin asked for it and where the
+// number cannot be derived — he decides what he cooks and therefore what he
+// packs it in, so nothing in the dish registry knows. Every other order type
+// COULD be derived from the container map, and deliberately is not yet: whether
+// a meal container is owed back by a named household is still Kevin's ruling to
+// make, and counting them without it would swap an undercount for an overcount.
+//
+// SOUS VIDE BAGS ARE NOT COUNTED, per Kevin. A bag is not a returnable.
+export function containersOutForRegular(regularId, orders) {
+  if (!regularId) return 0;
+  let out = 0, returned = 0;
+  for (const o of (orders || [])) {
+    if (o.regularId !== regularId) continue;
+    if (!(new Date(o.createdAt || 0).getTime() >= JAR_LEDGER_EPOCH)) continue;
+    for (const it of (o.items || [])) {
+      if (it.omakase && Number(it.containersOut)) out += Number(it.containersOut);
+    }
+    returned += (o.containerReturns || 0);
+  }
+  return Math.max(0, out - returned);
+}

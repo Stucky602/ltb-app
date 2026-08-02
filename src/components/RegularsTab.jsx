@@ -581,6 +581,13 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
           <div style={styles.profileStat}>
             <div style={styles.profileStatNum}>{jarsOutForRegular(regular.id, orders)}</div>
             <div style={styles.profileStatLabel}>jars out</div>
+            </div>
+            {/* Its own stat, not folded into jars. Different objects, different
+                return habits, and the jar count has a documented undercount of
+                its own — merging them would bury one problem inside another. */}
+            <div style={styles.profileStat}>
+              <div style={styles.profileStatNum}>{containersOutForRegular(regular.id, orders)}</div>
+              <div style={styles.profileStatLabel}>containers out</div>
           </div>
           {(() => {
             // Most-ordered dish, and how many omakases they have trusted him with.

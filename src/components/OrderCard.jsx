@@ -110,6 +110,12 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
 
   const estCost = round2(rows.reduce((s, c) => s + (Number(c.cost) || 0), 0));
   const menuValue = round2(rows.reduce((s, c) => s + (Number(c.refPrice) || 0), 0));
+  // Seeded from whatever was saved before, so reopening the card shows the
+  // count rather than resetting it to zero and quietly losing the record.
+  const [containersOut, setContainersOut] = useState(() => {
+    const om = (order.items || []).find(x => x.omakase);
+    return (om && Number(om.containersOut)) || 0;
+  });
   const chargeNum = Math.min(budgetMax, Math.max(0, parseFloat(charge) || 0));
   const marginPct = chargeNum > 0 ? Math.round((1 - estCost / chargeNum) * 100) : 0;
   const pctOfBudget = budgetMax > 0 ? Math.round((estCost / budgetMax) * 100) : 0;
@@ -212,6 +218,7 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
         cost: estCost,
         costSource: 'manual',
         price: chargeNum,
+        containersOut,
         ...(underNote.trim() ? { underNote: underNote.trim() } : {}),
         ...(reheatCard.trim() ? { reheatCard: reheatCard.trim() } : {}),
         ...(bigPath ? { bigPath } : {}),
@@ -399,6 +406,30 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
           Nothing here will produce reheat instructions on their page.
         </div>
       )}
+
+      {/* REUSABLE CONTAINERS ON AN OMAKASE. There is no dish registry to derive
+          this from — Kevin decides what he cooks and therefore what he packs it
+          in — so it is the one case where the count has to be entered by hand.
+          Every other order gets its container count from the dish map.
+
+          NO SOUS VIDE BAGS HERE, per Kevin: bags are not returnables and never
+          come back. This is the reusable count only.
+
+          It feeds the returnables trace, so this number is what makes an
+          omakase household appear in the ledger at all. */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: '#c9d1cd' }}>Reusable containers packed</span>
+        <select
+          value={String(containersOut)}
+          onChange={e => setContainersOut(Number(e.target.value))}
+          style={{ ...inp, width: 70 }}
+        >
+          {Array.from({ length: 13 }, (_, i) => (
+            <option key={i} value={i}>{i}</option>
+          ))}
+        </select>
+        <span style={{ fontSize: 10.5, color: '#7a8480' }}>no bags — they do not come back</span>
+      </div>
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#c9d1cd' }}>Final charge $</span>

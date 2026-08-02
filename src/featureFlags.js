@@ -41,7 +41,6 @@ export const FLAGS = [
   // short-lived signed URLs minted when Kevin bakes the kitchen page, which is
   // already generated per order. A worker design decision, not a wiring job.
   { id: 'visualCues', label: 'Photo cues', why: 'Step photographs on the companion page.' },
-  { id: 'freezerLens', label: 'Freezer filter', why: 'Menu filter by how a dish keeps in a freezer. Built Aug 1; the reheat walk it was waiting on is done.' },
   // BLOCKED on Kevin. He DEFERRED this on Jul 31: it needs a better walk and he
   // intended to rewrite the entry himself. The reheat walk it once waited on is
   // now done, so that part of the `why` below is stale.
@@ -55,7 +54,6 @@ export const FLAGS = [
   { id: 'beforeYouStart', label: 'Before you start', why: 'A card at the top of the kitchen page: how long, what to do first, what pans you need.' },
   { id: 'storagePlan', label: 'What to eat first', why: 'Per-component storage plan: what to eat now, what holds, what to freeze.' },
   { id: 'heatOnly', label: 'Cooking for fewer', why: 'How to heat part of an order without ruining the rest.' },
-  { id: 'splitPack', label: 'Two-night packs', why: 'Lets a customer choose a divided pack on the order form. Shows nothing until a dish is declared splittable.' },
 ];
 
 export const FLAG_IDS = FLAGS.map(f => f.id);
@@ -84,19 +82,12 @@ export const DEFAULT_FLAGS = {
   requestBox: { stage: 'on' },
   ingredientCards: { stage: 'on' },
   visualCues: { stage: 'owner' },
-  // ON BY DEFAULT (Kevin, Aug 2). It was flagged off because that is how every
-  // customer feature had shipped, not because anyone argued it should be. The
-  // flag id stays as a kill switch; the default is what changed.
-  freezerLens: { stage: 'on' },
   serveTogether: { stage: 'off' },
   awayMode: { stage: 'off' },
   jarReturn: { stage: 'off' },
   beforeYouStart: { stage: 'owner' },
   storagePlan: { stage: 'owner' },
   heatOnly: { stage: 'owner' },
-  // Off rather than owner: SPLIT_PACKAGING is empty, so even Kevin would see
-  // nothing. It turns on after he runs the two-night walk.
-  splitPack: { stage: 'off' },
 };
 
 export function normalizeFlags(raw) {

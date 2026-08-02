@@ -105,8 +105,14 @@ export function companionContext(order, opts = {}) {
         // as a guarantee.
         const hedge = fz.tested === false ? ' (untested, Kevin\u2019s best guess)' : '';
         const fzTxt = fz.verdict && fz.verdict !== 'na'
-          ? `freeze ${fz.verdict}${hedge}${fz.note ? ` — ${fz.note}` : ''}` : null;
-        const dvTxt = c.divide && c.divide.note ? `dividing: ${c.divide.note}` : null;
+          ? `freeze ${fz.verdict}${hedge}${fz.customer || fz.note ? ` — ${fz.customer || fz.note}` : ''}` : null;
+        // CUSTOMER COPY FIRST here too. This text grounds the ask box, so a
+        // model reading "the Brunswick potato treatment" against the Leblanc
+        // carrots can repeat that cross-reference to someone who never ordered
+        // Brunswick. The fallback only ever reaches the `na` dry-goods
+        // components, whose notes are plain ("Ships uncooked").
+        const dvNote = (c.divide && (c.divide.customer || c.divide.note)) || null;
+        const dvTxt = dvNote ? `dividing: ${dvNote}` : null;
         if (fzTxt || dvTxt) bits.push(`  ${c.key}: ${[fzTxt, dvTxt].filter(Boolean).join('; ')}`);
       }
 

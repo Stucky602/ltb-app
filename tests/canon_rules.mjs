@@ -216,9 +216,20 @@ const ok = (label, cond, detail = '') => {
     /KNOWN DEFECT[\s\S]{0,200}ASYMMETRIC/.test(utils),
     'a half-built ledger with no note reads as a finished one');
 
-  ok('no surface labels that number "containers out"',
-    !/containers out/i.test(regulars),
-    'the profile stat said containers over a number that counts jars — that is the reported bug wearing a caption');
+  // NARROWED Aug 2. The phrase is legitimate now: omakase orders record a real
+  // reusable-container count and `containersOutForRegular` reports it. What must
+  // never come back is the ORIGINAL bug — that caption sitting over the JAR
+  // number. So this checks the pairing rather than banning the words.
+  const containerLabels = [...regulars.matchAll(/profileStatNum\}>\{(\w+)\(regular\.id[\s\S]{0,120}?profileStatLabel\}>([^<]+)</g)]
+    .map(m => ({ fn: m[1], label: m[2].trim().toLowerCase() }));
+  ok('every "out" stat is labelled with what it actually counts',
+    containerLabels.every(x =>
+      (x.label.includes('jar') && x.fn === 'jarsOutForRegular')
+      || (x.label.includes('container') && x.fn === 'containersOutForRegular')),
+    JSON.stringify(containerLabels));
+  ok('and the container count comes from omakase entries, not the jar ledger',
+    /containersOutForRegular/.test(regulars),
+    'the two ledgers stay separate: jars and tubs have different return habits');
 
   ok('and the regulars table still calls its column Jars',
     /<th[^>]*>Jars<\/th>/.test(regulars),

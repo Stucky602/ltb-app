@@ -125,9 +125,22 @@ const page = readFileSync(new URL('../form.html', import.meta.url), 'utf8');
   ok('it renders only when the published variant carried packs',
     /if \(v\.packs && __ltbPackFlag\(\)\)/.test(page),
     'eligibility AND the flag, so an undeclared dish can never show the option');
-  ok('the flag reads ABSENT AS OFF, unlike the request box',
-    /splitPack[\s\S]{0,200}stage === 'on'/.test(page),
-    'this feature had no prior behaviour to preserve, so no answer means do not offer');
+  // FLAG RETIRED Aug 2. The option is live, so the switch went rather than
+  // sitting in the panel as a permanent maybe.
+  //
+  // It is still gated where it matters, and more tightly than a flag ever was:
+  // a variant only carries `packs` when the derived rule finds a component that
+  // must be reheated sealed. Containers are never split — a customer pours what
+  // they need out of one — so most dishes have nothing to offer and the chooser
+  // never renders for them.
+  ok('the pack chooser is no longer flagged',
+    /function __ltbPackFlag\(\) \{ return true; \}/.test(page));
+  ok('and no page still reads a splitPack flag',
+    !page.includes('splitPack'),
+    'a page reading a flag the app no longer declares would silently read undefined');
+  ok('but it still only renders when the published variant carried packs',
+    /if \(v\.packs && __ltbPackFlag\(\)\)/.test(page),
+    'eligibility is the real gate: an undeclared dish must never show the option');
   ok('footprint text travels with the option rather than being computed on the page',
     page.includes('esc(footprint)'),
     'the words a customer reads must come from the container map the kitchen packs from');

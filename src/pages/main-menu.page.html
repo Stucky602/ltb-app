@@ -187,13 +187,10 @@
     // together; somebody planning the week wants only "best eaten fresh".
     var freezerOn = {};
     function freezerAny() { return !!(freezerOn.clean || freezerOn.caveat || freezerOn.minimal); }
-    function freezerEnabled() {
-      if (typeof window.__ltbFlag === 'function' && window.__ltbFlags
-          && ('freezerLens' in window.__ltbFlags)) return window.__ltbFlag('freezerLens');
-      // Absent means ON: flags only reach the worker on publish, and a
-      // default-on filter should not wait for an unrelated action.
-      return true;
-    }
+    // NO LONGER FLAGGED (Aug 2). See the note in menu.page.html: the feature
+    // is live, so the switch went rather than sitting there as a permanent maybe.
+    function freezerEnabled() { return true; }
+
 
     <!-- @include _partials/esc.js -->
     function chip(kind, value, label, on) {

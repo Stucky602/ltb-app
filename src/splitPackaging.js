@@ -50,6 +50,9 @@
 
 import { REHEAT_DATA } from './reheatData.js';
 import { UNDIVIDABLE_MODES } from './canonRules.js';
+import { DISHES } from './dishes.js';
+import { dishIdFor } from './dishIdentity.js';
+import { CONTAINER_TYPES, containersForDish } from './containers.js';
 
 export const PACK_SHAPES = ['family', 'twoNight'];
 export const PACK_LABELS = {
@@ -61,9 +64,140 @@ export const PACK_BLURBS = {
   twoNight: 'Split into two, so you can heat one half and leave the other sealed.',
 };
 
-// EMPTY ON PURPOSE. See the header. Filled from Kevin's answers to the
-// split-packaging walk, one dish at a time, never guessed.
+// OVERRIDES ONLY. Empty is the normal state.
+//
+// Everything is DERIVED from the reheat walk now (see deriveSplit below) —
+// Kevin's Aug 2 answers turned the per-dish questions into rules, so declaring
+// dishes by hand is no longer the way this fills up. An entry here wins over
+// the derivation, for the case where a dish genuinely does not follow the rule.
 export const SPLIT_PACKAGING = {};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SURCHARGE TEST, AS KEVIN STATED IT
+//
+//   "If the bag can basically just change into a storage container then no
+//    surcharge is needed. If instead it must be reheated in the bag and only in
+//    the bag as the best method, that's when we gotta split it to two bags and
+//    the surcharge applies."
+//
+// That collapses exactly onto a field the reheat walk already recorded per
+// component. `bag-is-vessel` IS "the bag is the method" — it is why the polenta
+// must not be opened. So a bag-is-vessel component needs a SECOND SEALED BAG at
+// pack time, and that is the only thing that costs anything.
+//
+// Every other component is free: a container is already a container, and an
+// ordinary sous vide bag becomes storage the moment it is opened, which is the
+// reseal rule from Walk I.
+const SEALED_MODES = new Set(['bag-is-vessel']);
+
+// THE ONE THING THAT STILL BLOCKS A SPLIT. `not-recommended` is Kevin grading a
+// division down himself, which is a judgement rather than a mechanic.
+//
+// NOTE THE CHANGE: `bag-is-vessel` used to block eligibility here, on the
+// reading that an undividable component made a split impossible. Kevin
+// corrected that — the customer cannot divide a sealed bag, but HE can pack two
+// of them. It is the surcharge trigger, not a disqualifier.
+const BLOCKING_MODES = new Set(['not-recommended']);
+
+// Container volumes come from the fleet's own labels ("48 oz round"), so a new
+// size needs no edit here.
+function ozOf(type, catalog) {
+  const m = String(((catalog || {})[type] || {}).label || '').match(/(\d+)\s*oz/i);
+  return m ? Number(m[1]) : null;
+}
+
+// CONTAINERS ARE NEVER SPLIT. Kevin, Aug 2, and it removes a whole function.
+//
+// "Split servings ONLY impacts the SV bags not the containers. It's dry rice.
+//  Why would I waste 2 containers when they can just pour what they need out
+//  of 1?"
+//
+// That is obvious once said and I had it backwards: a container is poured from,
+// so one container already serves two nights at no cost and no extra packaging.
+// An earlier version halved every container in the map — turning one 48 oz
+// round into two 32s — which invented a cost, wasted a container, and solved
+// nothing the customer could not already do by scooping.
+//
+// SO THE ONLY THING A TWO-NIGHT PACK CHANGES IS THE SEALED BAGS. And that has a
+// consequence worth stating: a dish with NO sealed component has nothing to
+// sell. There is no pack, no surcharge, and no choice to offer, because pouring
+// half out of a container is already free and already possible. Split packaging
+// is a smaller feature than it looked, and it is smaller for a good reason.
+export function splitContainers(familyMap, sealedCount) {
+  const out = { ...(familyMap || {}) };
+  if (sealedCount > 0) out.bag = (out.bag || 0) + sealedCount;
+  return out;
+}
+
+
+// THE DERIVATION. Returns the same shape a hand-written entry would, or null
+// when the dish cannot split. Smalls only — a Large already ships as two of
+// everything, so it is split by construction.
+export function deriveSplit(dishId, variantLabel, opts = {}) {
+  const reheatData = opts.reheatData || REHEAT_DATA;
+  const catalog = opts.catalog || null;
+  const familyMap = opts.familyMap || null;
+  if (isLargeVariant(variantLabel)) return null;
+
+  const d = reheatData[dishId];
+  const comps = (d && d.components) || [];
+  // NO MINIMUM COMPONENT COUNT. An earlier version required two, on the reading
+  // that a single component could not become two packs. That is backwards: a
+  // Chili is one stew in one container and splits into two containers perfectly,
+  // with nothing to separate and nothing to charge for. It is the simplest split
+  // there is, and the rule was excluding it.
+  if (!comps.length) return null;
+
+  for (const c of comps) {
+    if (c.divide && BLOCKING_MODES.has(c.divide.mode)) return null;
+  }
+
+  // VARIANT-SCOPED. Kevin, Aug 2: the polenta on the Saffron and Mushroom ragus
+  // is an OPTIONAL variation, so its sealed bag only exists if the customer
+  // picks that variant. Charging every buyer for a bag most of them never
+  // receive is the kind of error a flat per-dish rule produces.
+  //
+  // A component counts as optional when some variant of the dish names it. It
+  // then applies only to the variants that do.
+  const variantLabels = opts.variantLabels || [];
+  const namedBySomeVariant = (key) =>
+    variantLabels.some(l => l.toLowerCase().includes(String(key).toLowerCase()));
+  const appliesHere = (key) =>
+    !namedBySomeVariant(key) || String(variantLabel).toLowerCase().includes(String(key).toLowerCase());
+
+  const sealed = comps.filter(c =>
+    c.divide && SEALED_MODES.has(c.divide.mode) && appliesHere(c.key));
+  const fee = splitFeeFor(sealed.length);
+  if (!familyMap || !catalog) return null; // cannot state containers without the fleet
+
+  // NO SEALED COMPONENT, NO PACK. See splitContainers above.
+  if (!sealed.length) return null;
+  const twoNight = splitContainers(familyMap, sealed.length);
+
+  // NOTHING CHANGED MEANS THERE IS NOTHING TO SELL. A dish that is entirely one
+  // ordinary bag comes out of this identical to how it went in — because an
+  // ordinary bag already opens and the customer already takes half out. That is
+  // the existing pour-and-keep divide, free and unchanged, so offering a
+  // "two-night pack" for it would be charging attention for nothing. The Cumin
+  // noodles and the Pappardelle are both this case.
+  // THE CONTAINER MAP AND THE REHEAT WALK DISAGREE. A sealed component means a
+  // second bag has to be packed, so the family map should already list a bag —
+  // and for the Saffron and Mushroom ragus it does not. Rather than quietly bill
+  // for packaging the map does not know about, this comes back to Kevin.
+  const bagMismatch = sealed.length > 0 && !familyMap.bag;
+
+  return {
+    family: { ...familyMap },
+    twoNight,
+    surchargeCents: fee.cents,
+    sealedBags: sealed.map(c => c.key),
+    needsReview: fee.needsReview || bagMismatch,
+    reviewWhy: bagMismatch
+      ? `The reheat walk says ${sealed.map(c => c.key).join(' and ')} must stay sealed, but the container map lists no bag for this dish.`
+      : (fee.needsReview ? 'Three or more sealed bags — priced at the top tier and flagged rather than billed automatically.' : ''),
+    derived: true,
+  };
+}
 
 // Modes where dividing costs you something. `bag-is-vessel` is the polenta
 // problem — opening the bag loses the method — and `not-recommended` is Kevin
@@ -137,13 +271,30 @@ export function splitFeeFor(extraBags) {
 }
 
 export function splitEntryFor(dishId, variantLabel) {
+  // A HAND-WRITTEN OVERRIDE WINS. Empty is the normal state; this exists for a
+  // dish that genuinely does not follow the rule.
   const entry = SPLIT_PACKAGING[dishId];
-  if (!entry || !Array.isArray(entry.byVariant)) return null;
-  const hit = entry.byVariant.find(v => {
-    if (!v || !v.match) return false;
-    return v.match instanceof RegExp ? v.match.test(variantLabel || '') : String(v.match) === variantLabel;
+  if (entry && Array.isArray(entry.byVariant)) {
+    const hit = entry.byVariant.find(v => {
+      if (!v || !v.match) return false;
+      return v.match instanceof RegExp ? v.match.test(variantLabel || '') : String(v.match) === variantLabel;
+    });
+    if (hit) return hit;
+  }
+
+  // Otherwise derive it from the reheat walk and the container map. Kevin's
+  // Aug 2 answers turned the per-dish questions into rules, so this needs no
+  // per-dish declaration.
+  const dish = DISHES.find(d => dishIdFor(d.name) === dishId);
+  if (!dish) return null;
+  const derived = deriveSplit(dishId, variantLabel, {
+    catalog: CONTAINER_TYPES,
+    familyMap: containersForDish(dish, variantLabel),
+    variantLabels: (dish.variants || []).map(v => v.label),
   });
-  return hit || null;
+  // A split that needs Kevin's ruling is not offered to a customer. Better no
+  // option than one priced on a disagreement between two records.
+  return derived && !derived.needsReview ? derived : null;
 }
 
 // The gate every customer surface must go through. False for everything today.

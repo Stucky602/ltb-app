@@ -69,14 +69,24 @@ const ok = (label, cond, detail = '') => {
 
 // ── The two shapes of the yellow box ────────────────────────────────────────
 {
+  // CHANGED Aug 2. These used to assert the GENERATED wording — "Before you
+  // freeze this…" and "Freezes fine…" — which were only ever placeholders. The
+  // customer sentence now leads on its own, so asserting the prefix would pin
+  // the fallback and forbid the real copy.
+  //
+  // What matters is that a step dish tells you to remove something and a quality
+  // dish does not, whatever words carry it.
   const action = lensBox(classifyDish('brunswick-stew'));
-  ok('a dish needing a STEP leads with the action',
-    /^Before you freeze this/.test(action.lead),
+  ok('a dish needing a STEP tells the customer to take it out',
+    /take the potatoes out/i.test(action.lead),
     action.lead);
+  ok('and says what to do with the dish afterwards',
+    /freeze the stew/i.test(action.lead),
+    'removing something without saying what happens next is half an instruction');
 
   const quality = lensBox(classifyDish('stir-fried-long-beans-with'));
-  ok('a dish with only a QUALITY note says exactly that instead',
-    /^Freezes fine/.test(quality.lead),
+  ok('a dish with only a QUALITY note describes the compromise instead',
+    /works frozen|not be at its best/i.test(quality.lead),
     quality.lead);
 
   // Why the distinction exists at all.
@@ -85,8 +95,8 @@ const ok = (label, cond, detail = '') => {
     'a customer who reads "needs attention" and finds it meant slightly soft gai lan stops reading yellow boxes, '
     + 'and the box has to keep its credibility for Brunswick where ignoring it produces a bad dinner');
 
-  ok('the box prefers Kevin\'s own recorded note over a generated sentence',
-    /Not as good, but good/.test(action.lead),
+  ok('the box uses the resolved customer sentence, not a template',
+    /Not quite the same, but good/.test(action.lead),
     'component keys are not nouns a customer recognises — the long beans key their soft component as `bag`');
 
   ok('no box builds prose out of a bare component key where a note exists',
@@ -141,17 +151,15 @@ const ok = (label, cond, detail = '') => {
     /function lensBoxHtml[\s\S]{0,220}lensAny\(\)/.test(page),
     'Kevin: "I am not trying to overwhelm clients." Always-on boxes are the failure this guards');
 
-  ok('the whole feature still reads the freezerLens flag as a kill switch',
-    /function lensEnabled[\s\S]{0,900}freezerLens/.test(page),
-    'default-on is not the same as ungated — setting the flag off must still hide it');
-
-  // THE BUG THAT SHIPPED. `__ltbPersonal.flags` does not exist anywhere in this
-  // codebase; the accessor is window.__ltbFlag. The typeof guard made the
-  // mistake fail silently, so the personalized path never fired and the lens
-  // was invisible even with the flag on.
-  ok('the page uses the REAL flag accessor',
-    page.includes('window.__ltbFlag('),
-    'personalize.js sets window.__ltbFlags and exposes window.__ltbFlag(id)');
+  // FLAG RETIRED Aug 2. It shipped, it works, and Kevin removed the switch
+  // rather than leave a permanent maybe in the panel. The seam stays as a named
+  // function so re-gating is one line, but nothing reads a flag any more.
+  ok('the feature is no longer gated on a flag',
+    /function lensEnabled\(\)\s*\{\s*return true; \}/.test(page),
+    'a flag nobody will ever turn off is just another way for the feature to break');
+  ok('and no page still looks for a freezerLens flag',
+    !page.includes('freezerLens'),
+    'a page reading a flag the app no longer declares would silently read undefined');
   // NARROWED after checking rather than assuming: `__ltbPersonal` IS real on
   // form.html, built by an IIFE in that file, and the request box has always
   // read its flag through it. It does NOT exist on menu.html, which is why the
@@ -200,6 +208,115 @@ const ok = (label, cond, detail = '') => {
   ok('on the weekly page the row sits in the always-present filter bar',
     /return lensRowHtml\(\) \+ '<div class="diet-filter">/.test(weekly),
     'inside the dinners block it disappeared entirely on a bag-sections-only week');
+}
+
+// ── INTERNAL NOTES MUST NEVER REACH A CUSTOMER ──────────────────────────────
+//
+// This shipped and Kevin caught it on the live menu. `freeze.note` is his own
+// shorthand written TO the person building this: it carries cross-references
+// ("the Brunswick potato treatment", "same as the long beans", "same as the
+// black bean dish"), his name in the third person, and reasoning about variants.
+// The lens printed it verbatim, so a customer reading about the Leblanc carrots
+// was told about a potato treatment on a completely different dish.
+//
+// `freeze.customer` is the resolved, standalone sentence. `freeze.note` stays
+// internal — the storage-plan bucket heuristics still read it, which is exactly
+// why it must not be softened into customer copy.
+{
+  const { REHEAT_DATA: RD } = await import('../src/reheatData.js');
+
+  // Phrases that only make sense to someone holding the whole record.
+  const INTERNAL = /Brunswick potato treatment|same as the |Kevin:|Kevin sees|Kevin has not|variant-independent|Stuff in a Bag|on the board|All variants/i;
+
+  let leaked = [];
+  for (const id of Object.keys(RD)) {
+    const c = classifyDish(id);
+    if (!c) continue;
+    const box = lensBox(c);
+    const text = `${box.lead} ${box.detail}`;
+    if (INTERNAL.test(text)) leaked.push(id);
+  }
+  ok('no dish shows a customer an internal cross-reference',
+    leaked.length === 0,
+    leaked.join(', '));
+
+  // Every component with a note that a customer might see needs the resolved
+  // version, or the fallback silently loses the substance.
+  const missing = [];
+  for (const [id, d] of Object.entries(RD)) {
+    for (const c of d.components || []) {
+      const f = c.freeze || {};
+      if (f.note && f.verdict && f.verdict !== 'na' && !f.customer) missing.push(`${id}/${c.key}`);
+    }
+  }
+  ok('every graded component with an internal note has customer copy beside it',
+    missing.length === 0,
+    missing.join(', '));
+
+  ok('the lens reads freeze.customer, never freeze.note',
+    !/freeze\.note/.test(
+      (await import('node:fs')).readFileSync(new URL('../src/freezerLens.js', import.meta.url), 'utf8')),
+    'one read of the internal field puts shorthand back on a customer page');
+
+  // Dry goods are not a freezeable part of dinner.
+  const thai = classifyDish('thai-basil-chicken-pad');
+  ok('a bagged dish whose only other component is uncooked rice reads as MINIMAL',
+    thai.state === 'minimal',
+    'counting dry rice as freezeable made it a tie and told a customer to take the bag out of a dish that is only the bag');
+  ok('and uncooked rice is never named as "what does freeze"',
+    !lensBox(thai).detail.includes('rice'),
+    'it ships uncooked; naming it says the pantry item was the salvageable part of dinner');
+}
+
+// ── EVERY customer surface, not just the lens ──────────────────────────────
+//
+// The first fix covered the freezer lens and stopped there. Kevin asked whether
+// the same notes leaked elsewhere and they did, in three more places: the
+// hold-back lines and the Cooking-for-fewer card on the kitchen page, and the
+// ask-box grounding — where a model handed "the Brunswick potato treatment"
+// against the Leblanc carrots can repeat it to someone who never ordered
+// Brunswick.
+//
+// `divide.note` had the same disease as `freeze.note`: three of them said "the
+// polenta treatment", pointing at a method recorded on a different dish.
+{
+  const { companionHtml, companionContext } = await import('../src/companion.js');
+  const { REHEAT_DATA: RD } = await import('../src/reheatData.js');
+
+  const INTERNAL = /Brunswick potato treatment|polenta treatment|same as the |Kevin:|Kevin sees|Kevin has not|Kevin cuts|Kevin would|precedent|variant-independent|Stuff in a Bag/i;
+
+  // Every dish, on the page that actually reaches a customer's kitchen.
+  const items = Object.keys(RD).slice(0, 12).map(id => ({ name: RD[id].__name || id, variant: 'Small', qty: 1 }));
+  const order = {
+    id: 'x', customer: 'A',
+    items: [
+      { name: 'Steak au Poivre', variant: 'Small', qty: 1 },
+      { name: 'Leblanc Inspired Japanese Curry', variant: 'Small', qty: 1 },
+      { name: 'Brunswick Stew', variant: 'Small', qty: 1 },
+      { name: 'Pork Chop with Kabocha Purée and Charred Broccolini', variant: 'Small', qty: 1 },
+    ],
+  };
+
+  const html = companionHtml(order, 'p1', { heatOnly: true, storagePlan: true, beforeYouStart: true });
+  ok('the kitchen page shows no internal cross-reference',
+    !INTERNAL.test(html),
+    (html.match(new RegExp(INTERNAL.source, 'gi')) || []).join(', '));
+
+  ok('the ask-box grounding shows none either',
+    !INTERNAL.test(companionContext(order, {})),
+    'a model given a cross-reference will repeat it to a customer who cannot follow it');
+
+  // divide.note gets the same treatment as freeze.note.
+  const missing = [];
+  for (const [id, d] of Object.entries(RD)) {
+    for (const c of d.components || []) {
+      const dv = c.divide || {};
+      if (dv.note && INTERNAL.test(dv.note) && !dv.customer) missing.push(`${id}/${c.key}`);
+    }
+  }
+  ok('every divide note containing a cross-reference has customer copy beside it',
+    missing.length === 0,
+    missing.join(', '));
 }
 
 console.log(failed === 0 ? '\nFREEZER LENS: ALL PASS' : `\nFREEZER LENS: ${failed} FAILURES`);

@@ -69,6 +69,17 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
   const bad = graded.filter(c => c.freeze.verdict === 'no');
   const soft = graded.filter(c => SOFT.has(c.freeze.verdict));
   const fine = graded.filter(c => FINE.has(c.freeze.verdict));
+  // `na` COUNTS AS CLEAN BUT IS NOT EVIDENCE THE DISH FREEZES, and holding both
+  // at once is the point. It means the component ships uncooked and never goes
+  // near a freezer — dry rice, dry pasta. So a dish of all-good components plus
+  // rice is still CLEAN, but a bagged dish whose ONLY other component is dry
+  // rice must not read as "half of this freezes".
+  //
+  // Thai Basil and the black bean dish are the cases: bag `no`, rice `na`.
+  // Counting the rice as freezeable made them a tie and put them in CAVEAT,
+  // which told a customer to take the bag out of a dish that is nothing but the
+  // bag. Excluded from the majority test, they land in MINIMAL, which is true.
+  const realFine = fine.filter(c => c.freeze.verdict !== 'na');
 
   // MINIMAL — the state that exists because CAVEAT would describe these dishes
   // BACKWARDS. Tex-Mex is the type case: telling a customer "freezes, with a
@@ -91,15 +102,19 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
   // Counting components is a proxy for "how much of the dish", which is what he
   // actually said. It is imperfect and it is explainable, and it agrees with all
   // three cases he named. A weighting nobody gave would be neither.
-  if (bad.length && fine.length < bad.length) {
+  if (bad.length && realFine.length < bad.length) {
     return {
       state: 'minimal',
       // Naming the exception is required, not decorative. "Mostly does not
       // freeze" with nothing after it tells a customer to give up on a dish
       // that has a genuinely freezable part.
-      exceptions: fine.map(c => c.key),
-      blockers: bad.map(c => ({ key: c.key, note: (c.freeze.note || '') })),
-      soft: soft.map(c => ({ key: c.key, note: (c.freeze.note || '') })),
+      // DRY GOODS ARE NOT AN EXCEPTION WORTH NAMING. `na` means it ships
+      // uncooked, so "what does freeze: the rice" told a customer the pantry
+      // item in their bag was the salvageable part of dinner. Only components
+      // that are actually cooked food count.
+      exceptions: realFine.map(c => c.key),
+      blockers: bad.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
+      soft: soft.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
     };
   }
 
@@ -107,8 +122,8 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
     return {
       state: 'caveat',
       exceptions: [],
-      blockers: bad.map(c => ({ key: c.key, note: (c.freeze.note || '') })),
-      soft: soft.map(c => ({ key: c.key, note: (c.freeze.note || '') })),
+      blockers: bad.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
+      soft: soft.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
     };
   }
 
@@ -145,17 +160,36 @@ export function lensBox(classification) {
     const keep = exceptions.length
       ? ` What does freeze: the ${joinWords(exceptions)}.`
       : '';
+    // Kevin's own sentence leads here too where there is one. It says WHY the
+    // dish is in this state and usually adds that there is no hurry, which the
+    // generic line cannot: "best eaten fresh" alone reads as a warning when the
+    // truth is often just "eat it this week, it keeps perfectly well".
+    const why = blockers.map(b => b.note).find(Boolean);
     return {
       tone: 'minimal',
-      lead: 'Best eaten fresh — most of this does not freeze.',
+      lead: why || 'Best eaten fresh — most of this does not freeze.',
       detail: keep.trim(),
     };
   }
 
   // CAVEAT, both shapes. An action leads when there is one; quality follows.
   //
-  // KEVIN'S RECORDED NOTE IS PREFERRED OVER ANY SENTENCE BUILT HERE. Two
-  // reasons, and the second is the important one:
+  // READS THE CUSTOMER FIELD, NEVER THE INTERNAL ONE. THE NOTES ARE INTERNAL.
+  //
+  // This shipped wrong and it is worth being precise about why. The notes are
+  // Kevin's own words, so printing them looked like the honest choice — but they
+  // are notes TO the person building this, not copy for a customer. They carry
+  // cross-references ("the Brunswick potato treatment", "same as the long
+  // beans"), his name in the third person, and reasoning about variants. A
+  // customer reading the Leblanc carrots was told about a potato treatment on a
+  // different dish entirely.
+  //
+  // Resolving those pointers was the job all along: the treatment being pointed
+  // AT is recorded in this same data, so carrying the logic across is reading
+  // the record rather than inventing anything. `freeze.customer` holds the
+  // resolved sentence; the internal field stays as the kitchen's own record.
+  //
+  // Two further reasons the built-sentence fallback still matters:
   //
   //   1. It is already in his voice, and it is better writing than a template.
   //      Brunswick's note does not just say to pull the potatoes; it says what
@@ -170,16 +204,19 @@ export function lensBox(classification) {
   // The generated fallback stays for components with no note, and it is
   // deliberately vaguer than the note would be, because vaguer is what is
   // honestly known there.
+  // THE CUSTOMER SENTENCE STANDS ALONE. It already says what to do, in full, so
+  // prefixing the generated lead produced "Before you freeze this, take out the
+  // carrots. Take the carrots out and..." — the same instruction twice. The
+  // built sentence is a FALLBACK for a component with no customer copy, not a
+  // header for one that has it.
   const blockerNote = blockers.map(b => b.note).find(Boolean);
   const action = blockers.length
-    ? (blockerNote
-      ? `Before you freeze this, take out the ${joinWords(blockers.map(b => b.key))}. ${blockerNote}`
-      : `Before you freeze this, take out the ${joinWords(blockers.map(b => b.key))} — better used for something else.`)
+    ? (blockerNote || `Before you freeze this, take out the ${joinWords(blockers.map(b => b.key))} — better used for something else.`)
     : '';
 
   const softNote = soft.map(sc => sc.note).find(Boolean);
   const quality = soft.length
-    ? (softNote ? `Freezes fine. ${softNote}` : 'Freezes fine, without being at its best afterward.')
+    ? (softNote || 'Freezes fine, without being at its best afterward.')
     : '';
 
   if (action && quality) return { tone: 'caveat', lead: action, detail: quality };

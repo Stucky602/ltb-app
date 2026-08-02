@@ -148,35 +148,14 @@
   // WHERE THE KNOWLEDGE LIVES.
   var lensOn = {};
   function lensAny(){ return !!(lensOn.clean || lensOn.caveat || lensOn.minimal); }
-  function lensEnabled(){
-    // THE ACCESSOR IS __ltbFlag, and getting this wrong is why the lens did not
-    // appear on the first push. The first version read `__ltbPersonal.flags`,
-    // an object that does not exist anywhere in this codebase — personalize.js
-    // sets `window.__ltbFlags` and exposes `window.__ltbFlag(id)`. The typeof
-    // guard meant the mistake failed SILENTLY instead of throwing, so the
-    // personalized path never fired for anyone, including Kevin on `owner`.
-    //
-    // Check the real accessor first: it is the only path that can resolve the
-    // owner, testers, and percent stages, because those are evaluated per
-    // customer by the worker and arrive as a plain boolean.
-    if (typeof window !== "undefined" && typeof window.__ltbFlag === "function"
-        && window.__ltbFlags && ("freezerLens" in window.__ltbFlags)) {
-      return window.__ltbFlag("freezerLens");
-    }
-    // ABSENT MEANS ON for this feature, deliberately, and it is the second half
-    // of why nothing appeared. Flags only reach the worker ON PUBLISH, so a
-    // config with no `customerFlags` at all is the normal state until Kevin
-    // publishes — and defaulting that to off means a default-on feature stays
-    // invisible until an unrelated action happens.
-    //
-    // Safe to fail open here in a way it would NOT be for the pack chooser:
-    // this filter reads data that is already correct, shows nothing until a
-    // toggle is tapped, and cannot cause a customer to order something Kevin
-    // cannot make.
-    if (typeof config === "undefined" || !config.customerFlags
-        || !config.customerFlags.freezerLens) return true;
-    return config.customerFlags.freezerLens.stage !== "off";
-  }
+  // NO LONGER FLAGGED (Aug 2, Kevin's call). It went live and works, so the
+  // kill switch was retired rather than left as a permanent maybe. A flag that
+  // will never be turned off is just an extra way for the feature to break.
+  //
+  // The function stays as a named seam: if this ever needs gating again it is
+  // one line here, not a hunt through the render path.
+  function lensEnabled(){ return true; }
+
   function toggleLens(k){ lensOn[k] = !lensOn[k]; render(); }
   function lensPasses(name){
     if (!lensAny()) return true;

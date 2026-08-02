@@ -359,9 +359,41 @@ export const DISH_CONTAINERS = {
 
   // Pasta sauces and lighter braises.
   'bolognese':                                     { round32: 1 },  // Bolognese
-  'mushroom-ragu':                                 { round32: 1 },  // Mushroom Ragu
+  'mushroom-ragu': {
+    // THE POLENTA SHIPS IN A BAG and this map did not say so, which is a real
+    // packing undercount as well as a costing one. Found Aug 2 when the
+    // two-night derivation wanted to charge for a second sealed bag on a dish
+    // whose container map listed no first one.
+    //
+    // Variant-scoped because the polenta is an OPTIONAL variation: the plain
+    // variants genuinely ship one container and nothing else.
+    // The rules ADD to base rather than replacing it (see resolve above), so
+    // the polenta rule carries only the bag. Repeating round32 here shipped two
+    // containers for a one-container dish.
+    base: { round32: 1 },
+    byVariant: [
+      { match: /polenta/i, map: { bag: 1 } },
+      { match: /./,        map: {} },
+    ],
+  },  // Mushroom Ragu
   'pasta-with-homegrown-tomato':                   { round32: 1 },  // Pasta with Homegrown Tomato Sauce
-  'saffron-pork-ragu':                             { round32: 1 },  // Saffron Pork Ragu
+  'saffron-pork-ragu': {
+    // THE POLENTA SHIPS IN A BAG and this map did not say so, which is a real
+    // packing undercount as well as a costing one. Found Aug 2 when the
+    // two-night derivation wanted to charge for a second sealed bag on a dish
+    // whose container map listed no first one.
+    //
+    // Variant-scoped because the polenta is an OPTIONAL variation: the plain
+    // variants genuinely ship one container and nothing else.
+    // The rules ADD to base rather than replacing it (see resolve above), so
+    // the polenta rule carries only the bag. Repeating round32 here shipped two
+    // containers for a one-container dish.
+    base: { round32: 1 },
+    byVariant: [
+      { match: /polenta/i, map: { bag: 1 } },
+      { match: /./,        map: {} },
+    ],
+  },  // Saffron Pork Ragu
   'orecchiette-with-bitter':                       { round16: 1 },  // Orecchiette with Bitter Greens and Anchovies
 
   // Composed plates. The rectangles hold awkward solids that are not bagged,

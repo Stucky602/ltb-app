@@ -105,7 +105,7 @@ const ALLOWED_ORIGINS = [
 // copies are kept honest by tests/feature_flags.mjs, which asserts the flag ids
 // and stage ids match on both sides — a drifted copy here would silently hand
 // customers the wrong answer.
-const FLAG_DEFAULTS = { personalization:'on', amendments:'on', claimCode:'on', requestBox:'on', ingredientCards:'on', visualCues:'owner', freezerLens:'on', serveTogether:'off', awayMode:'off', jarReturn:'off', beforeYouStart:'owner', storagePlan:'owner', heatOnly:'owner', splitPack:'off' };
+const FLAG_DEFAULTS = { personalization:'on', amendments:'on', claimCode:'on', requestBox:'on', ingredientCards:'on', visualCues:'owner', serveTogether:'off', awayMode:'off', jarReturn:'off', beforeYouStart:'owner', storagePlan:'owner', heatOnly:'owner' };
 function flagBucket(profileId) {
   const s = String(profileId || '');
   let h = 2166136261;

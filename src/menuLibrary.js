@@ -237,6 +237,25 @@ export const MENU_STATIC = {
 // which is a duplication worth closing on purpose rather than in passing.
 export const OFF_MENU_DISHES = [
     "Homemade Waffles",
+    // OFF THE MENU Aug 2, in Kevin's words. Treat both as graveyard dishes.
+    //
+    // Coriander Lamb Steak over Gigantes Beans — "it just didn't vibe well with
+    // me". No further reason; that is the whole ruling and it is enough.
+    //
+    // Bone-In Pork Rib Chop with All the Fixings — "used too many containers
+    // and had too many parts using different equipment". Worth keeping as a
+    // recorded reason rather than a bare removal: it is the clearest statement
+    // on record of the operational ceiling for a single dish, and it applies to
+    // anything proposed in future with the same shape.
+    //
+    // They were ALREADY absent from the customer menu before this, but only by
+    // not appearing in the dinners list — nothing said why, and nothing would
+    // have stopped them being re-added without their Walk 2 data. Neither has
+    // reheat data, so if either ever comes back it needs the full dish-by-dish
+    // pass first or it arrives with no reheat card, no freeze guidance, and no
+    // lens verdict.
+    "Coriander Lamb Steak over Gigantes Beans",
+    "Bone-In Pork Rib Chop with All the Fixings",
     // Pulled from the customer menu Jul 29. OFF-MENU rather than deleted, on
     // Kevin's call: the dishes are fully built, so the recipe, cost anchors,
     // container mapping, equipment claims, and the cider beurre blanc work all

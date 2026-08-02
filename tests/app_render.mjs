@@ -220,13 +220,12 @@ check('Record → Do renders the worklist',
   (container.textContent || '').includes('Coverage'),
   `Do pane has ${(container.textContent || '').length} chars`);
 
-// The walk engine was built in July and imported by NOTHING — zero references
-// outside its own file — so the standing ask to "click through one walk" had no
-// walk to click. It renders here for the first time; assert it is actually on
-// the page rather than trusting that mounting it worked.
-check('Record → Do renders the walks pane',
-  (container.textContent || '').includes('Walks'),
-  'WalkEngine had no consumer at all before this batch');
+// WALKS PANE REMOVED Aug 2 at Kevin's instruction — he wants walks in the MD,
+// not collected in the app, because their answers become rules rather than
+// per-item records. Asserting its ABSENCE so nobody re-mounts it by habit.
+check('Record → Do does NOT show a walks collector',
+  !(container.textContent || '').includes('One question at a time'),
+  'walks are a conversation; the app should use their answers, not gather them');
 
 await clickByText('Read');
 check('Record → Read renders',

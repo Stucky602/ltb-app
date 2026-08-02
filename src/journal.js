@@ -1,3 +1,4 @@
+import { isOmakaseItem } from './utils.js';
 // journal.js — the knowledge base (K1–K8), pure and UI-free.
 //
 // WHY THIS EXISTS: the app is a structured body of knowledge about how Kevin
@@ -573,7 +574,9 @@ export function orphanedDishNames(orders, knownNames, renames) {
   const out = new Map();
   for (const o of orders || []) {
     for (const it of (o && o.items) || []) {
-      if (!it || !it.name || it.omakase) continue;
+      // Name OR flag: the flag can be lost by a rebuild, and reporting an
+      // omakase as an unrecognised dish is a false alarm about corrupt data.
+      if (!it || !it.name || isOmakaseItem(it)) continue;
       const canon = canonDishName(it.name, map);
       if (known.has(canon)) continue;
       // A name that DOES map through DISH_RENAMES is handled, even if its

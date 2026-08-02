@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { whatWasInOrder, whatWasInOrderText } from '../whatWasInMine.js';
+import { isOmakaseItem } from '../utils.js';
 import { companionHtml, companionContext } from '../companion.js';
 import { INGREDIENT_SEED } from '../ingredients.js';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../dishes.js';
@@ -846,7 +847,7 @@ export function OrderCard({ order, regulars, labelVersions, customerFlags, expan
                     </div>
                   ))}
                   {noteWithoutOptions(it.note) && <div style={styles.orderItemNote}>“{noteWithoutOptions(it.note)}”</div>}
-                  {it.omakase && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} allOrders={allOrders} perLbLiveCost={perLbLiveCost} weekDishes={weekDishes} restrictions={(() => { const r = (regulars || []).find(x => x.id === order.regularId); return r ? [r.dietary, r.spice].filter(Boolean).join(' \u00b7 ') : ''; })()} regular={(regulars || []).find(x => x.id === order.regularId)} />}
+                  {isOmakaseItem(it) && <OmakaseLogger item={it} order={order} onUpdate={onUpdate} allOrders={allOrders} perLbLiveCost={perLbLiveCost} weekDishes={weekDishes} restrictions={(() => { const r = (regulars || []).find(x => x.id === order.regularId); return r ? [r.dietary, r.spice].filter(Boolean).join(' \u00b7 ') : ''; })()} regular={(regulars || []).find(x => x.id === order.regularId)} />}
                   {perLb && (
                     <button
                       style={styles.setWeightBtn}

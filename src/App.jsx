@@ -2044,8 +2044,6 @@ export default function LTBOrderTracker() {
             onSavePractices={savePractices}
             captureInbox={captureInbox}
             onSaveCapture={saveCaptureInbox}
-            walkAnswers={walkAnswers}
-            onSaveWalk={saveWalkAnswers}
             terms={terms}
             onSaveTerms={saveTerms}
             clarifications={clarifications}

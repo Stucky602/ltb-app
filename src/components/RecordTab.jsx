@@ -269,79 +269,19 @@ function TermsPane({ terms, onSave }) {
   );
 }
 
-// ── WALKS ───────────────────────────────────────────────────────────────────
-// The first place WalkEngine has ever been mounted. It was built in July as the
-// one surface for "step through a list, answer per item, save as you go" and
-// then imported by nothing — which is why the standing ask to "click through
-// one walk" was impossible: there was no walk on any screen.
+// WALKS PANE REMOVED (Kevin, Aug 2). He does not want walks collected in the
+// app: "I need you to actually use the info from the walks to do stuff, so I'd
+// rather have the walks in the MD only."
 //
-// Picking a walk is a deliberate two-step rather than a list of live walks
-// stacked on the page. A walk is a sitting, not a glance.
-function WalksPane({ answers, onSave, ingredients }) {
-  const [active, setActive] = useState(null);
-  const walk = useMemo(() => {
-    const def = WALKS.find(w => w.id === active);
-    return def ? def.build({ ingredients }) : null;
-  }, [active, ingredients]);
-
-  if (walk) {
-    const prog = walkProgress(answers, walk.id, walk.items.length);
-    return (
-      <div style={S.card}>
-        <button style={{ ...S.btn(), marginBottom: 10 }} onClick={() => setActive(null)}>
-          Back to walks
-        </button>
-        <div style={S.faint}>{walk.blurb}</div>
-        <div style={{ ...S.faint, marginTop: 4 }}>{prog.answered} of {prog.total} answered.</div>
-        {walk.items.length === 0 ? (
-          <div style={{ ...S.p, marginTop: 8 }}>Nothing to walk here right now.</div>
-        ) : (
-          <div style={{ marginTop: 10 }}>
-            <WalkEngine
-              title={walk.title}
-              items={walk.items}
-              itemKey={walk.itemKey}
-              itemLabel={walk.itemLabel}
-              itemSub={walk.itemSub}
-              fields={walk.fields}
-              prefill={walk.prefill}
-              initialAnswers={(answers && answers.walks && answers.walks[walk.id]) || {}}
-              onSave={(key, answer) => onSave(prev => recordWalkAnswer(prev, walk.id, key, answer))}
-              onDone={() => setActive(null)}
-            />
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div style={S.card}>
-      <div style={S.h}>Walks</div>
-      <div style={S.faint}>
-        One question at a time, answered as you go. Stop anywhere; there is no submit.
-      </div>
-      {WALKS.map(w => {
-        const built = w.build({ ingredients });
-        const prog = walkProgress(answers, w.id, built.items.length);
-        return (
-          <button
-            key={w.id}
-            onClick={() => setActive(w.id)}
-            style={{ ...S.btn(prog.done ? C.good : C.border), width: '100%', marginTop: 8, textAlign: 'left' }}
-          >
-            {w.label}
-            <span style={{ display: 'block', fontSize: 11, color: C.faint, fontWeight: 400, marginTop: 2 }}>
-              {built.items.length === 0
-                ? 'nothing waiting'
-                : `${prog.answered} of ${built.items.length} answered`}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+// That is the right division. A walk is a conversation, and its ANSWERS become
+// rules and data — the two-night walk is the proof: he answered three rules in
+// chat and 21 per-dish questions evaporated. An in-app collector invites
+// filling in questions one at a time that a single ruling would have deleted.
+//
+// WalkEngine.jsx and src/walks.js are left in place but unmounted. They are the
+// wrong shape for how this actually works, and the honest next step is deleting
+// them rather than leaving a second unmounted component to be rediscovered —
+// but that is a decision, not a cleanup, so it is recorded rather than taken.
 
 // ── CAPTURE INBOX ───────────────────────────────────────────────────────────
 // Sits at the top of Do because that is where the unsorted things are, and
@@ -633,7 +573,7 @@ export function RecordTab({
   onAnswerQuestion,
   practices, onSavePractices, corpus,
   captureInbox, onSaveCapture, dishNames: allDishNames,
-  walkAnswers, onSaveWalk, ingredients,
+  ingredients,
   terms, onSaveTerms,
   clarifications, onSaveClarifications,
   realDataEpoch, epochProposal, epochSummary, onConfirmEpoch,
@@ -797,7 +737,6 @@ export function RecordTab({
 
       {sub === 'do' && (<>
       <CaptureInbox inbox={captureInbox} onSave={onSaveCapture} dishNames={allDishNames} />
-      <WalksPane answers={walkAnswers} onSave={onSaveWalk} ingredients={ingredients} />
       <ClarificationsPane store={clarifications} onSave={onSaveClarifications} corpus={corpus} />
 
       {/* ── THE ANSWER LOOP ──

@@ -699,6 +699,24 @@ export function stampItemCosts(items, source = 'snapshot', { reStamp = false } =
 // AI-parse path both use weightPending:true / price 0 until weighing; this
 // brings accepted customer orders to the same shape. Run BEFORE stampItemCosts
 // and BEFORE orderTotal at acceptance.
+// IS THIS AN OMAKASE LINE? Checks the flag OR the name, and the redundancy is
+// the point.
+//
+// `omakase: true` is set once, by the customer order form, and every path that
+// REBUILDS an item object is a chance to lose it. When it goes missing two
+// things break at once and neither is obvious: the Record tab reports "Omakase
+// is not a dish or a known rename" as though the order were corrupt, and the
+// omakase logger never renders, so there is nowhere to enter the container
+// count. Both were live on Aug 2.
+//
+// The name is the one thing that cannot be dropped, because it is what the line
+// IS. Anything named Omakase is an omakase.
+export function isOmakaseItem(it) {
+  if (!it) return false;
+  if (it.omakase) return true;
+  return String(it.name || '').trim().toLowerCase() === 'omakase';
+}
+
 export function normalizePendingItems(items) {
   return (items || []).map(it => {
     if (!isPerLbItem(it.name)) return it;

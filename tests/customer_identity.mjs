@@ -261,9 +261,22 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   // Behaviour, not the literal line. This was pinned to the exact source and
   // broke the moment the claim path gained a feature flag — same guarantee,
   // different shape. Third time a pinned source string has done this.
-  ok('the greeting bails when there is no credential rather than making one',
-    /if \(!token\) \{[^}]*claimUi\(\)[^}]*return;/.test(partial),
-    'a visitor who only reads the menu must not be given one');
+  // FOURTH TIME this assertion has broken on a source shape rather than a
+  // behaviour change — the comment above already says "third time". On Aug 2 the
+  // tokenless branch gained a fetch, because returning immediately meant
+  // __ltbFlags stayed empty and the claimCode check on that very line always
+  // read false, so the claim path could never appear for the only browsers that
+  // need it. Nothing about minting changed.
+  //
+  // So this now asserts THE GUARANTEE: the tokenless path offers the claim UI
+  // and does not mint. The shape of the branch is free to change again.
+  const tokenlessBranch = (partial.match(/if \(!token\)[\s\S]{0,900}?\n    \}/) || [''])[0];
+  ok('the tokenless path offers the claim route',
+    /claimUi\(\)/.test(tokenlessBranch),
+    'a browser that has never ordered is exactly who the code is for');
+  ok('and mints nothing on the way',
+    !/__ltbDeviceToken\(\)/.test(tokenlessBranch),
+    'a visitor who only reads the menu must not be given a credential');
   ok('the greeting PEEKS rather than minting',
     /__ltbDeviceTokenPeek\(\)/.test(partial),
     'the minting version created a credential for anyone who merely opened the page');
@@ -401,7 +414,7 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   ok('the offer appears when the browser is unrecognised',
     /recognized !== true[\s\S]{0,200}claimUi\(\)/.test(code));
   ok('and when it has no credential at all',
-    /if \(!token\) \{[^}]*claimUi\(\)[^}]*return;/.test(code),
+    /if \(!token\)[\s\S]{0,900}claimUi\(\)/.test(code),
     'a permanent "enter a code" prompt on a friends-only site reads like a login wall');
   ok('a recognised customer is never shown it',
     !/recognized === true[\s\S]{0,120}claimUi/.test(code));
@@ -464,7 +477,12 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
   const pz = fs.readFileSync(path.join(ROOT, 'src/pages/_partials/personalize.js'), 'utf8');
   ok('the greeting path uses the peek', /var token = \(typeof __ltbDeviceTokenPeek/.test(pz));
   ok('so a brand-new browser reaches the claim offer',
-    /if \(!token\) \{[^}]*claimUi\(\)[^}]*return;/.test(pz));
+    /if \(!token\)[\s\S]{0,900}claimUi\(\)/.test(pz));
+  // The fix that made the offer reachable at all: without flags fetched, the
+  // claimCode check guarding it read false forever.
+  ok('and it fetches its flags first, rather than checking an empty object',
+    /if \(!token\)[\s\S]{0,400}fetch\(WORKER \+ '\/customer-home'\)/.test(pz),
+    'the worker already computes anonymous flags; the page simply never asked');
   ok('and the offer respects its own flag',
     /__ltbFlag\('claimCode'\)/.test(pz),
     'it can be switched off like anything else optional');

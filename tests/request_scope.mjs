@@ -157,8 +157,10 @@ const page = readFileSync(new URL('../form.html', import.meta.url), 'utf8');
     return { ok: true, json: async () => ({ ok: true, dropped: [] }) };
   };
   globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  // SMALL. Large was removed from the feature on Aug 2 — it already ships as
+  // two of everything, so it is split by construction.
   Object.assign(SPLIT_PACKAGING, {
-    chili: { byVariant: [{ match: /large/i, family: { round48: 1 }, twoNight: { round32: 2 }, surchargeCents: 116 }] },
+    chili: { byVariant: [{ match: /small/i, family: { round48: 1 }, twoNight: { round32: 2 }, surchargeCents: 300 }] },
   });
   try {
     try {
@@ -167,21 +169,21 @@ const page = readFileSync(new URL('../form.html', import.meta.url), 'utf8');
     } catch (e) { /* the publish path does more than we need; the payload is captured either way */ }
 
     const dish = ((captured && captured.dishes) || []).find(d => d.name === 'Chili');
+    const small = dish && dish.variants.find(v => /small/i.test(v.label));
     const large = dish && dish.variants.find(v => /large/i.test(v.label));
-    const small = dish && dish.variants.find(v => !/large/i.test(v.label));
 
-    ok('a declared variant publishes its pack options',
-      !!(large && large.packs),
+    ok('a declared SMALL publishes its pack options',
+      !!(small && small.packs),
       'without this the page has nothing to render no matter how correct the UI is');
-    ok('an undeclared variant on the same dish publishes none',
-      !!(small && !small.packs),
-      'eligibility is per variant; a Small that cannot be split must not inherit the Large');
+    ok('the Large publishes none, because Large is out of the feature',
+      !!(large && !large.packs),
+      'a Large already ships as two of everything; doubling again would make quarters');
     ok('the footprint reads as containers a person can picture',
-      large.packs.twoNight.footprint === '2 \u00d7 32 oz round'
-      && large.packs.family.footprint === '48 oz round',
-      JSON.stringify(large.packs));
+      small.packs.twoNight.footprint === '2 \u00d7 32 oz round'
+      && small.packs.family.footprint === '48 oz round',
+      JSON.stringify(small.packs));
     ok('the surcharge travels in cents, on the split only',
-      large.packs.twoNight.surchargeCents === 116 && !('surchargeCents' in large.packs.family));
+      small.packs.twoNight.surchargeCents === 300 && !('surchargeCents' in small.packs.family));
   } finally {
     delete SPLIT_PACKAGING.chili;
     globalThis.fetch = realFetch;

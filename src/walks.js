@@ -43,16 +43,25 @@ const nameOf = (dishId) => {
 // Kevin runs it, no customer sees a packaging choice anywhere, which is why
 // this ships in the same batch as the mechanism rather than after it.
 export function splitPackagingWalk() {
-  const items = splitCandidates().map(c => ({
-    ...c,
-    name: nameOf(c.dishId),
-  }));
+  // MOST OF THIS WALK IS DEAD, and that is a good outcome. Kevin answered the
+  // operational half in chat on Aug 2 rather than tapping through 21 dishes:
+  // Large is out of the feature entirely, container-only dishes are no surcharge
+  // BY RULE, and the fee schedule is fixed. What is left is the short list of
+  // components that must stay SEALED to reheat, and the Small container maps for
+  // those. Everything else now falls out of rules.
+  //
+  // So this filters to dishes that could plausibly carry a sealed component,
+  // rather than marching him through every candidate to answer "no surcharge"
+  // twenty times.
+  const items = splitCandidates()
+    .filter(c => c.looksSplittable)
+    .map(c => ({ ...c, name: nameOf(c.dishId) }));
   return {
     id: 'split-packaging',
-    title: 'Which dishes can ship as two',
-    blurb: 'A two-night pack divides the same food into halves that reheat independently. '
-      + 'The reheat walk already says which components divide; what it cannot know is whether '
-      + 'packing two is worth the Tuesday and whether you have the containers.',
+    title: 'Which components must stay sealed',
+    blurb: 'Smalls only — a Large already ships as two of everything. A surcharge applies only '
+      + 'where a bag has to stay SEALED to reheat, because that is the only case needing a second '
+      + 'bag. Container-only dishes are free by rule and are not asked about here.',
     items,
     itemKey: (it) => it.dishId,
     itemLabel: (it) => it.name,
@@ -62,17 +71,15 @@ export function splitPackagingWalk() {
       ? `${it.components} components · ${it.blockers.map(b => `${b.key} ${b.mode}`).join(', ')}`
       : `${it.components} components, all divide cleanly`),
     fields: () => ([
-      { key: 'offer', label: 'Offer a two-night pack?', type: 'select',
+      { key: 'offer', label: 'Offer a two-night pack on the Small?', type: 'select',
         options: ['', 'yes', 'no', 'maybe later'] },
-      { key: 'variants', label: 'Which sizes (Large only, both, …)', type: 'text' },
-      { key: 'containers', label: 'What the two-night pack ships in', type: 'text',
-        placeholder: 'e.g. 2 x 32 oz round instead of 1 x 48 oz' },
-      // NOT "blank = absorbed". Kevin has said the added packaging on a
-      // two-night pack will need increased pricing and is not going to be
-      // absorbed by default, so a field implying otherwise would prompt the
-      // wrong answer at the moment he is deciding.
-      { key: 'surcharge', label: 'Surcharge for the extra packaging', type: 'text',
-        placeholder: 'e.g. 1.25 — leave blank only if you truly mean to absorb it' },
+      // The only question that still carries money. 0 bags is free; 1 is +$3;
+      // 2 is +$5; 3 is a safeguard that must come back to Kevin rather than
+      // being billed.
+      { key: 'sealedBags', label: 'How many extra SEALED bags does splitting need?', type: 'select',
+        options: ['', '0 — container only, no charge', '1 — +$3', '2 — +$5', '3 — flag this to me'] },
+      { key: 'containers', label: 'What the split Small ships in', type: 'text',
+        placeholder: 'stated, never doubled — e.g. 2 x 16 oz round' },
       { key: 'note', label: 'Anything worth recording', type: 'textarea' },
     ]),
     prefill: null, // no guesses about food; see the header

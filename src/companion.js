@@ -6,6 +6,7 @@
 import { reheatDataFor, beforeYouStart, narrateBeforeYouStart, storagePlan, holdBackBeforeFreezing, narrateStoragePlan, heatOnlyWhatYouNeed, narrateHeatOnly } from './reheatData.js';
 import { dishIdFor } from './dishIdentity.js';
 import { buildReheatBlocks, itemHandling, rescueFor } from './recipes.js';
+import { buildIngredientCard, cardsNeedingReview } from './ingredientCard.js';
 import { expandOrderForReheat, omakaseCustomReheat, omakaseItemsOf } from './omakase.js';
 import { isPerLbItem } from './menu.js';
 import { ALWAYS_ITEMS, DISHES } from './dishes.js';
@@ -198,6 +199,47 @@ export function companionHtml(order, pageId = '', opts = {}) {
     if (lines.length) {
       beforeYouStartHtml = '<div class="bys"><h3>Before you start</h3>'
         + lines.map(l => '<p>' + esc(l) + '</p>').join('') + '</div>';
+    }
+  }
+
+  // ── INGREDIENT CARDS ──────────────────────────────────────────────────────
+  //
+  // The `ingredientCards` flag existed with NOTHING reading it. The engine was
+  // built, tested, and wired only into Kevin's own app — so staging the flag
+  // changed nothing for a customer, and the panel gave no hint of that.
+  //
+  // FAIL CLOSED PER DISH, and this is the part that matters. 7 of the 27 cards
+  // contain an unresolved spice blend, which is Walk 1 territory and explicitly
+  // not to be guessed. A dish whose card `needsReview` renders NOTHING here
+  // rather than an incomplete ingredient list — on an allergen-facing surface a
+  // partial list read as complete is the worst possible failure, worse than
+  // showing nothing at all.
+  //
+  // So this goes live for the 20 clean dishes today, and the other 7 light up
+  // on their own as Walk 1 lands. No second deploy, no list to remember.
+  //
+  // Quantity-free by construction: the engine emits names only, because a
+  // customer asking what is in their food is not asking for the recipe.
+  let cardsHtml = '';
+  if (opts.ingredientCards !== false) {
+    const review = new Set(cardsNeedingReview({}).map(c => c.dishId));
+    const cards = (order.items || [])
+      .map(it => ({ it, id: dishIdFor(it.name) }))
+      .filter(({ id }) => id && !review.has(id))
+      .map(({ id }) => buildIngredientCard(id))
+      .filter(c => c && c.ingredients && c.ingredients.length);
+    if (cards.length) {
+      cardsHtml = '<div class="card"><h3>What is in it</h3>'
+        + cards.map(c => '<div class="ingcard"><b>' + esc(c.dishName) + '</b>'
+          + '<p>' + esc(c.ingredients.join(', ')) + '</p>'
+          + (c.allergens ? '<p class="ingallerg">Contains: ' + esc(c.allergens) + '</p>' : '')
+          + '</div>').join('')
+        // Says plainly that a missing dish is missing on purpose. A customer who
+        // notices one of their dishes absent should not have to wonder.
+        + (cards.length < (order.items || []).length
+          ? '<p class="ingnote">Anything not listed here has a component I am still writing up properly. Ask me and I will tell you what is in it.</p>'
+          : '')
+        + '</div>';
     }
   }
 
@@ -769,6 +811,11 @@ export function companionHtml(order, pageId = '', opts = {}) {
   .fbbtn { border-radius: 9px; padding: 7px 11px; font-size: 12.5px; font-weight: 700; border: 1px solid #2d3a36; background: #14201d; color: #b7c4be; }
   .fbbtn.good { color: #5DCAA5; } .fbbtn.meh { color: #EF9F27; } .fbbtn.bad { color: #e0828a; }
   .fbdone { color: #5DCAA5; font-size: 12.5px; font-weight: 700; }
+    .ingcard { margin:10px 0 0; }
+    .ingcard b { font-size:13.5px; color:#e8ede9; }
+    .ingcard p { margin:3px 0 0; font-size:12.5px; line-height:1.5; color:#c9d1cd; }
+    .ingallerg { color:#EF9F27 !important; font-weight:600; }
+    .ingnote { margin-top:10px !important; font-size:11.5px !important; color:#9aa5a0 !important; }
     .fbrescue { background:rgba(212,160,80,0.10); border:1px solid #D4A050; border-radius:8px;
       padding:9px 11px; margin:6px 0 0; font-size:13px; line-height:1.5; color:#e8e2d4; }
     .fbseen { color:#5DCAA5; font-weight:600; }
@@ -813,6 +860,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   <div class="safety">Reheat only what you plan to eat. Anything that comes back out of the fridge is best warmed once rather than again and again. If you open a bag to take half, roll the end over and clip it or tip the rest into a container \u2014 once it is open the bag is just storage, and it keeps about a week that way.</div>
   ${historyHtml}
   ${storageHtml}
+  ${cardsHtml}
   ${heatOnlyHtml}
   ${passportStrip}
   ${welcomeCard}

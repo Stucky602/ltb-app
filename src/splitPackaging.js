@@ -78,6 +78,64 @@ export const SPLIT_PACKAGING = {};
 // constant beside each consumer.
 const BAD_DIVIDE = new Set(UNDIVIDABLE_MODES);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// SMALLS ONLY. THERE IS NO LARGE PATH, AND THERE WILL NOT BE ONE.
+//
+// Kevin, Aug 2: a Large already ships exactly 2x of every container a Small
+// does, INCLUDING the sous vide bags. It is split by construction. Doubling
+// every bag again would produce quarters, not halves, which contradicts the
+// split-in-half rule — so rather than reconcile that, he removed Large from the
+// feature entirely.
+//
+// The Large fee tiers discussed before this ruling ($4 / $6 / $8) are DEAD. Do
+// not build a Large path and do not re-pitch one.
+//
+// Enforced here rather than left to the config, because the config is filled in
+// by hand and "no Large" is a rule about the product, not a data-entry habit.
+const LARGE_RE = /\blarge\b/i;
+
+export function isLargeVariant(variantLabel) {
+  return LARGE_RE.test(String(variantLabel || ''));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE SURCHARGE TEST: DOES SPLITTING ADD PACKAGING?
+//
+// Kevin's whole test, and it collapses onto the bag-is-vessel distinction the
+// reheat walk already recorded per component:
+//
+//   Container-only        → NO SURCHARGE. The customer scoops what they need and
+//                           nothing extra is packed. This is not a decision he
+//                           made per dish; it falls out of how the dish ships.
+//   An opened SV bag      → also no surcharge. Once opened it is a container,
+//                           the same logic as the reseal rule in Walk I.
+//   Must stay SEALED to
+//   reheat                → SURCHARGE, because that is the only case where a
+//                           genuine second bag is needed. His list: SV vegetables
+//                           outside a stew or curry, the stir-fries that come in
+//                           SV bags, the polenta, and the purees.
+//
+// A split is ALWAYS IN HALF. A four-serving dish becomes 2 x 2. No thirds, no
+// quarters.
+export const SPLIT_FEE_BY_EXTRA_BAGS = { 0: 0, 1: 300, 2: 500, 3: 600 };
+
+// The three-bag row is a SAFETY NET, NOT A PRICE. Kevin does not believe any
+// dish needs it; it exists so nothing breaks if one gets through. Anything at
+// three or more must be SURFACED TO HIM rather than quietly billed, which is
+// what `needsReview` is for. Do not extrapolate a fourth tier.
+export const SPLIT_FEE_REVIEW_THRESHOLD = 3;
+
+export function splitFeeFor(extraBags) {
+  const n = Math.max(0, Math.round(Number(extraBags) || 0));
+  const capped = Math.min(n, SPLIT_FEE_REVIEW_THRESHOLD);
+  return {
+    extraBags: n,
+    cents: SPLIT_FEE_BY_EXTRA_BAGS[capped],
+    // True at 3+. A dish here is not priced automatically; it goes to Kevin.
+    needsReview: n >= SPLIT_FEE_REVIEW_THRESHOLD,
+  };
+}
+
 export function splitEntryFor(dishId, variantLabel) {
   const entry = SPLIT_PACKAGING[dishId];
   if (!entry || !Array.isArray(entry.byVariant)) return null;
@@ -90,6 +148,9 @@ export function splitEntryFor(dishId, variantLabel) {
 
 // The gate every customer surface must go through. False for everything today.
 export function isSplitEligible(dishId, variantLabel) {
+  // The Large rule is checked BEFORE the config, so a Large entry left in the
+  // map by mistake still cannot reach a customer.
+  if (isLargeVariant(variantLabel)) return false;
   return !!splitEntryFor(dishId, variantLabel);
 }
 

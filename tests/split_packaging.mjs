@@ -18,6 +18,7 @@
 import {
   SPLIT_PACKAGING, PACK_SHAPES, isSplitEligible, splitEntryFor, containersForPack,
   surchargeCentsFor, normalizePackShape, splitCandidates, splitPackagingStatus,
+  isLargeVariant, splitFeeFor, SPLIT_FEE_REVIEW_THRESHOLD,
 } from '../src/splitPackaging.js';
 import {
   WALKS, splitPackagingWalk, freezeVerificationWalk, pipelineTriageWalk,
@@ -68,33 +69,37 @@ const ok = (label, cond, detail = '') => {
 // Proven against a local fixture rather than by declaring a real dish, so this
 // test cannot be the thing that accidentally turns the feature on.
 {
+  // SMALL, not Large. Kevin removed Large from the feature on Aug 2 — a Large
+  // already ships as 2x of everything including the bags, so it is split by
+  // construction and doubling again would make quarters. The old fixture used
+  // /large/i and is exactly what the new rule is designed to refuse.
   const fixture = {
     'test-dish': {
       byVariant: [
-        { match: /large/i, family: { round48: 1 }, twoNight: { round32: 2 }, surchargeCents: 150 },
+        { match: /small/i, family: { round48: 1 }, twoNight: { round32: 2 }, surchargeCents: 300 },
       ],
     },
   };
   // Exercise the same resolution logic by temporarily populating the canon.
   Object.assign(SPLIT_PACKAGING, fixture);
   try {
-    ok('a declared variant becomes eligible', isSplitEligible('test-dish', 'Large (~8)'));
-    ok('an undeclared variant on the same dish stays ineligible',
-      !isSplitEligible('test-dish', 'Small (~4)'),
-      'eligibility is per variant; a Small that cannot be split must not inherit the Large');
+    ok('a declared SMALL becomes eligible', isSplitEligible('test-dish', 'Small (~4)'));
+    ok('a Large is refused even when the config declares one',
+      !isSplitEligible('test-dish', 'Large (~8)'),
+      'the rule is checked BEFORE the config, so a stray Large entry still cannot reach a customer');
     ok('the family map resolves',
-      JSON.stringify(containersForPack('test-dish', 'Large (~8)', 'family')) === '{"round48":1}');
+      JSON.stringify(containersForPack('test-dish', 'Small (~4)', 'family')) === '{"round48":1}');
     ok('the two-night map is STATED, not derived by doubling',
-      JSON.stringify(containersForPack('test-dish', 'Large (~8)', 'twoNight')) === '{"round32":2}',
+      JSON.stringify(containersForPack('test-dish', 'Small (~4)', 'twoNight')) === '{"round32":2}',
       'the rice rule already proved scaling can change the container TYPE, not just the count');
     ok('the surcharge applies only to the split',
-      surchargeCentsFor('test-dish', 'Large (~8)', 'twoNight') === 150
-      && surchargeCentsFor('test-dish', 'Large (~8)', 'family') === 0);
+      surchargeCentsFor('test-dish', 'Small (~4)', 'twoNight') === 300
+      && surchargeCentsFor('test-dish', 'Small (~4)', 'family') === 0);
   } finally {
     delete SPLIT_PACKAGING['test-dish'];
   }
   ok('the fixture is cleaned up and nothing stays eligible',
-    Object.keys(SPLIT_PACKAGING).length === 0 && !isSplitEligible('test-dish', 'Large (~8)'));
+    Object.keys(SPLIT_PACKAGING).length === 0 && !isSplitEligible('test-dish', 'Small (~4)'));
 }
 
 // ── The worklist knows food and admits it knows nothing else ────────────────
@@ -121,9 +126,9 @@ const ok = (label, cond, detail = '') => {
 {
   const sw = splitPackagingWalk();
   ok('the split walk has items', sw.items.length > 0);
-  ok('and asks about operations, not just food',
-    sw.fields().some(f => f.key === 'containers') && sw.fields().some(f => f.key === 'surcharge'),
-    'the containers and the Tuesday are the half the reheat data cannot answer');
+  ok('and asks the one question rules cannot answer: which bags stay sealed',
+    sw.fields().some(f => f.key === 'containers') && sw.fields().some(f => f.key === 'sealedBags'),
+    'container-only is free BY RULE now, so the walk no longer asks about surcharges dish by dish');
   ok('the split walk does NOT prefill a food judgement',
     sw.prefill === null,
     'Claude guessed twelve cut-gates and got eleven wrong; prefill is for recorded values only');
@@ -167,6 +172,28 @@ const ok = (label, cond, detail = '') => {
 
   ok('a malformed store normalizes to empty',
     normalizeWalkAnswers({ walks: 'no' }).walks && Object.keys(normalizeWalkAnswers(null).walks).length === 0);
+}
+
+// ── The fee schedule, and the safeguard row ─────────────────────────────────
+{
+  ok('a Large is recognised regardless of how the label is written',
+    isLargeVariant('Large (~8)') && isLargeVariant('Pulled Pork, Large (~9-10)')
+    && !isLargeVariant('Small (~4)'));
+
+  ok('container-only splits are free', splitFeeFor(0).cents === 0);
+  ok('one extra sealed bag is +$3', splitFeeFor(1).cents === 300);
+  ok('two is +$5', splitFeeFor(2).cents === 500);
+
+  const three = splitFeeFor(3);
+  ok('three is +$6 AND flagged for review',
+    three.cents === 600 && three.needsReview === true,
+    'Kevin does not believe any dish needs three; the row exists so nothing breaks, '
+    + 'and anything reaching it must be surfaced to him rather than quietly billed');
+  ok('and there is no fourth tier invented above it',
+    splitFeeFor(9).cents === 600 && splitFeeFor(9).needsReview === true,
+    'extrapolating a price he never set is the failure this guards');
+  ok('the review threshold is stated, not buried in a literal',
+    SPLIT_FEE_REVIEW_THRESHOLD === 3);
 }
 
 console.log(failed === 0 ? '\nSPLIT PACKAGING + WALKS: ALL PASS' : `\nSPLIT PACKAGING + WALKS: ${failed} FAILURES`);

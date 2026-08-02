@@ -491,7 +491,7 @@ function WhatWasInThis({ order, labelVersions }) {
   );
 }
 
-export function OrderCard({ order, regulars, labelVersions, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost, weekDishes }) {
+export function OrderCard({ order, regulars, labelVersions, customerFlags, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost, weekDishes }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -1082,9 +1082,38 @@ export function OrderCard({ order, regulars, labelVersions, expanded, onToggle, 
                     // rather than computed twice as it was before.
                     const reg = (regulars || []).find(r => (r.linkedOrderIds || []).includes(order.id))
                       || (regulars || []).find(r => r.id === order.regularId) || null;
+                    // THE THREE STEWARDSHIP FLAGS TRAVEL HERE OR NOWHERE.
+                    //
+                    // companion.js gates Before You Start, the storage plan, and
+                    // Heat Only What You Need on `opts.beforeYouStart` and
+                    // friends — and nothing ever passed them, so all three read
+                    // `undefined !== false` and rendered ALWAYS. Staging them in
+                    // the flag panel did nothing in either direction, which is
+                    // why the pages looked identical whatever Kevin set.
+                    //
+                    // The kitchen page is PRE-RENDERED here and pushed to the
+                    // worker as static HTML, so it cannot consult a flag at read
+                    // time the way order.html does. The value has to be baked in
+                    // at generation, which means the page a customer opens
+                    // reflects the stages as they stood when Kevin built it.
+                    //
+                    // Owner stage resolves TRUE here on purpose: this is Kevin's
+                    // own machine generating the page, and `owner` means he sees
+                    // it. Testers and percent cannot be honoured at bake time —
+                    // they need a customer identity the generator does not have —
+                    // so they resolve to their safest reading, which is on for
+                    // the owner and nothing else.
+                    const stageOn = (id) => {
+                      const st = ((customerFlags || {})[id] || {}).stage;
+                      return st === 'on' || st === 'owner';
+                    };
                     const opts = {
                       passport: buildPassport(order, regulars, allOrders),
                       reheatHistory: reg ? reheatHistoryFor(reg, allOrders, order) : [],
+                      beforeYouStart: stageOn('beforeYouStart'),
+                      storagePlan: stageOn('storagePlan'),
+                      heatOnly: stageOn('heatOnly'),
+                      ingredientCards: stageOn('ingredientCards'),
                     };
                     return { token: PUBLISH_TOKEN, id: cid, html: companionHtml(order, cid, opts), context: companionContext(order, opts) };
                   })()),

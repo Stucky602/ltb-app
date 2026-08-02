@@ -32,9 +32,24 @@ export const FLAGS = [
   { id: 'claimCode', label: 'New-phone codes', why: 'The "ordered before, on a different phone?" path.' },
   { id: 'requestBox', label: 'Dish requests', why: '"Want a dish back?" on the order form.' },
   { id: 'ingredientCards', label: 'Ingredient cards', why: 'Nothing customer-facing yet; Kevin sends these by hand.' },
+  // BLOCKED, not forgotten. The cues exist (CueGallery, CueCapture, CueAtlas)
+  // but all of them are owner-side, and cue images are fetched with
+  // `?token=<PUBLISH_TOKEN>` in the URL. A customer page cannot carry the owner
+  // token, so there is no way to show a customer a cue today without publishing
+  // the token or building a second unauthenticated read path.
+  // TO GO LIVE: a signed or public media route on the worker — most simply,
+  // short-lived signed URLs minted when Kevin bakes the kitchen page, which is
+  // already generated per order. A worker design decision, not a wiring job.
   { id: 'visualCues', label: 'Photo cues', why: 'Step photographs on the companion page.' },
   { id: 'freezerLens', label: 'Freezer filter', why: 'Menu filter by how a dish keeps in a freezer. Built Aug 1; the reheat walk it was waiting on is done.' },
-  { id: 'serveTogether', label: 'Serve-together timeline', why: 'Coordinated reheat schedule. Needs the reheat walk first.' },
+  // BLOCKED on Kevin. He DEFERRED this on Jul 31: it needs a better walk and he
+  // intended to rewrite the entry himself. The reheat walk it once waited on is
+  // now done, so that part of the `why` below is stale.
+  // TO GO LIVE: his rewritten walk entry, plus the reframe to argue for —
+  // sequencing RULES, not a minute-precision timeline. The Walk 2 data supports
+  // rules and does not support a solver; a timeline built from it is false
+  // precision.
+  { id: 'serveTogether', label: 'Serve-together timeline', why: 'Coordinated reheat schedule. Kevin is rewriting the walk entry.' },
   { id: 'awayMode', label: 'Away mode', why: 'Lets a customer say they are away for a week.' },
   { id: 'jarReturn', label: 'Jar returns', why: 'Shows how many jars a household holds.' },
   { id: 'beforeYouStart', label: 'Before you start', why: 'A card at the top of the kitchen page: how long, what to do first, what pans you need.' },
@@ -69,7 +84,10 @@ export const DEFAULT_FLAGS = {
   requestBox: { stage: 'on' },
   ingredientCards: { stage: 'on' },
   visualCues: { stage: 'owner' },
-  freezerLens: { stage: 'off' },
+  // ON BY DEFAULT (Kevin, Aug 2). It was flagged off because that is how every
+  // customer feature had shipped, not because anyone argued it should be. The
+  // flag id stays as a kill switch; the default is what changed.
+  freezerLens: { stage: 'on' },
   serveTogether: { stage: 'off' },
   awayMode: { stage: 'off' },
   jarReturn: { stage: 'off' },

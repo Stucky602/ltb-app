@@ -1845,6 +1845,7 @@ export default function LTBOrderTracker() {
                     expanded={expandedOrder === order.id}
                     onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
                     labelVersions={labelVersions}
+                    customerFlags={customerFlags}
                     onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
                     onDelete={() => { preserveScroll(); deleteOrder(order.id); }}
                     onEdit={() => { setFormMode(order); setExpandedOrder(null); }}
@@ -1902,6 +1903,7 @@ export default function LTBOrderTracker() {
                       expanded={expandedOrder === order.id}
                       onToggle={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
                       labelVersions={labelVersions}
+                      customerFlags={customerFlags}
                     onUpdate={(patch) => { preserveScroll(); updateOrder(order.id, patch); }}
                       onDelete={() => { preserveScroll(); deleteOrder(order.id); }}
                       onEdit={() => { setFormMode(order); setExpandedOrder(null); }}

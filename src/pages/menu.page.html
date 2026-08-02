@@ -149,12 +149,33 @@
   var lensOn = {};
   function lensAny(){ return !!(lensOn.clean || lensOn.caveat || lensOn.minimal); }
   function lensEnabled(){
-    if (typeof __ltbPersonal !== "undefined" && __ltbPersonal.flags
-        && typeof __ltbPersonal.flags.freezerLens === "boolean") {
-      return __ltbPersonal.flags.freezerLens;
+    // THE ACCESSOR IS __ltbFlag, and getting this wrong is why the lens did not
+    // appear on the first push. The first version read `__ltbPersonal.flags`,
+    // an object that does not exist anywhere in this codebase — personalize.js
+    // sets `window.__ltbFlags` and exposes `window.__ltbFlag(id)`. The typeof
+    // guard meant the mistake failed SILENTLY instead of throwing, so the
+    // personalized path never fired for anyone, including Kevin on `owner`.
+    //
+    // Check the real accessor first: it is the only path that can resolve the
+    // owner, testers, and percent stages, because those are evaluated per
+    // customer by the worker and arrive as a plain boolean.
+    if (typeof window !== "undefined" && typeof window.__ltbFlag === "function"
+        && window.__ltbFlags && ("freezerLens" in window.__ltbFlags)) {
+      return window.__ltbFlag("freezerLens");
     }
-    return !!(typeof config !== "undefined" && config.customerFlags
-      && config.customerFlags.freezerLens && config.customerFlags.freezerLens.stage === "on");
+    // ABSENT MEANS ON for this feature, deliberately, and it is the second half
+    // of why nothing appeared. Flags only reach the worker ON PUBLISH, so a
+    // config with no `customerFlags` at all is the normal state until Kevin
+    // publishes — and defaulting that to off means a default-on feature stays
+    // invisible until an unrelated action happens.
+    //
+    // Safe to fail open here in a way it would NOT be for the pack chooser:
+    // this filter reads data that is already correct, shows nothing until a
+    // toggle is tapped, and cannot cause a customer to order something Kevin
+    // cannot make.
+    if (typeof config === "undefined" || !config.customerFlags
+        || !config.customerFlags.freezerLens) return true;
+    return config.customerFlags.freezerLens.stage !== "off";
   }
   function toggleLens(k){ lensOn[k] = !lensOn[k]; render(); }
   function lensPasses(name){
@@ -523,6 +544,17 @@
       if (anyBagged){
         html += '<div class="info-card"><h4>A Note On Bagged Dishes</h4><p>'+esc(LIBRARY.static.baggedNote)+'</p></div>';
       }
+      // HOW A LARGE ARRIVES. A FACT, NOT AN OFFER — Kevin, Aug 2. A Large already
+      // ships as 2x of every container including the sous vide bags, so it is
+      // split by construction. There is no choice to make and no fee, which is
+      // exactly why this sits here as plain information next to the other
+      // how-it-works notes rather than anywhere near a packaging control. If it
+      // ever reads as an option, it is in the wrong place.
+      //
+      // DRAFT WORDING, awaiting Kevin's read — his own sentence from the walk.
+      html += '<div class="info-card"><h4>Ordering A Large</h4>'
+        + '<p>Large orders arrive as two of everything rather than one big container. '
+        + 'If you want to eat it across two nights, heat one and leave the other sealed.</p></div>';
     }
 
     // Ready to Finish (bag category) — proteins, then vegetables as one consolidated entry

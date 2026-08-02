@@ -658,10 +658,19 @@
     // exist before today, so there is no prior behaviour to preserve and the
     // safe reading of "no answer" is not to offer a pack Kevin may not make.
     function __ltbPackFlag() {
+      // Matches how the request box reads its own flag a few hundred lines up.
+      // `__ltbPersonal` is built in THIS FILE (see the IIFE near the bottom) and
+      // carries the resolved per-customer booleans, so it is the right accessor
+      // here — unlike menu.html, which has no such object and where reading it
+      // silently disabled the freezer lens entirely.
       if (typeof __ltbPersonal !== 'undefined' && __ltbPersonal.flags
           && typeof __ltbPersonal.flags.splitPack === 'boolean') {
         return __ltbPersonal.flags.splitPack;
       }
+      // ABSENT MEANS OFF here, unlike the lens, and the asymmetry is the point:
+      // offering a two-night pack Kevin has not declared could put an order in
+      // front of him he cannot physically pack on Tuesday. Failing open on a
+      // read-only filter is cheap; failing open on a purchase option is not.
       return !!(config.customerFlags && config.customerFlags.splitPack
         && config.customerFlags.splitPack.stage === 'on');
     }

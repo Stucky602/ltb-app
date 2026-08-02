@@ -141,8 +141,24 @@ const ok = (label, cond, detail = '') => {
     /function lensBoxHtml[\s\S]{0,220}lensAny\(\)/.test(page),
     'Kevin: "I am not trying to overwhelm clients." Always-on boxes are the failure this guards');
 
-  ok('the whole feature is gated on the freezerLens flag',
-    /function lensEnabled[\s\S]{0,400}freezerLens/.test(page));
+  ok('the whole feature still reads the freezerLens flag as a kill switch',
+    /function lensEnabled[\s\S]{0,900}freezerLens/.test(page),
+    'default-on is not the same as ungated — setting the flag off must still hide it');
+
+  // THE BUG THAT SHIPPED. `__ltbPersonal.flags` does not exist anywhere in this
+  // codebase; the accessor is window.__ltbFlag. The typeof guard made the
+  // mistake fail silently, so the personalized path never fired and the lens
+  // was invisible even with the flag on.
+  ok('the page uses the REAL flag accessor',
+    page.includes('window.__ltbFlag('),
+    'personalize.js sets window.__ltbFlags and exposes window.__ltbFlag(id)');
+  // NARROWED after checking rather than assuming: `__ltbPersonal` IS real on
+  // form.html, built by an IIFE in that file, and the request box has always
+  // read its flag through it. It does NOT exist on menu.html, which is why the
+  // lens was invisible. The rule is per page, not global.
+  ok('menu.html does not read an object it does not have',
+    !new RegExp('__ltbPersonal\\.flags').test(page.replace(/\/\/.*$/gm, '')),
+    'reading an undefined object behind a typeof guard fails silently, which is how this shipped');
 
   ok('nothing auto-deselects another toggle',
     !/lensOn\s*=\s*\{\s*\}/.test(page.replace('var lensOn = {};', '')),

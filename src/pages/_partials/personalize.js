@@ -145,7 +145,31 @@
     // No credential means this browser has never ordered. Offer the code path
     // and stop. Do NOT mint one here: a person reading the menu should not be
     // carrying a credential they never asked for.
-    if (!token) { if (window.__ltbFlag('claimCode')) claimUi(); return; }
+    // NO TOKEN STILL FETCHES, and that fix is the point of this branch.
+    //
+    // The old version returned here immediately, which meant window.__ltbFlags
+    // was still {} and every __ltbFlag(id) read false — including the
+    // claimCode check on this very line. The claim path could therefore never
+    // appear for a browser that had never ordered, which is the only kind of
+    // browser it exists for. The comment above it asserted the opposite.
+    //
+    // It also made the landing page look identical no matter what Kevin staged,
+    // because ALL FIVE of order.html's flags resolve through this path.
+    //
+    // The worker already handles this: /customer-home computes flags for an
+    // anonymous visitor and returns them with recognized:false. It was simply
+    // never being asked. Minting is still NOT done here — a person reading the
+    // menu carries no credential, which was always the real rule.
+    if (!token) {
+      fetch(WORKER + '/customer-home')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.flags) window.__ltbFlags = data.flags;
+          if (window.__ltbFlag('claimCode')) claimUi();
+        })
+        .catch(function () { /* offline: the page reads as it did before flags existed */ });
+      return;
+    }
 
     fetch(WORKER + '/customer-home', { headers: { 'X-LTB-Device': token } })
       .then(function (r) { return r.json(); })

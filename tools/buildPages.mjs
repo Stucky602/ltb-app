@@ -24,6 +24,8 @@
 // generator, never in a page shell.
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { classifyDish, lensBox } from '../src/freezerLens.js';
+import { dishIdFor } from '../src/dishIdentity.js';
 import { WORKER_BASE } from '../src/config.js';
 import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
 import { DISHES, ALL_ALWAYS_ITEMS } from '../src/dishes.js';
@@ -178,6 +180,29 @@ const GENERATORS = {
       out[item.name] = { v: c.verdict, say: c.say, dead: c.dead };
     }
     return `var CARL = ${looseJson(out)};`;
+  },
+
+  // ── FREEZER LENS ──────────────────────────────────────────────────────────
+  // Per-dish freeze classification plus the box copy, emitted for menu.html.
+  //
+  // GENERATED HERE, NOT ON THE PAGE, for the same reason the pack footprints
+  // are: menu.html is standalone ES5 and cannot import reheatData.js or the
+  // classifier. Deriving it at build time also means the customer sentence and
+  // the kitchen data cannot drift into two descriptions of one dish.
+  //
+  // Emitted for every dish with freeze data whether the flag is on or off — it
+  // is a few KB of text and gating the DATA as well as the UI would mean a flag
+  // flip needed a rebuild rather than a publish.
+  freezerLens: () => {
+    const out = {};
+    for (const d of DISHES) {
+      const id = dishIdFor(d.name);
+      const c = classifyDish(id);
+      if (!c) continue;
+      const box = lensBox(c);
+      out[d.name] = { state: c.state, lead: box.lead, detail: box.detail };
+    }
+    return `var FREEZE_LENS = ${looseJson(out)};`;
   },
 
   menuLibrary: () => {

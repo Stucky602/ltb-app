@@ -104,20 +104,16 @@ const ok = (label, cond, detail = '') => {
 
 // ── Copy checks: RATCHET, recorded baseline ─────────────────────────────────
 {
-  // Four components are recorded as pour-and-keep with no note: a customer is
-  // told they can heat part of it and not how much, whether it reseals, or what
-  // happens to the rest. These are questions for Kevin about food, not bugs.
-  // Written down so the number cannot grow unnoticed.
-  const PARTIAL_HEAT_BASELINE = 4;
+  // BASELINE CLOSED TO ZERO, Aug 1. All four were answered in the walks sitting
+  // — the Indian curry bag, the Leblanc kabocha and carrots, and the Steak au
+  // Poivre asparagus. The ratchet existed so the number could not grow while
+  // they were open; now that it is zero, the assertion is absolute. It should
+  // never go back up: a new pour-and-keep component without a note means a
+  // customer is being told they can heat part of something and not how.
   const found = checkPartialHeatHasDivision();
-  ok(`no NEW partial-heat gap (baseline ${PARTIAL_HEAT_BASELINE})`,
-    found.length <= PARTIAL_HEAT_BASELINE,
+  ok('every pour-and-keep component tells a customer HOW to divide it',
+    found.length === 0,
     found.map(f => f.subject).join(', '));
-  ok('the baseline has not gone stale either',
-    found.length >= PARTIAL_HEAT_BASELINE - 1,
-    `only ${found.length} found; if Kevin answered some, lower the baseline`);
-  ok('each finding names the dish, the component, and the mode',
-    found.every(f => f.subject.includes('/') && /"pour-and-keep"/.test(f.detail)));
 
   ok('every recorded freeze verdict either is tested or explains itself',
     checkFreezeClaims().length === 0,
@@ -195,6 +191,38 @@ const ok = (label, cond, detail = '') => {
   ok('and it is a real PNG rather than a placeholder',
     png[0] === 0x89 && png.toString('latin1', 1, 4) === 'PNG' && png.length > 1000,
     `${png.length} bytes`);
+}
+
+// ── The jar ledger says what it counts ──────────────────────────────────────
+//
+// Kevin reported the container audit showing two households from the same week
+// differently when both had rice containers. The cause: `orderOutboundJars`
+// counts only jar-shipping items, while `containerReturns` decrements the same
+// total — containers can subtract and never add.
+//
+// The ledger is deliberately NOT fixed, because whether the meal containers are
+// owed back by a named household is Kevin's ruling, not a calculation. What is
+// guarded here is that the DISPLAY does not claim more than the number knows.
+{
+  const fs = await import('node:fs');
+  const utils = fs.readFileSync(new URL('../src/utils.js', import.meta.url), 'utf8');
+  const regulars = fs.readFileSync(new URL('../src/components/RegularsTab.jsx', import.meta.url), 'utf8');
+
+  ok('the outbound side still counts only jar-shipping items',
+    /JAR_SHIPPING_NAMES\.has\(it\.name\)/.test(utils),
+    'if this changes, the label below and the defect note above both need revisiting');
+
+  ok('the defect is documented where the function lives',
+    /KNOWN DEFECT[\s\S]{0,200}ASYMMETRIC/.test(utils),
+    'a half-built ledger with no note reads as a finished one');
+
+  ok('no surface labels that number "containers out"',
+    !/containers out/i.test(regulars),
+    'the profile stat said containers over a number that counts jars — that is the reported bug wearing a caption');
+
+  ok('and the regulars table still calls its column Jars',
+    /<th[^>]*>Jars<\/th>/.test(regulars),
+    'the two surfaces must agree on what is being counted');
 }
 
 console.log(failed === 0 ? '\nCANON RULES: ALL PASS' : `\nCANON RULES: ${failed} FAILURES`);

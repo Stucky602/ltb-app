@@ -580,7 +580,7 @@ export function RegularProfile({ regular, orders, allRegulars, onUpdate, onDelet
           </div>
           <div style={styles.profileStat}>
             <div style={styles.profileStatNum}>{jarsOutForRegular(regular.id, orders)}</div>
-            <div style={styles.profileStatLabel}>containers out</div>
+            <div style={styles.profileStatLabel}>jars out</div>
           </div>
           {(() => {
             // Most-ordered dish, and how many omakases they have trusted him with.

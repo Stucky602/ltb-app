@@ -1057,6 +1057,160 @@ export function RecordTab({
       </div>
       )}
 
+      {/* MOVED FROM KEEP, Kevin's ruling Aug 1. "What you actually cook" and
+          "Your own ranking" are the record looking back at itself, which is what
+          Read is for. Keep is for getting things OUT of the device; these two
+          were only there because the original grouping predates the sub-tabs.
+          The container audit and the epoch card stay in Keep — the epoch card
+          because he has already confirmed the decision, so the argument for
+          moving it (an unanswered one-tap decision belongs in Do) is spent. */}
+      {patterns && (
+        <div style={S.card}>
+          <div style={S.h}>What you actually cook</div>
+          {patterns.unavailable ? (
+            <div style={S.faint}>{patterns.reason}</div>
+          ) : (
+            <>
+              <div style={S.faint}>
+                {patterns.units} portions across {patterns.weeks} week{patterns.weeks === 1 ? '' : 's'},
+                {' '}{patterns.distinct} different dishes, about {patterns.dishesPerWeek} a week.
+                {' '}Counted only since the real data starts, so this is cooking and not data entry.
+              </div>
+
+              <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>By technique</div>
+              {patterns.techniques.map(t => (
+                <div key={t.technique} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                  <span style={{ color: C.text, flex: 1, textTransform: 'capitalize' }}>{t.technique}</span>
+                  <span style={{ color: C.faint }}>{Math.round(t.share * 100)}% · {t.units}</span>
+                </div>
+              ))}
+
+              <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>Most cooked</div>
+              {patterns.rows.slice(0, 6).map(r => (
+                <div key={r.dish} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                  <span style={{ color: C.text, flex: 1 }}>{r.dish}</span>
+                  <span style={{ color: C.faint }}>{r.units} · {r.weeksRun}wk</span>
+                </div>
+              ))}
+
+              {/* Both directions are interesting and neither is a failure. Rated
+                  high and rarely cooked usually has a cost or effort reason he
+                  already knows. Rated low and cooked often is a workhorse. */}
+              {tasteVsPractice && tasteVsPractice.some(t => t.gap != null && Math.abs(t.gap) >= 4) && (
+                <>
+                  <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>Taste against practice</div>
+                  <div style={{ ...S.faint, marginBottom: 4 }}>
+                    Where what you rate highly and what you actually make pull apart.
+                  </div>
+                  {tasteVsPractice
+                    .filter(t => t.gap != null && Math.abs(t.gap) >= 4)
+                    .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
+                    .slice(0, 5)
+                    .map(t => (
+                      <div key={t.dish} style={{ padding: '4px 0', fontSize: 12.5 }}>
+                        <span style={{ color: C.text }}>{t.dish}</span>
+                        <span style={{ color: C.faint }}>
+                          {' \u00b7 '}you rate it {t.tasteRank}, you cook it {t.cookRank}
+                          {t.gap < 0 ? ' \u00b7 makes it less than he rates it' : ' \u00b7 a workhorse'}
+                        </span>
+                      </div>
+                    ))}
+                </>
+              )}
+
+              {patterns.neverRun.length > 0 && (
+                <div style={{ ...S.faint, marginTop: 10 }}>
+                  Not cooked at all in this window: {patterns.neverRun.length} dish
+                  {patterns.neverRun.length === 1 ? '' : 'es'}. Some are seasonal, some are new.
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {ranking && (
+        <div style={S.card}>
+          <div style={S.h}>Your own ranking</div>
+          <div style={S.faint}>
+            Taken {new Date(ranking.rankedAt).toLocaleDateString()} by head-to-head over all
+            {' '}{ranking.order.length} dinners. One question, asked ~90 times: which would you rather
+            eat tonight. Kept as a series, because the whole reason to record it is that it drifts.
+            <br /><br />
+            <b style={{ color: C.text }}>Last place is not a bad dish.</b> Everything here already
+            cleared the reheat gate, so this is preference spread across a set that is uniformly
+            good. 27th means least favourite of 27 things you would happily eat.
+            {rankingStale && rankingStale.added.length > 0 && (
+              <> <b style={{ color: C.warn }}>{rankingStale.added.length} dish{rankingStale.added.length === 1 ? '' : 'es'} joined the menu since</b>, so this is due a re-run.</>
+            )}
+          </div>
+          <div style={{ marginTop: 8 }}>
+            {ranking.order.slice(0, 10).map((d, i) => (
+              <div key={d} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: 13.5 }}>
+                <span style={{ color: C.faint, minWidth: 18 }}>{i + 1}</span>
+                <span style={{ color: C.text }}>{d}</span>
+              </div>
+            ))}
+          </div>
+
+          {rankingDrift && rankingDrift.movers.length > 0 && (
+            <>
+              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>What moved since last time</div>
+              {rankingDrift.movers.slice(0, 6).map(m => (
+                <div key={m.dish} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
+                  <span style={{ color: m.delta > 0 ? C.good : C.bad, minWidth: 34 }}>
+                    {m.delta > 0 ? '\u2191' : '\u2193'}{Math.abs(m.delta)}
+                  </span>
+                  <span style={{ color: C.text, flex: 1 }}>{m.dish}</span>
+                  <span style={{ color: C.faint }}>{m.from} \u2192 {m.to}</span>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* The disagreements, both directions. Neither is a failure: a dish he
+              loves that nobody orders is a fact about a friends-only menu that
+              exists to please him too. */}
+          {tasteVsSales && tasteVsSales.some(r => r.gap != null && Math.abs(r.gap) >= 6) && (
+            <>
+              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>Where you and your customers disagree</div>
+              <div style={{ ...S.faint, marginBottom: 4 }}>
+                Neither direction is a problem. A dish you rate highly that few people order is a
+                fact about a friends-only menu that exists to please you too.
+              </div>
+              {tasteVsSales
+                .filter(r => r.gap != null && Math.abs(r.gap) >= 6)
+                .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
+                .slice(0, 6)
+                .map(r => (
+                  <div key={r.dish} style={{ padding: '5px 0', fontSize: 12.5 }}>
+                    <span style={{ color: C.text }}>{r.dish}</span>
+                    <span style={{ color: C.faint }}>
+                      {' \u00b7 '}you {r.tasteRank}, they order it {r.salesRank}
+                      {r.gap > 0 ? ' \u00b7 sells better than you rate it' : ' \u00b7 you rate it higher than it sells'}
+                    </span>
+                  </div>
+                ))}
+            </>
+          )}
+
+          {tasteVsSon && tasteVsSon.length > 0 && (
+            <>
+              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>You and Rowan</div>
+              {tasteVsSon.slice(0, 8).map(r => (
+                <div key={r.dish} style={{ padding: '5px 0', fontSize: 12.5 }}>
+                  <span style={{ color: C.text }}>{r.dish}</span>
+                  <span style={{ color: r.agree ? C.good : C.faint }}>
+                    {' \u00b7 '}you {r.tasteRank}, him {r.sonRank}
+                    {r.agree ? ' \u00b7 agreed' : ''}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
       </>)}
 
       {sub === 'keep' && (<>
@@ -1210,153 +1364,6 @@ export function RecordTab({
                 Reversible, and it hides nothing — orders before the line stay exactly where they are,
                 they just stop being counted in statistics.
               </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {patterns && (
-        <div style={S.card}>
-          <div style={S.h}>What you actually cook</div>
-          {patterns.unavailable ? (
-            <div style={S.faint}>{patterns.reason}</div>
-          ) : (
-            <>
-              <div style={S.faint}>
-                {patterns.units} portions across {patterns.weeks} week{patterns.weeks === 1 ? '' : 's'},
-                {' '}{patterns.distinct} different dishes, about {patterns.dishesPerWeek} a week.
-                {' '}Counted only since the real data starts, so this is cooking and not data entry.
-              </div>
-
-              <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>By technique</div>
-              {patterns.techniques.map(t => (
-                <div key={t.technique} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
-                  <span style={{ color: C.text, flex: 1, textTransform: 'capitalize' }}>{t.technique}</span>
-                  <span style={{ color: C.faint }}>{Math.round(t.share * 100)}% · {t.units}</span>
-                </div>
-              ))}
-
-              <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>Most cooked</div>
-              {patterns.rows.slice(0, 6).map(r => (
-                <div key={r.dish} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
-                  <span style={{ color: C.text, flex: 1 }}>{r.dish}</span>
-                  <span style={{ color: C.faint }}>{r.units} · {r.weeksRun}wk</span>
-                </div>
-              ))}
-
-              {/* Both directions are interesting and neither is a failure. Rated
-                  high and rarely cooked usually has a cost or effort reason he
-                  already knows. Rated low and cooked often is a workhorse. */}
-              {tasteVsPractice && tasteVsPractice.some(t => t.gap != null && Math.abs(t.gap) >= 4) && (
-                <>
-                  <div style={{ ...S.h, marginTop: 12, fontSize: 13 }}>Taste against practice</div>
-                  <div style={{ ...S.faint, marginBottom: 4 }}>
-                    Where what you rate highly and what you actually make pull apart.
-                  </div>
-                  {tasteVsPractice
-                    .filter(t => t.gap != null && Math.abs(t.gap) >= 4)
-                    .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
-                    .slice(0, 5)
-                    .map(t => (
-                      <div key={t.dish} style={{ padding: '4px 0', fontSize: 12.5 }}>
-                        <span style={{ color: C.text }}>{t.dish}</span>
-                        <span style={{ color: C.faint }}>
-                          {' \u00b7 '}you rate it {t.tasteRank}, you cook it {t.cookRank}
-                          {t.gap < 0 ? ' \u00b7 makes it less than he rates it' : ' \u00b7 a workhorse'}
-                        </span>
-                      </div>
-                    ))}
-                </>
-              )}
-
-              {patterns.neverRun.length > 0 && (
-                <div style={{ ...S.faint, marginTop: 10 }}>
-                  Not cooked at all in this window: {patterns.neverRun.length} dish
-                  {patterns.neverRun.length === 1 ? '' : 'es'}. Some are seasonal, some are new.
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {ranking && (
-        <div style={S.card}>
-          <div style={S.h}>Your own ranking</div>
-          <div style={S.faint}>
-            Taken {new Date(ranking.rankedAt).toLocaleDateString()} by head-to-head over all
-            {' '}{ranking.order.length} dinners. One question, asked ~90 times: which would you rather
-            eat tonight. Kept as a series, because the whole reason to record it is that it drifts.
-            <br /><br />
-            <b style={{ color: C.text }}>Last place is not a bad dish.</b> Everything here already
-            cleared the reheat gate, so this is preference spread across a set that is uniformly
-            good. 27th means least favourite of 27 things you would happily eat.
-            {rankingStale && rankingStale.added.length > 0 && (
-              <> <b style={{ color: C.warn }}>{rankingStale.added.length} dish{rankingStale.added.length === 1 ? '' : 'es'} joined the menu since</b>, so this is due a re-run.</>
-            )}
-          </div>
-          <div style={{ marginTop: 8 }}>
-            {ranking.order.slice(0, 10).map((d, i) => (
-              <div key={d} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: 13.5 }}>
-                <span style={{ color: C.faint, minWidth: 18 }}>{i + 1}</span>
-                <span style={{ color: C.text }}>{d}</span>
-              </div>
-            ))}
-          </div>
-
-          {rankingDrift && rankingDrift.movers.length > 0 && (
-            <>
-              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>What moved since last time</div>
-              {rankingDrift.movers.slice(0, 6).map(m => (
-                <div key={m.dish} style={{ display: 'flex', gap: 8, padding: '4px 0', fontSize: 12.5 }}>
-                  <span style={{ color: m.delta > 0 ? C.good : C.bad, minWidth: 34 }}>
-                    {m.delta > 0 ? '\u2191' : '\u2193'}{Math.abs(m.delta)}
-                  </span>
-                  <span style={{ color: C.text, flex: 1 }}>{m.dish}</span>
-                  <span style={{ color: C.faint }}>{m.from} \u2192 {m.to}</span>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* The disagreements, both directions. Neither is a failure: a dish he
-              loves that nobody orders is a fact about a friends-only menu that
-              exists to please him too. */}
-          {tasteVsSales && tasteVsSales.some(r => r.gap != null && Math.abs(r.gap) >= 6) && (
-            <>
-              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>Where you and your customers disagree</div>
-              <div style={{ ...S.faint, marginBottom: 4 }}>
-                Neither direction is a problem. A dish you rate highly that few people order is a
-                fact about a friends-only menu that exists to please you too.
-              </div>
-              {tasteVsSales
-                .filter(r => r.gap != null && Math.abs(r.gap) >= 6)
-                .sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))
-                .slice(0, 6)
-                .map(r => (
-                  <div key={r.dish} style={{ padding: '5px 0', fontSize: 12.5 }}>
-                    <span style={{ color: C.text }}>{r.dish}</span>
-                    <span style={{ color: C.faint }}>
-                      {' \u00b7 '}you {r.tasteRank}, they order it {r.salesRank}
-                      {r.gap > 0 ? ' \u00b7 sells better than you rate it' : ' \u00b7 you rate it higher than it sells'}
-                    </span>
-                  </div>
-                ))}
-            </>
-          )}
-
-          {tasteVsSon && tasteVsSon.length > 0 && (
-            <>
-              <div style={{ ...S.h, marginTop: 14, fontSize: 13 }}>You and Rowan</div>
-              {tasteVsSon.slice(0, 8).map(r => (
-                <div key={r.dish} style={{ padding: '5px 0', fontSize: 12.5 }}>
-                  <span style={{ color: C.text }}>{r.dish}</span>
-                  <span style={{ color: r.agree ? C.good : C.faint }}>
-                    {' \u00b7 '}you {r.tasteRank}, him {r.sonRank}
-                    {r.agree ? ' \u00b7 agreed' : ''}
-                  </span>
-                </div>
-              ))}
             </>
           )}
         </div>

@@ -227,6 +227,15 @@ export const PRACTICE_SEEDS = [
     status: 'proposed',
   },
   {
+    id: 'pr_seed_sv_bag_colour',
+    text: 'Vegetables never share a sous vide bag, because the colours bleed together.',
+    why: 'He gave this as the reason the Leblanc kabocha and carrots are in separate bags.',
+    where: 'Stated as current kitchen-wide behaviour across every recipe, not as a Leblanc fact. '
+      + 'Confirm or narrow the scope \u2014 it arrived as a general claim and has not been tested against every dish.',
+    sources: ['Kevin, walks side chat, Aug 1, explaining the Leblanc two-bag structure'],
+    status: 'proposed',
+  },
+  {
     id: 'pr_seed_bag_is_vessel_practice',
     text: 'When the bag is the vessel, it changes both the packaging and the reheat instructions, not just one.',
     why: 'Opening it early costs the method, so the copy and the pack have to agree or one of them is lying.',

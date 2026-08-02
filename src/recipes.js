@@ -266,6 +266,17 @@ export function buildReheatBlocks(order) {
   // instead of being lumped into the shared noodle/pasta bucket text. Same
   // up-front full-item scan as Ragu above, so a mixed order (one noodle
   // variant + one beef variant) keeps both cards.
+  const RICE_SALT_NOTE = ' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
+
+  // THE RICE-SALTING NOTE, one copy. It was three identical string literals, and
+  // Kevin ruled on Aug 1 that it must also reach the three dishes with DEDICATED
+  // card logic — Tex-Mex, Bo Ssam, and Cumin Beef or Lamb on Rice — which the
+  // shared blocks never touched. Six copies of a sentence is how five of them
+  // end up subtly different.
+  //
+  // The dedup layer at the end of buildReheatBlocks still holds: it strips the
+  // note from every block after the first, so a two-rice order tells the joke
+  // once.
   const CUMIN_DUAL = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
   let cuminNoodleOrdered = false;
   let cuminMeatOnRiceOrdered = false;
@@ -340,7 +351,7 @@ export function buildReheatBlocks(order) {
 
     if (regularBagged.length) {
       let body = 'Bring a pot of water to a gentle simmer and place the sealed bag in until heated through, then cut open and plate. Microwave or stovetop work too if you prefer. See the main menu for additional details.';
-      if (listHasRice(regularBagged)) body +=' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
+      if (listHasRice(regularBagged)) body +=RICE_SALT_NOTE;
       blocks.push({ title: 'Reheat in the bag', dishes: regularBagged, body });
     }
 
@@ -359,7 +370,7 @@ export function buildReheatBlocks(order) {
   const genericStovetop = byBucket.stovetop.filter(n => !STEW_VEG_COPY[n]);
   if (genericStovetop.length) {
     let body = 'Comes in a container. Warm gently on the stove over medium-low until heated through. If it looks a little thick, add a splash of water to loosen it.';
-    if (listHasRice(genericStovetop)) body +=' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
+    if (listHasRice(genericStovetop)) body +=RICE_SALT_NOTE;
     blocks.push({ title: 'Reheat on the stovetop', dishes: genericStovetop, body });
   }
 
@@ -369,7 +380,7 @@ export function buildReheatBlocks(order) {
   byBucket.stovetop.filter(n => STEW_VEG_COPY[n]).forEach(name => {
     const copy = STEW_VEG_COPY[name];
     let mainBody = copy.main;
-    if (RICE_DISHES.has(name)) mainBody +=' Cook the included rice. I lightly salt mine, and I know that is blasphemy to some, so do it your way.';
+    if (RICE_DISHES.has(name)) mainBody +=RICE_SALT_NOTE;
     blocks.push({ title: name, dishes: [name], body: [mainBody, copy.veg] });
   });
 
@@ -492,7 +503,7 @@ export function buildReheatBlocks(order) {
       // it said "warm the protein gently" with no endpoint, and it never
       // mentioned toasting the tortillas — which Kevin says is how they should
       // be eaten. The rice is new to the kit as of Jul 31.
-      body: 'Everything travels separately, so you build it as you go. Scoop as much of the beans as you want into a saucepan over medium-low, stirring now and then, until heated through. The protein comes sitting in its braise: put the portion you want into another pot or pan over medium-low and bring it up until hot. Toast the tortillas in a dry nonstick skillet over medium-low, a few seconds a side. Cook the included rice. The pico is ready as it is, straight from the fridge.',
+      body: 'Everything travels separately, so you build it as you go. Scoop as much of the beans as you want into a saucepan over medium-low, stirring now and then, until heated through. The protein comes sitting in its braise: put the portion you want into another pot or pan over medium-low and bring it up until hot. Toast the tortillas in a dry nonstick skillet over medium-low, a few seconds a side.' + RICE_SALT_NOTE + ' The pico is ready as it is, straight from the fridge.',
     });
   }
 
@@ -509,7 +520,7 @@ export function buildReheatBlocks(order) {
       // re-chilling repeatedly is a real risk. The oven and microwave routes
       // exist precisely as the partial-serving answers — for this dish the
       // divisibility answer and the safety answer are the same answer.
-      body: 'The pork comes pre-pulled and sealed in a bag. The best way is to bring a pot of water to a gentle simmer and put the whole sealed bag in until heated through — it remelts the fat evenly, which nothing else quite does. Use that method when you are eating most of it in one sitting; reheating and re-chilling the same pork over and over is worth avoiding. For a smaller serving, take out what you need and either warm it in a 325F oven for about 10 minutes, or microwave it at 50 percent power for 2 minutes under a damp paper towel, checking and repeating as needed. The pork is forgiving enough that the microwave genuinely works here. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice.',
+      body: 'The pork comes pre-pulled and sealed in a bag. The best way is to bring a pot of water to a gentle simmer and put the whole sealed bag in until heated through — it remelts the fat evenly, which nothing else quite does. Use that method when you are eating most of it in one sitting; reheating and re-chilling the same pork over and over is worth avoiding. For a smaller serving, take out what you need and either warm it in a 325F oven for about 10 minutes, or microwave it at 50 percent power for 2 minutes under a damp paper towel, checking and repeating as needed. The pork is forgiving enough that the microwave genuinely works here. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed.' + RICE_SALT_NOTE + '',
     });
   }
 
@@ -555,7 +566,7 @@ export function buildReheatBlocks(order) {
     blocks.push({
       title: CUMIN_DUAL,
       dishes: [CUMIN_DUAL],
-      body: 'Everything but the rice is sealed in a bag. Bring a pot of water to a gentle simmer and drop the bag in until heated through. Cook the included rice, then cut the bag open and spoon the meat and sauce over the top.',
+      body: 'Everything but the rice is sealed in a bag. Bring a pot of water to a gentle simmer and drop the bag in until heated through. Cut the bag open and spoon the meat and sauce over the rice.' + RICE_SALT_NOTE,
     });
   }
 

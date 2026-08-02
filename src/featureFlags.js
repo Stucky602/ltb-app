@@ -33,7 +33,7 @@ export const FLAGS = [
   { id: 'requestBox', label: 'Dish requests', why: '"Want a dish back?" on the order form.' },
   { id: 'ingredientCards', label: 'Ingredient cards', why: 'Nothing customer-facing yet; Kevin sends these by hand.' },
   { id: 'visualCues', label: 'Photo cues', why: 'Step photographs on the companion page.' },
-  { id: 'freezerLens', label: 'Freezer filter', why: 'Storage filter on the menu. Needs the reheat walk first.' },
+  { id: 'freezerLens', label: 'Freezer filter', why: 'Menu filter by how a dish keeps in a freezer. Built Aug 1; the reheat walk it was waiting on is done.' },
   { id: 'serveTogether', label: 'Serve-together timeline', why: 'Coordinated reheat schedule. Needs the reheat walk first.' },
   { id: 'awayMode', label: 'Away mode', why: 'Lets a customer say they are away for a week.' },
   { id: 'jarReturn', label: 'Jar returns', why: 'Shows how many jars a household holds.' },

@@ -67,7 +67,12 @@ export function splitPackagingWalk() {
       { key: 'variants', label: 'Which sizes (Large only, both, …)', type: 'text' },
       { key: 'containers', label: 'What the two-night pack ships in', type: 'text',
         placeholder: 'e.g. 2 x 32 oz round instead of 1 x 48 oz' },
-      { key: 'surcharge', label: 'Surcharge, if any', type: 'text', placeholder: 'blank = absorbed' },
+      // NOT "blank = absorbed". Kevin has said the added packaging on a
+      // two-night pack will need increased pricing and is not going to be
+      // absorbed by default, so a field implying otherwise would prompt the
+      // wrong answer at the moment he is deciding.
+      { key: 'surcharge', label: 'Surcharge for the extra packaging', type: 'text',
+        placeholder: 'e.g. 1.25 — leave blank only if you truly mean to absorb it' },
       { key: 'note', label: 'Anything worth recording', type: 'textarea' },
     ]),
     prefill: null, // no guesses about food; see the header

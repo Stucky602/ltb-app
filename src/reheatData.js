@@ -150,7 +150,14 @@ export const REHEAT_DATA = {
         divide: { mode: 'scoop', note: null } },
       { key: 'bag', package: 'bag',
         freeze: { verdict: 'no', tested: true, note: 'Conditional — some weeks there is no bag at all.' },
-        divide: { mode: 'pour-and-keep', note: null } },
+        // Kevin, Aug 1. The conditional is deliberate and it HOLDS THE NO-NAMING
+        // RULE: he does not know until he is grocery shopping whether the bag
+        // carries a vegetable or a protein, so the copy never says. The customer
+        // resolves it by looking, which they can.
+        divide: { mode: 'pour-and-keep',
+          note: 'Portion the curry you want into a saucepan, then add roughly the same share of the bag — '
+            + 'half the curry, half the bag. If it is a vegetable, drain the liquid off and discard it. '
+            + 'If it is a protein, the liquid can go in too.' } },
     ],
     equipment: [
       { vessel: 'pot', note: 'For the curry; the bag needs no pot of its own.' },
@@ -178,10 +185,21 @@ export const REHEAT_DATA = {
       { key: 'kabocha', package: 'bag',
         freeze: { verdict: 'well', tested: true,
           note: 'Fine frozen, either stirred into the curry or left in its bag for later. A freeze costs it some of the firm edge the sous vide was bought for.' },
-        divide: { mode: 'pour-and-keep', note: null } },
+        // INHERITS the Indian curry vegetable rule — Kevin recorded it as an
+        // inheritance rather than a copy, so a future edit to that answer
+        // carries here instead of the two drifting apart.
+        divide: { mode: 'pour-and-keep',
+          note: 'Its own sous vide bag. Portion the curry into a saucepan, then add the same share of the '
+            + 'kabocha. It is a vegetable, so drain the liquid off and discard it.' } },
       { key: 'carrots', package: 'bag',
         freeze: { verdict: 'no', tested: true, note: 'The Brunswick potato treatment: pull them out and use them for something else.' },
-        divide: { mode: 'pour-and-keep', note: null } },
+        // SAY IT PLAINLY — Kevin's explicit copy instruction. The kabocha and the
+        // carrots are in SEPARATE bags, so a Leblanc customer opens two and does
+        // the percentage match twice. Left generic, somebody splits the kabocha
+        // and forgets the carrots.
+        divide: { mode: 'pour-and-keep',
+          note: 'A second, separate bag — you will open two. Same again: add the same share of carrots as '
+            + 'curry you portioned, and drain the liquid off and discard it.' } },
     ],
     equipment: [
       { vessel: 'pot', note: 'Curry and vegetables together — the bag no longer gets its own pot.' },
@@ -402,7 +420,12 @@ export const REHEAT_DATA = {
   }),
 
   'pappardelle-with-vegetables': D({
-    timing: { min: 20, max: 20, governor: 'pasta', active: null, inactive: null, waitFirst: null },
+    // CONFIRMED by Kevin, Aug 1: about 15 minutes for the water to boil, about
+    // 5 to cook. The 20-minute headline was already right; what was missing was
+    // the split, and Before You Start reads active/inactive to say how much of
+    // the wait you are actually standing there for. Customer-clock, as always —
+    // the boil is inside the total.
+    timing: { min: 20, max: 20, governor: 'pasta', active: 5, inactive: 15, waitFirst: null },
     components: [
       { key: 'bag', package: 'bag',
         freeze: { verdict: 'no', tested: true, note: 'Refrigerates well, so like the asparagus dishes this is a do-not-freeze without urgency.' },
@@ -533,7 +556,22 @@ export const REHEAT_DATA = {
         divide: { mode: 'bag-is-vessel', note: 'The polenta treatment: simmer the sealed bag whole; stir-and-water fallback only if it must be opened.' } },
       { key: 'asparagus', package: 'bag',
         freeze: { verdict: 'no', tested: true, note: 'Asparagus does not freeze — the same reason as the black bean and Thai basil dishes.' },
-        divide: { mode: 'pour-and-keep', note: null } },
+        // A COUNT, NOT A POUR. Different shape from the other three
+        // pour-and-keep components: dividing is taking spears out, and a Small
+        // is portioned as two servings, so half the asparagus is half the bag.
+        //
+        // TWO ROUTES, NOT A PRIMARY AND A FALLBACK. Kevin confirmed this
+        // explicitly as the bigger claim: the customer picks. Searing the spears
+        // in the steak pan while the steak rests is not a rescue for a failed
+        // bag reheat, it is an equal option and arguably the better dinner.
+        //
+        // THE ONLY DISH THAT DOES THIS. Kevin could not think of another case
+        // where alternative routes even make sense, so this is a one-off and NOT
+        // a pattern to go hunting for on other dishes.
+        divide: { mode: 'pour-and-keep',
+          note: 'Take out the spears you want — a Small is portioned as two servings, so half the asparagus '
+            + 'is one. Then either warm them in the bag, or sear them in the pan the steak was seared in '
+            + 'while the steak rests. Both are right; take your pick.' } },
     ],
     equipment: [
       { vessel: 'pan', note: 'The sear.' },

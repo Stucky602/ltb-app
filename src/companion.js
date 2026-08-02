@@ -810,7 +810,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
        policy, and a kitchen page that opens with a lecture is a kitchen page
        nobody reads twice. -->
   ${beforeYouStartHtml}
-  <div class="safety">Reheat only what you plan to eat. Anything that comes back out of the fridge is best warmed once rather than again and again.</div>
+  <div class="safety">Reheat only what you plan to eat. Anything that comes back out of the fridge is best warmed once rather than again and again. If you open a bag to take half, roll the end over and clip it or tip the rest into a container \u2014 once it is open the bag is just storage, and it keeps about a week that way.</div>
   ${historyHtml}
   ${storageHtml}
   ${heatOnlyHtml}

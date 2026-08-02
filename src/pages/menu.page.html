@@ -74,6 +74,21 @@
   .pairing-row { font-size:12px; line-height:1.5; color:var(--body); }
   .pairing-row b { color:var(--cream); font-weight:600; }
   .info-card { background:var(--card); border:1px solid var(--teal-mid); border-radius:12px; padding:13px 15px; margin:14px 0; }
+  /* FREEZER LENS. Deliberately quiet: it is an optional aid on a page people
+     read to choose dinner, not a control panel. The row reads as a question. */
+  .lens-row { margin:12px 0 6px; }
+  .lens-lead { font-size:13px; color:var(--dim); margin-bottom:7px; }
+  .lens-btns { display:flex; gap:6px; flex-wrap:wrap; }
+  .lens-btn { flex:1 1 130px; min-height:38px; padding:8px 10px; border-radius:9px; cursor:pointer;
+    border:1px solid var(--teal-mid); background:#141d1a; color:var(--dim); font-size:12.5px; font-weight:600; }
+  .lens-btn.on { background:var(--teal-mid); color:#fff; border-color:var(--teal-light); }
+  /* The three states are colour-coded, but the colour is never the only signal:
+     every box states its meaning in words, because a customer reading on a phone
+     in sunlight should not have to decode a hue. */
+  .lens-box { font-size:12.5px; line-height:1.5; padding:8px 11px; border-radius:9px; margin:-4px 0 14px; }
+  .lens-clean { background:rgba(93,202,165,0.10); border:1px solid #2f6b58; color:#bfe6d8; }
+  .lens-caveat { background:rgba(212,160,80,0.10); border:1px solid #4a3a1e; color:#e8d3ae; }
+  .lens-minimal { background:rgba(226,75,74,0.09); border:1px solid #5a2b2b; color:#f0c4c2; }
   .info-card h4 { color:var(--gold); font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:5px; }
   .info-card p { font-size:12.5px; line-height:1.5; color:var(--body); }
   .loop { background:var(--card); border:1px solid var(--gold); border-radius:12px; padding:15px; margin-top:24px; text-align:center; }
@@ -111,7 +126,68 @@
   <!-- @include _partials/noticeHtml.js -->
   <!-- @include _partials/pausedHtml.js -->
   <!-- @generate menuLibrary -->
+  <!-- @generate freezerLens -->
   <!-- @generate carlData -->
+
+  // ── FREEZER LENS ──────────────────────────────────────────────────────────
+  // A shopping aid: filter the menu by how a dish behaves in a freezer, so
+  // somebody stocking up orders differently from somebody eating on Tuesday.
+  //
+  // ADDITIVE TOGGLES, NOT RADIO BUTTONS. Kevin's spec: somebody filling a
+  // freezer wants clean and caveat on together with red off; somebody planning
+  // the week wants only red. Any combination is meaningful, so nothing here is
+  // exclusive and nothing auto-deselects.
+  //
+  // THE BOXES ONLY APPEAR WHEN A FILTER IS ON, and that is his explicit ruling:
+  // "I am not trying to overwhelm clients, just give options if they want it."
+  // Do not make them always-on, and do not let a later change quietly do it.
+  //
+  // NOTHING IS LOST BY HIDING THEM. The real instruction still lives on the
+  // reheat page under Eat-First / Freeze-First, which a customer sees after
+  // ordering, at the moment it matters. THE LENS IS A SHOPPING AID. IT IS NOT
+  // WHERE THE KNOWLEDGE LIVES.
+  var lensOn = {};
+  function lensAny(){ return !!(lensOn.clean || lensOn.caveat || lensOn.minimal); }
+  function lensEnabled(){
+    if (typeof __ltbPersonal !== "undefined" && __ltbPersonal.flags
+        && typeof __ltbPersonal.flags.freezerLens === "boolean") {
+      return __ltbPersonal.flags.freezerLens;
+    }
+    return !!(typeof config !== "undefined" && config.customerFlags
+      && config.customerFlags.freezerLens && config.customerFlags.freezerLens.stage === "on");
+  }
+  function toggleLens(k){ lensOn[k] = !lensOn[k]; render(); }
+  function lensPasses(name){
+    if (!lensAny()) return true;
+    var e = FREEZE_LENS[name];
+    // A dish with no recorded freeze data is excluded from a FILTERED view
+    // rather than shown or hidden silently — claiming it belongs in any of the
+    // three states would be a verdict nobody gave.
+    if (!e) return false;
+    return !!lensOn[e.state];
+  }
+  function lensBtn(k, label){
+    var on = !!lensOn[k];
+    return '<button type="button" class="lens-btn' + (on ? ' on' : '') + '" onclick="toggleLens(\'' + k + '\')">'
+      + label + '</button>';
+  }
+  function lensRowHtml(){
+    if (!lensEnabled()) return "";
+    return '<div class="lens-row">'
+      + '<div class="lens-lead">Stocking the freezer? Filter by how these keep.</div>'
+      + '<div class="lens-btns">'
+      + lensBtn("clean", "Freezes well")
+      + lensBtn("caveat", "Freezes, with a step")
+      + lensBtn("minimal", "Best eaten fresh")
+      + '</div></div>';
+  }
+  function lensBoxHtml(name){
+    if (!lensEnabled() || !lensAny()) return "";
+    var e = FREEZE_LENS[name];
+    if (!e) return "";
+    return '<div class="lens-box lens-' + e.state + '">' + esc(e.lead)
+      + (e.detail ? ' ' + esc(e.detail) : '') + '</div>';
+  }
 
   function money(n){ return "$" + (Math.round(n*100)/100).toFixed(2).replace(/\.00$/,""); }
 
@@ -417,8 +493,15 @@
         '<p>Not sure what to get? Let me choose. Name a budget (minimum $50), pick a small or large portion, and I\'ll cook you something based on what looks best that week. You might even get something off the menu entirely if I spot something great at the store. The dollar amount you set is a <b>maximum</b>; the final charge may come in under it. Minor requests are welcome (a meal count, a hard no on an ingredient), but the whole idea is that you\'re trusting me to feed you. Depending on the budget you may end up with more than one meal, so the size is really telling me how big to make each one: Small is about 4 servings, Large is about 8. Set it up on the order form.</p>' +
         '</div>';
       html += '<div class="section-head">This Week\'s Dinners</div>';
-      dinnersShown.forEach(function(d){
+      html += lensRowHtml();
+      var lensShown = dinnersShown.filter(function(d){ return lensPasses(d.name); });
+      if (!lensShown.length) {
+        html += '<div class="info-card"><p>Nothing on this week\'s menu matches that. '
+          + 'Try another filter, or turn them all off to see everything.</p></div>';
+      }
+      lensShown.forEach(function(d){
         html += renderDish(d, "dinner");
+        html += lensBoxHtml(d.name);
         var copy = lookupCopy(d.name, "dinner");
         if (copy && copy.bagged) anyBagged = true;
       });

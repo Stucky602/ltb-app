@@ -1807,10 +1807,39 @@ export function orderOutboundJars(o) {
   }
   return n;
 }
-// Containers a regular is currently holding: outbound minus credits (BOTH the
+// JARS a regular is currently holding: outbound minus credits (BOTH the
 // jar-swap discount and the container-return discount decrement, per Kevin),
 // over their linked orders since the epoch, floored at 0. House orders ARE
 // counted here (her jars are still jars).
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// KNOWN DEFECT, REPORTED AUG 1 — THIS LEDGER IS ASYMMETRIC
+//
+// Kevin's report: the audit lists some people as having containers out and some
+// not, from the same week, when both of them would have had rice containers.
+//
+// The cause is here. `orderOutboundJars` counts ONLY jar-shipping items —
+// always-items flagged packaging:'jar', plus Queso. Every MEAL container that
+// leaves the kitchen (the rice rounds, the 48 oz rounds, everything
+// `containersForDish` knows about) is invisible to the outbound side.
+//
+// Meanwhile `containerReturns` — a discount for bringing containers BACK —
+// decrements this count. So containers can subtract from the total and can
+// never add to it. Two households in the same week differ because one of them
+// bought a jar item, not because either is holding more of his containers. And
+// somebody who returns containers without ever having bought a jar goes
+// negative and is floored to 0, so the return silently vanishes.
+//
+// NOT FIXED HERE, because the fix is a decision and not a calculation: does
+// Kevin expect the meal containers back at all, or only the jars? The fleet
+// counts and the inventory-before-shopping practice suggest they do circulate,
+// but "circulates" and "is owed back by a named household" are different claims
+// and only he can make the second one. Counting them without his ruling would
+// replace an undercount with an overcount.
+//
+// What HAS been fixed is the label: the profile stat said "containers out" over
+// a number that counts jars. The number is honest now; the ledger is still
+// half-built.
 export function jarsOutForRegular(regularId, orders) {
   if (!regularId) return 0;
   let out = 0, credits = 0;

@@ -20,6 +20,7 @@ import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';
 import {
   addQuestion, answerQuestion, unansweredQuestions, answeredQuestions,
 } from '../rowanQuestions.js';
+import { addNote, notesTimeline, NOTE_SUBJECTS } from '../notesForRowan.js';
 import { GOLD, styles } from '../styles.js';
 
 const SWATCH = { 1: '#E24B4A', 2: '#C77B3A', 3: '#9aa5a0', 4: '#7FA86B', 5: '#4FA36B' };
@@ -37,6 +38,79 @@ const S = {
   }),
 };
 
+
+
+// ── NOTES FOR ROWAN ─────────────────────────────────────────────────────────
+// Kevin speaking directly to him, which is none of the other things in this
+// tab: not Rowan reacting, not Rowan asking, not the kitchen's record.
+//
+// Deliberately plain. No prompts, no streak, no completion meter, and nothing
+// that summarises or tidies what he wrote. Kevin's own instruction: keep it
+// simple. Anything that improved the prose would replace the only thing worth
+// keeping.
+function NotesForRowanPane({ store, onSave, dishNames }) {
+  const [text, setText] = useState('');
+  const [subjectKind, setSubjectKind] = useState('none');
+  const [subjectLabel, setSubjectLabel] = useState('');
+  const notes = notesTimeline(store);
+
+  const fld = {
+    width: '100%', boxSizing: 'border-box', background: '#14201d',
+    border: '1px solid #2d3a36', borderRadius: 8, color: '#e8e6df', fontSize: 12.5, padding: 8,
+  };
+
+  return (
+    <div style={S.card}>
+      <div style={S.h}>Notes for Rowan</div>
+      <div style={S.faint}>
+        Things you want to tell him. Not about a meal unless you want them to be.
+      </div>
+
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="Say it however you want to say it"
+        style={{ ...fld, minHeight: 80, marginTop: 8 }}
+      />
+      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+        <select value={subjectKind} onChange={e => setSubjectKind(e.target.value)}
+          style={{ ...fld, flex: '1 1 150px', width: 'auto' }}>
+          {NOTE_SUBJECTS.map(sub => <option key={sub.id} value={sub.id}>{sub.label}</option>)}
+        </select>
+        {subjectKind !== 'none' && (
+          <input value={subjectLabel} onChange={e => setSubjectLabel(e.target.value)}
+            placeholder="Which one" style={{ ...fld, flex: '1 1 150px', width: 'auto' }} />
+        )}
+      </div>
+      <button
+        onClick={() => {
+          const t = text.trim();
+          if (!t) return;
+          onSave(prev => addNote(prev, {
+            text: t,
+            subjectKind,
+            subjectLabel: subjectKind === 'none' ? '' : subjectLabel.trim(),
+            ageMonths: ageAt(new Date().toISOString()),
+          }));
+          setText(''); setSubjectLabel(''); setSubjectKind('none');
+        }}
+        style={{ marginTop: 8, background: '#232d2a', border: '1px solid #D4A050', borderRadius: 8,
+          color: '#D4A050', fontSize: 12.5, fontWeight: 700, padding: '9px 16px', cursor: 'pointer' }}
+      >Save it</button>
+
+      {notes.map(n => (
+        <div key={n.id} style={{ borderTop: '1px solid #2d3a36', paddingTop: 9, marginTop: 9 }}>
+          <div style={{ fontSize: 11, color: '#9aa5a0' }}>
+            {new Date(n.at).toLocaleDateString()}
+            {Number.isFinite(n.ageMonths) ? ` \u00b7 he was ${formatAge(n.ageMonths)}` : ''}
+            {n.subjectLabel ? ` \u00b7 ${n.subjectLabel}` : ''}
+          </div>
+          <div style={{ fontSize: 13, color: '#e8e6df', marginTop: 3, whiteSpace: 'pre-wrap' }}>{n.text}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ── QUESTIONS ───────────────────────────────────────────────────────────────
 // The unanswered ones come first and stay visible. A question with no answer is
@@ -241,7 +315,7 @@ function CapsuleRow({ entry, onSaveTranscript }) {
   );
 }
 
-export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQuestions }) {
+export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQuestions, notesRowan, onSaveNotes }) {
   const [open, setOpen] = useState(null);
   const ranked = topDishes(log);
   const cov = coverage(log, dishNames);
@@ -333,6 +407,8 @@ export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQu
           ))}
         </div>
       )}
+
+      <NotesForRowanPane store={notesRowan} onSave={onSaveNotes} dishNames={dishNames} />
 
       <QuestionsPane questions={questions} onSave={onSaveQuestions} />
 

@@ -90,6 +90,36 @@ export const SPLIT_PACKAGING = {};
 // reseal rule from Walk I.
 const SEALED_MODES = new Set(['bag-is-vessel']);
 
+// THE STIR-FRIES ARE SEALED-METHOD TOO, and this was missed on the first pass.
+//
+// Kevin, Aug 2: "The stir fry sous vide bag items can't be split." His own
+// surcharge list names them — "SV vegetables outside a stew or curry, the
+// stir-fries that come in SV bags, the polenta, and the purees" — but the data
+// marks their bags `not-recommended` rather than `bag-is-vessel`, so the
+// derivation was treating them as unsplittable and offering nothing at all.
+//
+// `not-recommended` conflates two different statements. On the stir-fries it
+// means THE CUSTOMER MUST NOT DIVIDE IT: the reheat walk records no alternate
+// method for any of them, and every divide note concedes the sauce-pot fallback
+// "will not be as good". That is exactly Kevin's test — the bag is the method —
+// so the answer is two bags and a surcharge, not a refusal.
+//
+// BO SSAM IS THE COUNTER-CASE AND THE REASON THIS IS NOT A BLANKET RULE. Its
+// bag is also `not-recommended`, but the walk records three real methods (bag,
+// oven, microwave) and its divide note sends you to the oven for a partial
+// serving — a genuine route, not a degraded one. Nothing needs splitting, and
+// Bo Ssam is correctly absent from Kevin's list.
+//
+// So the discriminator is the dish having NO alternate methods recorded. That
+// is structural rather than a phrase match, and it is the same fact the walk
+// captured when it wrote the methods down.
+function isSealedMethod(component, entry) {
+  const mode = component.divide && component.divide.mode;
+  if (SEALED_MODES.has(mode)) return true;
+  if (mode !== 'not-recommended') return false;
+  return !((entry && entry.methods) || []).length;
+}
+
 // THE ONE THING THAT STILL BLOCKS A SPLIT. `not-recommended` is Kevin grading a
 // division down himself, which is a judgement rather than a mechanic.
 //
@@ -148,8 +178,11 @@ export function deriveSplit(dishId, variantLabel, opts = {}) {
   // there is, and the rule was excluding it.
   if (!comps.length) return null;
 
+  // A component only BLOCKS when it is not-recommended AND the dish has a real
+  // alternate route, which means dividing is already possible without a second
+  // bag. Otherwise it is a sealed-method component and gets counted below.
   for (const c of comps) {
-    if (c.divide && BLOCKING_MODES.has(c.divide.mode)) return null;
+    if (c.divide && BLOCKING_MODES.has(c.divide.mode) && !isSealedMethod(c, d)) return null;
   }
 
   // VARIANT-SCOPED. Kevin, Aug 2: the polenta on the Saffron and Mushroom ragus
@@ -165,8 +198,7 @@ export function deriveSplit(dishId, variantLabel, opts = {}) {
   const appliesHere = (key) =>
     !namedBySomeVariant(key) || String(variantLabel).toLowerCase().includes(String(key).toLowerCase());
 
-  const sealed = comps.filter(c =>
-    c.divide && SEALED_MODES.has(c.divide.mode) && appliesHere(c.key));
+  const sealed = comps.filter(c => isSealedMethod(c, d) && appliesHere(c.key));
   const fee = splitFeeFor(sealed.length);
   if (!familyMap || !catalog) return null; // cannot state containers without the fleet
 

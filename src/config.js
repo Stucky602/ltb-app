@@ -83,6 +83,10 @@ export const LABEL_VERSIONS_KEY = 'ltb_label_versions_v1';
 // Answers Kevin gives inside a walk. Saved per item as he goes; there is no
 // submit, so this is the only thing standing between a walk and losing it.
 export const WALK_ANSWERS_KEY = 'ltb_walk_answers_v1';
+// Kevin speaking directly to Rowan, and the ledger of product decisions with
+// the reasoning attached. Both private; both ship empty.
+export const NOTES_ROWAN_KEY = 'ltb_notes_rowan_v1';
+export const DECISION_LEDGER_KEY = 'ltb_decision_ledger_v1';
 // The knowledge core's three stores. Terms and anatomy are Kevin's words about
 // food and language; derivatives are the single approved gate between a private
 // record and any other reader.

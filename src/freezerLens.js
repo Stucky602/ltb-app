@@ -58,6 +58,30 @@ const FINE = new Set(['excellent', 'well', 'keeps', 'na']);
 // Not fine, but not a failure either: works, without being a reason to freeze it.
 const SOFT = new Set(['acceptable']);
 
+// EVERY component sentence that carries an instruction, not just the blocker's.
+//
+// The box used to show one sentence — the first blocking component's — and two
+// real things went missing because of it. The Indian curry's "if there were
+// potatoes this week, take them out first" sits on a component graded `well`,
+// so it was never a blocker and never shown, even though it is the only thing a
+// customer has to DO. And a dish whose blocker is its smallest part led with
+// that part, so the Fesenjan opened on pickled onion.
+//
+// Plain reassurance is filtered out: a component that just says it freezes adds
+// nothing next to a box already headed "freezes well".
+function instructiveNotes(comps) {
+  const seen = new Set();
+  const out = [];
+  for (const c of comps) {
+    const t = ((c.freeze || {}).customer || '').trim();
+    if (!t || seen.has(t)) continue;
+    if (/^The \w[\w ]* freezes (very )?(well|fine)\.?$/i.test(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 export function classifyDish(dishId, reheatData = REHEAT_DATA) {
   const d = (reheatData || {})[dishId];
   const comps = (d && d.components) || [];
@@ -102,6 +126,8 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
   // Counting components is a proxy for "how much of the dish", which is what he
   // actually said. It is imperfect and it is explainable, and it agrees with all
   // three cases he named. A weighting nobody gave would be neither.
+  const notes = instructiveNotes(graded);
+
   if (bad.length && realFine.length < bad.length) {
     return {
       state: 'minimal',
@@ -113,6 +139,7 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
       // item in their bag was the salvageable part of dinner. Only components
       // that are actually cooked food count.
       exceptions: realFine.map(c => c.key),
+      notes,
       blockers: bad.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
       soft: soft.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
     };
@@ -122,12 +149,13 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
     return {
       state: 'caveat',
       exceptions: [],
+      notes,
       blockers: bad.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
       soft: soft.map(c => ({ key: c.key, note: (c.freeze.customer || '') })),
     };
   }
 
-  return { state: 'clean', exceptions: [], blockers: [], soft: [] };
+  return { state: 'clean', exceptions: [], blockers: [], soft: [], notes };
 }
 
 // ── The box copy ────────────────────────────────────────────────────────────
@@ -148,6 +176,11 @@ export function classifyDish(dishId, reheatData = REHEAT_DATA) {
 export function lensBox(classification) {
   if (!classification) return null;
   const { state, blockers, soft, exceptions } = classification;
+  // DECLARED AT THE TOP, and the position is load-bearing. It was declared just
+  // above the caveat branch while the minimal branch above it already read it —
+  // "Cannot access 'all' before initialization", thrown at render. Same
+  // temporal-dead-zone family that has now bitten three times in this codebase.
+  const all = classification.notes || [];
 
   if (state === 'clean') {
     return { tone: 'clean', lead: 'Freezes well.', detail: '' };
@@ -164,11 +197,11 @@ export function lensBox(classification) {
     // dish is in this state and usually adds that there is no hurry, which the
     // generic line cannot: "best eaten fresh" alone reads as a warning when the
     // truth is often just "eat it this week, it keeps perfectly well".
-    const why = blockers.map(b => b.note).find(Boolean);
+    const why = all[0] || blockers.map(b => b.note).find(Boolean);
     return {
       tone: 'minimal',
       lead: why || 'Best eaten fresh — most of this does not freeze.',
-      detail: keep.trim(),
+      detail: [all.slice(1).join(' '), keep.trim()].filter(Boolean).join(' '),
     };
   }
 
@@ -209,7 +242,7 @@ export function lensBox(classification) {
   // carrots. Take the carrots out and..." — the same instruction twice. The
   // built sentence is a FALLBACK for a component with no customer copy, not a
   // header for one that has it.
-  const blockerNote = blockers.map(b => b.note).find(Boolean);
+  const blockerNote = all[0] || blockers.map(b => b.note).find(Boolean);
   const action = blockers.length
     ? (blockerNote || `Before you freeze this, take out the ${joinWords(blockers.map(b => b.key))} — better used for something else.`)
     : '';
@@ -219,9 +252,10 @@ export function lensBox(classification) {
     ? (softNote || 'Freezes fine, without being at its best afterward.')
     : '';
 
-  if (action && quality) return { tone: 'caveat', lead: action, detail: quality };
-  if (action) return { tone: 'caveat', lead: action, detail: '' };
-  return { tone: 'caveat', lead: quality, detail: '' };
+  // The rest of the sentences follow the lead, so nothing instructive is lost.
+  const rest = all.slice(1).join(' ');
+  if (action) return { tone: 'caveat', lead: action, detail: [rest, quality && !all.length ? quality : ''].filter(Boolean).join(' ') };
+  return { tone: 'caveat', lead: quality || all[0] || '', detail: rest };
 }
 
 function joinWords(list) {

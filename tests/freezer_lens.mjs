@@ -319,5 +319,51 @@ const ok = (label, cond, detail = '') => {
     missing.join(', '));
 }
 
+// ── EVERY SENTENCE NAMES ITS OWN SUBJECT ────────────────────────────────────
+//
+// Kevin caught this on the Fesenjan: the box read "No need to freeze them. They
+// keep a very long time in the fridge" and never said WHAT. And Bo Ssam's "best
+// around days two and three" was true of the ginger scallion sauce alone but
+// read as the whole dish.
+//
+// The cause is structural: a sentence written against a component is shown
+// ALONE in the box, with no component label beside it. So every sentence has to
+// carry its own subject.
+{
+  const { REHEAT_DATA: RD } = await import('../src/reheatData.js');
+
+  // A sentence opening with a bare pronoun or a subjectless verb has no subject.
+  // Narrowed after a false positive: "Keep the noodles refrigerated" DOES name
+  // its subject. What fails is a bare pronoun, or a verb with nothing in front
+  // of it — "Freezes well", "Keeps on its own", "About 30 minutes to thaw".
+  const SUBJECTLESS = /^(it|they|them|these|those)\b|^(freezes?|keeps?)\s+(well|fine|very|on its own|within)|^about \d|^no need to freeze (them|it)\b|^nothing to\b/i;
+  const orphans = [];
+  for (const [id, d] of Object.entries(RD)) {
+    for (const c of d.components || []) {
+      const t = ((c.freeze || {}).customer || '').trim();
+      if (t && SUBJECTLESS.test(t)) orphans.push(`${id}/${c.key}: "${t.slice(0, 50)}"`);
+    }
+  }
+  ok('no freeze sentence starts without naming what it is about',
+    orphans.length === 0,
+    orphans.join('\n      '));
+
+  // The two Kevin reported, by name.
+  const fes = lensBox(classifyDish('pecan-mole-fesenjan-beef-and'));
+  ok('the Fesenjan box says WHICH part is happiest in the fridge',
+    /pickled onion/i.test(fes.lead + fes.detail),
+    fes.lead);
+  const boss = lensBox(classifyDish('bo-ssam'));
+  ok('the Bo Ssam day-two-and-three note is attributed to the sauce, not the dish',
+    /ginger scallion sauce is best within a week/i.test(boss.lead + boss.detail),
+    boss.lead);
+
+  // Instructions on non-blocking components used to vanish entirely.
+  const curry = lensBox(classifyDish('indian-style-curry'));
+  ok('an instruction on a component that is not the blocker still reaches the box',
+    /potatoes/i.test(curry.lead + curry.detail),
+    'the curry potato caveat sits on a component graded `well`, so it was never a blocker and was never shown');
+}
+
 console.log(failed === 0 ? '\nFREEZER LENS: ALL PASS' : `\nFREEZER LENS: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

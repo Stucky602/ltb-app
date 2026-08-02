@@ -71,7 +71,7 @@ export const REHEAT_DATA = {
       note: 'A mirror of the Brunswick, minus the potato bag. Forgiving, low attention.' },
     components: [
       { key: 'chili', package: 'round48',
-        freeze: { verdict: 'excellent', tested: true, note: 'Nothing to hold back — there is no bag.' , customer: 'Nothing to hold back.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'Nothing to hold back — there is no bag.' , customer: 'The chili freezes whole — there is nothing to hold back.' },
         divide: { mode: 'scoop', note: null } },
     ],
     equipment: [{ vessel: 'pot', note: 'Any size burner.' }],
@@ -110,7 +110,7 @@ export const REHEAT_DATA = {
       note: 'Governed entirely by the rice. The actual reheating is about two minutes: the beans, the protein, and toasting the tortillas.' },
     components: [
       { key: 'protein', package: 'round48',
-        freeze: { verdict: 'no', tested: true, note: 'The kit keeps well in the fridge and is a fine last meal of the week.' , customer: 'Keeps well in the fridge, so it makes a good last meal of the week.' },
+        freeze: { verdict: 'no', tested: true, note: 'The kit keeps well in the fridge and is a fine last meal of the week.' , customer: 'The kit keeps well in the fridge, so it makes a good last meal of the week.' },
         divide: { mode: 'scoop', note: 'Comes sitting in its braise.' } },
       { key: 'beans', package: 'round16',
         freeze: { verdict: 'no', tested: true, note: null },
@@ -126,7 +126,7 @@ export const REHEAT_DATA = {
         // well with one component separated"; here the separated component is
         // the one that DOES freeze. Per-component is the only shape that says
         // this without contorting.
-        freeze: { verdict: 'excellent', tested: true, note: 'About 30 minutes to thaw out of the freezer.' , customer: 'About 30 minutes to thaw.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'About 30 minutes to thaw out of the freezer.' , customer: 'The tortillas freeze well and take about 30 minutes to thaw.' },
         divide: { mode: 'loose', note: null } },
     ],
     equipment: [
@@ -149,7 +149,7 @@ export const REHEAT_DATA = {
         freeze: { verdict: 'na', tested: true, note: 'Ships uncooked.' },
         divide: { mode: 'scoop', note: null } },
       { key: 'bag', package: 'bag',
-        freeze: { verdict: 'no', tested: true, note: 'Conditional — some weeks there is no bag at all.' , customer: 'If there is a bag this week, it is not one for the freezer.' },
+        freeze: { verdict: 'no', tested: true, note: 'Conditional — some weeks there is no bag at all.' , customer: 'If there is a bag this week, whatever is in it is not for the freezer.' },
         // Kevin, Aug 1. The conditional is deliberate and it HOLDS THE NO-NAMING
         // RULE: he does not know until he is grocery shopping whether the bag
         // carries a vegetable or a protein, so the copy never says. The customer
@@ -184,7 +184,7 @@ export const REHEAT_DATA = {
         divide: { mode: 'scoop', note: null } },
       { key: 'kabocha', package: 'bag',
         freeze: { verdict: 'well', tested: true,
-          note: 'Fine frozen, either stirred into the curry or left in its bag for later. A freeze costs it some of the firm edge the sous vide was bought for.' , customer: 'Freezes fine, either stirred into the curry or left in its bag for later. It loses a little of its firm edge.' },
+          note: 'Fine frozen, either stirred into the curry or left in its bag for later. A freeze costs it some of the firm edge the sous vide was bought for.' , customer: 'The kabocha freezes fine, either stirred into the curry or left in its bag for later. It loses a little of its firm edge.' },
         // INHERITS the Indian curry vegetable rule — Kevin recorded it as an
         // inheritance rather than a copy, so a future edit to that answer
         // carries here instead of the two drifting apart.
@@ -213,7 +213,7 @@ export const REHEAT_DATA = {
       note: 'A searing dish, not a walk-away one.' },
     components: [
       { key: 'chicken', package: 'rect38',
-        freeze: { verdict: 'no', tested: true, note: 'Keeps well in the fridge — a fine dish for later in the week, just not a freezer candidate.' , customer: 'Keeps well in the fridge, so it is a good later-in-the-week dish rather than a freezer one.' },
+        freeze: { verdict: 'no', tested: true, note: 'Keeps well in the fridge — a fine dish for later in the week, just not a freezer candidate.' , customer: 'The chicken keeps well in the fridge, so it is a good later-in-the-week dish rather than a freezer one.' },
         divide: { mode: 'pieces', note: null } },
       { key: 'white sauce', package: 'round8',
         freeze: { verdict: 'no', tested: true, note: null },
@@ -234,7 +234,7 @@ export const REHEAT_DATA = {
     timing: { min: 30, max: 60, governor: 'rice', active: null, inactive: null, waitFirst: null },
     components: [
       { key: 'pork', package: 'bag',
-        freeze: { verdict: 'excellent', tested: true, note: 'Freezes incredibly well.' , customer: 'Freezes very well.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'Freezes incredibly well.' , customer: 'The pork freezes very well.' },
         divide: { mode: 'not-recommended', note: 'Not by re-simmering the bag. Use the oven or microwave route for a partial serving.' } },
       { key: 'rice', package: 'round16',
         freeze: { verdict: 'na', tested: true, note: 'Ships uncooked.' },
@@ -242,10 +242,10 @@ export const REHEAT_DATA = {
       { key: 'ginger scallion sauce', package: 'round8',
         // A FRIDGE-WINDOW ITEM, not a freezer one. No freeze tier expresses
         // "best on days 2 and 3", which is why the note carries it.
-        freeze: { verdict: 'no', tested: true, note: 'Best within 7 days, sweet spot around days 2 and 3.' , customer: 'Best within a week, and at its best around days two and three.' },
+        freeze: { verdict: 'no', tested: true, note: 'Best within 7 days, sweet spot around days 2 and 3.' , customer: 'The ginger scallion sauce is best within a week, and at its best around days two and three.' },
         divide: { mode: 'scoop', note: null } },
       { key: 'kimchi', package: null,
-        freeze: { verdict: 'keeps', tested: true, note: 'Not a freeze item and does not need to be. Keeping is the entire point of kimchi.' , customer: 'Keeps on its own. That is rather the point of kimchi.' },
+        freeze: { verdict: 'keeps', tested: true, note: 'Not a freeze item and does not need to be. Keeping is the entire point of kimchi.' , customer: 'The kimchi keeps on its own. That is rather the point of kimchi.' },
         divide: { mode: 'scoop', note: null } },
     ],
     methods: [
@@ -271,7 +271,7 @@ export const REHEAT_DATA = {
       sequence: 'Reheat the bag while the noodles cook, or while the water is coming up.' },
     components: [
       { key: 'bag', package: 'bag',
-        freeze: { verdict: 'excellent', tested: true, note: 'Kevin sees no issues with this one at all.' , customer: 'Freezes with no trouble.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'Kevin sees no issues with this one at all.' , customer: 'The bag freezes with no trouble.' },
         // THE EXCEPTION to the bag rule: the simmer is the easiest method AND
         // dividing is still straightforward. Contrast the Bo Ssam.
         divide: { mode: 'pour-and-keep', note: 'Open the bag cold and dump what you want into a saucepan. Few ill effects; it may want stirring and a splash of water.' } },
@@ -279,7 +279,7 @@ export const REHEAT_DATA = {
         freeze: { verdict: 'na', tested: true, note: 'Beef and lamb versions only. Ships uncooked.' },
         divide: { mode: 'scoop', note: null } },
       { key: 'noodles', package: null,
-        freeze: { verdict: 'no', tested: true, note: 'Stays refrigerated. Excellent shelf life and a printed date on its own bag, so no special handling.' , customer: 'Keep these refrigerated. They carry their own printed date and a good shelf life, so they need nothing special.' },
+        freeze: { verdict: 'no', tested: true, note: 'Stays refrigerated. Excellent shelf life and a printed date on its own bag, so no special handling.' , customer: 'Keep the noodles refrigerated. They carry their own printed date and a good shelf life, so they need nothing special.' },
         divide: { mode: 'loose', note: null } },
     ],
     equipment: [
@@ -331,7 +331,7 @@ export const REHEAT_DATA = {
         // "Acceptable" exists because Kevin's answer did — "works in a pinch"
         // has no home in a four-tier scheme, and rounding it up to "well" or
         // down to "no" would both be lies.
-        freeze: { verdict: 'acceptable', tested: true, note: 'Works frozen, but it will not be exceptional afterward. Would work in a pinch.' , customer: 'It works frozen, but it will not be at its best.' },
+        freeze: { verdict: 'acceptable', tested: true, note: 'Works frozen, but it will not be exceptional afterward. Would work in a pinch.' , customer: 'The bag works frozen, but it will not be at its best.' },
         divide: { mode: 'not-recommended', note: 'Possible via a sauce pot — stir often, add water if needed, accept it will not be as good.' } },
       { key: 'rice', package: 'round16',
         freeze: { verdict: 'na', tested: true, note: 'Ships uncooked.' },
@@ -347,7 +347,7 @@ export const REHEAT_DATA = {
     timing: { min: 30, max: 60, governor: 'rice', active: null, inactive: null, waitFirst: null },
     components: [
       { key: 'bag', package: 'bag',
-        freeze: { verdict: 'acceptable', tested: true, note: 'Not the best, but it should still work. Kevin: same as the long beans — the gai lan does not hold up better than the asparagus.' , customer: 'It works frozen, but the gai lan will not be at its best.' },
+        freeze: { verdict: 'acceptable', tested: true, note: 'Not the best, but it should still work. Kevin: same as the long beans — the gai lan does not hold up better than the asparagus.' , customer: 'The bag works frozen, but the gai lan will not be at its best.' },
         divide: { mode: 'not-recommended', note: 'Sauce-pot route — stir often, add water if needed, accept it will not be as good.' } },
       { key: 'rice', package: 'round16',
         freeze: { verdict: 'na', tested: true, note: 'Ships uncooked.' },
@@ -380,7 +380,7 @@ export const REHEAT_DATA = {
     timing: { min: 20, max: 20, governor: 'pasta', active: null, inactive: null, waitFirst: null },
     components: [
       { key: 'sauce', package: 'round32',
-        freeze: { verdict: 'excellent', tested: true, note: 'The best freezer candidate on the board. A long-cooked meat sauce, one container, nothing to separate.' , customer: 'The best freezer dish on the menu: one container, nothing to separate.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'The best freezer candidate on the board. A long-cooked meat sauce, one container, nothing to separate.' , customer: 'The bolognese is the best freezer dish on the menu: one container, nothing to separate.' },
         divide: { mode: 'scoop', note: null } },
     ],
     equipment: [
@@ -393,7 +393,7 @@ export const REHEAT_DATA = {
     timing: { min: 20, max: 20, governor: 'pasta', active: null, inactive: null, waitFirst: null },
     components: [
       { key: 'sauce', package: 'round32',
-        freeze: { verdict: 'excellent', tested: true, note: 'All variants. The mushroom versions are explicitly included — mushrooms do not change the answer here.' , customer: 'Freezes well, mushroom versions included.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'All variants. The mushroom versions are explicitly included — mushrooms do not change the answer here.' , customer: 'The sauce freezes well, mushroom versions included.' },
         divide: { mode: 'scoop', note: null } },
     ],
     equipment: [
@@ -410,7 +410,7 @@ export const REHEAT_DATA = {
         // Every other freeze verdict came from experience; this one is a
         // prediction. "This freezes well" reads to a customer as a guarantee,
         // so anything showing it must carry the hedge.
-        freeze: { verdict: 'well', tested: false, note: 'Kevin has not tried it. From what he can think of it should work.' , customer: 'It should freeze well, though this one has not been tested yet.' },
+        freeze: { verdict: 'well', tested: false, note: 'Kevin has not tried it. From what he can think of it should work.' , customer: 'The sauce should freeze well, though this one has not been tested yet.' },
         divide: { mode: 'scoop', note: null } },
     ],
     equipment: [
@@ -428,7 +428,7 @@ export const REHEAT_DATA = {
     timing: { min: 20, max: 20, governor: 'pasta', active: 5, inactive: 15, waitFirst: null },
     components: [
       { key: 'bag', package: 'bag',
-        freeze: { verdict: 'no', tested: true, note: 'Refrigerates well, so like the asparagus dishes this is a do-not-freeze without urgency.' , customer: 'It keeps well in the fridge, so there is no hurry — just eat it rather than freeze it.' },
+        freeze: { verdict: 'no', tested: true, note: 'Refrigerates well, so like the asparagus dishes this is a do-not-freeze without urgency.' , customer: 'The bag keeps well in the fridge, so there is no hurry — just eat it rather than freeze it.' },
         divide: { mode: 'pour-and-keep', note: 'Toss what you want into a sauce pan over medium-low. The asparagus may overcook — but you should be watching for that anyway, even on the bag simmer.' } },
       { key: 'pasta', package: null,
         freeze: { verdict: 'na', tested: true, note: 'Ships uncooked in its own pack.' },
@@ -456,7 +456,7 @@ export const REHEAT_DATA = {
         // still closed. Claude reasoned from starch retrogradation and Kevin
         // corrected it — recorded because the app stores that rule with no
         // reason attached, which is how a rule gets misapplied later.
-        freeze: { verdict: 'well', tested: true, note: 'Frozen polenta needs no new instruction — same bag, same simmer.' , customer: 'Freeze it in its bag and simmer it exactly the same way.' },
+        freeze: { verdict: 'well', tested: true, note: 'Frozen polenta needs no new instruction — same bag, same simmer.' , customer: 'Freeze the polenta in its bag and simmer it exactly the same way.' },
         divide: { mode: 'bag-is-vessel', note: 'Opening it means the stir-and-water fallback: reheat in a pot, add water, stir constantly. The bag method is superior.' } },
       { key: 'pasta', package: null,
         freeze: { verdict: 'na', tested: true, note: 'Non-polenta variants. Ships uncooked.' },
@@ -478,7 +478,7 @@ export const REHEAT_DATA = {
       sequence: 'Water on to boil, then sear the pork, then start reheating the sauce. Searing early buys the pork time to rest before plating.' },
     components: [
       { key: 'pork', package: 'bag',
-        freeze: { verdict: 'well', tested: true, note: 'Frozen, it is effectively the same as the sous vide pork in Stuff in a Bag — use it however you like.' , customer: 'Freezes well on its own — treat it like any sous vide pork.' },
+        freeze: { verdict: 'well', tested: true, note: 'Frozen, it is effectively the same as the sous vide pork in Stuff in a Bag — use it however you like.' , customer: 'The pork freezes well on its own — treat it like any sous vide pork.' },
         // THE PATTERN THAT REFRAMED BAG DIVISIBILITY across the whole menu:
         // the pork is not reheated IN the bag, so opening it is a non-issue.
         divide: { mode: 'pieces', note: 'Two pieces in one bag — Kevin cuts the loin in half. Pull one out, sear it, cook only as much pasta and sauce as you want. The other half goes back in the fridge in the opened bag.' , customer: 'Two pieces in one bag. Pull one out, sear it, and cook only as much pasta and sauce as you want. The other half goes back in the fridge in the opened bag.' } },
@@ -504,7 +504,7 @@ export const REHEAT_DATA = {
         freeze: { verdict: 'well', tested: true, note: null },
         divide: { mode: 'scoop', note: null } },
       { key: 'polenta', package: 'bag',
-        freeze: { verdict: 'well', tested: true, note: 'Frozen polenta still needs no separate instruction — same bag, same simmer.' , customer: 'Freeze it in its bag and simmer it exactly the same way.' },
+        freeze: { verdict: 'well', tested: true, note: 'Frozen polenta still needs no separate instruction — same bag, same simmer.' , customer: 'Freeze the polenta in its bag and simmer it exactly the same way.' },
         divide: { mode: 'bag-is-vessel', note: 'Opening it means the stir-and-water fallback.' } },
       { key: 'pasta', package: null,
         freeze: { verdict: 'na', tested: true, note: 'Ships uncooked.' },
@@ -613,13 +613,13 @@ export const REHEAT_DATA = {
       { key: 'pickled onion', package: 'round8',
         // Resolves itself: the onions have a very long fridge life anyway, so
         // nothing is lost by leaving them out of the freezer.
-        freeze: { verdict: 'no', tested: true, note: 'Nothing is lost — they keep a very long time in the fridge, which is where they are happy.' , customer: 'No need to freeze them. They keep a very long time in the fridge, which is where they are happiest.' },
+        freeze: { verdict: 'no', tested: true, note: 'Nothing is lost — they keep a very long time in the fridge, which is where they are happy.' , customer: 'No need to freeze the pickled onion. It keeps a very long time in the fridge, which is where it is happiest.' },
         divide: { mode: 'scoop', note: null } },
       { key: 'kabocha', package: 'bag',
         freeze: { verdict: 'well', tested: true, note: 'Consistent with the Leblanc curry ruling clearing the squash for the freezer.' , customer: 'The squash freezes fine.' },
         divide: { mode: 'pour-and-keep', note: 'Tip the portion you want into the portion of braise you want, keep the rest of the opened bag in the fridge.' } },
       { key: 'tortillas', package: null,
-        freeze: { verdict: 'excellent', tested: true, note: 'Freeze very well, same as the Tex-Mex Kit tortillas.' , customer: 'Freeze very well. About 30 minutes to thaw.' },
+        freeze: { verdict: 'excellent', tested: true, note: 'Freeze very well, same as the Tex-Mex Kit tortillas.' , customer: 'The tortillas freeze very well and take about 30 minutes to thaw.' },
         divide: { mode: 'loose', note: null } },
     ],
     equipment: [

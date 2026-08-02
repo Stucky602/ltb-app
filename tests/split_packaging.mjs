@@ -196,5 +196,58 @@ const ok = (label, cond, detail = '') => {
     SPLIT_FEE_REVIEW_THRESHOLD === 3);
 }
 
+// ── STIR-FRIES ARE SEALED-METHOD, BO SSAM IS NOT ────────────────────────────
+//
+// Kevin, Aug 2: "The stir fry sous vide bag items can't be split." Their bags
+// are marked `not-recommended`, which the first derivation read as "no split
+// possible" — so it offered nothing, when the right answer is two bags and a
+// surcharge. `not-recommended` means the CUSTOMER must not divide it; Kevin can
+// still pack two.
+//
+// Bo Ssam is why this cannot be a blanket rule. Its bag is `not-recommended`
+// too, but the walk records three real methods and its divide note sends you to
+// the oven for a partial serving — a genuine route, not a degraded one. Nothing
+// needs splitting and Bo Ssam is correctly absent from Kevin's own list.
+//
+// The discriminator is whether the dish records alternate METHODS. Structural,
+// and the same fact the reheat walk captured when it wrote them down.
+{
+  const { DISHES } = await import('../src/dishes.js');
+  const { dishIdFor } = await import('../src/dishIdentity.js');
+  const { REHEAT_DATA } = await import('../src/reheatData.js');
+
+  const smallOf = (name) => {
+    const d = DISHES.find(x => x.name === name);
+    return d && (d.variants || []).find(v => /small/i.test(v.label));
+  };
+
+  const STIR_FRIES = [
+    'Shrimp or Tofu with Asparagus in Black Bean Sauce',
+    'Stir Fried Long Beans with Ground Pork or Tofu',
+    'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
+    'Thai Basil Chicken (Pad Krapow Gai)',
+  ];
+  for (const name of STIR_FRIES) {
+    const v = smallOf(name);
+    const e = v && splitEntryFor(dishIdFor(name), v.label);
+    ok(`${name.slice(0, 28)} offers a split with a surcharge`,
+      !!e && e.surchargeCents === 300,
+      e ? `got ${e.surchargeCents}` : 'no entry — not-recommended was read as unsplittable');
+    ok(`  and it costs one extra bag, not a container`,
+      !!e && e.twoNight.bag === (e.family.bag || 0) + 1
+        && Object.keys(e.twoNight).every(k => k === 'bag' || e.twoNight[k] === e.family[k]),
+      e ? JSON.stringify(e.twoNight) : '');
+  }
+
+  const bs = smallOf('Bo Ssam');
+  ok('Bo Ssam offers NO split, because it has a real alternate method',
+    !splitEntryFor(dishIdFor('Bo Ssam'), bs.label),
+    'its divide note sends you to the oven for a partial serving; nothing needs a second bag');
+  ok('and the data still records those methods, which is what tells them apart',
+    (REHEAT_DATA['bo-ssam'].methods || []).length >= 2
+    && !(REHEAT_DATA['thai-basil-chicken-pad'].methods || []).length,
+    'if a stir-fry ever gains recorded methods, revisit this rather than assuming');
+}
+
 console.log(failed === 0 ? '\nSPLIT PACKAGING + WALKS: ALL PASS' : `\nSPLIT PACKAGING + WALKS: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

@@ -240,6 +240,7 @@ const PROTECTED = new Set([
   'src/anatomy.js',
   'src/rowanQuestions.js',
   'src/clarifications.js',
+  'src/notesForRowan.js',
 ]);
 
 function resolveRel(fromFile, spec) {

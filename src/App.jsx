@@ -2035,6 +2035,17 @@ export default function LTBOrderTracker() {
 
         {view === 'record' && (
           <RecordTab
+            /* For the durable archive. RecordTab does not edit these; it hands
+               them to buildArchiveHtml, which rendered every section empty until
+               they were passed. */
+            rowanQuestions={rowanQuestions}
+            notesRowan={notesRowan}
+            rowanBoards={rowanBoards}
+            rowanRoles={rowanRoles}
+            householdMemories={householdMemories}
+            passportCabinets={passportCabinets}
+            derivatives={derivatives}
+            decisionLedger={decisionLedger}
             journal={journal}
             onSaveJournal={saveJournal}
             dishNames={reportableDishNames}
@@ -2134,7 +2145,7 @@ export default function LTBOrderTracker() {
         )}
 
         {view === 'rowan' && (
-          <RowanTab log={rowanLog} dishNames={ALL_MENU_DISH_NAMES} onSaveTranscript={saveRowanTranscript} questions={rowanQuestions} onSaveQuestions={saveRowanQuestions} notesRowan={notesRowan} onSaveNotes={saveNotesRowan} />
+          <RowanTab log={rowanLog} dishNames={ALL_MENU_DISH_NAMES} onSaveTranscript={saveRowanTranscript} questions={rowanQuestions} onSaveQuestions={saveRowanQuestions} notesRowan={notesRowan} onSaveNotes={saveNotesRowan} rowanBoards={rowanBoards} onSaveBoards={saveRowanBoards} rowanRoles={rowanRoles} onSaveRoles={saveRowanRoles} />
         )}
         {view === 'ingredients' && (
           <IngredientsTab ingredients={ingredientsDb} costHistory={costHistory} onChange={updateIngredients} onScanReceipt={() => { setDebugScan(false); setShowReceiptScan(true); }} onDebugScan={() => { setDebugScan(true); setShowReceiptScan(true); }} aliases={receiptAliases} onSaveAliases={saveReceiptAliases} labelVersions={labelVersions} onSaveLabels={saveLabelVersions} />

@@ -46,8 +46,9 @@ import { REHEAT_DATA } from './reheatData.js';
 export const CANON_RULES = [
   {
     id: 'bag-is-vessel-not-divisible',
-    statement: 'A component whose bag IS the vessel cannot be divided, and its copy must not tell '
-      + 'someone to open it before the warming stage.',
+    statement: 'A component whose bag IS the vessel cannot be divided BY THE CUSTOMER, and its copy '
+      + 'must not tell someone to open it before the warming stage. Kevin may still pack two, which '
+      + 'is what a two-night pack of such a dish costs.',
     why: 'Opening it early costs the method, not just the packaging.',
     source: 'Kevin, Walk 2, recorded as the `bag-is-vessel` divide mode in reheatData.js',
   },
@@ -92,10 +93,18 @@ export function checkBagIsVessel(splitMap, reheatData = REHEAT_DATA) {
     if (!d) continue;
     for (const c of d.components || []) {
       const mode = c.divide && c.divide.mode;
-      if (mode && UNDIVIDABLE_MODES.includes(mode)) {
-        out.push(violation('bag-is-vessel-not-divisible', dishId,
-          `Component "${c.key}" is recorded as ${mode}, so this dish cannot ship as a two-night pack.`));
-      }
+      if (!mode || !UNDIVIDABLE_MODES.includes(mode)) continue;
+      // DECLARING THE SECOND BAG SATISFIES THE RULE.
+      //
+      // Kevin corrected the original reading: the customer cannot divide a
+      // sealed bag, but HE can pack two, and that is precisely what the
+      // surcharge pays for. So the violation is not "this dish has a sealed
+      // component" — it is "this dish has one and nobody accounted for it".
+      const declared = (splitMap[dishId] && splitMap[dishId].byVariant) || [];
+      const accounted = declared.some(v => (v.sealedBags || []).includes(c.key));
+      if (accounted) continue;
+      out.push(violation('bag-is-vessel-not-divisible', dishId,
+        `Component "${c.key}" is recorded as ${mode} and no pack option accounts for a second bag.`));
     }
   }
   return out;

@@ -229,6 +229,35 @@ check('Cook → Deliver renders', !deliverErr, deliverErr && deliverErr.message)
   }
 }
 
+// EVERY ROWAN SUB-TAB, clicked. This is the only thing that mounts App.jsx for
+// real, and the TDZ family has bitten three times — once INSIDE a component
+// rather than App.jsx, which a tab-level walk cannot see. Two of these panes
+// are brand new.
+{
+  await clickByText('Rowan');
+  for (const label of ['Record', 'Questions', 'From Dad', 'Mysteries', 'Roles']) {
+    let err = null;
+    try { await clickByText(label); } catch (e) { err = e; }
+    const broke = container.textContent.includes('Something broke while drawing this screen');
+    check(`Rowan → ${label} renders`, !err && !broke,
+      err ? err.message : (broke ? 'error boundary caught a render throw' : ''));
+  }
+
+  // The absence is the design, and a pane can break it without touching the
+  // store. Assert against what is actually on screen.
+  await clickByText('Roles');
+  const rolesText = container.textContent || '';
+  check('the Roles pane computes nothing over the sessions',
+    !/\b\d+\s+(sessions?|times)\b|streak|most often|favou?rite role|next role|level/i.test(rolesText),
+    'a display string that counts sessions per role is a scoreboard however it is phrased');
+
+  await clickByText('Mysteries');
+  const mystText = container.textContent || '';
+  check('the Mysteries pane never frames an open board as overdue',
+    !/unsolved|stale|overdue|still waiting|incomplete/i.test(mystText),
+    'a board may stay open for years; that is the feature, not a backlog item');
+}
+
 check('no order card fell into its error boundary', caught.length === 0, caught[0]);
 
 // The epoch card renders ONLY from the Record tab, and it was invisible for a

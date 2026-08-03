@@ -22,6 +22,8 @@ import {
 } from '../rowanQuestions.js';
 import { addNote, notesTimeline, NOTE_SUBJECTS } from '../notesForRowan.js';
 import { GOLD, styles } from '../styles.js';
+import { RowanMysteryBoards } from './RowanMysteryBoards.jsx';
+import { RowanKitchenRoles } from './RowanKitchenRoles.jsx';
 
 const SWATCH = { 1: '#E24B4A', 2: '#C77B3A', 3: '#9aa5a0', 4: '#7FA86B', 5: '#4FA36B' };
 const C = { text: '#e8e6df', faint: '#9aa5a0', border: '#2d3a36', card: '#1c2422' };
@@ -315,8 +317,12 @@ function CapsuleRow({ entry, onSaveTranscript }) {
   );
 }
 
-export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQuestions, notesRowan, onSaveNotes }) {
+export function RowanTab({
+  log, dishNames, onSaveTranscript, questions, onSaveQuestions, notesRowan, onSaveNotes,
+  rowanBoards, onSaveBoards, rowanRoles, onSaveRoles,
+}) {
   const [open, setOpen] = useState(null);
+  const [sub, setSub] = useState('record');
   const ranked = topDishes(log);
   const cov = coverage(log, dishNames);
   const notYet = untried(log, dishNames);
@@ -344,6 +350,28 @@ export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQu
 
   return (
     <div>
+      {/* SUB-TABS, added before Boards and Roles are mounted rather than after.
+          The tab is 461 lines; adding two more panes inline would recreate the
+          App.jsx problem at a smaller scale, which is the whole reason the
+          brief puts this step first.
+
+          Pure structural change: every section below is the same component with
+          the same props and the same save paths, wrapped in a chooser. No state
+          moved out of App.jsx, no new hooks beyond the one selector. */}
+      {/* The SAME style keys the Record tab already uses. Inventing S.subToggle
+          here would have rendered an unstyled row — those keys do not exist. */}
+      <div style={styles.cookSubToggle}>
+        {[['record', 'Record'], ['questions', 'Questions'], ['dad', 'From Dad'],
+          ['mysteries', 'Mysteries'], ['roles', 'Roles']].map(([id, label]) => (
+          <button
+            key={id}
+            onClick={() => setSub(id)}
+            style={{ ...styles.cookSubBtn, ...(sub === id ? styles.cookSubBtnActive : {}) }}
+          >{label}</button>
+        ))}
+      </div>
+
+      {sub === 'record' && (<>
       <div style={S.card}>
         <div style={S.h}>His dishes, best first</div>
         <div style={S.faint}>
@@ -408,10 +436,6 @@ export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQu
         </div>
       )}
 
-      <NotesForRowanPane store={notesRowan} onSave={onSaveNotes} dishNames={dishNames} />
-
-      <QuestionsPane questions={questions} onSave={onSaveQuestions} />
-
       <VocabularyPane log={log} />
 
       {capsules.length > 0 && (
@@ -455,6 +479,20 @@ export function RowanTab({ log, dishNames, onSaveTranscript, questions, onSaveQu
           <div style={S.faint}>The worklist, not a scold. {notYet.length} left.</div>
           <div style={{ ...S.faint, marginTop: 6, color: C.text }}>{notYet.join(' · ')}</div>
         </div>
+      )}
+      </>)}
+
+      {sub === 'questions' && <QuestionsPane questions={questions} onSave={onSaveQuestions} />}
+
+      {sub === 'dad' && (
+        <NotesForRowanPane store={notesRowan} onSave={onSaveNotes} dishNames={dishNames} />
+      )}
+
+      {sub === 'mysteries' && (
+        <RowanMysteryBoards store={rowanBoards} onSave={onSaveBoards} />
+      )}
+      {sub === 'roles' && (
+        <RowanKitchenRoles store={rowanRoles} onSave={onSaveRoles} weekDishes={dishNames} />
       )}
     </div>
   );

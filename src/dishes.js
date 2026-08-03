@@ -99,7 +99,9 @@ export const DISHES = [
         I('Onion', 1, 'lb'),
         I('Corn', 3, 'ears'),
         I('Dried lima beans', 5, 'oz'),
-        I('Vinegar + smoked paprika', 1, 'batch', true), // Jul 15: was 'Worcestershire + vinegar + flour'. There is no flour and no
+        I('Vinegar', 1, 'batch-use', true),
+        I('Smoked paprika', 1, 'tbs', true),
+        I('Bay leaves', 2, 'ea', true), // Jul 15: was 'Worcestershire + vinegar + flour'. There is no flour and no
         // Worcestershire in this stew and there never was — the line was wrong,
         // and it was declaring a Gluten and a Fish allergen the dish doesn't have.
       ],
@@ -169,6 +171,19 @@ export const DISHES = [
         I('Limes', 1, ''),
         I('Espresso', 2, 'shot'),
         I('Bourbon', 2, 'oz'),
+        // NOT SPLIT. Kevin gave real amounts for the liquids (1 tbs Marmite, 1 tbs
+        // soy) and deliberately vague spices — "usually cumin and coriander
+        // probably with chili and clove as backup" — so this line is half recipe
+        // and half conversation.
+        //
+        // Splitting it broke the ingredient card: the card derives its "Spices
+        // (ask for details)" note from the COMPOSED line, and once the parts were
+        // separate LINE_MAP entries the note disappeared. A customer would have
+        // seen Marmite and soy sauce and no hint that anything else was in it.
+        //
+        // Getting this right means teaching the card to carry a blend note from a
+        // standalone line, which is a change to allergen-facing display code and
+        // not an overnight edit. The amounts are recorded in the walk file.
         I('Marmite + soy + spices', 1, 'batch', true),
       ],
     },
@@ -471,7 +486,9 @@ export const DISHES = [
         I('Espresso', 2, 'shot'),
         I('Worcestershire', 2, 'tbs'), // scales: 1 tbs small (0.5×), 2 tbs large (1×)
         I('Curry spice blend', 1, 'batch', true),
-        I('Honey + fish sauce + butter', 1, 'batch', true),
+        I('Honey', 2, 'tbs', true),
+        I('Fish sauce', 2, 'tsp', true),
+        I('Butter', 2, 'tbs', true),
         I('Bay leaf', 1, '', true),
         I('Rice (included with order)', 1, 'batch', true),
       ],
@@ -891,6 +908,19 @@ export const DISHES = [
         I('Scallions', 1, 'bunch'),
         I('Garlic', 3, 'cloves'),
         I('Ginger', 1, 'knob'),
+        // NOT SPLIT, AND THIS ONE IS A LIVE SAFETY ISSUE. Walk 1 found 1/3 cup of
+        // CHICKEN STOCK inside this line, on a dish sold with a tofu option whose
+        // allergen text reads "if vegetarian".
+        //
+        // Splitting it made the diet invariant fire immediately: "flagged veg,
+        // contains chicken_stock — a customer filtering for veg would be served
+        // this." The composed line was hiding it from the checker; the stock is
+        // in the dish either way.
+        //
+        // Kevin's ruling is that the TOFU version swaps the stock for WATER. That
+        // needs a variant-scoped recipe line, and `I()` has no variant field —
+        // building one is a structural change, not an overnight edit on
+        // allergen-facing data. Left composed until that exists.
         I('Soy + Shaoxing + black beans + sugar', 1, 'batch', true),
         I('Rice (included with order)', 1, 'batch', true),
       ],
@@ -995,7 +1025,14 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { gluten: true, soy: true, shellfish: true, sesame: { variants: true, unlisted: "house chili oil rides a composed line, which resolves to spices_generic" } },
+    // SEEDS, NOT OIL (Walk 1). The declaration was already correct —
+    // `variants: true` means it applies across all variants — so only the
+    // attribution changed.
+    //
+    // Carl is already safe by another route: the `no_chili_oil` swap removes the
+    // oil entirely. That swap is LEFT ALONE — making the dish fully dead for him
+    // would take away something he can actually eat.
+    allergens: { gluten: true, soy: true, shellfish: true, sesame: { variants: true, unlisted: 'the house chili oil carries toasted sesame SEEDS \u2014 three quarters of a cup a batch, found by splitting the composed line in Walk 1' } },
     // NO `veg` flag, deliberately. The base carries 3 tbsp of oyster sauce,
     // which is made from oysters, so the Tofu variants are tofu but they are
     // not vegetarian. They were flagged `veg` until Jul 15 (found by
@@ -1097,7 +1134,11 @@ export const DISHES = [
         I('Thai basil', 1, 'bunch'),
         I('Garlic', 6, 'cloves'),
         I('Limes', 1, ''),
-        I('Oyster + soy + fish sauce + sugar', 1, 'batch', true),
+        I('Oyster sauce', 1, 'tbs', true),
+        I('Soy sauce', 2, 'tsp', true),
+        I('Dark soy sauce', 2, 'tsp', true),
+        I('Fish sauce', 0.5, 'tsp', true),
+        I('Sugar', 1, 'tsp', true),
         I('Rice (included with order)', 1, 'batch', true),
       ],
     },
@@ -1366,7 +1407,8 @@ export const DISHES = [
         I('Heavy cream', 0.5, 'cup'),
         I('White wine', 1, 'cup'),
         I('Lemon', 1, ''),
-        I('Xanthan gum + lecithin powder', 1, 'batch', true),
+        I('Xanthan gum', 0.125, 'tsp', true),
+        I('Lecithin powder', 0.125, 'tsp', true),
       ],
     },
   },
@@ -1920,7 +1962,8 @@ export const DISHES = [
         I('Fresh thyme', 1, 'sprig'),
         I('Tomato paste', 1, 'small can'),
         I('Onion', 1, 'lb'),
-        I('Bay + salt + pepper + vinegar', 1, 'batch', true),
+        I('Bay leaves', 2, 'ea', true),
+        I('Vinegar', 1, 'batch-use', true),
       ],
       // ONE sous vide bag per dish (potatoes + carrots share one bag). Fixed so
       // it doesn't scale. Boeuf has no Small/Large split (both variants are
@@ -2193,14 +2236,26 @@ export const ALWAYS_ITEMS = {
         extras: { 'Standard': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
           I('Onions or carrots (for pickling)', 1, 'lb'),
-          I('Pickling vinegar + spices', 1, 'batch', true),
+          I('Water', 1, 'cup', true),
+        I('White wine vinegar', 1, 'cup', true),
+        I('Sugar', 0.25, 'cup', true),
         ],
       },
     },
     {
       id: 'chili-oil',
       name: 'Chili Oil',
-      allergens: { sesame: { variants: true, unlisted: 'toasted sesame oil is part of the house chili oil, inside the Chili-flakes-plus-whole-spices-plus-oil batch line, which resolves to spices_generic' } },
+      // IT IS SEEDS, NOT OIL. Walk 1, Aug 2: splitting the `Chili flakes +
+      // whole spices + oil` line found THREE QUARTERS OF A CUP of toasted
+      // sesame seeds in every batch. The word "spices" was hiding it.
+      //
+      // THE DECLARATION ITSELF WAS ALREADY CORRECT. `variants: true` means the
+      // allergen applies across ALL variants, and removing it — on a first read
+      // that it meant "conditional" — made the claim cover no variants at all.
+      // The allergen invariant caught that immediately: "a claim that protects
+      // nobody". Only the attribution was wrong, and that is documentation
+      // rather than safety.
+      allergens: { sesame: { variants: true, unlisted: 'three quarters of a cup of toasted sesame SEEDS in every batch, inside the Chili-flakes-plus-whole-spices-plus-oil line \u2014 found by splitting it in Walk 1' } },
       packaging: 'none',
       variants: [
         { label: 'Per Jar', price: 10, cost: 3.03 },
@@ -2214,7 +2269,14 @@ export const ALWAYS_ITEMS = {
         extras: { 'Per Jar': [{ ...I('Pint mason jar (passthrough)', 1, ''), fixed: true }], 'With jar swap': [] },
         base: [
           I('Ginger', 4, 'knobs'),
-          I('Chili flakes + whole spices + oil', 1, 'batch', true),
+          I('Chinese chili flakes', 1, 'cup', true),
+        I('Five spice powder', 8, 'tsp', true),
+        I('Toasted sesame seeds', 0.75, 'cup', true),
+        I('Ground Sichuan peppercorn', 4, 'tsp', true),
+        I('Star anise', 4, 'each', true),
+        I('Bay leaves', 8, 'ea', true),
+        I('Vegetable oil', 4, 'cup', true),
+        I('Ginger, thinly sliced', 4, 'ea', true),
         ],
       },
     },

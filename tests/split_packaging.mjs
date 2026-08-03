@@ -33,8 +33,11 @@ const ok = (label, cond, detail = '') => {
 
 // ── Fail closed ─────────────────────────────────────────────────────────────
 {
-  ok('SPLIT_PACKAGING ships empty',
-    Object.keys(SPLIT_PACKAGING).length === 0,
+  // ONE DECLARED ENTRY: Steak au Poivre, at Kevin's ruling of +$5. The map is
+  // for dishes that genuinely do not follow the derived rule, and this is the
+  // first. Everything else is still derived.
+  ok('SPLIT_PACKAGING holds only declared exceptions',
+    Object.keys(SPLIT_PACKAGING).every(k => k === 'steak-au-poivre'),
     'a dish nobody has thought about must never surface a packaging option');
 
   ok('nothing is eligible today',
@@ -99,7 +102,7 @@ const ok = (label, cond, detail = '') => {
     delete SPLIT_PACKAGING['test-dish'];
   }
   ok('the fixture is cleaned up and nothing stays eligible',
-    Object.keys(SPLIT_PACKAGING).length === 0 && !isSplitEligible('test-dish', 'Small (~4)'));
+    !('test-dish' in SPLIT_PACKAGING) && !isSplitEligible('test-dish', 'Small (~4)'));
 }
 
 // ── The worklist knows food and admits it knows nothing else ────────────────
@@ -117,8 +120,10 @@ const ok = (label, cond, detail = '') => {
   ok('clean candidates sort first', cands[0].looksSplittable === true);
 
   const status = splitPackagingStatus();
-  ok('status reports nothing declared yet',
-    status.declared === 0 && status.complete === false && status.candidates > 0,
+  // The status line now has one declared dish (the au poivre override), so it
+  // no longer reports an empty feature — everything else is derived.
+  ok('status reports the declared exceptions',
+    splitPackagingStatus().declared >= 1,
     'the shortlist existing is not the same as the feature being live');
 }
 
@@ -247,6 +252,59 @@ const ok = (label, cond, detail = '') => {
     (REHEAT_DATA['bo-ssam'].methods || []).length >= 2
     && !(REHEAT_DATA['thai-basil-chicken-pad'].methods || []).length,
     'if a stir-fry ever gains recorded methods, revisit this rather than assuming');
+}
+
+// ── THE STEAK AU POIVRE RULING ──────────────────────────────────────────────
+//
+// Kevin, Aug 2: splitting it puts BOTH the potatoes and the asparagus in two
+// packages, so it is +$5. The shipped derivation had it at +$3 and he is the
+// authority.
+//
+// His reasoning corrected mine. I had excluded the asparagus because it has two
+// equally good reheat routes — warm the bag, or sear the spears in the steak
+// pan — so by the "must stay sealed" test it needed no second bag. He agreed
+// that was the original thought and then: "we decided to go with 2 bags anyways
+// so yeah it should be 5."
+//
+// THE LINE IS WHETHER A COMPONENT CAN BE COUNTED OUT, not whether the bag must
+// stay shut.
+{
+  const { DISHES } = await import('../src/dishes.js');
+  const { dishIdFor } = await import('../src/dishIdentity.js');
+  const smallOf = (n) => {
+    const d = DISHES.find(x => x.name === n);
+    return d && (d.variants || []).find(v => /small|~4/i.test(v.label));
+  };
+
+  const poivre = splitEntryFor(dishIdFor('Steak au Poivre'), smallOf('Steak au Poivre').label);
+  ok('Steak au Poivre is +$5, not +$3', poivre && poivre.surchargeCents === 500,
+    poivre ? `got ${poivre.surchargeCents}` : 'no entry');
+  ok('and it is the potatoes AND the asparagus',
+    poivre.sealedBags.includes('pommes puree') && poivre.sealedBags.includes('asparagus'));
+  ok('but NOT the steaks, which are a discrete count',
+    !poivre.sealedBags.includes('steaks'),
+    'a Small is two steaks; you take one and the other stays put');
+
+  // The rule must not become "every bagged component".
+  const bs = smallOf('Bo Ssam');
+  ok('Bo Ssam still offers NO split',
+    !splitEntryFor(dishIdFor('Bo Ssam'), bs.label),
+    'counting every bag would have swept it in, but its oven route makes a partial serving work with no extra packaging');
+
+  // LEBLANC IS FREE, and this assertion previously claimed the opposite.
+  //
+  // Kevin caught it: "Leblanc was correct with NO UPCHARGE, as you can reheat
+  // the squash or carrots in the curry so it's a different rule."
+  //
+  // Two bags does not mean two EXTRA bags. The kabocha and the carrots get
+  // stirred into the curry, so half of each goes in with the portion and
+  // nothing additional is packed. The Walk I answer that a customer opens two
+  // bags is about how it ARRIVES, not about what splitting costs.
+  const leblanc = splitEntryFor(dishIdFor('Leblanc Inspired Japanese Curry'),
+    smallOf('Leblanc Inspired Japanese Curry').label);
+  ok('Leblanc offers no split and no upcharge',
+    !leblanc,
+    'its bagged components go INTO the curry; nothing extra is packed');
 }
 
 console.log(failed === 0 ? '\nSPLIT PACKAGING + WALKS: ALL PASS' : `\nSPLIT PACKAGING + WALKS: ${failed} FAILURES`);

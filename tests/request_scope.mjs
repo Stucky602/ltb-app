@@ -202,9 +202,12 @@ const page = readFileSync(new URL('../form.html', import.meta.url), 'utf8');
     globalThis.fetch = realFetch;
     globalThis.localStorage = realLS;
   }
+  // The map is no longer empty at rest — Steak au Poivre is a declared
+  // exception at Kevin's ruling — so this checks the FIXTURE is gone rather
+  // than that nothing is declared.
   ok('the fixture is cleaned up',
-    Object.keys(SPLIT_PACKAGING).length === 0,
-    'a test that leaves the canon populated would turn the feature on for real');
+    !('chili' in SPLIT_PACKAGING),
+    'a test that leaves its own fixture behind would turn the feature on for real');
 }
 
 console.log(failed === 0 ? '\nREQUEST SCOPE + PACKS: ALL PASS' : `\nREQUEST SCOPE + PACKS: ${failed} FAILURES`);

@@ -400,6 +400,38 @@ export const LINE_MAP = {
   // Composite staple lines (single batch-use cost — flat by design, the conv
   // ignores quantity and unit deliberately; 'batch'/'blend' ARE the unit)
   'Curry powder':           { id: 'curry_powder', conv: () => 1 }, // a cup of curry powder = one batch-use by design
+  // ── WALK 1 LINE SPLITS (Aug 2) ────────────────────────────────────────────
+  //
+  // Kevin asked for the real amounts on the recipe cards: "it's been annoying
+  // having to look up a sauce recipe sometimes vs just having it in the recipes
+  // tab in the app." So the composed lines were split into their components.
+  //
+  // COSTING IS DELIBERATELY UNCHANGED. Each of these maps to the SAME
+  // spices_generic bucket the composed line already resolved to, so the split
+  // is a readability change and nothing more. Splitting a line into components
+  // that suddenly carry their own prices would have silently re-costed a dozen
+  // dishes off a walk about ingredients, which is not what he asked for and not
+  // something to do unsupervised.
+  //
+  // Several of these ARE real products with real prices (Marmite, fish sauce,
+  // sesame seeds). Pricing them properly is a costing decision per line, and it
+  // is recorded as owed rather than guessed.
+  'Bay leaves':                { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Chinese chili flakes':      { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Cornstarch':                { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Fermented black beans':     { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Fish sauce':                { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Five spice powder':         { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Ginger, thinly sliced':     { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Ground Sichuan peppercorn': { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Lecithin powder':           { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Marmite':                   { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Smoked paprika':            { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Toasted sesame seeds':      { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Water':                     { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'White wine vinegar':        { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Xanthan gum':               { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  'Chili spice blend':      { id: 'spices_generic', conv: () => 1 },  // composed-ok: deliberately vague, per Kevin — not a formula
   'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },  // composed-ok: seasoning blend priced as one spices_generic bucket; no separate real-ingredient cost hidden
   'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },  // composed-ok: aromatic seasoning blend → spices_generic bucket; components are pantry splashes, not costed lines
   'Oyster + soy + fish sauce + sugar':    { id: 'spices_generic', conv: () => 1 },  // composed-ok: sauce seasoning blend → spices_generic bucket

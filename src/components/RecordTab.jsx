@@ -570,6 +570,10 @@ function AskPane({ corpus }) {
 export function RecordTab({
   journal, onSaveJournal, dishNames, weekDishes, orders, knownNames,
   weekLedger, askLog, onPullQuestions, copiesNote, onSaveCopiesNote, containerAudit, archiveHistory, onArchiveDownloaded,
+  // For the durable archive. Read-only here; the tab neither edits nor saves
+  // them, it only hands them to the builder.
+  rowanQuestions, notesRowan, rowanBoards, rowanRoles,
+  householdMemories, passportCabinets, derivatives, decisionLedger,
   onAnswerQuestion,
   practices, onSavePractices, corpus,
   captureInbox, onSaveCapture, dishNames: allDishNames,
@@ -646,7 +650,14 @@ export function RecordTab({
         amendments: amendments || [],
         visualCues: visualCues || [],
       });
-      const html = buildArchiveHtml({ journal, orders, copiesNote, history: archiveHistory, chronicle });
+      // The eight newer stores travel too. Without this the archive builder
+      // renders every section as empty — which the completeness gate cannot
+      // catch, because it tests the BUILDER, not this call site.
+      const html = buildArchiveHtml({
+        journal, orders, copiesNote, history: archiveHistory, chronicle,
+        rowanQuestions, notesRowan, rowanBoards, rowanRoles,
+        householdMemories, passportCabinets, derivatives, decisionLedger,
+      });
       const enc = new TextEncoder();
       const stored = (visualCues || []).filter(c => c.status === 'stored' && c.mediaKey);
       const files = [];

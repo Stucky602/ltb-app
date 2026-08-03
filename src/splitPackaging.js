@@ -70,7 +70,35 @@ export const PACK_BLURBS = {
 // Kevin's Aug 2 answers turned the per-dish questions into rules, so declaring
 // dishes by hand is no longer the way this fills up. An entry here wins over
 // the derivation, for the case where a dish genuinely does not follow the rule.
-export const SPLIT_PACKAGING = {};
+export const SPLIT_PACKAGING = {
+  // STEAK AU POIVRE IS +$5, BY KEVIN'S RULING. An override rather than a rule
+  // change, and the distinction cost a correction worth recording.
+  //
+  // The derivation counts one sealed component here (the pommes puree) and
+  // prices it at +$3. Kevin ruled that splitting it puts BOTH the potatoes and
+  // the asparagus in two packages: "we decided to go with 2 bags anyways so yeah
+  // it should be 5."
+  //
+  // MY FIRST FIX WAS WRONG AND HE CAUGHT IT. I generalised — any bagged
+  // component that is not a discrete count needs its own bag — which repriced
+  // TEN dishes off one ruling. Leblanc went to +$5, and it should be free: the
+  // kabocha and the carrots get stirred INTO the curry, so half of each goes in
+  // with the portion and nothing extra is packed. That is a different rule, and
+  // inventing it from one dish's answer is exactly the failure the walks keep
+  // teaching.
+  //
+  // So the general rule stays as it was, and this dish is declared.
+  'steak-au-poivre': {
+    byVariant: [
+      { match: /small|medium/i,
+        family: { round16: 1, bag: 3 },
+        twoNight: { round16: 1, bag: 5 },
+        surchargeCents: 500,
+        sealedBags: ['pommes puree', 'asparagus'],
+        note: 'Kevin, Aug 2: both the potatoes and the asparagus go in two packages.' },
+    ],
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // THE SURCHARGE TEST, AS KEVIN STATED IT

@@ -180,15 +180,41 @@ export function fromVisualCues(cues) {
 }
 
 export function fromRowan(log) {
-  const list = Array.isArray(log) ? log : (log && log.entries) || [];
-  return list.filter(Boolean).map(e => rec({
-    id: 'rw:' + (e.id || e.ts),
+  // READS THE FIELDS rowan.js ACTUALLY WRITES.
+  //
+  // This read `e.ts`, `e.notes`, and `e.familyNotes`. `makeEntry()` writes
+  // `at`, `note`, and `familyNote`. The ordinary note survived by accident —
+  // `e.note` was in the fallback chain — so the adapter looked like it worked
+  // while EVERY tasting date and EVERY family note was silently missing from
+  // owner search.
+  //
+  // NO DEAD FALLBACKS. The old names were checked against rowan.js and its
+  // normalization: `ts`, `notes`, and `familyNotes` never existed in stored
+  // data, so reading them "just in case" would preserve a fiction. The two
+  // mentions of "notes" in that file are prose in comments.
+  //
+  // A search index that quietly drops a field is worse than one that has no
+  // adapter at all, because the empty result reads as "he never said anything
+  // about that" rather than "this was never indexed".
+  // THE LOG IS AN ARRAY, and this is a bigger finding than the wrong field names.
+  //
+  // App.jsx holds `rowanLog` as a plain array — `useState([])` — and passes it
+  // straight in. This function read `log.entries`, which is `undefined` on an
+  // array, so it mapped over an empty list and returned NOTHING. Every tasting
+  // entry Kevin has ever recorded has been absent from owner search since the
+  // adapter was written, and the wrong field names were never reached.
+  //
+  // Both shapes are accepted because the backup payload and some tests pass
+  // `{ entries: [...] }`, and an adapter that only worked for one of them is
+  // how this went unnoticed in the first place.
+  const entries = Array.isArray(log) ? log : ((log && log.entries) || []);
+  return entries.map(e => ({
+    id: 'rw:' + (e.id || e.at),
     kind: 'rowan',
-    dishId: e.dishId || null,
-    date: e.ts || null,
-    title: `${e.dish || safeName(e.dishId) || 'Dish'} · rated ${e.verdict ?? e.rating ?? '?'}`,
-    text: [e.notes, e.familyNotes, e.note].filter(Boolean).join(' \u00b7 '),
-    link: { view: 'rowan' },
+    date: e.at || null,
+    title: e.dish || 'Rowan',
+    text: [e.note, e.familyNote].filter(Boolean).join(' \u00b7 '),
+    meta: { rating: e.rating, fairTest: e.fairTest !== false },
   }));
 }
 

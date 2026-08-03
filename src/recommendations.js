@@ -37,6 +37,7 @@
 import { DISHES } from './dishes.js';
 import { dishIdFor } from './dishIdentity.js';
 import { REHEAT_DATA } from './reheatData.js';
+import { tagsFor, dishesWithTag, isBroadTag, isSingletonTag, copyFor } from './dishTags.js';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -50,6 +51,9 @@ export const RULES = {
   repeatFavourite: { minOrders: 3 },
   // "It has been a while."
   lapsed: { minOrders: 2, minDays: 90 },
+  // Same shape as the cuisine rule, but tags are what a customer actually
+  // groups food by.
+  tagNearlyComplete: { minTried: 3, maxRemaining: 2 },
 };
 
 function dishByName(name) {
@@ -86,6 +90,50 @@ export function historyFor(orders, householdId, now = Date.now()) {
 //
 // Each returns null or { ruleId, why, evidence }. `why` is the sentence the
 // customer reads; `evidence` is the numbers it came from.
+
+// THE RULE THE TAG WALK EXISTED FOR. Cuisine put the six stir-fries in two
+// different buckets, so "you have had every other stir fry" could never fire.
+//
+// BROAD TAGS ARE DAMPENED RATHER THAN TRIMMED. Kevin was offered removing the
+// comfort-food tag from some dishes and splitting it, and chose neither: "find
+// a method when we actually do implementation to not have it fire as much or
+// weigh it different or something." The tag is TRUE of all ten dishes, so it
+// stays on all ten — but "you have had every other comfort food" across ten
+// dishes says almost nothing, while the same sentence about six stir-fries is a
+// real observation. A rule that cannot tell them apart fires hardest on the one
+// that means least.
+//
+// So a broad tag needs the household to have tried MORE of it before it counts,
+// and singleton tags (`kit`, `smoked`) never fire at all because they group
+// nothing.
+function ruleTagNearlyComplete(dish, h, variantLabel) {
+  for (const tag of tagsFor(dish.name, variantLabel)) {
+    if (isSingletonTag(tag)) continue;
+    const all = dishesWithTag(tag);
+    const tried = all.filter(n => h.counts.has(n));
+    if (tried.includes(dish.name)) continue;
+    const remaining = all.length - tried.length;
+    const minTried = isBroadTag(tag)
+      ? Math.max(RULES.tagNearlyComplete.minTried, all.length - 1)
+      : RULES.tagNearlyComplete.minTried;
+    if (tried.length < minTried) continue;
+    if (remaining > RULES.tagNearlyComplete.maxRemaining) continue;
+
+    const why = remaining === 1
+      ? `You have had every other ${tag} on the menu.`
+      : `You have had ${tried.length} of the ${all.length} ${tag} dishes.`;
+    // A TAG CAN CARRY REQUIRED COPY, and it rides the recommendation rather
+    // than the dish — a general blurb would say it to people who were never
+    // told anything about that tag.
+    const extra = copyFor(dish.name, tag);
+    return {
+      ruleId: 'tagNearlyComplete',
+      why: extra ? `${why} ${extra}` : why,
+      evidence: { tag, tried: tried.length, total: all.length, remaining, broad: isBroadTag(tag) },
+    };
+  }
+  return null;
+}
 
 function ruleCuisineNearlyComplete(dish, h) {
   if (!dish.cuisine) return null;
@@ -130,7 +178,9 @@ function ruleLapsed(dish, h) {
   };
 }
 
-const ALL_RULES = [ruleCuisineNearlyComplete, ruleRepeatFavourite, ruleLapsed];
+// TAGS FIRST. They are the grouping Kevin actually thinks in, and cuisine is
+// the fallback for dishes he has not tagged.
+const ALL_RULES = [ruleTagNearlyComplete, ruleCuisineNearlyComplete, ruleRepeatFavourite, ruleLapsed];
 
 // ── The entry point ─────────────────────────────────────────────────────────
 //
@@ -157,7 +207,7 @@ export function recommendationsFor({
     if (!eligible(dish)) continue;
 
     for (const rule of ALL_RULES) {
-      const r = rule(dish, h);
+      const r = rule(dish, h, name);
       if (!r) continue;
       // ONE REASON PER DISH. Stacking them reads as a sales pitch, and the
       // first rule that fires is the strongest by the order they are listed in.

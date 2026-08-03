@@ -208,5 +208,68 @@ const ok = (label, cond, detail = '') => {
   ok('counts add up', derivativeCounts(multi).drafts === 2);
 }
 
+// ── THE ROWAN ADAPTER READ THE WRONG FIELDS ─────────────────────────────────
+//
+// `fromRowan()` read `e.ts`, `e.notes`, and `e.familyNotes`. `makeEntry()`
+// writes `at`, `note`, and `familyNote`. The ordinary note survived by accident,
+// because `e.note` happened to be last in the fallback chain — so the adapter
+// looked like it worked while EVERY tasting date and EVERY family note was
+// missing from owner search.
+//
+// That is worse than having no adapter: an empty result reads as "he never said
+// anything about that" rather than "this was never indexed".
+//
+// ASSERTED AGAINST makeEntry(), never a hand-typed literal. A literal would have
+// passed against the broken reader, since I would have typed the field names
+// the reader expected.
+{
+  const { makeEntry } = await import('../src/rowan.js');
+  const { buildCorpus, searchCorpus } = await import('../src/corpus.js');
+
+  const entry = makeEntry({
+    dish: 'Chili', rating: 5,
+    note: 'he asked for seconds',
+    familyNote: 'the whole table went quiet',
+    at: '2026-07-01T12:00:00Z',
+  });
+  // THE ARRAY SHAPE IS THE REAL ONE. App.jsx holds `rowanLog` as `useState([])`
+  // and passes it straight in, so this is what production actually calls with.
+  // The adapter read `log.entries`, which is undefined on an array — so it
+  // returned NOTHING and no tasting entry has ever been in owner search. The
+  // wrong field names were never even reached.
+  const rec = buildCorpus({ rowanLog: [entry] }).find(r => r.kind === 'rowan');
+  ok('the ARRAY shape App.jsx actually passes is indexed', !!rec,
+    'testing only { entries: [...] } is how this survived');
+  ok('and the { entries } shape still works, for backup payloads',
+    !!buildCorpus({ rowanLog: { entries: [entry] } }).find(r => r.kind === 'rowan'));
+  ok('a missing log is not an error',
+    buildCorpus({}).filter(r => r.kind === 'rowan').length === 0);
+
+  ok('the tasting record reaches the corpus', !!rec);
+  ok('the DATE survives', rec.date === entry.at,
+    'it was read from `ts`, which nothing has ever written');
+  ok('the note survives', /seconds/.test(rec.text));
+  ok('the FAMILY note survives', /table went quiet/.test(rec.text),
+    'read from `familyNotes`; the field is `familyNote`');
+
+  // Searchable, which is the point of the adapter existing.
+  ok('and all three are findable by search',
+    searchCorpus([rec], 'quiet').length === 1 && searchCorpus([rec], 'seconds').length === 1);
+
+  // No dead fallbacks: the old names never existed in stored data.
+  const src = (await import('node:fs')).readFileSync(new URL('../src/corpus.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  // SCOPED TO fromRowan. The file-wide version of this failed on the journal
+  // and practices adapters, which read `e.ts` correctly because journal.js
+  // genuinely writes `ts`. The bug was never "ts is wrong" — it was that the
+  // ROWAN store does not use it.
+  const fn = (code.match(/function fromRowan[\s\S]*?\n\}/) || [''])[0];
+  ok('the Rowan adapter keeps no fallback to names nothing ever wrote',
+    fn.length > 0 && !/e\.ts\b|e\.notes\b|e\.familyNotes\b/.test(fn),
+    'reading them "just in case" would preserve a fiction');
+  ok('and it reads the three fields makeEntry writes',
+    /e\.at\b/.test(fn) && /e\.note\b/.test(fn) && /e\.familyNote\b/.test(fn));
+}
+
 console.log(failed === 0 ? '\nKNOWLEDGE CORE: ALL PASS' : `\nKNOWLEDGE CORE: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

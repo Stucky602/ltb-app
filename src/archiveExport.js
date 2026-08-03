@@ -28,6 +28,7 @@
 import { narrateChapter } from './chronicle.js';
 import { DISHES, ALWAYS_ITEMS } from './dishes.js';
 import { RENAME_HISTORY, DISH_RENAMES } from './utils.js';
+import { buildRowanArchiveSections } from './rowanArchive.js';
 import {
   JOURNAL_TYPES, normalizeJournal, canonDishName,
   transferableEntries, principleIndex, UNNAMED_PRINCIPLE, supersededIds,
@@ -216,7 +217,11 @@ export function archiveGapYears(journal, now) {
   return gaps;
 }
 
-export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, history, chronicle } = {}) {
+export function buildArchiveHtml({
+  journal, orders, generatedAt, copiesNote, history, chronicle,
+  rowanQuestions, notesRowan, rowanBoards, rowanRoles,
+  householdMemories, passportCabinets, derivatives, decisionLedger,
+} = {}) {
   const j = normalizeJournal(journal);
   const when = generatedAt || new Date().toISOString();
   const year = when.slice(0, 4);
@@ -287,6 +292,19 @@ export function buildArchiveHtml({ journal, orders, generatedAt, copiesNote, his
 
   parts.push('<h2>The business journal</h2>');
   parts.push(journalSection(general, DISH_RENAMES, superseded));
+
+  // THE NEWER LEGACY MATERIAL. Eight stores that ride the backup and were
+  // absent from the one artifact meant to outlive the app: Rowan's questions,
+  // the notes Kevin wrote him, the mystery boards, the kitchen roles, the
+  // households' memories and cabinets, the approved derivatives, and the
+  // decision ledger.
+  //
+  // Built by src/rowanArchive.js and spliced here, so there is ONE export path
+  // rather than a second archive nobody remembers to run.
+  parts.push(buildRowanArchiveSections({
+    rowanQuestions, notesRowan, rowanBoards, rowanRoles,
+    householdMemories, passportCabinets, derivatives, decisionLedger,
+  }).html);
 
   parts.push('<h2>The dishes</h2>');
   for (const d of DISHES) {

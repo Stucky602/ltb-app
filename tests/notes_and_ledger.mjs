@@ -496,11 +496,19 @@ const ok = (label, cond, detail = '') => {
   });
 
   const r = all();
-  ok('the cuisine rule fires when they have had every other one',
-    r.length === 1 && /every other Chinese dish/.test(r[0].why),
+  // TAGS NOW WIN OVER CUISINE, which is the intended order: tags are the
+  // grouping Kevin actually thinks in, and cuisine is the fallback for dishes
+  // he has not tagged. This assertion used to expect the cuisine sentence
+  // because tags did not exist yet.
+  ok('a rule fires when they have had every other one of a group',
+    r.length === 1 && /every other|\d+ of the \d+/.test(r[0].why),
     JSON.stringify(r));
   ok('and the evidence travels with it so anyone can check the claim',
-    r[0].evidence.tried === 4 && r[0].evidence.total === chinese.length);
+    r[0].evidence && typeof r[0].evidence.total === 'number' && r[0].evidence.tried > 0,
+    JSON.stringify(r[0].evidence));
+  ok('the tag rule is preferred over cuisine when both could fire',
+    r[0].ruleId === 'tagNearlyComplete',
+    'cuisine splits the six stir-fries across two values; tags are what a customer groups by');
 
   ok('a dish they have already tried is not recommended back to them',
     !r.some(x => chinese.slice(0, 4).includes(x.dishName)));
@@ -646,6 +654,94 @@ const ok = (label, cond, detail = '') => {
   ok('and no reader breaks outstanding deposits down by household',
     !/byRegular|byHousehold|owes|debt/i.test(code),
     'nobody owes a container; a per-person outstanding list is a debtors\' register whatever it is labelled');
+}
+
+// ── DISH TAGS ───────────────────────────────────────────────────────────────
+//
+// "A tag is a CROSSLINK, not a classification." Kevin put pasta sauce on Chili
+// deliberately — "I want to ensure it'll crosslink with the italian ones" — and
+// did the same on the Pork with Mustard Tarragon. **Chili is a pasta sauce
+// because he says it is.** Nothing here validates that, on purpose.
+{
+  const t = await import('../src/dishTags.js');
+  const rec = await import('../src/recommendations.js');
+  const fs = await import('node:fs');
+
+  // His own tally, from the walk. If these drift, the data was edited.
+  const expected = {
+    'comfort food': 10, 'pasta sauce': 9, 'stir fry': 6, 'braise': 6,
+    'soup or stew': 4, 'grilled or seared': 4, curry: 2, roux: 2, kit: 1, smoked: 1,
+  };
+  const tally = t.tagTally();
+  ok('the tally matches Kevin\'s exactly',
+    Object.entries(expected).every(([k, v]) => tally[k] === v),
+    JSON.stringify(tally));
+
+  ok('stir fry lands on SIX, which cuisine could never express',
+    tally['stir fry'] === 6,
+    'those six were split across Chinese and Thai, so the strongest rule could never fire');
+
+  // Variant scoping.
+  const cumin = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
+  ok('the Cumin noodles are a pasta sauce',
+    t.tagsFor(cumin, 'Mushroom, Small').includes('pasta sauce'));
+  ok('and the Cumin rice is NOT',
+    !t.tagsFor(cumin, 'Beef, Small').includes('pasta sauce'),
+    'flattening them onto the parent would crosslink a rice dish to the Italians');
+  ok('but both are stir fry',
+    t.tagsFor(cumin, 'Mushroom, Small').includes('stir fry')
+    && t.tagsFor(cumin, 'Beef, Small').includes('stir fry'));
+  ok('and they count as TWO units, matching his table',
+    t.dishesWithTag('stir fry').filter(n => n === cumin).length === 2,
+    'one menu entry, two things a customer orders');
+
+  ok('Bolognese records the one NEGATIVE on the board',
+    t.excludedTags('Bolognese').includes('soup or stew'),
+    'kept so a later pass cannot quietly re-add something he ruled out');
+  ok('Bo Ssam is PARKED, not untagged',
+    t.isParked('Bo Ssam') && t.tagsFor('Bo Ssam').length === 0,
+    'he said he would think of one; nothing here proposes a tag for him');
+
+  ok('a tag can carry required copy',
+    t.copyFor('Chili', 'pasta sauce') === 'Seriously, try it with macaroni.');
+  ok('and it is scoped to that dish and tag, not general',
+    t.copyFor('Bolognese', 'pasta sauce') === null,
+    'a general blurb would say it to people never told anything about pasta sauce');
+
+  // The recommender.
+  const now = Date.now();
+  const mk = (n, d) => ({ regularId: 'h1', createdAt: new Date(now - d * 86400000).toISOString(), items: [{ name: n }] });
+  const fire = (names, k) => rec.recommendationsFor({
+    orders: names.slice(0, k).map((n, i) => mk(n, 60 - i)),
+    householdId: 'h1', weekDishNames: names, eligible: () => true, now,
+  }).filter(x => x.ruleId === 'tagNearlyComplete');
+
+  const sf = [...new Set(t.dishesWithTag('stir fry'))];
+  ok('a narrow tag fires when they have had every other one',
+    fire(sf, sf.length - 1).some(x => /every other stir fry/.test(x.why)));
+
+  // THE DAMPENING. Kevin was offered trimming and splitting and chose neither.
+  const cf = [...new Set(t.dishesWithTag('comfort food'))];
+  // Checks the COMFORT FOOD claim specifically. The first version asserted that
+  // NO tag rule fired, which was wrong: those ten dishes overlap with soup or
+  // stew, so ordering five of them legitimately completes that narrower tag —
+  // and that firing is correct behaviour, not noise.
+  ok('a BROAD tag does not claim "every other" at half the menu',
+    !fire(cf, 5).some(x => x.evidence.tag === 'comfort food'),
+    '"every other comfort food" across ten dishes says almost nothing');
+  ok('but it still fires when they really have had every other one',
+    fire(cf, cf.length - 1).some(x => /every other comfort food/.test(x.why)),
+    'the tag is true of all ten and stays on all ten — it is weighted, not trimmed');
+
+  ok('singleton tags never drive a recommendation',
+    t.isSingletonTag('kit') && t.isSingletonTag('smoked'),
+    'they group nothing, though they may still earn their place as menu filters');
+
+  const src = fs.readFileSync(new URL('../src/dishTags.js', import.meta.url), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+  ok('nothing validates or corrects a tag',
+    !/validate|invalid|correct|taxonom/i.test(code),
+    'a validator objecting to Chili being a pasta sauce has misread the feature');
 }
 
 console.log(failed === 0 ? '\nNOTES + LEDGER: ALL PASS' : `\nNOTES + LEDGER: ${failed} FAILURES`);

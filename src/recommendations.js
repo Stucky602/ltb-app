@@ -71,9 +71,26 @@ export function historyFor(orders, householdId, now = Date.now()) {
   for (const o of orders || []) {
     if (householdId && o.regularId !== householdId) continue;
     const at = new Date(o.deliveredAt || o.createdAt || 0).getTime();
+    // AN OMAKASE COUNTS FOR THE DISHES IT WAS ACTUALLY MADE OF.
+    //
+    // The omakase line itself is skipped — it is not a dish and never will be.
+    // But when Kevin builds a box out of menu items he records the link, and a
+    // household that ate the Chili has eaten the Chili whether it arrived on
+    // the menu or in a box. Ignoring that made omakase households invisible to
+    // every tag and cuisine rule.
+    //
+    // Freehand components are NOT counted: they have no dish name to count as.
+    const lines = [];
     for (const it of o.items || []) {
+      if (it && it.omakase) {
+        for (const c of (it.components || [])) if (c && c.dishName) lines.push({ name: c.dishName });
+        continue;
+      }
+      lines.push(it);
+    }
+    for (const it of lines) {
       const name = (it && it.name) || '';
-      if (!name || it.omakase) continue;
+      if (!name) continue;
       counts.set(name, (counts.get(name) || 0) + 1);
       if (at && at > (lastAt.get(name) || 0)) lastAt.set(name, at);
       const d = dishByName(name);

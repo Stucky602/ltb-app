@@ -236,7 +236,15 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
         .map(r => ({ label: r.label, cost: r.cost || 0, date: new Date().toISOString(), orderId: order.id }));
       if (add.length) await saveJSON(OMAKASE_REG_QUEUE_KEY, [...q, ...add]);
     }
-    const items = order.items.map(it => (it.omakase
+    // isOmakaseItem, NOT the raw flag. The logger RENDERS on isOmakaseItem but
+    // this save still matched `it.omakase` — so on an order entered by hand,
+    // where the flag was never set, the map matched nothing, the item was
+    // returned untouched, and the Save button did nothing at all.
+    //
+    // Third failure from the same root: the flag is set once by the customer
+    // order form and any path that rebuilds an item can lose it. Every place
+    // that asks "is this an omakase" has to ask the same way.
+    const items = order.items.map(it => (isOmakaseItem(it)
       ? {
         ...it,
         components: rows,

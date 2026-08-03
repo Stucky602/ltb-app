@@ -744,5 +744,112 @@ const ok = (label, cond, detail = '') => {
     'a validator objecting to Chili being a pasta sauce has misread the feature');
 }
 
+// ── EVERY OMAKASE CHECK ASKS THE SAME QUESTION ──────────────────────────────
+//
+// `omakase: true` is set once, by the customer order form, and any path that
+// rebuilds an item can drop it. An order Kevin types by hand never has it at
+// all.
+//
+// That one fact has now caused THREE separate failures, each looking unrelated:
+//   1. The Record tab reported the order as an unrecognised dish name.
+//   2. The container logger never rendered, so there was nowhere to enter a count.
+//   3. The Save button did nothing — the logger rendered on `isOmakaseItem` but
+//      the save still matched the raw flag, so the map matched no item and
+//      returned the order untouched.
+//
+// So the rule is not "fix the flag". It is that every place asking "is this an
+// omakase" must ask the same way.
+{
+  const fs = await import('node:fs');
+  const { isOmakaseItem } = await import('../src/utils.js');
+
+  ok('a flagged item is an omakase', isOmakaseItem({ name: 'Omakase', omakase: true }));
+  ok('and so is one named Omakase with no flag',
+    isOmakaseItem({ name: 'Omakase' }),
+    'the name is the one thing that cannot be lost — it is what the line IS');
+  ok('an ordinary dish is not', !isOmakaseItem({ name: 'Chili' }));
+
+  // The three surfaces, checked in source, because each broke separately.
+  const card = fs.readFileSync(new URL('../src/components/OrderCard.jsx', import.meta.url), 'utf8');
+  const journal = fs.readFileSync(new URL('../src/journal.js', import.meta.url), 'utf8');
+  const containers = fs.readFileSync(new URL('../src/containers.js', import.meta.url), 'utf8');
+
+  for (const [name, src] of [['OrderCard', card], ['journal', journal], ['containers', containers]]) {
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+    ok(`${name} never tests the raw flag directly`,
+      !/\b(it|x|item)\.omakase\b/.test(code),
+      'a raw flag check is invisible when the flag is missing — it just quietly does nothing');
+  }
+
+  ok('the OrderCard save maps on isOmakaseItem',
+    /const items = order\.items\.map\(it => \(isOmakaseItem\(it\)/.test(card),
+    'matching the raw flag returned every item untouched, so Save silently did nothing');
+}
+
+// ── AN OMAKASE IS MADE OF DISHES ────────────────────────────────────────────
+//
+// Kevin, Aug 3: "especially for things where I'm mostly just building a box for
+// them out of items already on the menu like I'm doing this week."
+//
+// The logger has always recorded `dishName` on a component picked from the menu
+// and NOTHING downstream used it. A customer receiving a box of three menu
+// dishes got a page naming none of them, while every reheat card and ingredient
+// card for those exact dishes sat one lookup away.
+{
+  const { companionHtml, companionContext, expandOmakase } = await import('../src/companion.js');
+  const { historyFor } = await import('../src/recommendations.js');
+
+  const order = {
+    id: 'x', customer: 'A',
+    items: [{
+      name: 'Omakase', omakase: true, qty: 1, price: 100,
+      components: [
+        { dishName: 'Chili', variant: 'Small (~4)', label: 'Chili (Small (~4))' },
+        { label: 'Braised short rib' },
+      ],
+    }],
+  };
+
+  const { order: expanded, freehand } = expandOmakase(order);
+  ok('a linked component becomes an ordinary item',
+    expanded.items.some(i => i.name === 'Chili'),
+    'expanding rather than special-casing means every existing machine works unchanged');
+  ok('the omakase line itself survives',
+    expanded.items.some(i => i.omakase),
+    'anything keyed on it still works');
+  ok('a freehand component is NOT invented into a dish',
+    freehand.includes('Braised short rib')
+    && !expanded.items.some(i => i.name === 'Braised short rib'),
+    'guessing it behaves like some registry dish is the fabrication the reheat walk exists to prevent');
+
+  const html = companionHtml(order, 'p1', {});
+  ok('the linked dish brings its REAL reheat card to the page',
+    /chili/i.test(html),
+    'the customer used to be told nothing about a box of menu dishes');
+  ok('and the freehand one is named, with nothing claimed about it',
+    /Also in the box/.test(html) && /Braised short rib/.test(html)
+    && /no card of their own/.test(html),
+    'silence would read as "simple"; it should read as "ask me"');
+
+  const ctx = companionContext(order, {});
+  ok('the ask box is grounded on the real dish, not on "1x Omakase"',
+    /Chili/.test(ctx));
+  ok('and told plainly it has nothing on the freehand one',
+    /NO RECORD: Braised short rib/.test(ctx),
+    'without this the model improvises rather than deferring to Kevin');
+
+  // What the link unlocks.
+  const orders = [{ regularId: 'h1', createdAt: new Date().toISOString(), items: order.items }];
+  const h = historyFor(orders, 'h1');
+  ok('a dish eaten inside an omakase counts as eaten',
+    h.counts.get('Chili') === 1,
+    'a household that ate the Chili has eaten it whether it arrived on the menu or in a box');
+  ok('but the omakase line itself is never counted as a dish',
+    !h.counts.has('Omakase'));
+  ok('and a freehand component is not counted either',
+    !h.counts.has('Braised short rib'),
+    'it has no dish name to count as');
+}
+
 console.log(failed === 0 ? '\nNOTES + LEDGER: ALL PASS' : `\nNOTES + LEDGER: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

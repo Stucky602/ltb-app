@@ -5,6 +5,7 @@
 // page can never disagree with the order card or the labels.
 import { reheatDataFor, beforeYouStart, narrateBeforeYouStart, storagePlan, holdBackBeforeFreezing, narrateStoragePlan, heatOnlyWhatYouNeed, narrateHeatOnly } from './reheatData.js';
 import { dishIdFor } from './dishIdentity.js';
+import { isOmakaseItem } from './utils.js';
 import { buildReheatBlocks, itemHandling, rescueFor } from './recipes.js';
 import { buildIngredientCard, cardsNeedingReview } from './ingredientCard.js';
 import { expandOrderForReheat, omakaseCustomReheat, omakaseItemsOf } from './omakase.js';
@@ -24,8 +25,21 @@ const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<':
 // the exact canon reheat text shown on their page. Kept small on purpose —
 // this is the per-question token cost.
 export function companionContext(order, opts = {}) {
+  // Same expansion as the page. Without it the ask box is grounded on a single
+  // line reading "1x Omakase" and can answer nothing about the dishes actually
+  // in the box — including ones that ARE menu dishes with full records.
+  const expanded = expandOmakase(order);
+  order = expanded.order;
   const items = (order.items || []).map(it =>
     `${Number(it.qty) || 1}x ${it.name}${it.variant ? ` (${it.variant})` : ''}`).join('; ');
+  // Named so the model knows what is in the box, and told plainly that there is
+  // nothing on record for them — otherwise silence reads as "not important" and
+  // it will improvise.
+  const freehandNote = expanded.freehand.length
+    ? `\nALSO IN THE BOX, WITH NO RECORD: ${expanded.freehand.join(', ')}. `
+      + 'These were made one-off. You have no reheat, freeze or ingredient information for them. '
+      + 'If asked, say so and point them at Kevin.'
+    : '';
   const blocks = buildReheatBlocks(expandOrderForReheat(order)).map(b =>
     `${b.title} [${b.dishes.join(', ')}]: ${(Array.isArray(b.body) ? b.body : [b.body]).join(' ')}`).join('\n');
   const handleNotes = (order.items || []).map(it => {
@@ -151,10 +165,64 @@ export function companionContext(order, opts = {}) {
       (missing.length ? ` Not yet tried: ${missing.join(', ')}.` : ` Has tried everything.`);
   }
 
-  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}${historyText}${walkText}`;
+  return `CUSTOMER: ${order.customer || 'Friend'}\nORDER: ${items}\nINSTRUCTIONS SHOWN ON THEIR PAGE:\n${blocks}\nITEM HANDLING:\n${handleNotes}${pairingText}${passportText}${historyText}${walkText}${freehandNote}`;
+}
+
+// EXPAND AN OMAKASE INTO THE DISHES IT IS ACTUALLY MADE OF.
+//
+// Kevin, Aug 3: "especially for things where I'm mostly just building a box for
+// them out of items already on the menu like I'm doing this week."
+//
+// The omakase logger already records a `dishName` on any component picked from
+// the menu — that link has existed all along and nothing downstream used it. So
+// a customer receiving a box of three menu dishes got a page that named none of
+// them, while every reheat card, freeze verdict and ingredient card for those
+// exact dishes sat one lookup away.
+//
+// EXPANDING RATHER THAN SPECIAL-CASING is the whole point. Turning linked
+// components into ordinary items means every existing machine works on them
+// unchanged — reheat blocks, Eat-First/Freeze-First, Heat Only What You Need,
+// the ingredient cards, the answer desk. A bespoke omakase renderer would have
+// had to reimplement all of it and would drift from the real one immediately.
+//
+// UNLINKED COMPONENTS ARE NOT INVENTED INTO DISHES. Something Kevin cooked
+// freehand has no registry entry, no reheat data and no allergen line, so it is
+// carried through as a NAME ONLY and rendered as a plain list. Guessing that
+// "braised short rib" behaves like some registry dish is exactly the kind of
+// fabrication the whole reheat walk exists to prevent.
+export function expandOmakase(order) {
+  const items = (order && order.items) || [];
+  if (!items.some(it => isOmakaseItem(it))) return { order, freehand: [] };
+
+  const expanded = [];
+  const freehand = [];
+  for (const it of items) {
+    if (!isOmakaseItem(it)) { expanded.push(it); continue; }
+    for (const c of (it.components || [])) {
+      if (c && c.dishName) {
+        // A real menu dish. It becomes an ordinary line and everything downstream
+        // treats it as one.
+        expanded.push({
+          name: c.dishName,
+          variant: c.variant || (typeof c.label === 'string' && (c.label.match(/\(([^)]+)\)\s*$/) || [])[1]) || '',
+          qty: 1,
+          fromOmakase: true,
+        });
+      } else if (c && c.label) {
+        freehand.push(String(c.label));
+      }
+    }
+    // The omakase line itself stays, so anything keyed on it still works.
+    expanded.push(it);
+  }
+  return { order: { ...order, items: expanded }, freehand };
 }
 
 export function companionHtml(order, pageId = '', opts = {}) {
+  // Everything below reads `order`, so the expansion happens once here rather
+  // than at each of the dozen places that walk the items.
+  const { order: expandedOrder, freehand } = expandOmakase(order);
+  order = expandedOrder;
   const customer = esc(order.customer || 'Friend');
   const firstName = customer.split(' ')[0];
   // What they said last time about these same dishes. Reads as "here is what you
@@ -226,6 +294,20 @@ export function companionHtml(order, pageId = '', opts = {}) {
   //
   // Quantity-free by construction: the engine emits names only, because a
   // customer asking what is in their food is not asking for the recipe.
+  // WHAT ELSE IS IN THE BOX. Components Kevin cooked freehand, which have no
+  // registry entry and therefore no reheat card, no freeze verdict and no
+  // allergen line.
+  //
+  // NAMED, AND NOTHING MORE. It says plainly that these are the ones to ask
+  // about rather than leaving a customer to assume the silence means simple.
+  // Inventing reheat guidance for a dish that exists nowhere is the failure the
+  // reheat walk was run to prevent.
+  const freehandHtml = freehand.length
+    ? '<div class="card"><h3>Also in the box</h3><p>' + freehand.map(esc).join(', ') + '</p>'
+      + '<p class="safety">These are one-offs I made for you, so they have no card of their own. '
+      + 'Ask me anything about them and I will tell you.</p></div>'
+    : '';
+
   let cardsHtml = '';
   if (opts.ingredientCards !== false) {
     const review = new Set(cardsNeedingReview({}).map(c => c.dishId));
@@ -866,6 +948,7 @@ export function companionHtml(order, pageId = '', opts = {}) {
   <div class="safety">Reheat only what you plan to eat. Anything that comes back out of the fridge is best warmed once rather than again and again. If you open a bag to take half, roll the end over and clip it or tip the rest into a container \u2014 once it is open the bag is just storage, and it keeps about a week that way.</div>
   ${historyHtml}
   ${storageHtml}
+  ${freehandHtml}
   ${cardsHtml}
   ${heatOnlyHtml}
   ${passportStrip}

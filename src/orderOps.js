@@ -276,6 +276,19 @@ export function acceptPending(pending, deps) {
     // Copied from the regular at link time, not looked up later: books.js and
     // weekPlanner.js only ever see `orders`, never `regulars`.
     house: isHouse,
+    // THE DEVICE HASH HAS TO SURVIVE THE ACCEPT, and it did not.
+    //
+    // The worker hashes the token on /submit and stores it on the submission.
+    // `linkOrderToRegular` binds the device only when `order.deviceHash` is
+    // present — and this object never copied it across, so the bind could never
+    // fire. Kevin's symptom exactly: regulars matched correctly on every order,
+    // and not one phone ever linked.
+    //
+    // Everything on both sides of this was already built and correct. The chain
+    // simply had a gap in the middle, and nothing reported it because a missing
+    // field reads the same as a customer who never had a device.
+    deviceHash: pending.deviceHash || null,
+    deviceLabel: pending.deviceLabel || '',
     createdAt: new Date().toISOString(),
   };
   setOrders(prev => {
@@ -290,7 +303,14 @@ export function acceptPending(pending, deps) {
   });
 
   if (exactReg) {
-    linkFn(exactReg.id, orderId);
+    // PASS THE ORDER. `linkOrderToRegular` takes it as a third argument and
+    // reads `order.deviceHash` from it to bind the phone. This call omitted it,
+    // so the auto-link path — the one that fires on every recognised regular —
+    // could never bind a device even once the hash was carried across above.
+    //
+    // Two gaps on the same chain, and both were invisible: a device that never
+    // binds looks exactly like a customer who never had one.
+    linkFn(exactReg.id, orderId, order);
     autoFillFn(exactReg, order);
   } else if (partialRegs.length > 0) {
     setLinkPrompt({ order, candidates: partialRegs });

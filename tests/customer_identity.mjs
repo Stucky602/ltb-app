@@ -607,5 +607,66 @@ globalThis.btoa = globalThis.btoa || (s => Buffer.from(s, 'binary').toString('ba
     'enough to answer "did it work", nothing replayable if the response leaked');
 }
 
+// ── ACCEPTING AN ORDER MUST BIND THE PHONE ──────────────────────────────────
+//
+// Kevin, Aug 2: "no one has had a phone link even though I got two orders from
+// regulars... they were correctly marked as regulars when the order came in."
+//
+// Everything on both ends was already built and correct. The chain had TWO gaps
+// in the middle, and neither could be seen from outside, because a device that
+// never binds looks exactly like a customer who never had one:
+//
+//   1. `acceptPending` built the order without copying `deviceHash` from the
+//      submission, so `linkOrderToRegular` had nothing to bind.
+//   2. The auto-link call passed only (regularId, orderId) — no order — so even
+//      with the hash present the third argument the bind reads was undefined.
+//
+// This walks the whole chain rather than either half, because each half passed
+// its own tests while the join was broken.
+{
+  const ops = await import('../src/orderOps.js');
+
+  const run = (pending, regular) => {
+    let bound = null; let orders = null; let regs = null;
+    ops.acceptPending(pending, {
+      handledPendingRef: { current: {} },
+      regulars: regular ? [regular] : [],
+      setOrders: f => { orders = f([]); },
+      setError: () => {}, adjustInventory: () => {},
+      linkOrderToRegular: (rid, oid, order) => ops.linkOrderToRegular(rid, oid, {
+        setRegulars: f => { regs = f([regular]); }, setError: () => {}, order,
+        bindDevice: (h, p, l) => { bound = { h, p, l }; },
+      }),
+      autoFillRegularContact: () => {}, setLinkPrompt: () => {},
+      dismissPending: () => {}, setShowPendingIdx: () => {},
+    });
+    return { bound, order: orders && orders[0], regular: regs && regs[0] };
+  };
+
+  const base = {
+    pendingId: 'p1', customer: 'Sarah', phone: '555',
+    items: [{ name: 'Chili', variant: 'Small (~4)', qty: 1 }],
+  };
+  const reg = { id: 'r1', name: 'Sarah', phone: '555', linkedOrderIds: [] };
+
+  const r = run({ ...base, deviceHash: 'abc123', deviceLabel: 'iPhone' }, { ...reg });
+  ok('the accepted order carries the device hash from the submission',
+    r.order.deviceHash === 'abc123',
+    'gap 1: the order object never copied it across');
+  ok('and the auto-link BINDS the device',
+    !!r.bound && r.bound.h === 'abc123',
+    'gap 2: the auto-link passed no order, so the bind read undefined');
+  ok('the label travels too, so the panel can name the phone',
+    r.bound.l === 'iPhone');
+  ok('the regular gains a profile id and records the hash',
+    !!r.regular.customerProfileId && r.regular.deviceHashes.includes('abc123'));
+
+  // An order with no device is still a perfectly good order.
+  const none = run({ ...base }, { ...reg });
+  ok('an order with no device still links the regular and binds nothing',
+    none.order.regularId === 'r1' && none.bound === null,
+    'a customer ordering from a browser that carries no token is normal, not an error');
+}
+
 console.log(f === 0 ? '\nCUSTOMER IDENTITY: ALL PASS' : `\nCUSTOMER IDENTITY: ${f} FAILURES`);
 process.exit(f ? 1 : 0);

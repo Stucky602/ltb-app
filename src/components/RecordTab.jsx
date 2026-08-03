@@ -973,11 +973,42 @@ export function RecordTab({
         <div style={S.h}>What customers asked</div>
         {(askLog || []).length === 0 ? (
           <div style={S.faint}>Nothing pulled yet. These are real confusions at the moment of cooking, which is the one kind of teaching data you cannot write from memory.</div>
-        ) : (
-          (askLog || []).slice(0, 8).map((q, i) => (
-            <div key={i} style={S.p}><span style={S.dim}>{fmtDate(q.at)}:</span> "{q.question}"</div>
-          ))
-        )}
+        ) : (() => {
+          // ESCALATIONS FIRST, and they are the point of this panel now.
+          //
+          // Every question is logged. What matters is the DIFFERENCE: the ones
+          // Kevin's own records already answered, versus the ones that reached a
+          // customer with nothing. Without splitting them this is just "every
+          // question ever asked", which is a list nobody acts on.
+          //
+          // An unanswered question is also the cheapest content there is: it is
+          // already phrased the way a customer asks it, so answering it once
+          // turns it into an approved answer the Desk can reuse.
+          const log = askLog || [];
+          const needsYou = log.filter(q => !q.desk);
+          const handled = log.filter(q => q.desk);
+          return (
+            <>
+              {handled.length > 0 && (
+                <div style={{ ...S.faint, marginBottom: 6 }}>
+                  {handled.length} answered from your records without reaching you.
+                </div>
+              )}
+              {needsYou.length === 0 ? (
+                <div style={S.faint}>Nothing outstanding.</div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 11.5, color: '#EF9F27', marginBottom: 4 }}>
+                    {needsYou.length} still need you
+                  </div>
+                  {needsYou.slice(0, 8).map((q, i) => (
+                    <div key={i} style={S.p}><span style={S.dim}>{fmtDate(q.at)}:</span> "{q.question}"</div>
+                  ))}
+                </>
+              )}
+            </>
+          );
+        })()}
         {onPullQuestions && (
           <button
             style={{ ...S.btn(), width: '100%', marginTop: 8 }}

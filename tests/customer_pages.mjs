@@ -267,7 +267,8 @@ console.log('form.html');
 
     // The landing page was fully static before this feature. A dead worker
     // must leave it exactly as it was, never an error state.
-    const l3 = new JSDOM(landing, { runScripts: 'dangerously', url: 'https://x.test/',
+    // ?preview=1: order.html runs ordersOpen(), so without it this is a clock.
+    const l3 = new JSDOM(landing, { runScripts: 'dangerously', url: 'https://x.test/?preview=1',
       beforeParse(w) { w.fetch = () => Promise.reject(new Error('worker down')); } });
     await sleep(200);
     check('order.html survives a dead worker with no banner and no error',
@@ -426,8 +427,13 @@ console.log('menu.html');
 
   const queuedId = JSON.parse(store['ltb-submit-queue'])[0].clientId;
   const sent = [];
+  // ?preview=1 — otherwise this is a clock. `ordersOpen()` is pure day-of-week
+  // (Sunday, or Wednesday through Saturday), so without it the page renders
+  // "Orders are closed right now" every Monday and Tuesday, and since Cloudflare
+  // runs `npm test` on deploy that would black out the site two days a week.
+  // The `boot()` helper above avoids this by stubbing Date; this one did not.
   const dom2 = new JSDOM(form, {
-    runScripts: 'dangerously', url: 'https://x.test/',
+    runScripts: 'dangerously', url: 'https://x.test/?preview=1',
     beforeParse(w) {
       w.fetch = (url, opts) => {
         if (String(url).includes('/submit')) { sent.push(JSON.parse(opts.body)); return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) }); }
@@ -723,6 +729,49 @@ console.log('\npipeline.html');
     offenders.join(', '));
 }
 
+
+// ── NO TEST MAY DEPEND ON WHAT DAY IT IS ────────────────────────────────────
+//
+// Found Aug 2, on a Monday. `tests/feature_flags.mjs` rendered form.html with
+// no clock control, so `ordersOpen()` — pure day-of-week — returned false and
+// the page drew "Orders are closed right now", which has no order button. The
+// assertion failed for a reason with nothing to do with flags.
+//
+// It matters because Cloudflare runs `npm test` on every deploy: a
+// day-dependent gate means the site cannot be deployed on Mondays or Tuesdays,
+// and the failure names the wrong cause when it happens.
+//
+// Every JSDOM that boots a customer page must EITHER stub Date or pass
+// ?preview=1, which is the page's own override.
+{
+  const fs = await import('node:fs');
+  const offenders = [];
+  for (const name of fs.readdirSync('tests')) {
+    if (!name.endsWith('.mjs')) continue;
+    const src = fs.readFileSync(`tests/${name}`, 'utf8');
+    if (!/new JSDOM\(/.test(src)) continue;
+    // Split on each JSDOM construction and check the options that follow it.
+    const chunks = src.split('new JSDOM(').slice(1);
+    chunks.forEach((chunk, i) => {
+      const head = chunk.slice(0, 400);
+      // The FIRST ARGUMENT only — the html being booted. Matching anywhere in
+      // the options block flagged nine files that merely mention the word
+      // "order", including companion-page tests that have no order window at
+      // all. Only the root customer pages run `ordersOpen()`.
+      const firstArg = (head.split(',')[0] || '').trim();
+      // pipeline.html is EXCLUDED because it does not run `ordersOpen()` —
+      // verified by grep, not assumed. Only pages with an order window can be
+      // broken by the day of the week.
+      const rendersPage = /^(form|order|menu|landing)\b/i.test(firstArg);
+      if (!rendersPage) return;
+      const safe = /preview=1/.test(head) || /w\.Date\s*=/.test(head) || /const Real = w\.Date/.test(head);
+      if (!safe) offenders.push(`${name} #${i + 1}`);
+    });
+  }
+  check(`no test boots a customer page without controlling the clock (${offenders.length} offenders)`,
+    offenders.length === 0,
+    offenders.join(', ') + ' — add ?preview=1 or stub Date');
+}
 
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

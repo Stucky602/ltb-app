@@ -159,14 +159,32 @@ const ok = (n, c, x) => { c ? (p++, console.log('  ✓ ' + n)) : (f++, console.l
     bag: [], addons: [], fruit: [], desserts: [], sauces: [], spotlight: [],
     customerFlags: allOff,
   };
+  // ?preview=1 — THE PAGE'S OWN ESCAPE HATCH, and without it this test is a
+  // clock rather than a test.
+  //
+  // `ordersOpen()` is pure day-of-week: Sunday, or Wednesday through Saturday.
+  // With no override the page rendered "Orders are closed right now" — which
+  // has no order button — every Monday and Tuesday. The assertion then failed
+  // for a reason with nothing to do with flags, and since Cloudflare runs
+  // `npm test` on deploy, THAT WOULD HAVE BLACKED OUT THE SITE on two days a
+  // week. It went unnoticed because the suite mostly ran on other days.
+  //
+  // A gate that depends on what day it is will eventually fail at the worst
+  // possible moment.
   const dom = new JSDOM(form, {
-    runScripts: 'dangerously', url: 'https://ltbaustin.com/',
+    runScripts: 'dangerously', url: 'https://ltbaustin.com/?preview=1',
     beforeParse(w) { w.fetch = () => Promise.resolve({ json: () => Promise.resolve(cfg) }); },
   });
   await new Promise(r => setTimeout(r, 300));
   const d = dom.window.document;
 
-  ok('with EVERY flag off, the dish still renders', /Chili/.test(d.body.textContent));
+  // A FALSE PASS, FIXED. This matched "Chili" anywhere in the document — and
+  // "Chili" appears in the static Carl data baked into the page, so it passed
+  // even when nothing rendered at all. Check the rendered container instead.
+  const content = d.getElementById('content');
+  ok('with EVERY flag off, the dish still renders',
+    !!content && /Chili/.test(content.textContent),
+    content ? content.textContent.slice(0, 80) : 'no #content');
   ok('and the order button still exists', !!d.getElementById('reviewBtn'),
     'THE floor: a flag may remove a nicety, never the ability to order');
   ok('and the optional request box is correctly hidden', !d.getElementById('requestBox'));

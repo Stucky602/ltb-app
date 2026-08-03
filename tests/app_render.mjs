@@ -203,6 +203,32 @@ let deliverErr = null;
 try { await clickByText('Deliver'); } catch (e) { deliverErr = e; }
 check('Cook → Deliver renders', !deliverErr, deliverErr && deliverErr.message);
 
+// A REGULAR'S PROFILE IS ITS OWN SCREEN and the tab walk above never opened
+// one. That is how `containersOutForRegular` shipped as an undefined identifier:
+// it was used inside the profile, an earlier edit to the props list silently
+// no-opped, and a missing prop is undefined at CALL time rather than build
+// time — so the bundle compiled clean and every regular crashed on click.
+//
+// Anything behind a click is invisible to a tab-level walk. Open one.
+{
+  await clickByText('Regulars');
+  let profileErr = null;
+  let opened = false;
+  try {
+    // The first regular's name is a button into their profile.
+    opened = await clickByText('Sarah') || await clickByText('Tom');
+  } catch (e) { profileErr = e; }
+  const broke = container.textContent.includes('Something broke while drawing this screen');
+  check('a regular profile opens without throwing',
+    !profileErr && !broke,
+    profileErr ? profileErr.message : (broke ? 'error boundary caught a render throw' : ''));
+  if (opened) {
+    check('and the profile shows its container and jar stats',
+      /jars out/i.test(container.textContent) || /containers out/i.test(container.textContent),
+      'the stats are what crashed; assert they actually drew');
+  }
+}
+
 check('no order card fell into its error boundary', caught.length === 0, caught[0]);
 
 // The epoch card renders ONLY from the Record tab, and it was invisible for a

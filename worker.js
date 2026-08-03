@@ -585,6 +585,24 @@ export default {
               let re = null;
               try { re = new RegExp(b.pattern, b.flags || 'i'); } catch (e) { re = null; }
               if (re && re.test(question)) {
+                // MARK THE LOG ENTRY AS ANSWERED FROM THE RECORDS.
+                //
+                // Every question is logged above, before the cap check, so the
+                // log is the complete list. What Kevin needs is the DIFFERENCE:
+                // which of them his own records already answered, and which
+                // reached a customer with nothing. Without this flag the two
+                // are indistinguishable and the escalation list is just "every
+                // question ever asked".
+                try {
+                  const raw = await env.LTB_KV.get(KV_ASK_LOG);
+                  const log = raw ? JSON.parse(raw) : [];
+                  const hit = log.find(e => e.pageId === id && e.question === question && !e.desk);
+                  if (hit) {
+                    hit.desk = true;
+                    hit.deskIntent = b.intent || '';
+                    await env.LTB_KV.put(KV_ASK_LOG, JSON.stringify(log));
+                  }
+                } catch (e) { /* the answer matters more than the bookkeeping */ }
                 return json({ answer: b.text, source: 'desk', recordIds: b.recordIds || [] }, origin);
               }
             }

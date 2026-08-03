@@ -61,6 +61,12 @@ export function LinkRegularPrompt({ order, candidates, onLink, onSkip }) {
 }
 
 import { sortList, searchList, windowList, DEFAULT_WINDOW } from '../listControls.js';
+// Imported rather than prop-drilled. It is a pure function, and an earlier
+// attempt to add it to the props list silently no-opped — which shipped a
+// crash on every regular's profile, because a missing prop is undefined at
+// call time rather than at build time.
+import { containersOutForRegular } from '../utils.js';
+import { fetchLinkedDevices, linkageByRegular, linkageSummary } from '../customerDevice.js';
 
 // ─── Regulars Tab: VIP customer profiles ───────────────────────────────────
 // A customer's recognised browsers. Hashes are shown truncated: the full value
@@ -121,6 +127,93 @@ function DevicePanel({ regular, onRevoke, onClaimCode }) {
         Works for anyone, whether or not they have ordered yet. They open
         ltbaustin.com, tap &ldquo;Ordered before, on a different phone?&rdquo;, and type it in.
       </div>
+    </div>
+  );
+}
+
+
+// ── WHO IS ACTUALLY CONNECTED ───────────────────────────────────────────────
+//
+// Kevin: "I don't have an easy real way to know it's working."
+//
+// He was right, and it was a real gap. Device records have existed since claim
+// codes shipped and NOTHING could list them, so a working link and a silently
+// broken one looked identical from his side — which is exactly how the CORS bug
+// that broke every claim attempt went unnoticed until he pasted a code himself.
+//
+// The route and the join have existed since Aug 2. This is the screen, which is
+// the part that was missing: logic nobody can see is not a feature.
+function ConnectedPanel({ regulars, orders }) {
+  const [state, setState] = useState({ loading: false, error: null, rows: null, summary: null });
+
+  const load = useCallback(async () => {
+    setState(s => ({ ...s, loading: true, error: null }));
+    const res = await fetchLinkedDevices({ workerBase: WORKER_BASE, token: PUBLISH_TOKEN });
+    if (!res.ok) {
+      // AN ERROR IS NOT "NOBODY IS LINKED". Saying so would be the same lie the
+      // claim box told when it reported a CORS refusal as "no connection".
+      setState({ loading: false, error: res.error, rows: null, summary: null });
+      return;
+    }
+    const rows = linkageByRegular(regulars, res.devices);
+    setState({ loading: false, error: null, rows, summary: linkageSummary(rows) });
+  }, [regulars]);
+
+  const { loading, error, rows, summary } = state;
+
+  return (
+    <div style={styles.genCard}>
+      <div style={styles.genTitle}>Who is connected</div>
+      <div style={styles.genHint}>
+        Which households have linked a phone. This is the only way to tell a working
+        claim code from a broken one.
+      </div>
+
+      <button
+        onClick={load}
+        disabled={loading}
+        style={{ ...styles.btnGhost, marginTop: 8, cursor: loading ? 'default' : 'pointer' }}
+      >{loading ? 'Checking…' : (rows ? 'Check again' : 'Check now')}</button>
+
+      {error && (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#EF9F27' }}>
+          Could not check: {error}. That is a problem reaching the worker, not an
+          answer about who is linked.
+        </div>
+      )}
+
+      {summary && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 12.5, color: '#c9d1cd' }}>
+            {summary.linked} of {summary.regulars} linked
+            {summary.devices > summary.linked ? ` \u00b7 ${summary.devices} devices` : ''}
+          </div>
+          {summary.linked === 0 && summary.regulars > 0 && (
+            // The number that says something is broken rather than unpopular.
+            <div style={{ fontSize: 12, color: '#EF9F27', marginTop: 4 }}>
+              Nobody is linked. If you have sent codes out, that points at the claim
+              flow rather than at people not bothering.
+            </div>
+          )}
+          {rows.map(r => (
+            <div key={r.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline', borderTop: '1px solid #2d3a36', paddingTop: 6, marginTop: 6 }}>
+              <span style={{ fontSize: 12.5, color: '#e8ede9', flex: 1, minWidth: 0 }}>{r.name}</span>
+              {r.deviceCount > 0 ? (
+                <span style={{ fontSize: 11.5, color: '#5DCAA5' }}>
+                  {r.labels.join(', ') || `${r.deviceCount} device`}
+                  {r.lastUsed ? ` \u00b7 ${new Date(r.lastUsed).toLocaleDateString()}` : ''}
+                </span>
+              ) : (
+                // Never-issued and issued-but-unused are DIFFERENT problems with
+                // different fixes, so they do not share a label.
+                <span style={{ fontSize: 11.5, color: '#7a8480' }}>
+                  {r.hasProfile ? 'sent, not used' : 'no code yet'}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -220,6 +313,8 @@ export function RegularsTab({ regulars, orders, onAdd, onUpdate, onDelete, onLin
   // List view
   return (
     <div>
+      <ConnectedPanel regulars={regulars} orders={orders} />
+
       <div style={styles.genCard}>
         <div style={styles.genTitle}>Regulars</div>
         <div style={styles.genHint}>

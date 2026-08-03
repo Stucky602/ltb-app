@@ -68,7 +68,15 @@ const OMAKASE_CATALOG = (() => {
   Object.keys(FULL_MENU).forEach(cat => {
     (FULL_MENU[cat] || []).forEach(dish => {
       (dish.variants || []).forEach(v => {
-        out.push({ key: dish.name + '|' + v.label, name: dish.name, variant: v.label, cost: v.cost || 0, price: v.price || 0 });
+        // PER-LB ENTRIES ARE MARKED HERE. For these, `cost` and `price` are
+        // PER POUND, not a flat amount — the same numbers the rest of the app
+        // treats that way via isPerLbItem(). The omakase row was reading them as
+        // a flat cost, so a flank steak logged as $11 was really "$11 a pound,
+        // weight unrecorded" and the margin line was arithmetic on nothing.
+        out.push({
+          key: dish.name + '|' + v.label, name: dish.name, variant: v.label,
+          cost: v.cost || 0, price: v.price || 0, perLb: isPerLbItem(dish.name),
+        });
       });
     });
   });
@@ -181,9 +189,31 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
 
   const pickMenu = (i, key) => {
     const c = OMAKASE_CATALOG.find(x => x.key === key);
-    if (c) setRow(i, { menuKey: key, label: c.name + ' (' + c.variant + ')', cost: c.cost, refPrice: c.price, dishName: c.name });
-    else setRow(i, { menuKey: '', label: '', cost: 0, refPrice: 0, dishName: '' });
+    if (c && c.perLb) {
+      // Seeded at 1 lb rather than 0 so the row costs something immediately and
+      // a forgotten weight is visible as "1 lb" rather than as a free line.
+      setRow(i, {
+        menuKey: key, dishName: c.name, perLb: true, lbs: 1,
+        label: c.name + ' (1 lb)', cost: round2(c.cost), refPrice: round2(c.price),
+      });
+    } else if (c) setRow(i, { menuKey: key, label: c.name + ' (' + c.variant + ')', cost: c.cost, refPrice: c.price, dishName: c.name, perLb: false, lbs: null });
+    else setRow(i, { menuKey: '', label: '', cost: 0, refPrice: 0, dishName: '', perLb: false, lbs: null });
   };
+  // Recomputes BOTH sides from the weight. The label carries the pounds so the
+  // saved record, the customer page and the archive all say "Flank Steak
+  // (1.4 lb)" rather than a bare name with a cost nobody can check.
+  const setPerLbWeight = (i, row, lbs) => {
+    const c = OMAKASE_CATALOG.find(x => x.key === row.menuKey);
+    const w = Math.max(0, Number(lbs) || 0);
+    if (!c) { setRow(i, { lbs: w }); return; }
+    setRow(i, {
+      lbs: w,
+      cost: round2(c.cost * w),
+      refPrice: round2(c.price * w),
+      label: c.name + ' (' + w + ' lb)',
+    });
+  };
+
   const addIngredient = (ing) => {
     setRows(r => [...r, { ing: true, ingredientId: ing.id, qty: 1, unit: ing.unit || 'each', label: ing.name + ' - 1 ' + (ing.unit || ''), cost: omaIngCost(ing.id, 1, ing.unit || 'each', perLbLiveCost) }]);
     setSearch('');
@@ -346,9 +376,25 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
             ) : (
               <input value={row.label} placeholder="What you made" onChange={e => setRow(i, { label: e.target.value })} style={{ ...inp, flex: 1, minWidth: 0 }} />
             )}
-            {/* flexShrink:0 so these two are never the ones squeezed out. They
-                are the controls the row exists for. */}
-            <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 66, flexShrink: 0 }} title="cost" />
+            {/* A PER-LB ROW TAKES WEIGHT, NOT A COST. Both cost and menu value
+                are derived from the pounds, so the margin line means something
+                — typing $11 against a $34/lb steak was arithmetic on a number
+                nobody had entered.
+
+                Everything else keeps the flat cost box: an off-menu component
+                or a one-off has no per-pound price to derive from. */}
+            {row.perLb ? (
+              <>
+                <input
+                  type="number" step="0.01" min="0" value={row.lbs == null ? '' : row.lbs}
+                  onChange={e => setPerLbWeight(i, row, parseFloat(e.target.value))}
+                  style={{ ...inp, width: 58, flexShrink: 0 }} title="pounds"
+                />
+                <span style={{ fontSize: 11, color: '#7a8480', flexShrink: 0 }}>lb</span>
+              </>
+            ) : (
+              <input type="number" step="0.01" min="0" value={row.cost} onChange={e => setRow(i, { cost: parseFloat(e.target.value) || 0 })} style={{ ...inp, width: 66, flexShrink: 0 }} title="cost" />
+            )}
             <button onClick={() => dropRow(i)} style={{ padding: '4px 8px', cursor: 'pointer', color: '#EF9F27', border: 'none', background: 'none', fontSize: 14, flexShrink: 0 }}>✕</button>
           </div>
           <div style={{ paddingLeft: selMode ? 22 : 0 }}>

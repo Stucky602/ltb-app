@@ -851,5 +851,46 @@ const ok = (label, cond, detail = '') => {
     'it has no dish name to count as');
 }
 
+// ── PER-LB ITEMS IN AN OMAKASE TAKE A WEIGHT ────────────────────────────────
+//
+// Kevin, Aug 3: "I'd like to be able to set weights where appropriate in the
+// omakase menu. currently I can't."
+//
+// On a per-lb menu item `cost` and `price` are PER POUND — the rest of the app
+// treats them that way via isPerLbItem(). The omakase row read them as a flat
+// amount, so a flank steak logged as 11 was really "$11 a pound, weight
+// unrecorded", and the margin line beside it was arithmetic on a number nobody
+// had entered.
+{
+  const { isPerLbItem, FULL_MENU } = await import('../src/menu.js');
+  const fs = await import('node:fs');
+
+  const perLb = [];
+  for (const cat of Object.keys(FULL_MENU)) {
+    for (const dish of FULL_MENU[cat] || []) if (isPerLbItem(dish.name)) perLb.push(dish);
+  }
+  ok(`the menu really does carry per-lb items (${perLb.length})`, perLb.length > 0);
+  ok('and their variant cost is a PER POUND figure, not a flat one',
+    perLb.every(d => (d.variants || []).some(v => /weight/i.test(v.label))),
+    'the label says "price by weight" — that is the signal the row was ignoring');
+
+  const card = fs.readFileSync(new URL('../src/components/OrderCard.jsx', import.meta.url), 'utf8');
+
+  ok('the omakase catalog marks per-lb entries',
+    /perLb: isPerLbItem\(dish\.name\)/.test(card),
+    'derived from the same helper the rest of the app uses, so it cannot drift');
+  ok('a per-lb row takes pounds instead of a flat cost',
+    /row\.perLb \? \(/.test(card) && /title="pounds"/.test(card));
+  ok('and BOTH cost and menu value are derived from the weight',
+    /cost: round2\(c\.cost \* w\)/.test(card) && /refPrice: round2\(c\.price \* w\)/.test(card),
+    'deriving only the cost would leave the margin comparison still meaningless');
+  ok('the weight travels in the label, so the saved record says what it was',
+    /label: c\.name \+ ' \(' \+ w \+ ' lb\)'/.test(card),
+    'a bare name with a cost nobody can check is what this replaced');
+  ok('a non-per-lb row still takes a flat cost',
+    /title="cost"/.test(card) && /setRow\(i, \{ cost: parseFloat/.test(card),
+    'an off-menu one-off has no per-pound price to derive from');
+}
+
 console.log(failed === 0 ? '\nNOTES + LEDGER: ALL PASS' : `\nNOTES + LEDGER: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

@@ -372,7 +372,7 @@ console.log('menu.html');
     dumb.window.document.querySelectorAll('.dish[data-carl]').length === 0);
 
   const CARL_CFG = { weekLabel: 'W', dishes: [
-    { name: 'Bolognese', variants: [{ label: 'Small (split order, ~4)', price: 45, cost: 22 }] },
+    { name: 'Bolognese', variants: [{ label: 'Small (~4)', price: 45, cost: 22 }] },
     { name: 'Mushroom Ragu', variants: [{ label: 'Small (~4-5 servings)', price: 70, cost: 38 }] },
     { name: 'Pork Chop with Kabocha Purée and Charred Broccolini', variants: [{ label: '~4 servings', price: 55, cost: 30 }] },
   ] };

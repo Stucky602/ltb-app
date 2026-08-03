@@ -16,7 +16,7 @@
 // dropdown with a Small⇄Large toggle (Kevin's Cumin-lamb example), instead of
 // a flat 12-item variant list. Rules learned from the real registry:
 //   • Size token: \b(Small|Large)\b, optionally "Batch", with any
-//     parenthetical after it ("Small Batch (~3-4)", "Small (split order, ~4)").
+//     parenthetical after it ("Small Batch (~3-4)", "Small (~4)").
 //   • Flavor prefix: text before the size clause ("Chicken, Small…" → Chicken).
 //   • Flavor suffix: "+ …" after the size clause ("… + Polenta"). Suffix
 //     parentheticals are QUANTITIES that differ by size ("+ Asian Greens

@@ -154,11 +154,11 @@ export const DISHES = [
     reheat: 'stovetop',
     equipment: { fixed: ['largePot'] },
     variants: [
-      { label: 'Small (split order, ~3-4)', price: 45, cost: 18.57 },
+      { label: 'Small (~3-4)', price: 45, cost: 18.57 },
       { label: 'Large (~6-8)', price: 80, cost: 37.14 },
     ],
     recipe: {
-      factors: { 'Small (split order, ~3-4)': 0.5, 'Large (~6-8)': 1 },
+      factors: { 'Small (~3-4)': 0.5, 'Large (~6-8)': 1 },
       base: [
         I('Ground beef', 2, 'lb'),
         I('Dried kidney beans', 1, 'lb'),
@@ -228,11 +228,11 @@ export const DISHES = [
     equipment: { fixed: ['dutch'] },
     servings: { small: 4, large: 8 },
     variants: [
-      { label: 'Small (split order, ~4)', price: 50, cost: 23.33 },
+      { label: 'Small (~4)', price: 50, cost: 23.33 },
       { label: 'Large (~8)', price: 90, cost: 46.66 },
     ],
     recipe: {
-      factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
+      factors: { 'Small (~4)': 0.5, 'Large (~8)': 1 },
       base: [
         I('Chicken thighs', 2, 'lb'),
         I('Texas Gulf Shrimp', 2, 'lb'),
@@ -468,11 +468,11 @@ export const DISHES = [
     rice: true,
     equipment: { fixed: ['dutch', 'ovenLow'] },
     variants: [
-      { label: 'Small (split order, ~4)', price: 60, cost: 32.83 },
+      { label: 'Small (~4)', price: 60, cost: 32.83 },
       { label: 'Large (~8)', price: 110, cost: 63.49 },
     ],
     recipe: {
-      factors: { 'Small (split order, ~4)': 0.5, 'Large (~8)': 1 },
+      factors: { 'Small (~4)': 0.5, 'Large (~8)': 1 },
       base: [
         I('Wagyu london broil', 2.5, 'lb'),
         I('Kabocha squash', 1, 'lb'),
@@ -495,7 +495,7 @@ export const DISHES = [
       // ONE sous vide bag per dish (kabocha + carrots share one bag). Fixed +
       // per-variant: $2 on Small, one longer $3 bag on Large.
       extras: {
-        'Small (split order, ~4)': [I('Sous vide bag + butter + herbs (costed)', 1, '')],
+        'Small (~4)': [I('Sous vide bag + butter + herbs (costed)', 1, '')],
         'Large (~8)': [I('Sous vide bag + butter + herbs (costed)', 2, '')],
       },
     },
@@ -1152,7 +1152,7 @@ export const DISHES = [
     // main-menu.html's Allergens line is generated from copy.contains
     // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
     copy: {
-      desc: "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it.",
+      desc: "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it. The dried porcini version is the better one, full stop \u2014 they add a depth the plain version cannot reach. I keep the plain one on because some people have a mushroom allergy and some just do not like them, and neither is a reason to go without.",
       reheat: "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
       contains: "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option.",
       pairings: [
@@ -1171,7 +1171,20 @@ export const DISHES = [
     // layer beneath it. true = every variant; array = those variants only;
     // { variants, unlisted } = declared without a matching recipe line, with
     // the reason on record.
-    allergens: { dairy: true, gluten: true, egg: ['Small (split order, ~4) + Egg Pappardelle', 'Large (~8) + Egg Pappardelle'] },
+    // The egg list is per VARIANT, so the two new pappardelle-plus-porcini
+    // combinations had to be added by hand — the allergen invariant caught them
+    // immediately: "a customer avoiding egg has no way to know."
+    //
+    // Porcini needs no allergen entry: mushrooms are not a declarable allergen
+    // here. They ARE one of Carl's six exclusions, and the Carl filter reads the
+    // recipe rather than this line, so it already refuses the porcini variants.
+    allergens: {
+      dairy: true, gluten: true,
+      egg: [
+        'Small (~4) + Egg Pappardelle', 'Large (~8) + Egg Pappardelle',
+        'Small (~4) + Egg Pappardelle + Porcini', 'Large (~8) + Egg Pappardelle + Porcini',
+      ],
+    },
     cuisine: 'Italian',
     // Effort 1-5, Kevin's own scale relative to HIS menu, not cooking in general.
     // 1 = fast, usually one pot. 4-5 = sustained attention (a roux) OR many
@@ -1185,15 +1198,35 @@ export const DISHES = [
     equipment: { flexible: ['dutch', 'largePot'] },
     options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle', excludeVariants: ['Pappardelle'] }, parmOffer: true }, // egg-papp variants ARE the pasta
     variants: [
-      { label: 'Small (split order, ~4)', price: 45, cost: 22.15 },
+      // PORCINI ADDED Aug 3. 1 oz dried in a Small at +$5; a Large is a full
+      // base batch so it carries 2 oz at +$10. Kevin's framing: the porcini
+      // version is the BETTER one, and the plain version exists because some
+      // people have allergies or simply do not like mushrooms.
+      //
+      // Eight combinations is eight price rows on a menu page, which is why
+      // this dish now carries `priceDisplay`. The ORDER FORM still needs every
+      // combination; the MENU shows a base price and its add-ons.
+      { label: 'Small (~4)', price: 45, cost: 22.15 },
       { label: 'Large (~8)', price: 80, cost: 43.2 },
-      { label: 'Small (split order, ~4) + Egg Pappardelle', price: 55, cost: 26.69 },
+      { label: 'Small (~4) + Egg Pappardelle', price: 55, cost: 26.69 },
       { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 56.84 },
+      { label: 'Small (~4) + Porcini', price: 50, cost: 26.65 },
+      { label: 'Large (~8) + Porcini', price: 90, cost: 52.2 },
+      { label: 'Small (~4) + Egg Pappardelle + Porcini', price: 60, cost: 31.19 },
+      { label: 'Large (~8) + Egg Pappardelle + Porcini', price: 105, cost: 65.84 },
+    ],
+    // WHAT THE MENU SHOWS instead of eight price rows. The order form is
+    // unaffected and still offers every combination.
+    priceDisplay: [
+      { label: 'Small (~4)', price: 45, addOns: 'add egg pappardelle +$10, add 1 oz dried porcini +$5' },
+      { label: 'Large (~8)', price: 80, addOns: 'add egg pappardelle +$15, add 2 oz dried porcini +$10' },
     ],
     recipe: {
       factors: {
-        'Small (split order, ~4)': 0.5, 'Large (~8)': 1,
-        'Small (split order, ~4) + Egg Pappardelle': 0.5, 'Large (~8) + Egg Pappardelle': 1,
+        'Small (~4)': 0.5, 'Large (~8)': 1,
+        'Small (~4) + Egg Pappardelle': 0.5, 'Large (~8) + Egg Pappardelle': 1,
+        'Small (~4) + Porcini': 0.5, 'Large (~8) + Porcini': 1,
+        'Small (~4) + Egg Pappardelle + Porcini': 0.5, 'Large (~8) + Egg Pappardelle + Porcini': 1,
       },
       base: [
         I('Ground pork', 1, 'lb'),
@@ -1208,11 +1241,29 @@ export const DISHES = [
         I('Celery', 2, 'stalks'),
         I('Garlic', 4, 'cloves'),
         I('Pasta (ask customer for shape!)', 2, 'lb'),
+
         I('Nutmeg', 1, 'pinch', true),
       ],
+      // PORCINI IS VARIANT-SCOPED, not a base line. Putting it on the base cost
+      // every plain Bolognese for mushrooms it does not contain — and, worse,
+      // made the whole dish DEAD for Carl, whose six exclusions include
+      // mushrooms. The plain version exists precisely so people who cannot or
+      // will not eat mushrooms still get a Bolognese, and a base line took that
+      // away. The Carl test caught it: 18 dinners survived, then 17.
+      //
+      // Extras are per variant and NOT multiplied by the factor, so these are
+      // absolute amounts: 1 oz on a Small, 2 oz on a Large.
       extras: {
-        'Small (split order, ~4) + Egg Pappardelle': [I('Egg pappardelle', 2, 'packs')],
+        'Small (~4) + Egg Pappardelle': [I('Egg pappardelle', 2, 'packs')],
         'Large (~8) + Egg Pappardelle': [I('Egg pappardelle', 3, 'packs')],
+        'Small (~4) + Porcini': [I('Dried porcini mushrooms', 1, 'oz')],
+        'Large (~8) + Porcini': [I('Dried porcini mushrooms', 2, 'oz')],
+        'Small (~4) + Egg Pappardelle + Porcini': [
+          I('Egg pappardelle', 2, 'packs'), I('Dried porcini mushrooms', 1, 'oz'),
+        ],
+        'Large (~8) + Egg Pappardelle + Porcini': [
+          I('Egg pappardelle', 3, 'packs'), I('Dried porcini mushrooms', 2, 'oz'),
+        ],
       },
     },
   },
@@ -1258,10 +1309,19 @@ export const DISHES = [
     equipment: { fixed: [] }, // saucier, exclusive — never conflicts
     options: { pasta: { placeholder: 'e.g. rigatoni, pappardelle' }, parmOffer: true },
     variants: [
+      // REPRICED Aug 3, Kevin: "$15 for adding on beef or turkey is crazy.
+      // meanwhile the mushrooms were too low." Base $20, +$12 protein,
+      // +$10 mushrooms, both +$22. Costs are unchanged — this is a pricing
+      // decision, not a recipe change.
       { label: 'Base (~4)', price: 20, cost: 7.24 },
-      { label: 'With Beef or Turkey', price: 35, cost: 14.24 },
-      { label: 'With Mushrooms', price: 26, cost: 10.24 },
-      { label: 'With Both', price: 41, cost: 17.24 },
+      { label: 'With Beef or Turkey', price: 32, cost: 14.24 },
+      { label: 'With Mushrooms', price: 30, cost: 10.24 },
+      { label: 'With Both', price: 42, cost: 17.24 },
+    ],
+    // Same compression as the Bolognese: a base price and its add-ons, rather
+    // than four rows that all restate the base.
+    priceDisplay: [
+      { label: 'Base (~4)', price: 20, addOns: 'add beef or turkey +$12, add mushrooms +$10' },
     ],
     recipe: {
       factors: { 'Base (~4)': 1, 'With Beef or Turkey': 1, 'With Mushrooms': 1, 'With Both': 1 },

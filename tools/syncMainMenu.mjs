@@ -72,7 +72,14 @@ function syncCard(name, expected) {
   if (changed && write) { html = html.slice(0, b.start) + seg + html.slice(b.end); patched++; }
 }
 
-for (const d of DISHES) syncCard(d.name, d.variants.map(v => money(v.price)));
+// A dish with `priceDisplay` shows a COMPRESSED block — one row per display
+// entry, not per variant — so sync against what the card actually shows. The
+// invariant checks the same way; without this the tool reports drift forever on
+// a card that is correct.
+for (const d of DISHES) {
+  const priced = (d.priceDisplay && d.priceDisplay.length) ? d.priceDisplay : d.variants;
+  syncCard(d.name, priced.map(v => money(v.price)));
+}
 
 // ── CATALOG ATTRIBUTE SYNC (Jul 22) ──────────────────────────────────────────
 // The catalog page can filter by cuisine and diet, but only if each dish block
@@ -320,6 +327,7 @@ for (const b of (ALL_ALWAYS_ITEMS || [])) {
 for (const b of (ALL_ALWAYS_ITEMS || [])) {
   if (CARDLESS.has(b.name)) continue;
   if (b.perLb) syncCard(b.name, [`${money(b.pricePerLb)}/lb + $2.00 bag`]);
+  else if (b.priceDisplay && b.priceDisplay.length) syncCard(b.name, b.priceDisplay.map(v => money(v.price)));
   else if (b.variants && b.variants.length) syncCard(b.name, b.variants.map(v => money(v.price)));
 }
 

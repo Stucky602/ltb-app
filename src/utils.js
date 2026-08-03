@@ -637,8 +637,26 @@ export const VARIANT_RENAMES = {
     'Large (~10-12 servings)': 'Large (~8-10 servings)',
   },
   'Gumbo': {
-    'Small (split order, ~3-6)': 'Small (split order, ~4)',
+    'Small (split order, ~3-6)': 'Small (~4)',
+    'Small (split order, ~4)': 'Small (~4)',
     'Large (~8-12)': 'Large (~8)',
+  },
+  // "SPLIT ORDER" RETIRED Aug 3 — Kevin: "remove that whole 'split order' term.
+  // It's useless at this point." It described a thing the menu no longer does.
+  //
+  // Every past order carries the OLD label, and a variant label is a KEY: the
+  // factors table, the container maps and the allergen variant lists all match
+  // on it. Renaming without these entries would orphan every historical
+  // Bolognese, Chili and Leblanc from its own recipe and cost.
+  'Bolognese': {
+    'Small (split order, ~4)': 'Small (~4)',
+    'Small (split order, ~4) + Egg Pappardelle': 'Small (~4) + Egg Pappardelle',
+  },
+  'Chili': {
+    'Small (split order, ~4)': 'Small (~4)',
+  },
+  'Leblanc Inspired Japanese Curry': {
+    'Small (split order, ~3-4)': 'Small (~3-4)',
   },
 };
 

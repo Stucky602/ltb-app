@@ -62,7 +62,7 @@ const mixed = {
   ragu_mixed: [{ name: 'Saffron Pork Ragu', variant: 'Small (~4 servings)', qty: 1 }, { name: 'Saffron Pork Ragu', variant: 'Large (~8 servings) + Polenta', qty: 1 }],
   ragu_polenta_only: [{ name: 'Saffron Pork Ragu', variant: 'Small (~4 servings) + Polenta', qty: 1 }],
   cumin_mixed: [{ name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice', variant: 'Mushroom, Small (~3-4)', qty: 1 }, { name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice', variant: 'Beef, Large (~6-8)', qty: 1 }],
-  boeuf_leblanc: [{ name: 'Boeuf Bourguignon (Beef Stew)', variant: '~4 servings', qty: 1 }, { name: 'Leblanc Inspired Japanese Curry', variant: 'Small (split order, ~4)', qty: 1 }],
+  boeuf_leblanc: [{ name: 'Boeuf Bourguignon (Beef Stew)', variant: '~4 servings', qty: 1 }, { name: 'Leblanc Inspired Japanese Curry', variant: 'Small (~4)', qty: 1 }],
   mega: [
     ...ALL_DINNERS.map(d => ({ name: d.name, variant: d.variants[0].label, qty: 1 })),
     { name: 'Saffron Pork Ragu', variant: 'Large (~8 servings) + Polenta', qty: 1 },

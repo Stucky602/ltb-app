@@ -39,7 +39,12 @@ function listSources(dir, out = []) {
     if (name === 'node_modules' || name.startsWith('.')) continue;
     const full = `${dir}/${name}`;
     if (statSync(full).isDirectory()) listSources(full, out);
-    else if (/\.(js|jsx|mjs)$/.test(name)) out.push(full);
+    // HTML COUNTS TOO. This tracked only JS, so the built customer pages and
+    // their sources were invisible to the delta — and the delta is what a zip's
+    // file list is built from. A rebuilt page left out of a zip ships a menu
+    // that disagrees with the registry, which is the same class of miss as the
+    // generated version file.
+    else if (/\.(js|jsx|mjs|html)$/.test(name)) out.push(full);
   }
   return out;
 }
@@ -63,7 +68,10 @@ function exportsOf(src) {
 function snapshot() {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
   const files = {};
-  for (const f of listSources('src').concat(listSources('tools'), listSources('tests'))) {
+  // The five built pages sit at the repo root, outside every scanned folder.
+  const rootPages = ['order.html', 'form.html', 'menu.html', 'main-menu.html', 'pipeline.html']
+    .filter(f => existsSync(f));
+  for (const f of listSources('src').concat(listSources('tools'), listSources('tests'), rootPages)) {
     const src = readFileSync(f, 'utf8');
     files[f] = { bytes: src.length, exports: exportsOf(src) };
   }

@@ -431,6 +431,10 @@ export const LINE_MAP = {
   'Water':                     { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
   'White wine vinegar':        { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
   'Xanthan gum':               { id: 'spices_generic', conv: () => 1 },  // composed-ok: split from a batch line; priced as the same bucket it already used
+  // Dried porcini, added to the Bolognese Aug 3. Priced as a real ingredient
+  // rather than a spice bucket: 2 oz of dried porcini is a material cost, not a
+  // pantry splash.
+  'Dried porcini mushrooms': { id: 'porcini', conv: C({ unit: 'oz' }) },
   'Chili spice blend':      { id: 'spices_generic', conv: () => 1 },  // composed-ok: deliberately vague, per Kevin — not a formula
   'Cumin + spices':         { id: 'spices_generic', conv: () => 1 },  // composed-ok: seasoning blend priced as one spices_generic bucket; no separate real-ingredient cost hidden
   'Soy + Shaoxing + black beans + sugar': { id: 'spices_generic', conv: () => 1 },  // composed-ok: aromatic seasoning blend → spices_generic bucket; components are pantry splashes, not costed lines

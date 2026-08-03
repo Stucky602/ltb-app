@@ -262,7 +262,7 @@ if (findings.length) {
 
   // Leblanc + Bourguignon: the vegetables no longer get their own pot, which
   // is what takes each dish from three vessels to two.
-  for (const [n, v] of [['Leblanc Inspired Japanese Curry', 'Small (split order, ~4)'],
+  for (const [n, v] of [['Leblanc Inspired Japanese Curry', 'Small (~4)'],
                         ['Boeuf Bourguignon (Beef Stew)', '~4 servings']]) {
     const t = card(n, v);
     ok(`${n.split(' ')[0]}: the veg bag gets no pot of its own`, !/pot of water|bring a pot/i.test(t));

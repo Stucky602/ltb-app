@@ -549,12 +549,20 @@ for (const d of DISHES) {
   if (OFF_MENU.has(d.name)) continue;
   const card = cardByName.get(d.name);
   if (!card) { F('mainmenu-card', `dinner "${d.name}" has no main-menu.html card`); continue; }
-  const prices = d.variants.map(v => v.price);
+  // A DISH WITH `priceDisplay` SHOWS A COMPRESSED BLOCK, so the card carries one
+  // row per DISPLAY entry rather than one per variant. The Bolognese has eight
+  // orderable combinations and shows two lines plus their add-ons; listing all
+  // eight would restate the base price four times.
+  //
+  // The check still bites: the displayed prices must match the registry, so a
+  // compressed menu cannot quietly disagree with what the order form charges.
+  const priced = (d.priceDisplay && d.priceDisplay.length) ? d.priceDisplay : d.variants;
+  const prices = priced.map(v => v.price);
   if (card.amounts.length !== prices.length) {
     F('mainmenu-prices', `"${d.name}" main-menu card has ${card.amounts.length} price rows, registry has ${prices.length} variants`);
   } else {
     prices.forEach((p, i) => {
-      if (Math.abs(card.amounts[i] - p) > 0.001) F('mainmenu-prices', `"${d.name}" main-menu price #${i + 1} is $${card.amounts[i]}, registry says $${p} (${d.variants[i].label})`);
+      if (Math.abs(card.amounts[i] - p) > 0.001) F('mainmenu-prices', `"${d.name}" main-menu price #${i + 1} is $${card.amounts[i]}, registry says $${p} (${priced[i].label})`);
     });
   }
 }
@@ -901,7 +909,7 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   if (!(a.type === 'set-option' && a.value === null && a.suggest >= 1 && a.auto === false)) F('router', `vague spice must prompt: ${JSON.stringify(a)}`);
 
   // Tier 2 — option-ish ask on a dish WITHOUT the option → prompt, never silent
-  items = mk('Gumbo', 'Small (split order, ~4)');
+  items = mk('Gumbo', 'Small (~4)');
   a = routeItemRequest(M, items, 0, 'make it spicy');
   if (!(a.type === 'add-item-note' && a.tier2 === 'spice' && a.auto === false)) F('router', `tier-2 spice must prompt a note: ${JSON.stringify(a)}`);
 
@@ -926,7 +934,7 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   const parsed = {
     items: [
       { category: 'dinner', name: 'Indian Style Curry', variant: curryVar.label, qty: 1, requests: ['spice 3', 'no cilantro'] },
-      { category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 1, requests: ['make it spicy'] },
+      { category: 'dinner', name: 'Gumbo', variant: 'Small (~4)', qty: 1, requests: ['make it spicy'] },
     ],
     serviceRequests: ['can you cut up some strawberries'],
     jarSwaps: 0, containerReturns: 0, notes: '', reviewReasons: [],
@@ -952,18 +960,25 @@ if (ALL_DINNERS.length !== DISHES.length) F('menu-derive', `ALL_DINNERS length $
   const v2 = validateParsedOrder(parsed2, M);
   if (v2.items.length !== 2) F('router-merge', `request-carrying duplicate must not merge: got ${v2.items.length} items`);
 
-  // Qty range check flags, never mutates
-  const v3 = validateParsedOrder({ items: [{ category: 'dinner', name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 30 }], jarSwaps: 0, containerReturns: 0 }, M);
+  // Qty range check flags, never mutates.
+  //
+  // Uses the CURRENT label. It carried 'Small (~4)' until Aug 3,
+  // when that term was retired — and the fixture then returned no items at all,
+  // which is how it surfaced that `validateParsedOrder` does NOT consult
+  // VARIANT_RENAMES the way `menuVariantFor` does. That is REPORTED, not fixed
+  // here: incoming form orders always carry current labels, so it only bites a
+  // pending order queued across a rename. Worth closing deliberately.
+  const v3 = validateParsedOrder({ items: [{ category: 'dinner', name: 'Gumbo', variant: 'Small (~4)', qty: 30 }], jarSwaps: 0, containerReturns: 0 }, M);
   if (v3.items[0].qty !== 30) F('qty-check', 'qty must not be mutated');
   if (!v3.reviewReasons.some(r => /Quantity looks off/.test(r))) F('qty-check', `huge qty must be flagged: ${JSON.stringify(v3.reviewReasons)}`);
 
   // ── diffOrders fixtures ──
   const before = { items: [
-    { name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 1 },
+    { name: 'Gumbo', variant: 'Small (~4)', qty: 1 },
     { name: 'Chili', variant: 'Large (~6-8)', qty: 2, note: 'no beans' },
   ], jarSwaps: 0, containerReturns: 0, notes: '' };
   const after = { items: [
-    { name: 'Gumbo', variant: 'Small (split order, ~4)', qty: 2 },
+    { name: 'Gumbo', variant: 'Small (~4)', qty: 2 },
     { name: 'Bo Ssam', variant: 'Small (~4 servings)', qty: 1 },
   ], jarSwaps: 1, containerReturns: 0, notes: '' };
   const d = diffOrders(before, after);
@@ -1236,7 +1251,7 @@ TAX  0.00
   // 5. Servings parsing
   const sv = [
     ['Small (~4-5 servings)', 4.5], ['Large (~8-12)', 10], ['~4 servings', 4],
-    ['Large (~8)', 8], ['Small (split order, ~4)', 4], ['With 1 lb mushrooms', null], ['price by weight', null],
+    ['Large (~8)', 8], ['Small (~4)', 4], ['With 1 lb mushrooms', null], ['price by weight', null],
   ];
   for (const [label, want] of sv) {
     const got = parseServings(label);
@@ -1706,11 +1721,11 @@ TAX  0.00
   const now = Date.now(), day = 86400000;
   const iso = (d) => new Date(now - d * day).toISOString();
   const orders = [
-    { createdAt: iso(2), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 45, cost: 22.58 }] },
-    { createdAt: iso(16), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
+    { createdAt: iso(2), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (~4)', qty: 1, price: 45, cost: 22.58 }] },
+    { createdAt: iso(16), customer: 'Sara', items: [{ name: 'Bolognese', variant: 'Small (~4)', qty: 1, price: 40, cost: 16.79 }] },
     { createdAt: iso(16), customer: 'Frances', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 1, price: 55, cost: 25 }] },
     { createdAt: iso(30), customer: 'Sara', items: [{ name: 'Gumbo', variant: 'Large (~8)', qty: 2, price: 55, cost: 25 }] },
-    { createdAt: iso(30), customer: 'Frances', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
+    { createdAt: iso(30), customer: 'Frances', items: [{ name: 'Bolognese', variant: 'Small (~4)', qty: 1, price: 40, cost: 16.79 }] },
     { createdAt: iso(1), customer: 'Mom', items: [{ name: 'NY Strip', variant: 'price by weight', qty: 2, price: 39, cost: 21.74, weight: 1.5 }] },
   ];
 
@@ -1738,7 +1753,7 @@ TAX  0.00
   if (!fr || fr.attachPct !== 33) F('regulars-intel', JSON.stringify(fr));
   // Multi-name (merge payoff): querying with an array counts all identities.
   const multi = attachRates([...orders,
-    { createdAt: iso(9), customer: 'Sara G', items: [{ name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 40, cost: 16.79 }] },
+    { createdAt: iso(9), customer: 'Sara G', items: [{ name: 'Bolognese', variant: 'Small (~4)', qty: 1, price: 40, cost: 16.79 }] },
   ], ['Sara', 'Sara G']);
   const mb = multi.find(r => r.dish === 'Bolognese');
   if (!mb || mb.ordered !== 3) F('regulars-intel', `merged identity must pool: ${JSON.stringify(mb)}`);
@@ -1891,7 +1906,7 @@ TAX  0.00
       { name: 'Garlic Confit', qty: 1, price: 8, cost: 2 },
     ] },
     { id: 'g2', createdAt: new Date(now - 2 * day).toISOString(), status: 'Delivered', customer: 'Sara', items: [
-      { name: 'Bolognese', variant: 'Small (split order, ~4)', qty: 1, price: 45, cost: 22.58 },
+      { name: 'Bolognese', variant: 'Small (~4)', qty: 1, price: 45, cost: 22.58 },
     ] },
   ];
 

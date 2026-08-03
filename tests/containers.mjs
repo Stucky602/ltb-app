@@ -421,7 +421,7 @@ const SAMPLE_ORDERS = [
 
   // The real week from Kevin's Cook tab on Jul 27, reproduced end to end.
   const WEEK = [
-    ['Gumbo', 'Small (split order, ~4)', 1],
+    ['Gumbo', 'Small (~4)', 1],
     ['Saffron Pork Ragu', 'Small (~4 servings)', 2],
     ['Shrimp or Tofu with Asparagus in Black Bean Sauce', 'Tofu, Small Batch (~3-4)', 1],
     ['Thai Basil Chicken (Pad Krapow Gai)', 'Small (~3-4)', 3],
@@ -530,9 +530,9 @@ const SAMPLE_ORDERS = [
 
   // The rule itself, on every rice dish.
   const RICE = [
-    ['Gumbo', 'Small (split order, ~4)', 'Large (~8)'],
+    ['Gumbo', 'Small (~4)', 'Large (~8)'],
     ['Indian Style Curry', 'Chicken, Small (~4-5)', 'Chicken, Large (~8-10)'],
-    ['Leblanc Inspired Japanese Curry', 'Small (split order, ~4)', 'Large (~8)'],
+    ['Leblanc Inspired Japanese Curry', 'Small (~4)', 'Large (~8)'],
     ['Mapo Eggplant', 'Small (~4-5 servings)', 'Large (~8-10 servings)'],
     ['Bo Ssam', 'Small (~4 servings)', 'Large (~8 servings)'],
   ];
@@ -552,7 +552,7 @@ const SAMPLE_ORDERS = [
     'including the parts of its base map');
 
   // Gumbo carries the filé cup at every size (Walk 2: the customer thickens it).
-  ok(containersForDish('Gumbo', 'Small (split order, ~4)').cup2 === 1
+  ok(containersForDish('Gumbo', 'Small (~4)').cup2 === 1
     && containersForDish('Gumbo', 'Large (~8)').cup2 === 1,
     'the gumbo file cup rides every size');
 

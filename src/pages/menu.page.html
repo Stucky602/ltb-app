@@ -252,6 +252,19 @@
         }
         html += '<div class="price-row"><span class="price-label" style="font-size:11px;color:var(--dim);font-style:italic;">Averages approx. '+(+dish.avgWeightLb).toFixed(2).replace(/\.?0+$/,'')+' lb per piece'+pieceNote+'</span></div>';
       }
+    } else if (dish && dish.priceDisplay && dish.priceDisplay.length) {
+      // A COMPRESSED PRICE BLOCK. Some dishes have every combination of two
+      // add-ons as its own orderable variant — the Bolognese has eight — and
+      // listing them all restates the base price four times over.
+      //
+      // The ORDER FORM is unaffected: it still offers every combination. This
+      // is presentation only, and it exists because a menu somebody reads on a
+      // phone is not the same artifact as a picker.
+      dish.priceDisplay.forEach(function(v){
+        var ps = perServing(v.price, v.label);
+        html += '<div class="price-row"><span class="price-label">'+esc(fmtLabel(v.label))+'</span><div class="price-right"><span class="price-amt">'+money(v.price)+'</span>'+(ps ? '<span class="price-per-serving">'+ps+'</span>' : '')+'</div></div>';
+        if (v.addOns) html += '<div class="price-row"><span class="price-label" style="font-size:11.5px;color:var(--dim);">'+esc(v.addOns)+'</span></div>';
+      });
     } else {
       ((dish && dish.variants)||[]).forEach(function(v){
         var ps = perServing(v.price, v.label);

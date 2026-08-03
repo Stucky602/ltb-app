@@ -249,7 +249,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Gumbo",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.986Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "f8bc23da2eaf6345d655702e8f779ac8acfa8fdcd8cde700392ccb8b6b1e5424",
     "revisionEntryId": null,
     "snapshot": {
@@ -2085,7 +2085,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Bolognese",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.989Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "590274d7325d39ec4c4783ff732096ab3cdd979d42bf705d695364f8f5d296e3",
     "revisionEntryId": null,
     "snapshot": {
@@ -3897,7 +3897,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Leblanc Inspired Japanese Curry",
     "parentVersionId": "leblanc-inspired-japanese@2026-07-30-a",
     "effectiveAt": "2026-08-03T12:02:49.489Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "25b24d02d4afbd972379dbfb4532c6f7e908406aaf6b55467ac17e6e20431485",
     "revisionEntryId": null,
     "snapshot": {
@@ -4437,7 +4437,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Chili",
     "parentVersionId": "chili@2026-08-03-a",
     "effectiveAt": "2026-08-03T12:04:31.006Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "31208533be5c223e5337898c802e1dd45fd1f946bff7aa14821ba44e3081cc06",
     "revisionEntryId": null,
     "snapshot": {
@@ -4545,6 +4545,1042 @@ export const RECIPE_VERSIONS = [
       },
       "packaging": {
         "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "chili@2026-08-03-c",
+    "dishId": "chili",
+    "dishName": "Chili",
+    "parentVersionId": "chili@2026-08-03-b",
+    "effectiveAt": "2026-08-03T22:00:38.045Z",
+    "status": "current",
+    "recipeHash": "0ed648ed5f6f862cb9a6ee3a9668894246d700da6eb2217df96e946cb60d2afd",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground beef",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Dried kidney beans",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Assorted dried chilis",
+            "q": 1,
+            "staple": false,
+            "u": "bag"
+          },
+          {
+            "name": "Chicken broth",
+            "q": 4,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "Canned tomatoes",
+            "q": 1,
+            "staple": false,
+            "u": "28oz can"
+          },
+          {
+            "name": "100% dark chocolate",
+            "q": 2,
+            "staple": false,
+            "u": "square"
+          },
+          {
+            "name": "Anchovies",
+            "q": 3.5,
+            "staple": false,
+            "u": "fillet"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Limes",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Espresso",
+            "q": 2,
+            "staple": false,
+            "u": "shot"
+          },
+          {
+            "name": "Bourbon",
+            "q": 2,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Marmite + soy + spices",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "factors": {
+          "Large (~6-8)": 1,
+          "Small (~3-4)": 0.5
+        }
+      },
+      "variants": [
+        "Small (~3-4)",
+        "Large (~6-8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": null,
+      "allergens": {
+        "fish": true,
+        "gluten": {
+          "unlisted": "soy sauce (wheat) inside the Marmite + soy + spices line, which resolves to spices_generic",
+          "variants": true
+        },
+        "soy": {
+          "unlisted": "soy sauce inside the Marmite + soy + spices line, which resolves to spices_generic",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A slow-built chili with a real chile backbone and a lot of depth. The kind that makes you wonder what's in it — and there's quite a bit going on under the hood. Rich, meaty, and better the next day.",
+        "reheat": "Comes in a container. Warm gently on the stove over medium.",
+        "contains": "Gluten (soy sauce, Marmite), Fish (anchovies), Soy, may contain Dairy. Unconventional ingredients — ask if concerned."
+      },
+      "packaging": {
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "gumbo@2026-08-03-a",
+    "dishId": "gumbo",
+    "dishName": "Gumbo",
+    "parentVersionId": "gumbo@2026-07-30-a",
+    "effectiveAt": "2026-08-03T22:00:38.046Z",
+    "status": "current",
+    "recipeHash": "211e5e35731153a21b74a0d9b244cec46ac91736ada4e116489061c293d14d56",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Chicken thighs",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Texas Gulf Shrimp",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Green bell pepper",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Celery",
+            "q": 3,
+            "staple": false,
+            "u": "stalks"
+          },
+          {
+            "name": "Garlic",
+            "q": 4,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Flour",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Filé powder",
+            "q": 1,
+            "staple": true,
+            "u": "tbsp"
+          },
+          {
+            "name": "Cajun spices",
+            "q": 1,
+            "staple": true,
+            "u": "blend"
+          },
+          {
+            "name": "Rice (included with order)",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "factors": {
+          "Large (~8)": 1,
+          "Small (~4)": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": null,
+      "allergens": {
+        "gluten": true,
+        "shellfish": true
+      },
+      "copy": {
+        "desc": "A proper roux-based gumbo, cooked dark and slow with chicken thighs, Texas Gulf shrimp, and the holy trinity. Made for rice. The small comes in two containers (~4 servings), the large in four (~8).",
+        "reheat": "The minimum batch size is the Large, so the Small option is only available when splitting a Large between orders. Uncooked rice included.",
+        "contains": "Gluten (flour), Shellfish (shrimp)."
+      },
+      "packaging": {
+        "cup2": 1,
+        "round16": 1,
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "leblanc-inspired-japanese@2026-08-03-b",
+    "dishId": "leblanc-inspired-japanese",
+    "dishName": "Leblanc Inspired Japanese Curry",
+    "parentVersionId": "leblanc-inspired-japanese@2026-08-03-a",
+    "effectiveAt": "2026-08-03T22:00:38.058Z",
+    "status": "current",
+    "recipeHash": "0dfc0723e3f1b50e4d14600cf63d6f67badbcb300d578de4f6fd3e9cfdde98ec",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Wagyu london broil",
+            "q": 2.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Kabocha squash",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Carrots",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Apple",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Ginger",
+            "q": 2,
+            "staple": false,
+            "u": "knob"
+          },
+          {
+            "name": "Red wine",
+            "q": 2,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Beef stock",
+            "q": 8,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "100% dark chocolate",
+            "q": 2,
+            "staple": false,
+            "u": "square"
+          },
+          {
+            "name": "Espresso",
+            "q": 2,
+            "staple": false,
+            "u": "shot"
+          },
+          {
+            "name": "Worcestershire",
+            "q": 2,
+            "staple": false,
+            "u": "tbs"
+          },
+          {
+            "name": "Curry spice blend",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          },
+          {
+            "name": "Honey",
+            "q": 2,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Fish sauce",
+            "q": 2,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Butter",
+            "q": 2,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Bay leaf",
+            "q": 1,
+            "staple": true,
+            "u": ""
+          },
+          {
+            "name": "Rice (included with order)",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "extras": {
+          "Large (~8)": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 2,
+              "staple": false,
+              "u": ""
+            }
+          ],
+          "Small (~4)": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 1,
+              "staple": false,
+              "u": ""
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Small (~4)": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": {
+        "main": "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. The vegetables need no pot of their own: cut the bag open and tip as much as you want straight into the curry, then warm it all together gently on the stove over medium-low until heated through.",
+        "veg": "Cut the bag open and add the squash and carrots straight to the curry — they come up to temperature with it and need no pot of their own. Unlike our other sous vide vegetables, the liquid in this bag is not meant to be used as a glaze, so discard it. It contains butter, so keep it out of the drain. Whatever you do not use keeps in the opened bag in the fridge."
+      },
+      "allergens": {
+        "dairy": {
+          "unlisted": "butter in the veg bag line, which resolves to sv_bag",
+          "variants": true
+        },
+        "fish": true,
+        "gluten": {
+          "unlisted": "roux flour lives inside the Curry spice blend batch line, not its own recipe line",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A rich, slow-braised Japanese curry inspired by Sojiro's Leblanc café. Wagyu london broil, kabocha squash, and carrots in a deeply layered sauce built with red wine, dark chocolate, espresso, apple, and honey. The carrots and kabocha squash come separately in a sous vide bag — reheat the curry, then add the vegetables right before serving to keep everything at its best. Comes with uncooked rice.",
+        "reheat": "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving. Unlike our other sous vide vegetables, discard the bag's sauce rather than using it as a glaze — it contains butter, so avoid pouring it down the drain. Uncooked rice included, cook fresh for best results. Small batch available only when another customer orders the same week — reach out if you have questions.",
+        "contains": "Dairy (butter). Gluten (flour). Fish (fish sauce, Worcestershire)."
+      },
+      "packaging": {
+        "bag": 1,
+        "round16": 1,
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "bolognese@2026-08-03-a",
+    "dishId": "bolognese",
+    "dishName": "Bolognese",
+    "parentVersionId": "bolognese@2026-07-30-a",
+    "effectiveAt": "2026-08-03T22:00:38.059Z",
+    "status": "retired",
+    "recipeHash": "d5121685c900126254ecd87290bc203045d6ae359256877e7a4dcb4f566931ce",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground pork",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground lamb",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground beef",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Milk",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Red wine",
+            "q": 1,
+            "staple": false,
+            "u": "bottle"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Fresh thyme",
+            "q": 1,
+            "staple": false,
+            "u": "sprig"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Carrot",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Celery",
+            "q": 2,
+            "staple": false,
+            "u": "stalks"
+          },
+          {
+            "name": "Garlic",
+            "q": 4,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Pasta (ask customer for shape!)",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Nutmeg",
+            "q": 1,
+            "staple": true,
+            "u": "pinch"
+          }
+        ],
+        "extras": {
+          "Large (~8) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Large (~8) + Egg Pappardelle": 1,
+          "Small (~4)": 0.5,
+          "Small (~4) + Egg Pappardelle": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)",
+        "Small (~4) + Egg Pappardelle",
+        "Large (~8) + Egg Pappardelle"
+      ],
+      "reheat": "pasta",
+      "stewVegCopy": null,
+      "allergens": {
+        "dairy": true,
+        "egg": [
+          "Small (~4) + Egg Pappardelle",
+          "Large (~8) + Egg Pappardelle"
+        ],
+        "gluten": true
+      },
+      "copy": {
+        "desc": "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it.",
+        "reheat": "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
+        "contains": "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option."
+      },
+      "packaging": {
+        "round32": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "bolognese@2026-08-03-b",
+    "dishId": "bolognese",
+    "dishName": "Bolognese",
+    "parentVersionId": "bolognese@2026-08-03-a",
+    "effectiveAt": "2026-08-03T22:05:24.130Z",
+    "status": "retired",
+    "recipeHash": "f98e2b3a6eec988a585d778b421a7750b9c37c7775545e515d9e0496b7b62581",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground pork",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground lamb",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground beef",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Milk",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Red wine",
+            "q": 1,
+            "staple": false,
+            "u": "bottle"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Fresh thyme",
+            "q": 1,
+            "staple": false,
+            "u": "sprig"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Carrot",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Celery",
+            "q": 2,
+            "staple": false,
+            "u": "stalks"
+          },
+          {
+            "name": "Garlic",
+            "q": 4,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Pasta (ask customer for shape!)",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Dried porcini mushrooms",
+            "q": 2,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Nutmeg",
+            "q": 1,
+            "staple": true,
+            "u": "pinch"
+          }
+        ],
+        "extras": {
+          "Large (~8) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Large (~8) + Egg Pappardelle": 1,
+          "Large (~8) + Egg Pappardelle + Porcini": 1,
+          "Large (~8) + Porcini": 1,
+          "Small (~4)": 0.5,
+          "Small (~4) + Egg Pappardelle": 0.5,
+          "Small (~4) + Egg Pappardelle + Porcini": 0.5,
+          "Small (~4) + Porcini": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)",
+        "Small (~4) + Egg Pappardelle",
+        "Large (~8) + Egg Pappardelle",
+        "Small (~4) + Porcini",
+        "Large (~8) + Porcini",
+        "Small (~4) + Egg Pappardelle + Porcini",
+        "Large (~8) + Egg Pappardelle + Porcini"
+      ],
+      "reheat": "pasta",
+      "stewVegCopy": null,
+      "allergens": {
+        "dairy": true,
+        "egg": [
+          "Small (~4) + Egg Pappardelle",
+          "Large (~8) + Egg Pappardelle"
+        ],
+        "gluten": true
+      },
+      "copy": {
+        "desc": "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it. The dried porcini version is the better one, full stop — they add a depth the plain version cannot reach. I keep the plain one on because some people have a mushroom allergy and some just do not like them, and neither is a reason to go without.",
+        "reheat": "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
+        "contains": "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option."
+      },
+      "packaging": {
+        "round32": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "bolognese@2026-08-03-c",
+    "dishId": "bolognese",
+    "dishName": "Bolognese",
+    "parentVersionId": "bolognese@2026-08-03-b",
+    "effectiveAt": "2026-08-03T22:07:46.077Z",
+    "status": "retired",
+    "recipeHash": "406557253e26639bed4c495f7249faaba2231c8891892c27dbded704ffdfbcd6",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground pork",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground lamb",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground beef",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Milk",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Red wine",
+            "q": 1,
+            "staple": false,
+            "u": "bottle"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Fresh thyme",
+            "q": 1,
+            "staple": false,
+            "u": "sprig"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Carrot",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Celery",
+            "q": 2,
+            "staple": false,
+            "u": "stalks"
+          },
+          {
+            "name": "Garlic",
+            "q": 4,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Pasta (ask customer for shape!)",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Nutmeg",
+            "q": 1,
+            "staple": true,
+            "u": "pinch"
+          }
+        ],
+        "extras": {
+          "Large (~8) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Large (~8) + Egg Pappardelle": 1,
+          "Large (~8) + Egg Pappardelle + Porcini": 1,
+          "Large (~8) + Porcini": 1,
+          "Small (~4)": 0.5,
+          "Small (~4) + Egg Pappardelle": 0.5,
+          "Small (~4) + Egg Pappardelle + Porcini": 0.5,
+          "Small (~4) + Porcini": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)",
+        "Small (~4) + Egg Pappardelle",
+        "Large (~8) + Egg Pappardelle",
+        "Small (~4) + Porcini",
+        "Large (~8) + Porcini",
+        "Small (~4) + Egg Pappardelle + Porcini",
+        "Large (~8) + Egg Pappardelle + Porcini"
+      ],
+      "reheat": "pasta",
+      "stewVegCopy": null,
+      "allergens": {
+        "dairy": true,
+        "egg": [
+          "Small (~4) + Egg Pappardelle",
+          "Large (~8) + Egg Pappardelle"
+        ],
+        "gluten": true
+      },
+      "copy": {
+        "desc": "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it. The dried porcini version is the better one, full stop — they add a depth the plain version cannot reach. I keep the plain one on because some people have a mushroom allergy and some just do not like them, and neither is a reason to go without.",
+        "reheat": "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
+        "contains": "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option."
+      },
+      "packaging": {
+        "round32": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "bolognese@2026-08-03-d",
+    "dishId": "bolognese",
+    "dishName": "Bolognese",
+    "parentVersionId": "bolognese@2026-08-03-c",
+    "effectiveAt": "2026-08-03T22:12:11.746Z",
+    "status": "current",
+    "recipeHash": "51b139774b0e27ad87b99cb40eadf3ca160499162ae5ede8468a8e0190896b75",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground pork",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground lamb",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground beef",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Milk",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Red wine",
+            "q": 1,
+            "staple": false,
+            "u": "bottle"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Fresh thyme",
+            "q": 1,
+            "staple": false,
+            "u": "sprig"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Carrot",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Celery",
+            "q": 2,
+            "staple": false,
+            "u": "stalks"
+          },
+          {
+            "name": "Garlic",
+            "q": 4,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Pasta (ask customer for shape!)",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Nutmeg",
+            "q": 1,
+            "staple": true,
+            "u": "pinch"
+          }
+        ],
+        "extras": {
+          "Large (~8) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Large (~8) + Egg Pappardelle + Porcini": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            },
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 2,
+              "staple": false,
+              "u": "oz"
+            }
+          ],
+          "Large (~8) + Porcini": [
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 2,
+              "staple": false,
+              "u": "oz"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle + Porcini": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            },
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 1,
+              "staple": false,
+              "u": "oz"
+            }
+          ],
+          "Small (~4) + Porcini": [
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 1,
+              "staple": false,
+              "u": "oz"
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Large (~8) + Egg Pappardelle": 1,
+          "Large (~8) + Egg Pappardelle + Porcini": 1,
+          "Large (~8) + Porcini": 1,
+          "Small (~4)": 0.5,
+          "Small (~4) + Egg Pappardelle": 0.5,
+          "Small (~4) + Egg Pappardelle + Porcini": 0.5,
+          "Small (~4) + Porcini": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)",
+        "Small (~4) + Egg Pappardelle",
+        "Large (~8) + Egg Pappardelle",
+        "Small (~4) + Porcini",
+        "Large (~8) + Porcini",
+        "Small (~4) + Egg Pappardelle + Porcini",
+        "Large (~8) + Egg Pappardelle + Porcini"
+      ],
+      "reheat": "pasta",
+      "stewVegCopy": null,
+      "allergens": {
+        "dairy": true,
+        "egg": [
+          "Small (~4) + Egg Pappardelle",
+          "Large (~8) + Egg Pappardelle"
+        ],
+        "gluten": true
+      },
+      "copy": {
+        "desc": "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it. The dried porcini version is the better one, full stop — they add a depth the plain version cannot reach. I keep the plain one on because some people have a mushroom allergy and some just do not like them, and neither is a reason to go without.",
+        "reheat": "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
+        "contains": "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option."
+      },
+      "packaging": {
+        "round32": 1
       },
       "componentVersionRefs": []
     }

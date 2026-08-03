@@ -233,8 +233,14 @@ for (const d of drifted) {
   for (const l of now) if (!before.has(key(l))) console.log(`        + ${l.name} ${l.q}${l.u}`);
   for (const l of was) if (!after.has(key(l))) console.log(`        - ${l.name} ${l.q}${l.u}`);
 }
-console.log('\n  A recipe changed, so a new version must be cut. Run:');
+console.log('\nA recipe changed, so a new version must be cut. Run:');
 console.log('    node tools/snapshotVersions.mjs --write\n');
+// Named explicitly because shipping the wrong file is what actually happened:
+// a zip carried src/dishes.js and src/recipeVersions.js, and the repo failed
+// THIS check on every deploy until it was corrected.
+console.log('  THEN SHIP src/recipeVersions.generated.js — that is the file --write edits.');
+console.log('  It is NOT src/recipeVersions.js. Shipping the wrong one leaves a new');
+console.log('  src/dishes.js with a stale version table, and every build fails here.\n');
 console.log('  If the change was accidental, revert src/dishes.js instead.\n');
 process.exit(1);
 }

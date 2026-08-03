@@ -15,7 +15,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Brunswick Stew",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.986Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "184b5cdf4ae9601e734d3abfb391c6af87a454e18690bd3aecdfbec8abc64b6d",
     "revisionEntryId": null,
     "snapshot": {
@@ -131,7 +131,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Chili",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.986Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "31208533be5c223e5337898c802e1dd45fd1f946bff7aa14821ba44e3081cc06",
     "revisionEntryId": null,
     "snapshot": {
@@ -714,7 +714,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Leblanc Inspired Japanese Curry",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.986Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "0f55bfabdd56e0fe60c4deb595c3318d4488fe745ba0b6e516a44a501282fd4b",
     "revisionEntryId": null,
     "snapshot": {
@@ -1989,7 +1989,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Thai Basil Chicken (Pad Krapow Gai)",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.987Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "2c59fbe0f395e51871ba276586a8908be9ea87f7d4132f9a0509e06bcafd735b",
     "revisionEntryId": null,
     "snapshot": {
@@ -2430,7 +2430,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Pappardelle with Vegetables and Mint",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.990Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "016477a3b3672771f1f6d6c53a3977b55362e3a92e4882c81390b558003a03b2",
     "revisionEntryId": null,
     "snapshot": {
@@ -3395,7 +3395,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Boeuf Bourguignon (Beef Stew)",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.995Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "2d70da060fd38ae1da3e1b9666befd8f2dbab30acaa9b34af640b6bfba6e1c48",
     "revisionEntryId": null,
     "snapshot": {
@@ -3635,6 +3635,916 @@ export const RECIPE_VERSIONS = [
         "round16": 1,
         "round48": 1,
         "round8": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "brunswick-stew@2026-08-03-a",
+    "dishId": "brunswick-stew",
+    "dishName": "Brunswick Stew",
+    "parentVersionId": "brunswick-stew@2026-07-30-a",
+    "effectiveAt": "2026-08-03T12:02:49.488Z",
+    "status": "current",
+    "recipeHash": "b15ba797a2b9b751b13bc7bdbb2e05ec75b6a0b02a6629862051ee1e66b72509",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Chicken thighs",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Salt pork",
+            "q": 2,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Chicken stock",
+            "q": 4,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "Canned tomatoes",
+            "q": 1,
+            "staple": false,
+            "u": "14oz can"
+          },
+          {
+            "name": "Red potatoes",
+            "q": 0.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Corn",
+            "q": 3,
+            "staple": false,
+            "u": "ears"
+          },
+          {
+            "name": "Dried lima beans",
+            "q": 5,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Vinegar",
+            "q": 1,
+            "staple": true,
+            "u": "batch-use"
+          },
+          {
+            "name": "Smoked paprika",
+            "q": 1,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Bay leaves",
+            "q": 2,
+            "staple": true,
+            "u": "ea"
+          }
+        ],
+        "extras": {
+          "Large (~8)": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 2,
+              "staple": false,
+              "u": ""
+            }
+          ],
+          "Small (~4)": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 1,
+              "staple": false,
+              "u": ""
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 2,
+          "Small (~4)": 1
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": {
+        "main": "Comes in two parts: the stew in a container and the potatoes in a sous vide bag. Warm the stew gently on the stove over medium-low.",
+        "veg": "The potatoes are the easy part here, and they do not need their own pot. Cut the bag open and discard the thyme and the liquid, but not down the drain since there is butter in it. Tip the potatoes straight into the stew and let everything come up to temperature together until heated through."
+      },
+      "allergens": {
+        "dairy": {
+          "unlisted": "butter in the Sous-vide-bag-plus-butter-plus-herbs line, which resolves to sv_bag",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A thick Southern stew with shredded braised chicken thighs, corn, lima beans, and tomato, simmered down until everything melds. Smoked paprika does the heavy lifting on the smoke. Hearty and a little sweet.",
+        "reheat": "Comes in two parts: the stew in a container and the potatoes in a sous vide bag. Warm the stew gently on the stove over medium-low. The potatoes are the easy part here, and they do not need their own pot. Cut the bag open and discard the thyme and the liquid, but not down the drain since there is butter in it. Tip the potatoes straight into the stew and let everything come up to temperature together until heated through.",
+        "contains": "Dairy (butter, in the potato bag)."
+      },
+      "packaging": {
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "chili@2026-08-03-a",
+    "dishId": "chili",
+    "dishName": "Chili",
+    "parentVersionId": "chili@2026-07-30-a",
+    "effectiveAt": "2026-08-03T12:02:49.489Z",
+    "status": "retired",
+    "recipeHash": "332c0a24fa1c0cb9194ffb6daa91a1de932bbc45e39a52c9d02a8bf9d9ada51f",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground beef",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Dried kidney beans",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Assorted dried chilis",
+            "q": 1,
+            "staple": false,
+            "u": "bag"
+          },
+          {
+            "name": "Chicken broth",
+            "q": 4,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "Canned tomatoes",
+            "q": 1,
+            "staple": false,
+            "u": "28oz can"
+          },
+          {
+            "name": "100% dark chocolate",
+            "q": 2,
+            "staple": false,
+            "u": "square"
+          },
+          {
+            "name": "Anchovies",
+            "q": 3.5,
+            "staple": false,
+            "u": "fillet"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Limes",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Espresso",
+            "q": 2,
+            "staple": false,
+            "u": "shot"
+          },
+          {
+            "name": "Bourbon",
+            "q": 2,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Marmite",
+            "q": 1,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Soy sauce",
+            "q": 1,
+            "staple": true,
+            "u": "tbs"
+          }
+        ],
+        "factors": {
+          "Large (~6-8)": 1,
+          "Small (split order, ~3-4)": 0.5
+        }
+      },
+      "variants": [
+        "Small (split order, ~3-4)",
+        "Large (~6-8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": null,
+      "allergens": {
+        "fish": true,
+        "gluten": {
+          "unlisted": "soy sauce (wheat) inside the Marmite + soy + spices line, which resolves to spices_generic",
+          "variants": true
+        },
+        "soy": {
+          "unlisted": "soy sauce inside the Marmite + soy + spices line, which resolves to spices_generic",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A slow-built chili with a real chile backbone and a lot of depth. The kind that makes you wonder what's in it — and there's quite a bit going on under the hood. Rich, meaty, and better the next day.",
+        "reheat": "Comes in a container. Warm gently on the stove over medium.",
+        "contains": "Gluten (soy sauce, Marmite), Fish (anchovies), Soy, may contain Dairy. Unconventional ingredients — ask if concerned."
+      },
+      "packaging": {
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "leblanc-inspired-japanese@2026-08-03-a",
+    "dishId": "leblanc-inspired-japanese",
+    "dishName": "Leblanc Inspired Japanese Curry",
+    "parentVersionId": "leblanc-inspired-japanese@2026-07-30-a",
+    "effectiveAt": "2026-08-03T12:02:49.489Z",
+    "status": "current",
+    "recipeHash": "25b24d02d4afbd972379dbfb4532c6f7e908406aaf6b55467ac17e6e20431485",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Wagyu london broil",
+            "q": 2.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Kabocha squash",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Carrots",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Apple",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Ginger",
+            "q": 2,
+            "staple": false,
+            "u": "knob"
+          },
+          {
+            "name": "Red wine",
+            "q": 2,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Beef stock",
+            "q": 8,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "100% dark chocolate",
+            "q": 2,
+            "staple": false,
+            "u": "square"
+          },
+          {
+            "name": "Espresso",
+            "q": 2,
+            "staple": false,
+            "u": "shot"
+          },
+          {
+            "name": "Worcestershire",
+            "q": 2,
+            "staple": false,
+            "u": "tbs"
+          },
+          {
+            "name": "Curry spice blend",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          },
+          {
+            "name": "Honey",
+            "q": 2,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Fish sauce",
+            "q": 2,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Butter",
+            "q": 2,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Bay leaf",
+            "q": 1,
+            "staple": true,
+            "u": ""
+          },
+          {
+            "name": "Rice (included with order)",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "extras": {
+          "Large (~8)": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 2,
+              "staple": false,
+              "u": ""
+            }
+          ],
+          "Small (split order, ~4)": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 1,
+              "staple": false,
+              "u": ""
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Small (split order, ~4)": 0.5
+        }
+      },
+      "variants": [
+        "Small (split order, ~4)",
+        "Large (~8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": {
+        "main": "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. The vegetables need no pot of their own: cut the bag open and tip as much as you want straight into the curry, then warm it all together gently on the stove over medium-low until heated through.",
+        "veg": "Cut the bag open and add the squash and carrots straight to the curry — they come up to temperature with it and need no pot of their own. Unlike our other sous vide vegetables, the liquid in this bag is not meant to be used as a glaze, so discard it. It contains butter, so keep it out of the drain. Whatever you do not use keeps in the opened bag in the fridge."
+      },
+      "allergens": {
+        "dairy": {
+          "unlisted": "butter in the veg bag line, which resolves to sv_bag",
+          "variants": true
+        },
+        "fish": true,
+        "gluten": {
+          "unlisted": "roux flour lives inside the Curry spice blend batch line, not its own recipe line",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A rich, slow-braised Japanese curry inspired by Sojiro's Leblanc café. Wagyu london broil, kabocha squash, and carrots in a deeply layered sauce built with red wine, dark chocolate, espresso, apple, and honey. The carrots and kabocha squash come separately in a sous vide bag — reheat the curry, then add the vegetables right before serving to keep everything at its best. Comes with uncooked rice.",
+        "reheat": "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving. Unlike our other sous vide vegetables, discard the bag's sauce rather than using it as a glaze — it contains butter, so avoid pouring it down the drain. Uncooked rice included, cook fresh for best results. Small batch available only when another customer orders the same week — reach out if you have questions.",
+        "contains": "Dairy (butter). Gluten (flour). Fish (fish sauce, Worcestershire)."
+      },
+      "packaging": {
+        "bag": 1,
+        "round16": 1,
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "thai-basil-chicken-pad@2026-08-03-a",
+    "dishId": "thai-basil-chicken-pad",
+    "dishName": "Thai Basil Chicken (Pad Krapow Gai)",
+    "parentVersionId": "thai-basil-chicken-pad@2026-07-30-a",
+    "effectiveAt": "2026-08-03T12:02:49.491Z",
+    "status": "current",
+    "recipeHash": "efd040aaf0e28bae928cc00dc7d28f373e6fa469a7d5b3291b246ce3bef17cd6",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground chicken",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Asparagus",
+            "q": 8,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Thai basil",
+            "q": 1,
+            "staple": false,
+            "u": "bunch"
+          },
+          {
+            "name": "Garlic",
+            "q": 6,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Limes",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Oyster sauce",
+            "q": 1,
+            "staple": true,
+            "u": "tbs"
+          },
+          {
+            "name": "Soy sauce",
+            "q": 2,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Dark soy sauce",
+            "q": 2,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Fish sauce",
+            "q": 0.5,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Sugar",
+            "q": 1,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Rice (included with order)",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "factors": {
+          "Large (~7-8)": 2,
+          "Small (~3-4)": 1
+        }
+      },
+      "variants": [
+        "Small (~3-4)",
+        "Large (~7-8)"
+      ],
+      "reheat": "bagged",
+      "stewVegCopy": null,
+      "allergens": {
+        "fish": {
+          "unlisted": "fish sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic",
+          "variants": true
+        },
+        "gluten": {
+          "unlisted": "soy sauce (wheat) rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic",
+          "variants": true
+        },
+        "shellfish": {
+          "unlisted": "oyster sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic",
+          "variants": true
+        },
+        "soy": {
+          "unlisted": "soy sauce rides the Oyster + soy + fish sauce + sugar line, which resolves to spices_generic",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "Ground chicken hit hard and fast in the wok with garlic, asparagus, Thai basil, and a sauce of oyster sauce, soy, and fish sauce. Fragrant, savory, and spicy. Spice level is customizable 1-5, just let me know when you order. A fried egg on top is a great move — not included, but highly recommended.",
+        "reheat": "Sealed in a bag for the best reheat. See the note on bagged dishes. Uncooked rice included, cook fresh for best results.",
+        "contains": "Gluten (oyster sauce, soy sauce), Fish (fish sauce), Shellfish (oyster sauce), Soy (soy sauce)."
+      },
+      "packaging": {
+        "bag": 1,
+        "round16": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "pappardelle-with-vegetables@2026-08-03-a",
+    "dishId": "pappardelle-with-vegetables",
+    "dishName": "Pappardelle with Vegetables and Mint",
+    "parentVersionId": "pappardelle-with-vegetables@2026-07-30-a",
+    "effectiveAt": "2026-08-03T12:02:49.491Z",
+    "status": "current",
+    "recipeHash": "bb36d154c8776cf2737ea70edfb3466900c2050f9f47d4d214937f4047bae177",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Egg pappardelle",
+            "q": 2,
+            "staple": false,
+            "u": "packs"
+          },
+          {
+            "name": "Fennel bulb",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Bulb onions",
+            "q": 1,
+            "staple": false,
+            "u": "bunch"
+          },
+          {
+            "name": "Asparagus",
+            "q": 0.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Petite peas",
+            "q": 8,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Fresh mint",
+            "q": 2,
+            "staple": false,
+            "u": "sprigs"
+          },
+          {
+            "name": "Good parmesan",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Heavy cream",
+            "q": 0.5,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "White wine",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Lemon",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Xanthan gum",
+            "q": 0.125,
+            "staple": true,
+            "u": "tsp"
+          },
+          {
+            "name": "Lecithin powder",
+            "q": 0.125,
+            "staple": true,
+            "u": "tsp"
+          }
+        ],
+        "factors": {
+          "Large (~5-6)": 1,
+          "Small (~2-3)": 0.5
+        }
+      },
+      "variants": [
+        "Small (~2-3)",
+        "Large (~5-6)"
+      ],
+      "reheat": "bagged",
+      "stewVegCopy": null,
+      "allergens": {
+        "dairy": true,
+        "egg": true,
+        "gluten": true,
+        "soy": {
+          "unlisted": "soy lecithin in the Xanthan gum + lecithin powder line, which resolves to spices_generic",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A lighter, more vibrant take on pasta than you might expect. Wide egg pappardelle in a silky cream sauce built on slow-cooked fennel and bulb onions, brightened with fresh mint, lemon, and white wine — all three working together to lift the dish. Finished with good parmesan, asparagus, and petite peas folded in. Vegetarian. Comes with 1 pack of premium egg pappardelle for the small (~2-3 servings) and 2 packs for the large (~5-6 servings) — this one isn't the same dish without them, so there's no substitution on the pasta.",
+        "reheat": "Sealed in a bag for the best reheat — see the note on bagged dishes. Small batch available only when another customer orders the same week — reach out if you have questions.",
+        "contains": "Dairy (cream, parmesan), Gluten (pasta), Egg (pasta), Soy (lecithin in the sauce)."
+      },
+      "packaging": {
+        "bag": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "boeuf-bourguignon-beef-stew@2026-08-03-a",
+    "dishId": "boeuf-bourguignon-beef-stew",
+    "dishName": "Boeuf Bourguignon (Beef Stew)",
+    "parentVersionId": "boeuf-bourguignon-beef-stew@2026-07-30-a",
+    "effectiveAt": "2026-08-03T12:02:49.492Z",
+    "status": "current",
+    "recipeHash": "eaf4970f4ab608b61be8c9fc863fa2d9c465b06026aa1fe95c2f35ca025574f5",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Beef chuck roast",
+            "q": 2.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Red potatoes",
+            "q": 1.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Carrots",
+            "q": 1.5,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Red wine",
+            "q": 1,
+            "staple": false,
+            "u": "bottle"
+          },
+          {
+            "name": "Beef stock",
+            "q": 8,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "Fresh thyme",
+            "q": 1,
+            "staple": false,
+            "u": "sprig"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Bay leaves",
+            "q": 2,
+            "staple": true,
+            "u": "ea"
+          },
+          {
+            "name": "Vinegar",
+            "q": 1,
+            "staple": true,
+            "u": "batch-use"
+          }
+        ],
+        "extras": {
+          "With 1 lb mushrooms": [
+            {
+              "name": "Mushrooms",
+              "q": 1,
+              "staple": false,
+              "u": "lb"
+            },
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 1,
+              "staple": false,
+              "u": ""
+            }
+          ],
+          "~4 servings": [
+            {
+              "name": "Sous vide bag + butter + herbs (costed)",
+              "q": 1,
+              "staple": false,
+              "u": ""
+            }
+          ]
+        },
+        "factors": {
+          "With 1 lb mushrooms": 1,
+          "~4 servings": 1
+        }
+      },
+      "variants": [
+        "~4 servings",
+        "With 1 lb mushrooms"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": {
+        "main": "Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through, adding a splash of water if it looks thick. Great over mashed potatoes, egg noodles, or crusty bread.",
+        "veg": "The vegetables need no pot of their own. Cut the bag open, discard the liquid, and tip as much of them as you want straight into the stew to come up together. The liquid contains butter, so keep it out of the drain. Save the opened bag in the fridge for whatever is left."
+      },
+      "allergens": {
+        "dairy": {
+          "unlisted": "butter in the veg bag line, which resolves to sv_bag",
+          "variants": true
+        },
+        "gluten": {
+          "unlisted": "a light roux thickens the stew at the end, uncosted (Kevin confirmed Jul 16)",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "Beef chuck braised low and slow in red wine with aromatics until the meat is fork-tender. The sauce is the whole point here: the braising liquid reduces down with the wine, tomato paste, and beef stock into something glossy, deep, and almost syrupy, with a savory backbone that coats every bite. It is what you are really paying for. Comes with carrots and potatoes cooked separately in a sous vide bag — reheat the stew, then add the vegetables right before serving so nothing overcooks. Want mushrooms? Add a pound for $12.",
+        "reheat": "Comes in two parts — the stew in a container and the vegetables in a sous vide bag. Warm the stew gently on the stove over medium-low until the meat is heated through. Reheat the veg bag in simmering water, discard the liquid — it contains butter, so avoid pouring it down the drain — then fold the vegetables into the stew right before serving. Great over mashed potatoes, egg noodles, or crusty bread.",
+        "contains": "Gluten (flour), Dairy (butter, in the vegetable bag)."
+      },
+      "packaging": {
+        "bag": 2,
+        "round48": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "chili@2026-08-03-b",
+    "dishId": "chili",
+    "dishName": "Chili",
+    "parentVersionId": "chili@2026-08-03-a",
+    "effectiveAt": "2026-08-03T12:04:31.006Z",
+    "status": "current",
+    "recipeHash": "31208533be5c223e5337898c802e1dd45fd1f946bff7aa14821ba44e3081cc06",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground beef",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Dried kidney beans",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Assorted dried chilis",
+            "q": 1,
+            "staple": false,
+            "u": "bag"
+          },
+          {
+            "name": "Chicken broth",
+            "q": 4,
+            "staple": false,
+            "u": "cups"
+          },
+          {
+            "name": "Canned tomatoes",
+            "q": 1,
+            "staple": false,
+            "u": "28oz can"
+          },
+          {
+            "name": "100% dark chocolate",
+            "q": 2,
+            "staple": false,
+            "u": "square"
+          },
+          {
+            "name": "Anchovies",
+            "q": 3.5,
+            "staple": false,
+            "u": "fillet"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Limes",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Espresso",
+            "q": 2,
+            "staple": false,
+            "u": "shot"
+          },
+          {
+            "name": "Bourbon",
+            "q": 2,
+            "staple": false,
+            "u": "oz"
+          },
+          {
+            "name": "Marmite + soy + spices",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "factors": {
+          "Large (~6-8)": 1,
+          "Small (split order, ~3-4)": 0.5
+        }
+      },
+      "variants": [
+        "Small (split order, ~3-4)",
+        "Large (~6-8)"
+      ],
+      "reheat": "stovetop",
+      "stewVegCopy": null,
+      "allergens": {
+        "fish": true,
+        "gluten": {
+          "unlisted": "soy sauce (wheat) inside the Marmite + soy + spices line, which resolves to spices_generic",
+          "variants": true
+        },
+        "soy": {
+          "unlisted": "soy sauce inside the Marmite + soy + spices line, which resolves to spices_generic",
+          "variants": true
+        }
+      },
+      "copy": {
+        "desc": "A slow-built chili with a real chile backbone and a lot of depth. The kind that makes you wonder what's in it — and there's quite a bit going on under the hood. Rich, meaty, and better the next day.",
+        "reheat": "Comes in a container. Warm gently on the stove over medium.",
+        "contains": "Gluten (soy sauce, Marmite), Fish (anchovies), Soy, may contain Dairy. Unconventional ingredients — ask if concerned."
+      },
+      "packaging": {
+        "round48": 1
       },
       "componentVersionRefs": []
     }

@@ -158,6 +158,19 @@ if (changed.length) {
 
 console.log(`  Delta since ${was.recordedAt.slice(0, 10)}:\n`);
 console.log(lines.length ? lines.join('\n') : '  Nothing changed.');
+// GENERATED FILES ARE EASY TO LEAVE OUT OF A HAND-BUILT ZIP, and leaving one
+// out breaks the build rather than merely omitting a feature. Called out
+// separately so it cannot be scrolled past.
+{
+  const generated = Object.keys(now.files).filter(f => /\.generated\./.test(f));
+  const changedGenerated = generated.filter(f =>
+    !was.files[f] || was.files[f].bytes !== now.files[f].bytes);
+  if (changedGenerated.length) {
+    console.log('\n  GENERATED FILES CHANGED — these must be in the zip or the build fails:');
+    for (const f of changedGenerated) console.log(`    ${f}`);
+  }
+}
+
 console.log('\n  These are FACTS ONLY. What they meant, what is still open, and what');
 console.log('  anyone should do next are Kevin\'s to write.');
 console.log('\nHANDOFF DELTA: REPORTED');

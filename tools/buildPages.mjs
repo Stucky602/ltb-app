@@ -355,5 +355,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   if (!changed) console.log(`  ${built.size} page(s) already up to date with src/pages/`);
+  // SHIP EVERY PAGE THAT CHANGED, not just the one you edited. The pages embed
+  // generated data — the Carl map carries VARIANT INDICES, so adding a variant
+  // to any dish rewrites form.html even when nothing about the form changed.
+  // Four new Bolognese variants did exactly that, and a zip carrying menu.html
+  // and main-menu.html but not form.html failed page-sync on deploy.
+  //
+  // Safest habit: ship all five built pages whenever a source page or the dish
+  // registry moves.
   else if (!write) console.log('  run with --write to regenerate');
 }

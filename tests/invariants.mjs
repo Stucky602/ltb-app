@@ -541,7 +541,12 @@ const mainHtml = fs.readFileSync(path.join(ROOT, 'main-menu.html'), 'utf8');
 // data, same as the prices and allergen lines this check already reads through.
 const cards = mainHtml.split(/<div class="dish"[^>]*>/).slice(1).map(chunk => {
   const name = (chunk.match(/<div class="dish-name">([^<]*)<\/div>/) || [])[1];
-  const amounts = [...chunk.matchAll(/<span class="price-amt">\$([\d.]+)<\/span>/g)].map(m => Number(m[1]));
+  // A price-amt span may now hold SEVERAL amounts — a compressed protein row
+  // prints "Small $25  ·  Large $45" on one line. Pull every dollar figure out
+  // of each span rather than assuming one span means one price; the old regex
+  // matched none of them and reported the card as having zero rows.
+  const amounts = [...chunk.matchAll(/<span class="price-amt">([^<]*)<\/span>/g)]
+    .flatMap(m => [...m[1].matchAll(/\$([\d.]+)/g)].map(x => Number(x[1])));
   return { name, amounts };
 });
 const cardByName = new Map(cards.filter(c => c.name).map(c => [c.name, c]));
@@ -557,12 +562,15 @@ for (const d of DISHES) {
   // The check still bites: the displayed prices must match the registry, so a
   // compressed menu cannot quietly disagree with what the order form charges.
   const priced = (d.priceDisplay && d.priceDisplay.length) ? d.priceDisplay : d.variants;
-  const prices = priced.map(v => v.price);
+  // A row may carry SIZES rather than one price — "Tofu  Small $25 · Large $45"
+  // is one line and two amounts. Flatten so the card check counts what is
+  // actually printed.
+  const prices = priced.flatMap(v => (v.sizes && v.sizes.length) ? v.sizes.map(z => z.price) : [v.price]);
   if (card.amounts.length !== prices.length) {
     F('mainmenu-prices', `"${d.name}" main-menu card has ${card.amounts.length} price rows, registry has ${prices.length} variants`);
   } else {
     prices.forEach((p, i) => {
-      if (Math.abs(card.amounts[i] - p) > 0.001) F('mainmenu-prices', `"${d.name}" main-menu price #${i + 1} is $${card.amounts[i]}, registry says $${p} (${priced[i].label})`);
+      if (Math.abs(card.amounts[i] - p) > 0.001) F('mainmenu-prices', `"${d.name}" main-menu price #${i + 1} is $${card.amounts[i]}, registry says $${p} (${(priced[i] || priced[priced.length - 1]).label})`);
     });
   }
 }

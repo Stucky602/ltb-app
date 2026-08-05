@@ -47,6 +47,104 @@ function cardBounds(name) {
   return { start, end: next < 0 ? html.length : next };
 }
 
+// REBUILD the whole price block for a dish that shows a compressed display.
+//
+// Patching amounts in place is not enough here: the card's rows are in VARIANT
+// order (every Small, then every Large) while a compressed display is
+// protein-major (Chickpea small and large, then Chicken). Writing new prices
+// into the old rows would put the right numbers against the wrong labels, which
+// is worse than the clutter it was meant to fix.
+// WHAT SHIPS WITH IT, derived from the registry fields rather than read out of
+// Kevin's prose.
+//
+// The reheat paragraph on each card is collapsed now, and it was carrying facts
+// a customer needs BEFORE they order — "uncooked rice included" changes what
+// they buy at the store, "cook fresh" is an action, "chilled, not frozen" is a
+// storage state. Burying those behind a Reheating tap was the mistake.
+//
+// DERIVED, NOT CLASSIFIED. The alternative was a regex deciding which of his
+// sentences were ordering facts, which is the same move that produced four
+// deleted practice seeds and the freeze-note leak. `rice`, `pasta`, `noodle`,
+// `baggedPasta` and `chillOnly` are already fields; the strip reads those and
+// nothing else, so it can be wrong only if the registry is wrong.
+function shipsLine(d) {
+  const bits = [];
+  if (d.rice) bits.push('uncooked rice included, cook fresh');
+  // The SHAPE CHOICE is an action, and it is data too — `options.pasta` exists
+  // precisely because Kevin asks. Dropping it while stripping the prose line
+  // would have quietly removed a thing the customer is meant to do.
+  if (d.pasta) {
+    bits.push((d.options && d.options.pasta)
+      ? 'uncooked pasta included, cook fresh \u2014 let me know what shape you\u2019d like'
+      : 'uncooked pasta included, cook fresh');
+  }
+  if (d.noodle) bits.push('noodles included');
+  if (d.baggedPasta) bits.push('pasta included, sealed in its own bag');
+  if (d.chillOnly) bits.push('arrives chilled, not frozen');
+  if (!bits.length) return '';
+  const text = bits.join(' \u00b7 ');
+  return `<div class="ships">${text.charAt(0).toUpperCase()}${text.slice(1)}.</div>`;
+}
+
+function syncShips(name, d) {
+  if (OFF_MENU.has(name)) return;
+  const b = cardBounds(name);
+  if (!b) return;
+  const seg = html.slice(b.start, b.end);
+  const want = shipsLine(d);
+  const existing = seg.match(/<div class="ships">[\s\S]*?<\/div>/);
+  if (existing && existing[0] === want) return;
+  if (!existing && !want) return;
+
+  let next;
+  if (existing) next = want ? seg.replace(existing[0], want) : seg.replace(existing[0], '');
+  else {
+    // Sits directly above the prices, so it reads as part of the offer rather
+    // than as an afterthought below it.
+    const at = seg.indexOf('<div class="prices">');
+    if (at < 0) return;
+    next = seg.slice(0, at) + want + seg.slice(at);
+  }
+  html = html.slice(0, b.start) + next + html.slice(b.end);
+  console.log(`  ${name}: ships line ${want ? 'set' : 'removed'}`);
+  patched++; drift++;
+}
+
+function rebuildPriceBlock(name, display) {
+  if (OFF_MENU.has(name)) return;
+  const b = cardBounds(name);
+  if (!b) { console.log(`  MISSING card: ${name}`); drift++; return; }
+  const seg = html.slice(b.start, b.end);
+  // The lookahead has to know BOTH shapes. Pairings became a <details> when the
+  // catalog was collapsed, and this still expected a <div> — so the match ran
+  // long, the comparison never equalled the rebuilt rows, and the tool reported
+  // drift and rewrote the same block on every single run.
+  const m = seg.match(/<div class="prices">[\s\S]*?(?=<\/div><(?:div|details) class="pairings"|<(?:div|details) class="pairings")/);
+  if (!m) { console.log(`  ${name}: no price block found — fix by hand`); drift++; return; }
+
+  let rows = '<div class="prices">';
+  for (const v of display) {
+    if (v.sizes && v.sizes.length) {
+      const sizes = v.sizes.map(z => `${z.label} $${z.price}`).join('  \u00b7  ');
+      rows += `<div class="price-row"><span class="price-label">${v.label}</span>`
+        + `<div class="price-right"><span class="price-amt">${sizes}</span></div></div>`;
+    } else {
+      rows += `<div class="price-row"><span class="price-label">${v.label}</span>`
+        + `<div class="price-right"><span class="price-amt">$${v.price}</span></div></div>`;
+    }
+    if (v.addOns) {
+      rows += `<div class="price-row"><span class="price-label" style="font-size:11.5px;color:var(--dim);">${v.addOns}</span></div>`;
+    }
+  }
+  if (m[0].trim() === rows.trim()) return;
+  html = html.slice(0, b.start) + seg.replace(m[0], rows) + html.slice(b.end);
+  console.log(`  ${name}: price block rebuilt`);
+  // patched, NOT just drift — the write at the bottom is gated on `patched`,
+  // so incrementing only drift computed the new HTML and threw it away.
+  patched++;
+  drift++;
+}
+
 function syncCard(name, expected) {
   if (OFF_MENU.has(name)) return;
   const b = cardBounds(name);
@@ -77,8 +175,12 @@ function syncCard(name, expected) {
 // invariant checks the same way; without this the tool reports drift forever on
 // a card that is correct.
 for (const d of DISHES) {
-  const priced = (d.priceDisplay && d.priceDisplay.length) ? d.priceDisplay : d.variants;
-  syncCard(d.name, priced.map(v => money(v.price)));
+  syncShips(d.name, d);
+  if (d.priceDisplay && d.priceDisplay.length) { rebuildPriceBlock(d.name, d.priceDisplay); continue; }
+  const priced = d.variants;
+  // Flattened for the same reason as the invariant: a size row prints two
+  // amounts on one line.
+  syncCard(d.name, priced.flatMap(v => (v.sizes && v.sizes.length) ? v.sizes.map(z => money(z.price)) : [money(v.price)]));
 }
 
 // ── CATALOG ATTRIBUTE SYNC (Jul 22) ──────────────────────────────────────────
@@ -234,12 +336,15 @@ for (const d of DISHES) syncContains(d.name, d.copy ? d.copy.contains : null);
 // Allergens line. A card with no block gets one on --write; drift is replaced
 // wholesale. Hand-edits to pairings in main-menu.html will be overwritten —
 // edit dishes.js instead.
+// The pairings block is COLLAPSED on the catalog now, so it is emitted and
+// matched as a <details>. The old <div> form is still recognised on the way in,
+// which is what lets an existing page migrate without a hand edit — but the
+// generator only ever writes the new shape.
 function pairingsBlock(pairs) {
-  const rows = pairs.map(x =>
-    `<div class="pairing-row"><b>${x.drink}</b> — ${x.why}</div>`).join('');
-  return `<div class="pairings"><div class="pairings-head">Goes well with</div>${rows}</div>`;
+  const rows = pairs.map(p => `<div class="pairing-row"><b>${p.drink}</b> \u2014 ${p.why}</div>`).join('');
+  return `<details class="pairings"><summary>Goes well with</summary><div>${rows}</div></details>`;
 }
-const pairingsRe = /<div class="pairings">.*?<\/div><\/div>/s;
+const pairingsRe = /<details class="pairings">[\s\S]*?<\/details>|<div class="pairings">.*?<\/div><\/div>/s;
 function syncPairings(name, pairs) {
   if (OFF_MENU.has(name)) return;
   if (!pairs || !pairs.length) return;

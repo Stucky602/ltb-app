@@ -30,7 +30,7 @@ import {
   AUDIT_LOG_KEY, ARCHIVE_HISTORY_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY,
   PRACTICES_KEY, CAPTURE_INBOX_KEY, LABEL_VERSIONS_KEY, WALK_ANSWERS_KEY,
   TERMS_KEY, ANATOMY_KEY, DERIVATIVES_KEY, ROWAN_QUESTIONS_KEY, CLARIFICATIONS_KEY,
-  NOTES_ROWAN_KEY, DECISION_LEDGER_KEY, ROWAN_BOARDS_KEY, ROWAN_ROLES_KEY, HOUSEHOLD_MEMORIES_KEY, PASSPORT_CABINETS_KEY,
+  NOTES_ROWAN_KEY, DECISION_LEDGER_KEY, ROWAN_BOARDS_KEY, ROWAN_ROLES_KEY, HOUSEHOLD_MEMORIES_KEY, PASSPORT_CABINETS_KEY, ACCOMMODATIONS_KEY,
 } from './config.js';
 import { SCHEMA_VERSION, assessForwardCompat, migrateForward, REFUSE_MESSAGE } from './migrations.js';
 import { saveJSON, stampItemCosts } from './utils.js';
@@ -139,6 +139,7 @@ export function buildBackupPayload(state) {
     rowanRoles: state.rowanRoles,
     householdMemories: state.householdMemories,
     passportCabinets: state.passportCabinets,
+    accommodations: state.accommodations,
     // EC-3: the handled-pending ledger guards against a re-poll resurrecting an
     // order Kevin already accepted (when a worker clear failed). It lived only
     // on-device, so a restore blanked it and could resurrect. Ride the backup.
@@ -212,7 +213,7 @@ export async function applyBackupPayload(payload, deps) {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setNotesRowan, setDecisionLedger, setRowanBoards, setRowanRoles, setHouseholdMemories, setPassportCabinets, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setNotesRowan, setDecisionLedger, setRowanBoards, setRowanRoles, setHouseholdMemories, setPassportCabinets, setAccommodations, setError, setExportMsg, setNotice, handledPendingRef,
   } = deps;
 
   // ── Schema forward-compat guard (v9.22) ─────────────────────────────
@@ -414,6 +415,11 @@ export async function applyBackupPayload(payload, deps) {
   if (payload.passportCabinets && typeof payload.passportCabinets === 'object') {
     setPassportCabinets(payload.passportCabinets);
     await saveJSON(PASSPORT_CABINETS_KEY, payload.passportCabinets);
+  }
+  // Rulings he made once and should never have to make twice.
+  if (payload.accommodations && typeof payload.accommodations === 'object') {
+    setAccommodations(payload.accommodations);
+    await saveJSON(ACCOMMODATIONS_KEY, payload.accommodations);
   }
   // EC-3: restore the handled-pending ledger alongside orders. Restore rolls
   // state back to the backup point, so the ledger of what was handled THEN is

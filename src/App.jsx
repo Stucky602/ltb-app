@@ -23,7 +23,7 @@ import {
   LAST_SEEN_WEEK_KEY, HANDLED_PENDING_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY, CUSTOMER_FLAGS_KEY,
   PRACTICES_KEY, CAPTURE_INBOX_KEY, LABEL_VERSIONS_KEY, WALK_ANSWERS_KEY,
   TERMS_KEY, ANATOMY_KEY, DERIVATIVES_KEY, ROWAN_QUESTIONS_KEY, CLARIFICATIONS_KEY,
-  NOTES_ROWAN_KEY, DECISION_LEDGER_KEY, ROWAN_BOARDS_KEY, ROWAN_ROLES_KEY, HOUSEHOLD_MEMORIES_KEY, PASSPORT_CABINETS_KEY,
+  NOTES_ROWAN_KEY, DECISION_LEDGER_KEY, ROWAN_BOARDS_KEY, ROWAN_ROLES_KEY, HOUSEHOLD_MEMORIES_KEY, PASSPORT_CABINETS_KEY, ACCOMMODATIONS_KEY,
 } from './config.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
@@ -261,6 +261,7 @@ export default function LTBOrderTracker() {
   const [rowanRoles, setRowanRoles] = useState(() => ({ version: 1, sessions: [] }));
   const [householdMemories, setHouseholdMemories] = useState(() => ({ version: 1, memories: [] }));
   const [passportCabinets, setPassportCabinets] = useState(() => ({ version: 1, cabinets: [] }));
+  const [accommodations, setAccommodations] = useState(() => ({ version: 1, decisions: [] }));
   // Banner dismissals. Deliberately NOT persisted: these are warnings, and the
   // keys already scope them tightly (per-day for the deadline, per-shortage for
   // containers), so a reload restoring them is the right amount of insistence.
@@ -715,6 +716,7 @@ export default function LTBOrderTracker() {
       setRowanRoles,
       setHouseholdMemories,
       setPassportCabinets,
+      setAccommodations,
       handledPendingRef, pollWorkerPending,
     }).catch(err => {
       // A rejected promise inside an effect does NOT reach an error boundary,
@@ -1082,9 +1084,9 @@ export default function LTBOrderTracker() {
     orders, shopping, weekDishes, regulars, inventory, ingredientsDb, visualCues, customerFlags,
     costHistory, receiptAliases, auditLog, pipelineJournal, journal,
     containerConfig, weekLedger, copiesNote,
-    archiveHistory, realDataEpoch, rowanLog, dishRankings, practices, captureInbox, labelVersions, walkAnswers, terms, anatomy, derivatives, rowanQuestions, clarifications, notesRowan, decisionLedger, rowanBoards, rowanRoles, householdMemories, passportCabinets,
+    archiveHistory, realDataEpoch, rowanLog, dishRankings, practices, captureInbox, labelVersions, walkAnswers, terms, anatomy, derivatives, rowanQuestions, clarifications, notesRowan, decisionLedger, rowanBoards, rowanRoles, householdMemories, passportCabinets, accommodations,
     handledPending: handledPendingRef.current,
-  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags, practices, captureInbox, labelVersions, walkAnswers, terms, anatomy, derivatives, rowanQuestions, clarifications, notesRowan, decisionLedger, rowanBoards, rowanRoles, householdMemories, passportCabinets]);
+  }), [orders, shopping, weekDishes, regulars, inventory, ingredientsDb, costHistory, receiptAliases, auditLog, pipelineJournal, journal, containerConfig, weekLedger, copiesNote, archiveHistory, realDataEpoch, rowanLog, dishRankings, visualCues, customerFlags, practices, captureInbox, labelVersions, walkAnswers, terms, anatomy, derivatives, rowanQuestions, clarifications, notesRowan, decisionLedger, rowanBoards, rowanRoles, householdMemories, passportCabinets, accommodations]);
 
   const copyBackupToClipboard = useCallback(async () => {
     const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -1225,7 +1227,7 @@ export default function LTBOrderTracker() {
     persistOrders, setShopping, setWeekDishes, setRegulars, setInventory,
     setPipelineJournal, setJournal, setCopiesNote, setWeekLedger,
     setContainerConfig, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setNotesRowan, setDecisionLedger, setRowanBoards, setRowanRoles, setHouseholdMemories, setPassportCabinets, setError, setExportMsg, setNotice, handledPendingRef,
+    setAuditLog, setArchiveHistory, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setNotesRowan, setDecisionLedger, setRowanBoards, setRowanRoles, setHouseholdMemories, setPassportCabinets, setAccommodations, setError, setExportMsg, setNotice, handledPendingRef,
   }), [persistOrders]);
 
 

@@ -48,6 +48,7 @@ export const ANATOMY_VERSION = 1;
 export const CRITICALITY = [
   'identity',    // remove it and this is not the dish any more
   'technique',   // the method depends on it; texture or structure fails without it
+  'flavor',      // the dish tastes wrong without it, but nothing structural fails
   'structural',  // important but substitutable within recorded limits
   'seasoning',   // adjustable to taste
   'garnish',     // removable on request with no consequence
@@ -56,9 +57,48 @@ export const CRITICALITY = [
 export const CRITICALITY_LABELS = {
   identity: 'Identity-defining',
   technique: 'Technique-critical',
+  flavor: 'Flavor critical',
   structural: 'Structurally important',
   seasoning: 'Seasoning',
   garnish: 'Removable garnish',
+};
+
+// `flavor` IS A SIXTH TIER, ADDED FROM KEVIN'S OWN ANSWERS (Aug 2 walk).
+//
+// He used it unprompted on 4 of 10 Bolognese lines and 2 on the curry — the red
+// wine, the tomato paste, the soffritto, the garlic. It is his most-used tier
+// and the original five had no room for it: those lines are not identity, not
+// technique, and calling them seasoning would say they are adjustable to taste.
+//
+// The five were missing their middle. Squashing his answers into the existing
+// buckets would have lost the distinction he was actually drawing.
+
+// SUBSTITUTABILITY IS A SEPARATE FIELD, NOT DERIVED FROM THE TIER.
+//
+// The workbench was going to infer removability from criticality. It cannot, and
+// two of Kevin's own answers prove it:
+//
+//   * The butter on the Indian curry is IDENTITY-DEFINING and still swappable —
+//     "I can sub this out if I need to do a vegan version, it just won't be as
+//     good."
+//   * Brown sugar is FLAVOR CRITICAL and the product is arbitrary — "it doesn't
+//     have to be brown sugar per se, but often it needs some sweetness."
+//
+// Criticality answers "how much does the dish depend on it". Substitutability
+// answers "can something else do its job". Inferring either from the other would
+// have marked the butter untouchable and the sugar fixed, and both are wrong.
+export const SUBSTITUTABILITY = [
+  'fixed',        // this exact product, nothing else does the job
+  'swappable',    // a named alternative works, recorded in `substitutes`
+  'role',         // the LINE names a product but the requirement is a property
+  'linked',       // not an independent choice; it swaps with another line
+];
+
+export const SUBSTITUTABILITY_LABELS = {
+  fixed: 'This exact ingredient',
+  swappable: 'A recorded alternative works',
+  role: 'The role matters, not the product',
+  linked: 'Follows another line',
 };
 
 export const ANATOMY_STATUSES = ['proposed', 'confirmed', 'retired'];
@@ -90,6 +130,19 @@ export function normalizeAnatomy(raw) {
       ifLess: str(e.ifLess),
       substitutions: list(e.substitutions),
       nonSubstitutions: list(e.nonSubstitutions),
+      // INDEPENDENT OF CRITICALITY — see the note beside SUBSTITUTABILITY.
+      // Null means unrecorded, which is not the same as 'fixed'.
+      substitutability: SUBSTITUTABILITY.includes(e.substitutability) ? e.substitutability : null,
+      // What a `role` line actually requires, in his words: "sweetness to
+      // balance it out" rather than "brown sugar". Only meaningful on `role`.
+      role: str(e.role, 400),
+      // The line this one follows when substitutability is `linked`. The curry's
+      // stock swaps with the protein and needs no ruling of its own.
+      linkedTo: str(e.linkedTo, 200),
+      // AN UPGRADE IS NOT A BASE LINE. Egg pappardelle: "It's an upgrade, not a
+      // base line." Without this, declining an upgrade reads as a recipe
+      // modification and the upgrade gets scored as part of the base dish.
+      upgrade: e.upgrade === true,
       misunderstanding: str(e.misunderstanding),
       // Evidence links, per the shared primitive: journal entry ids, cue ids,
       // capture ids. Generated proposals are not evidence and are not stored here.
@@ -164,6 +217,23 @@ export function removalConsequence(store, dishId, ingredientId, recipeVersionId)
     // an entry with no ifOmitted text, routes to Kevin: silence about the
     // consequence is not evidence that there is not one.
     removableOnRequest: e.criticality === 'garnish',
+    // REPORTED SEPARATELY, never folded into removability. A line can be
+    // identity-defining and still swappable (the curry's butter), so a caller
+    // asking "can this come out" and a caller asking "can something else do its
+    // job" get different answers to different questions.
+    substitutability: e.substitutability || null,
+    substitutabilityLabel: e.substitutability ? SUBSTITUTABILITY_LABELS[e.substitutability] : null,
+    role: e.role || '',
+    linkedTo: e.linkedTo || '',
+    // The named alternatives travel with the consequence. Without them the
+    // packet can say a swap exists and not say what it is, which sends Kevin
+    // back to the anatomy to look up something the app already had.
+    substitutions: e.substitutions || [],
+    // And the ones he ruled OUT, which matter more — an alternative he already
+    // rejected must not be re-proposed as if it were open.
+    nonSubstitutions: e.nonSubstitutions || [],
+    // An upgrade declined is not an accommodation at all.
+    upgrade: e.upgrade === true,
     ifOmitted: e.ifOmitted || '',
   };
 }

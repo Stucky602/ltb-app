@@ -94,6 +94,8 @@ export const ROWAN_ROLES_KEY = 'ltb_rowan_roles_v1';
 export const HOUSEHOLD_MEMORIES_KEY = 'ltb_household_memories_v1';
 // How a household arranges its own passport stamps.
 export const PASSPORT_CABINETS_KEY = 'ltb_passport_cabinets_v1';
+// Kevin's rulings on "can you make it without X".
+export const ACCOMMODATIONS_KEY = 'ltb_accommodations_v1';
 // The knowledge core's three stores. Terms and anatomy are Kevin's words about
 // food and language; derivatives are the single approved gate between a private
 // record and any other reader.

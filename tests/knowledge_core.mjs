@@ -271,5 +271,68 @@ const ok = (label, cond, detail = '') => {
     /e\.at\b/.test(fn) && /e\.note\b/.test(fn) && /e\.familyNote\b/.test(fn));
 }
 
+// ── ANATOMY: THE FOUR STRUCTURAL FINDINGS FROM THE AUG 2 WALK ───────────────
+{
+  const a = await import('../src/anatomy.js');
+
+  // B. A SIXTH TIER, from his own answers rather than the original enum.
+  ok('`flavor` is a criticality tier', a.CRITICALITY.includes('flavor'));
+  ok('and it sits between technique and structural',
+    a.CRITICALITY.indexOf('flavor') > a.CRITICALITY.indexOf('technique')
+    && a.CRITICALITY.indexOf('flavor') < a.CRITICALITY.indexOf('structural'),
+    'the original five were missing their middle; he used this on 4 of 10 Bolognese lines');
+  ok('every tier has a label', a.CRITICALITY.every(c => a.CRITICALITY_LABELS[c]));
+
+  // A. SUBSTITUTABILITY IS INDEPENDENT. The case that proves it.
+  let st = a.addAnatomy(a.emptyAnatomy(), {
+    dishId: 'indian-style-curry', ingredientId: 'butter',
+    criticality: 'identity', substitutability: 'swappable',
+    substitutions: ['neutral oil'], status: 'confirmed',
+  });
+  const butter = a.removalConsequence(st, 'indian-style-curry', 'butter');
+  ok('a line can be IDENTITY-DEFINING and still swappable',
+    butter.criticality === 'identity' && butter.substitutability === 'swappable',
+    'inferring removability from the tier would have marked the curry butter untouchable');
+  ok('and being swappable does NOT make it removable on request',
+    butter.removableOnRequest === false,
+    '"can something else do its job" and "can it come out" are different questions');
+
+  // The brown sugar case: the line names a product, the requirement is a property.
+  st = a.addAnatomy(st, {
+    dishId: 'indian-style-curry', ingredientId: 'brown_sugar',
+    criticality: 'flavor', substitutability: 'role',
+    role: 'sweetness to balance it out', status: 'confirmed',
+  });
+  const sugar = a.removalConsequence(st, 'indian-style-curry', 'brown_sugar');
+  ok('a `role` line records WHAT IT DOES, not just what it is',
+    sugar.role === 'sweetness to balance it out',
+    'the line names brown sugar; the requirement is sweetness from anywhere');
+
+  // D. Upgrades and linked lines.
+  st = a.addAnatomy(st, {
+    dishId: 'bolognese', ingredientId: 'egg_pappardelle',
+    criticality: 'structural', upgrade: true, status: 'confirmed',
+  });
+  ok('an upgrade is marked as one',
+    a.removalConsequence(st, 'bolognese', 'egg_pappardelle').upgrade === true,
+    'otherwise declining it reads as a recipe modification');
+
+  st = a.addAnatomy(st, {
+    dishId: 'indian-style-curry', ingredientId: 'stock',
+    criticality: 'structural', substitutability: 'linked',
+    linkedTo: 'protein', status: 'confirmed',
+  });
+  ok('a linked line names what it follows',
+    a.removalConsequence(st, 'indian-style-curry', 'stock').linkedTo === 'protein',
+    'the stock swaps with the protein and needs no ruling of its own');
+
+  // Unrecorded stays unknown in BOTH axes.
+  st = a.addAnatomy(st, { dishId: 'chili', ingredientId: 'marmite', criticality: 'flavor', status: 'confirmed' });
+  const m2 = a.removalConsequence(st, 'chili', 'marmite');
+  ok('an unrecorded substitutability is null, not "fixed"',
+    m2.substitutability === null,
+    'silence about a swap is not evidence there is not one');
+}
+
 console.log(failed === 0 ? '\nKNOWLEDGE CORE: ALL PASS' : `\nKNOWLEDGE CORE: ${failed} FAILURES`);
 process.exit(failed ? 1 : 0);

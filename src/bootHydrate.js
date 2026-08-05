@@ -43,6 +43,7 @@ import { normalizeLedger as normalizeDecisionLedger } from './decisionLedger.js'
 import { normalizeBoards, normalizeRoleLog } from './rowanParticipation.js';
 import { normalizeMemories } from './householdMemories.js';
 import { normalizeCabinets } from './passportCabinets.js';
+import { normalizeAccommodations } from './accommodation.js';
 import {
   ORDERS_KEY, CHECKS_KEY, SHOPPING_KEY, WEEK_KEY, DELIVER_CHECKS_KEY,
   DISH_NOTES_KEY, FEEDBACK_KEY, PIPELINE_JOURNAL_KEY, JOURNAL_KEY,
@@ -50,7 +51,7 @@ import {
   ARCHIVE_HISTORY_KEY, CUSTOMER_FLAGS_KEY, PENDING_KEY, HANDLED_PENDING_KEY, REGULARS_KEY, REAL_DATA_EPOCH_KEY, ROWAN_LOG_KEY, DISH_RANKING_KEY, VISUAL_CUES_KEY,
   PRACTICES_KEY, CAPTURE_INBOX_KEY, LABEL_VERSIONS_KEY, WALK_ANSWERS_KEY,
   TERMS_KEY, ANATOMY_KEY, DERIVATIVES_KEY, ROWAN_QUESTIONS_KEY, CLARIFICATIONS_KEY,
-  NOTES_ROWAN_KEY, DECISION_LEDGER_KEY, ROWAN_BOARDS_KEY, ROWAN_ROLES_KEY, HOUSEHOLD_MEMORIES_KEY, PASSPORT_CABINETS_KEY,
+  NOTES_ROWAN_KEY, DECISION_LEDGER_KEY, ROWAN_BOARDS_KEY, ROWAN_ROLES_KEY, HOUSEHOLD_MEMORIES_KEY, PASSPORT_CABINETS_KEY, ACCOMMODATIONS_KEY,
   INVENTORY_KEY, INGREDIENTS_KEY, COST_HISTORY_KEY, RECEIPT_ALIASES_KEY,
   AUDIT_LOG_KEY, MENU_FINGERPRINT_KEY,
 } from './config.js';
@@ -76,7 +77,7 @@ export async function hydrateFromStorage(deps) {
     setCopiesNote, setArchiveHistory, setDishFeedback, setPipelineJournal,
     setShopping, setBooted, setWeekDishes, setPendingOrders, setRegulars,
     setInventory, setIngredientsDb, setCostHistory, setReceiptAliases,
-    setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setNotesRowan, setDecisionLedger, setRowanBoards, setRowanRoles, setHouseholdMemories, setPassportCabinets,
+    setAuditLog, setNotice, setRealDataEpoch, setRowanLog, setDishRankings, setVisualCues, setCustomerFlags, setPractices, setCaptureInbox, setLabelVersions, setWalkAnswers, setTerms, setAnatomy, setDerivatives, setRowanQuestions, setClarifications, setNotesRowan, setDecisionLedger, setRowanBoards, setRowanRoles, setHouseholdMemories, setPassportCabinets, setAccommodations,
     handledPendingRef, pollWorkerPending,
   } = deps;
 
@@ -104,7 +105,7 @@ export async function hydrateFromStorage(deps) {
     await saveJSON(SCHEMA_VERSION_KEY, SCHEMA_VERSION);
   }
 
-  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags, loadedPractices, loadedCapture, loadedLabels, loadedWalks, loadedTerms, loadedAnatomy, loadedDerivatives, loadedQuestions, loadedClarifications, loadedNotes, loadedDecisions, loadedBoards, loadedRoles, loadedMemories, loadedCabinets] = await Promise.all([
+  const [loadedOrders, loadedChecks, loadedShopping, loadedWeek, loadedDeliverChecks, loadedDishNotes, loadedDishFeedback, loadedPipelineJournal, loadedJournal, loadedLastSeenWeek, loadedContainerCfg, loadedLedger, loadedCopiesNote, loadedArchiveHistory, loadedEpoch, loadedRowan, loadedRankings, loadedCues, loadedFlags, loadedPractices, loadedCapture, loadedLabels, loadedWalks, loadedTerms, loadedAnatomy, loadedDerivatives, loadedQuestions, loadedClarifications, loadedNotes, loadedDecisions, loadedBoards, loadedRoles, loadedMemories, loadedCabinets, loadedAccommodations] = await Promise.all([
     loadJSON(ORDERS_KEY, []),
     loadJSON(CHECKS_KEY, {}),
     loadJSON(SHOPPING_KEY, []),
@@ -139,6 +140,7 @@ export async function hydrateFromStorage(deps) {
     loadJSON(ROWAN_ROLES_KEY, null),
     loadJSON(HOUSEHOLD_MEMORIES_KEY, null),
     loadJSON(PASSPORT_CABINETS_KEY, null),
+    loadJSON(ACCOMMODATIONS_KEY, null),
   ]);
   if (!isMounted()) return;
   const migrated = loadedOrders.map(o => ({
@@ -244,6 +246,7 @@ export async function hydrateFromStorage(deps) {
   setRowanRoles(normalizeRoleLog(loadedRoles));
   setHouseholdMemories(normalizeMemories(loadedMemories));
   setPassportCabinets(normalizeCabinets(loadedCabinets));
+  setAccommodations(normalizeAccommodations(loadedAccommodations));
   setDishFeedback(loadedDishFeedback || {});
   if (loadedPipelineJournal && typeof loadedPipelineJournal === 'object') {
     setPipelineJournal({ version: 1, entries: loadedPipelineJournal.entries || {} });

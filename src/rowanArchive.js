@@ -203,6 +203,25 @@ function ledgerSection(store) {
     'Nothing written here yet. The store ships empty on purpose: an entry is added when Kevin writes his own reasoning, not derived from the code.');
 }
 
+// ── Accommodations ──────────────────────────────────────────────────────────
+//
+// What Kevin ruled when somebody asked for a dish without something. The
+// REASONING is the archive-worthy part: the outcome survives in the app, and
+// why he said it does not.
+function accommodationsSection(store) {
+  const items = ((store && store.decisions) || []).slice().sort((a, b) => (a.at || 0) - (b.at || 0));
+  const WORD = { yes: 'Yes', no: 'No', swap: 'Swapped' };
+  const body = items.map(d => {
+    const head = [dateOf(d.at), d.dishId, 'without ' + d.ingredientId].filter(Boolean).map(esc).join(' \u00b7 ');
+    return `<div class="entry"><div class="meta">${head}</div>`
+      + `<div class="q">${esc(WORD[d.answer] || d.answer)}${d.swapTo ? ' \u2014 ' + esc(d.swapTo) : ''}</div>`
+      + (d.note ? `<p>${esc(d.note)}</p>` : '')
+      + (d.recipeVersionId ? `<div class="meta">Ruled against ${esc(d.recipeVersionId)}</div>` : '')
+      + '</div>';
+  });
+  return section('What I said yes and no to', body, 'Nothing ruled yet.');
+}
+
 // THE RENDERERS, keyed by the backup payload field name they cover. The
 // completeness gate reads these keys, so adding a section here is what makes a
 // store count as archived.
@@ -215,6 +234,7 @@ export const ROWAN_ARCHIVE_SECTIONS = {
   passportCabinets: cabinetsSection,
   derivatives: derivativesSection,
   decisionLedger: ledgerSection,
+  accommodations: accommodationsSection,
 };
 
 export function buildRowanArchiveSections(stores = {}) {

@@ -197,7 +197,7 @@ export const DISHES = [
     // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
     copy: {
       desc: "A proper roux-based gumbo, cooked dark and slow with chicken thighs, Texas Gulf shrimp, and the holy trinity. Made for rice. The small comes in two containers (~4 servings), the large in four (~8).",
-      reheat: "The minimum batch size is the Large, so the Small option is only available when splitting a Large between orders. Uncooked rice included.",
+      reheat: "Uncooked rice included.",
       contains: "Gluten (flour), Shellfish (shrimp).",
       pairings: [
         { id: "abita_amber", drink: "Abita Amber", why: "the New Orleans table beer; caramel malt under a dark roux" },
@@ -250,6 +250,11 @@ export const DISHES = [
   {
     id: 'tex-mex-kit',
     name: 'Tex-Mex Kit',
+    // SHAPE 2: protein choice, then size.
+    priceDisplay: [
+      { label: 'Pulled pork', sizes: [{ label: 'Small', price: 42 }, { label: 'Large', price: 80 }] },
+      { label: 'Pulled beef', sizes: [{ label: 'Small', price: 60 }, { label: 'Large', price: 115 }] },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -339,6 +344,12 @@ export const DISHES = [
   {
     id: 'indian-style-curry',
     name: 'Indian Style Curry',
+    // SHAPE 2: three proteins, no add-on.
+    priceDisplay: [
+      { label: 'Chickpea', sizes: [{ label: 'Small', price: 30 }, { label: 'Large', price: 55 }] },
+      { label: 'Chicken', sizes: [{ label: 'Small', price: 35 }, { label: 'Large', price: 65 }] },
+      { label: 'Shrimp', sizes: [{ label: 'Small', price: 55 }, { label: 'Large', price: 100 }] },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -438,7 +449,7 @@ export const DISHES = [
     // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
     copy: {
       desc: "A rich, slow-braised Japanese curry inspired by Sojiro's Leblanc café. Wagyu london broil, kabocha squash, and carrots in a deeply layered sauce built with red wine, dark chocolate, espresso, apple, and honey. The carrots and kabocha squash come separately in a sous vide bag — reheat the curry, then add the vegetables right before serving to keep everything at its best. Comes with uncooked rice.",
-      reheat: "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving. Unlike our other sous vide vegetables, discard the bag's sauce rather than using it as a glaze — it contains butter, so avoid pouring it down the drain. Uncooked rice included, cook fresh for best results. Small batch available only when another customer orders the same week — reach out if you have questions.",
+      reheat: "Comes in two parts — the curry in a container and the vegetables in a sous vide bag. Warm the curry gently on the stove over medium-low, reheat the veg bag in simmering water, then combine right before serving. Unlike our other sous vide vegetables, discard the bag's sauce rather than using it as a glaze — it contains butter, so avoid pouring it down the drain. Uncooked rice included, cook fresh for best results.",
       contains: "Dairy (butter). Gluten (flour). Fish (fish sauce, Worcestershire).",
       pairings: [
         { id: "ramune", drink: "Ramune or any lightly citrus soda", why: "the Japanese curry-shop counter answer; bright against a rich brown roux" },
@@ -651,14 +662,22 @@ export const DISHES = [
       factors: { 'Small (~4 servings)': 0.5, 'Large (~8 servings)': 1 },
       base: [
         I('Pork shoulder', 8, 'lb'), // real yield after trim/fat loss; Small=4lb confirmed by Kevin
-        I('Kosher salt', 10, 'tbs'),      // 50/50 dry brine, 24 hours
+        // ONE SALT LINE, 1/2 CUP. Kevin, Aug 3: "change both salt lines to a
+        // single line that's just 1/2 cup. I use more for things like the
+        // ginger scallion sauce component but that is negligible."
+        //
+        // Replaces `10 tbs Kosher salt` (the dry brine) plus a separate
+        // `2 batch-use Salt`. The second was mapped `{ skip: true }` and cost
+        // nothing, so the dish was carrying two salt lines where only one was
+        // priced — Bo Ssam is the one dish where salt is costed rather than
+        // riding the surcharge.
+        I('Kosher salt', 0.5, 'cup'),     // 50/50 dry brine, 24 hours
         I('Sugar', 0.5, 'cup'),           // 50/50 dry brine, 24 hours
         I('Scallions', 3, 'bunch'), // Small=1.5 bunch confirmed by Kevin
         I('Ginger', 4, 'knobs'),
         I('Vegetable oil', 0.25, 'cup'),
         I('Soy sauce', 1.5, 'tbsp'),
         I('Vinegar', 0.2, 'batch-use'),
-        I('Salt', 2, 'batch-use'),
         // Kimchi is priced at raw cost with no margin buffer (Kevin's call —
         // store-bought, doesn't feel right marking it up beyond general tax).
         // This only affects how the cost ANCHOR was built; the live drift
@@ -675,6 +694,21 @@ export const DISHES = [
   {
     id: 'cumin-mushroom-noodles-cumin',
     name: 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice',
+    // SHAPE 2 with an add-on, and TWELVE variants down to three lines. Kevin:
+    // this is ONE dish with different protein and starch options, not two — the
+    // starch follows the protein (mushroom comes with noodles, beef and lamb
+    // with rice), so the protein is the only choice a customer makes.
+    //
+    // THE GREENS PRICE IS INCONSISTENT IN THE REGISTRY and is shown per row
+    // rather than as one blanket number: mushroom and beef are +$5 on both
+    // sizes, but lamb is +$2 on the Small and +$4 on the Large. That may be
+    // deliberate or may be drift — either way a single "+$5" line would have
+    // quietly overcharged lamb, so it is surfaced as it stands.
+    priceDisplay: [
+      { label: 'Mushroom, with noodles', sizes: [{ label: 'Small', price: 45 }, { label: 'Large', price: 80 }], addOns: 'add Asian greens +$5' },
+      { label: 'Beef, with rice', sizes: [{ label: 'Small', price: 35 }, { label: 'Large', price: 60 }], addOns: 'add Asian greens +$5' },
+      { label: 'Lamb, with rice', sizes: [{ label: 'Small', price: 45 }, { label: 'Large', price: 80 }], addOns: 'add Asian greens +$2 small / +$4 large' },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -856,6 +890,13 @@ export const DISHES = [
   {
     id: 'shrimp-or-tofu-with',
     name: 'Shrimp or Tofu with Asparagus in Black Bean Sauce',
+    // SHAPE 2: the protein is a CHOICE, not an upgrade. $25 tofu against $45
+    // shrimp is a different order, and add-on framing would misread it as one.
+    // So the protein leads and its sizes sit on the same line.
+    priceDisplay: [
+      { label: 'Tofu', sizes: [{ label: 'Small', price: 25 }, { label: 'Large', price: 45 }] },
+      { label: 'Shrimp', sizes: [{ label: 'Small', price: 45 }, { label: 'Large', price: 80 }] },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -935,6 +976,11 @@ export const DISHES = [
   {
     id: 'stir-fried-long-beans-with',
     name: 'Stir Fried Long Beans with Ground Pork or Tofu',
+    // SHAPE 2, and it collapses to ONE line: pork and tofu are the same price,
+    // so four rows were saying two numbers.
+    priceDisplay: [
+      { label: 'Ground pork or tofu', sizes: [{ label: 'Small', price: 30 }, { label: 'Large', price: 55 }] },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -1002,6 +1048,11 @@ export const DISHES = [
   {
     id: 'texas-gulf-shrimp-or-tofu',
     name: 'Texas Gulf Shrimp or Tofu and Chinese Broccoli',
+    // SHAPE 2: protein choice, then size.
+    priceDisplay: [
+      { label: 'Tofu', sizes: [{ label: 'Small', price: 25 }, { label: 'Large', price: 45 }] },
+      { label: 'Shrimp', sizes: [{ label: 'Small', price: 40 }, { label: 'Large', price: 75 }] },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -1206,14 +1257,14 @@ export const DISHES = [
       // Eight combinations is eight price rows on a menu page, which is why
       // this dish now carries `priceDisplay`. The ORDER FORM still needs every
       // combination; the MENU shows a base price and its add-ons.
-      { label: 'Small (~4)', price: 45, cost: 22.15 },
-      { label: 'Large (~8)', price: 80, cost: 43.2 },
-      { label: 'Small (~4) + Egg Pappardelle', price: 55, cost: 26.69 },
-      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 56.84 },
-      { label: 'Small (~4) + Porcini', price: 50, cost: 26.65 },
-      { label: 'Large (~8) + Porcini', price: 90, cost: 52.2 },
-      { label: 'Small (~4) + Egg Pappardelle + Porcini', price: 60, cost: 31.19 },
-      { label: 'Large (~8) + Egg Pappardelle + Porcini', price: 105, cost: 65.84 },
+      { label: 'Small (~4)', price: 45, cost: 19.65 },
+      { label: 'Large (~8)', price: 80, cost: 38.2 },
+      { label: 'Small (~4) + Egg Pappardelle', price: 55, cost: 24.19 },
+      { label: 'Large (~8) + Egg Pappardelle', price: 95, cost: 51.84 },
+      { label: 'Small (~4) + Porcini', price: 50, cost: 24.15 },
+      { label: 'Large (~8) + Porcini', price: 90, cost: 47.2 },
+      { label: 'Small (~4) + Egg Pappardelle + Porcini', price: 60, cost: 28.69 },
+      { label: 'Large (~8) + Egg Pappardelle + Porcini', price: 105, cost: 60.84 },
     ],
     // WHAT THE MENU SHOWS instead of eight price rows. The order form is
     // unaffected and still offers every combination.
@@ -1233,7 +1284,17 @@ export const DISHES = [
         I('Ground lamb', 1, 'lb'),
         I('Ground beef', 1, 'lb'),
         I('Milk', 1, 'cup'),
-        I('Red wine', 1, 'bottle'),
+        // ONE CUP, NOT A 750 ml BOTTLE. Kevin, Aug 2: this read `1 bottle` and
+        // he means one small bottle — a cup. Costing converted `bottle` to 3
+        // cups via CUPS_PER_BOTTLE_WINE, so the Bolognese was over-costed by
+        // $5.00 on every base batch.
+        //
+        // Sweep-class find: the UNIT was wrong, not merely vague, so nothing
+        // flagged it — a wrong unit costs silently and reads as a real number.
+        //
+        // The Bourguignon genuinely uses a bottle and is left alone; this walk
+        // ruled on the Bolognese only.
+        I('Red wine', 1, 'cup'),
         I('Tomato paste', 1, 'small can'),
         I('Fresh thyme', 1, 'sprig'),
         I('Onion', 1, ''),
@@ -1341,6 +1402,11 @@ export const DISHES = [
   {
     id: 'orecchiette-with-bitter',
     name: 'Orecchiette with Bitter Greens and Anchovies',
+    // SHAPE 1: size with an optional add-on, same as the Bolognese.
+    priceDisplay: [
+      { label: 'Small (~4-5)', price: 25, addOns: 'add fennel pork sausage +$10' },
+      { label: 'Large (~8-10)', price: 45, addOns: 'add fennel pork sausage +$15' },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains
@@ -1417,7 +1483,7 @@ export const DISHES = [
     // (tools/syncMainMenu.mjs --write). Edit HERE; the gates do the rest.
     copy: {
       desc: "A lighter, more vibrant take on pasta than you might expect. Wide egg pappardelle in a silky cream sauce built on slow-cooked fennel and bulb onions, brightened with fresh mint, lemon, and white wine — all three working together to lift the dish. Finished with good parmesan, asparagus, and petite peas folded in. Vegetarian. Comes with 1 pack of premium egg pappardelle for the small (~2-3 servings) and 2 packs for the large (~5-6 servings) — this one isn't the same dish without them, so there's no substitution on the pasta.",
-      reheat: "Sealed in a bag for the best reheat — see the note on bagged dishes. Small batch available only when another customer orders the same week — reach out if you have questions.",
+      reheat: "Sealed in a bag for the best reheat — see the note on bagged dishes.",
       contains: "Dairy (cream, parmesan), Gluten (pasta), Egg (pasta), Soy (lecithin in the sauce).",
       pairings: [
         { id: "vermentino", drink: "Vermentino", why: "herby coastal white for an herby plate" },
@@ -1475,6 +1541,11 @@ export const DISHES = [
   {
     id: 'saffron-pork-ragu',
     name: 'Saffron Pork Ragu',
+    // SHAPE 1: size with an optional add-on.
+    priceDisplay: [
+      { label: 'Small (~4 servings)', price: 35, addOns: 'add polenta +$8' },
+      { label: 'Large (~8 servings)', price: 65, addOns: 'add polenta +$15' },
+    ],
     // CANON customer copy — the single source for this dish's prose. menu.html
     // LIBRARY must MATCH these verbatim (tests/library_sync.mjs), and
     // main-menu.html's Allergens line is generated from copy.contains

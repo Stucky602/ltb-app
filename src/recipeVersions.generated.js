@@ -1090,7 +1090,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Bo Ssam",
     "parentVersionId": null,
     "effectiveAt": "2026-07-30T15:27:15.987Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "c534e60c96f9e95ca08a9bcf64fd98085d6520efee10f8e9710ec9855cac5648",
     "revisionEntryId": null,
     "snapshot": {
@@ -5396,7 +5396,7 @@ export const RECIPE_VERSIONS = [
     "dishName": "Bolognese",
     "parentVersionId": "bolognese@2026-08-03-c",
     "effectiveAt": "2026-08-03T22:12:11.746Z",
-    "status": "current",
+    "status": "retired",
     "recipeHash": "51b139774b0e27ad87b99cb40eadf3ca160499162ae5ede8468a8e0190896b75",
     "revisionEntryId": null,
     "snapshot": {
@@ -5581,6 +5581,305 @@ export const RECIPE_VERSIONS = [
       },
       "packaging": {
         "round32": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "bolognese@2026-08-05-a",
+    "dishId": "bolognese",
+    "dishName": "Bolognese",
+    "parentVersionId": "bolognese@2026-08-03-d",
+    "effectiveAt": "2026-08-05T01:46:45.248Z",
+    "status": "current",
+    "recipeHash": "d9550f22a21d3cb7cc6f63ed07e989812570a108ba69042aa0f701c9caba1b87",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Ground pork",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground lamb",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Ground beef",
+            "q": 1,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Milk",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Red wine",
+            "q": 1,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Tomato paste",
+            "q": 1,
+            "staple": false,
+            "u": "small can"
+          },
+          {
+            "name": "Fresh thyme",
+            "q": 1,
+            "staple": false,
+            "u": "sprig"
+          },
+          {
+            "name": "Onion",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Carrot",
+            "q": 1,
+            "staple": false,
+            "u": ""
+          },
+          {
+            "name": "Celery",
+            "q": 2,
+            "staple": false,
+            "u": "stalks"
+          },
+          {
+            "name": "Garlic",
+            "q": 4,
+            "staple": false,
+            "u": "cloves"
+          },
+          {
+            "name": "Pasta (ask customer for shape!)",
+            "q": 2,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Nutmeg",
+            "q": 1,
+            "staple": true,
+            "u": "pinch"
+          }
+        ],
+        "extras": {
+          "Large (~8) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Large (~8) + Egg Pappardelle + Porcini": [
+            {
+              "name": "Egg pappardelle",
+              "q": 3,
+              "staple": false,
+              "u": "packs"
+            },
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 2,
+              "staple": false,
+              "u": "oz"
+            }
+          ],
+          "Large (~8) + Porcini": [
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 2,
+              "staple": false,
+              "u": "oz"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            }
+          ],
+          "Small (~4) + Egg Pappardelle + Porcini": [
+            {
+              "name": "Egg pappardelle",
+              "q": 2,
+              "staple": false,
+              "u": "packs"
+            },
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 1,
+              "staple": false,
+              "u": "oz"
+            }
+          ],
+          "Small (~4) + Porcini": [
+            {
+              "name": "Dried porcini mushrooms",
+              "q": 1,
+              "staple": false,
+              "u": "oz"
+            }
+          ]
+        },
+        "factors": {
+          "Large (~8)": 1,
+          "Large (~8) + Egg Pappardelle": 1,
+          "Large (~8) + Egg Pappardelle + Porcini": 1,
+          "Large (~8) + Porcini": 1,
+          "Small (~4)": 0.5,
+          "Small (~4) + Egg Pappardelle": 0.5,
+          "Small (~4) + Egg Pappardelle + Porcini": 0.5,
+          "Small (~4) + Porcini": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4)",
+        "Large (~8)",
+        "Small (~4) + Egg Pappardelle",
+        "Large (~8) + Egg Pappardelle",
+        "Small (~4) + Porcini",
+        "Large (~8) + Porcini",
+        "Small (~4) + Egg Pappardelle + Porcini",
+        "Large (~8) + Egg Pappardelle + Porcini"
+      ],
+      "reheat": "pasta",
+      "stewVegCopy": null,
+      "allergens": {
+        "dairy": true,
+        "egg": [
+          "Small (~4) + Egg Pappardelle",
+          "Large (~8) + Egg Pappardelle",
+          "Small (~4) + Egg Pappardelle + Porcini",
+          "Large (~8) + Egg Pappardelle + Porcini"
+        ],
+        "gluten": true
+      },
+      "copy": {
+        "desc": "A proper Bolognese, cooked low and slow with a soffritto base, a mix of meats, milk, and wine until it's rich and velvety. This is one of the slow-cooked exceptions, and it tastes like the hours that went into it. The dried porcini version is the better one, full stop — they add a depth the plain version cannot reach. I keep the plain one on because some people have a mushroom allergy and some just do not like them, and neither is a reason to go without.",
+        "reheat": "Uncooked pasta included, cook fresh — let me know what shape you'd like. Want premium egg pappardelle instead? Select that variant (+$10 small / +$15 large, covers 2 or 3 packs respectively). Warm the sauce gently, adding a splash of pasta water to loosen.",
+        "contains": "Dairy. Gluten if including pasta. Egg if choosing the egg pappardelle option."
+      },
+      "packaging": {
+        "round32": 1
+      },
+      "componentVersionRefs": []
+    }
+  },
+  {
+    "id": "bo-ssam@2026-08-05-a",
+    "dishId": "bo-ssam",
+    "dishName": "Bo Ssam",
+    "parentVersionId": "bo-ssam@2026-07-30-a",
+    "effectiveAt": "2026-08-05T01:54:38.113Z",
+    "status": "current",
+    "recipeHash": "a9f0a74cc1cb3ea8c74d2f9f16f074f60ab115a97df38d56e53084d81da0a475",
+    "revisionEntryId": null,
+    "snapshot": {
+      "recipe": {
+        "base": [
+          {
+            "name": "Pork shoulder",
+            "q": 8,
+            "staple": false,
+            "u": "lb"
+          },
+          {
+            "name": "Kosher salt",
+            "q": 0.5,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Sugar",
+            "q": 0.5,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Scallions",
+            "q": 3,
+            "staple": false,
+            "u": "bunch"
+          },
+          {
+            "name": "Ginger",
+            "q": 4,
+            "staple": false,
+            "u": "knobs"
+          },
+          {
+            "name": "Vegetable oil",
+            "q": 0.25,
+            "staple": false,
+            "u": "cup"
+          },
+          {
+            "name": "Soy sauce",
+            "q": 1.5,
+            "staple": false,
+            "u": "tbsp"
+          },
+          {
+            "name": "Vinegar",
+            "q": 0.2,
+            "staple": false,
+            "u": "batch-use"
+          },
+          {
+            "fixed": true,
+            "name": "Kimchi",
+            "q": 1,
+            "staple": false,
+            "u": "jar"
+          },
+          {
+            "name": "Rice (included with order)",
+            "q": 1,
+            "staple": true,
+            "u": "batch"
+          }
+        ],
+        "factors": {
+          "Large (~8 servings)": 1,
+          "Small (~4 servings)": 0.5
+        }
+      },
+      "variants": [
+        "Small (~4 servings)",
+        "Large (~8 servings)"
+      ],
+      "reheat": null,
+      "stewVegCopy": null,
+      "allergens": {
+        "gluten": true,
+        "soy": true
+      },
+      "copy": {
+        "desc": "Korean-style pork shoulder, dry-brined 24 hours in a 50/50 salt and sugar mix, then roasted low and slow until tender and lightly crisped on the outside. Served with ginger scallion sauce and a side of kimchi. You cook the rice — also great as lettuce wraps if you want to go that route (lettuce not included).",
+        "reheat": "The pork comes pre-pulled and sealed in a bag — bring a pot of water to a gentle simmer and place the sealed bag in until heated through. The ginger scallion sauce and kimchi are ready straight from the fridge, no reheating needed. Cook the rice fresh.",
+        "contains": "Soy, Gluten (soy sauce). Kimchi may contain Fish or Shellfish depending on brand — ask if you have concerns."
+      },
+      "packaging": {
+        "bag": 1,
+        "round16": 1,
+        "round8": 1
       },
       "componentVersionRefs": []
     }

@@ -244,6 +244,7 @@ const PROTECTED = new Set([
   'src/rowanParticipation.js',
   'src/householdMemories.js',
   'src/passportCabinets.js',
+  'src/accommodation.js',
   'src/householdMemories.js',
 ]);
 

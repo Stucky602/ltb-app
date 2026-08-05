@@ -4,6 +4,8 @@
 // jsdom with a stubbed fetch, exactly as they run on a phone.
 import { JSDOM } from 'jsdom';
 import { PIPELINE_DISHES } from '../src/pipelineDishes.js';
+import { ALL_DINNERS } from '../src/menu.js';
+import { DISHES } from '../src/dishes.js';
 import fs from 'fs';
 
 let failed = 0;
@@ -267,9 +269,16 @@ console.log('form.html');
 
     // The landing page was fully static before this feature. A dead worker
     // must leave it exactly as it was, never an error state.
-    // ?preview=1: order.html runs ordersOpen(), so without it this is a clock.
+    // Clock pinned AND ?preview=1: order.html runs ordersOpen(), and the
+    // guard below no longer accepts preview alone as clock control.
     const l3 = new JSDOM(landing, { runScripts: 'dangerously', url: 'https://x.test/?preview=1',
-      beforeParse(w) { w.fetch = () => Promise.reject(new Error('worker down')); } });
+      beforeParse(w) {
+        const Real = w.Date;
+        const Fake = function (...a) { return a.length ? new Real(...a) : new Real(DEFAULT_DAY); };
+        Fake.now = () => new Real(DEFAULT_DAY).getTime(); Fake.parse = Real.parse; Fake.UTC = Real.UTC;
+        Fake.prototype = Real.prototype; w.Date = Fake;
+        w.fetch = () => Promise.reject(new Error('worker down'));
+      } });
     await sleep(200);
     check('order.html survives a dead worker with no banner and no error',
       !l3.window.document.querySelector('.week-notice')
@@ -427,14 +436,26 @@ console.log('menu.html');
 
   const queuedId = JSON.parse(store['ltb-submit-queue'])[0].clientId;
   const sent = [];
-  // ?preview=1 — otherwise this is a clock. `ordersOpen()` is pure day-of-week
-  // (Sunday, or Wednesday through Saturday), so without it the page renders
-  // "Orders are closed right now" every Monday and Tuesday, and since Cloudflare
-  // runs `npm test` on deploy that would black out the site two days a week.
-  // The `boot()` helper above avoids this by stubbing Date; this one did not.
+  // TWO clocks are in play here and BOTH must be controlled.
+  //
+  // ?preview=1 handles the order window: `ordersOpen()` is pure day-of-week,
+  // so without it the page renders "Orders are closed right now" every Monday
+  // and Tuesday and Cloudflare (which runs `npm test` on deploy) would black
+  // out the site two days a week.
+  //
+  // The Date stub handles queue AGE, and preview does NOT cover it. The entry
+  // above was stamped `queuedAt` under the fake DEFAULT_DAY clock; against the
+  // real clock, `now - queuedAt` passes QUEUE_MAX_AGE_MS (7 days) one week
+  // after that date, and drainQueue EXPIRES the order instead of sending it.
+  // This block shipped with preview only and failed on Aug 5 2026 exactly that
+  // way — green for a week, then red every day forever, with the app innocent.
   const dom2 = new JSDOM(form, {
     runScripts: 'dangerously', url: 'https://x.test/?preview=1',
     beforeParse(w) {
+      const Real = w.Date;
+      const Fake = function (...a) { return a.length ? new Real(...a) : new Real(DEFAULT_DAY); };
+      Fake.now = () => new Real(DEFAULT_DAY).getTime(); Fake.parse = Real.parse; Fake.UTC = Real.UTC;
+      Fake.prototype = Real.prototype; w.Date = Fake;
       w.fetch = (url, opts) => {
         if (String(url).includes('/submit')) { sent.push(JSON.parse(opts.body)); return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) }); }
         return Promise.resolve({ ok: true, json: () => Promise.resolve(CFG) });
@@ -449,6 +470,63 @@ console.log('menu.html');
   check('a queued order sends itself on the next visit', sent.length === 1);
   check('the retry reuses the original id, so it can never duplicate', sent.length === 1 && sent[0].clientId === queuedId);
   void dom2;
+}
+
+// ── The compressed price block on the WEEKLY menu, both shapes, RENDERED ────
+// priceDisplay has two shapes: flat ({label, price, addOns?}) and
+// protein-choice ({label, sizes:[{label, price}], addOns?}). The page's first
+// branch handled only the flat one, and money(undefined) does not throw — it
+// renders the string "$NaN", which every grep-based gate waves through. On top
+// of that, BOTH the ALL_DINNERS projection and publishWeek's toVariants
+// stripped the field, so the branch was dead against live data and the page
+// fell back to the full variant list. This block pins all of it the only way
+// that sees it: real projected entries, booted, and the rendered text read
+// back. "NaN" appearing anywhere in a price is an automatic failure.
+{
+  const proj = (name) => ALL_DINNERS.find(d => d.name === name);
+  const reg = (name) => DISHES.find(d => d.name === name);
+  const CURRY = 'Indian Style Curry';
+  const CUMIN = 'Cumin Mushroom Noodles / Cumin Beef or Lamb on Rice';
+  const BOLO = 'Bolognese';
+
+  check('ALL_DINNERS carries priceDisplay through the projection',
+    !!(proj(CURRY) && proj(CURRY).priceDisplay),
+    'src/menu.js strips it — the weekly menu falls back to the full variant list');
+  check('and it matches the registry exactly, both shapes',
+    JSON.stringify(proj(CURRY).priceDisplay) === JSON.stringify(reg(CURRY).priceDisplay)
+    && JSON.stringify(proj(BOLO).priceDisplay) === JSON.stringify(reg(BOLO).priceDisplay));
+
+  const cfg = { weekLabel: 'Week of Jul 22', dishes: [proj(CURRY), proj(CUMIN), proj(BOLO)] };
+  const dom = boot(menu, cfg, {}); await sleep(250);
+  const d = dom.window.document;
+  const cardFor = (name) => Array.from(d.querySelectorAll('.dish')).find(c => {
+    const n = c.querySelector('.dish-name'); return n && n.textContent === name;
+  });
+
+  const curry = cardFor(CURRY);
+  check('a sizes-shape dish renders its compressed rows', !!curry, 'no card rendered at all');
+  if (curry) {
+    const amts = Array.from(curry.querySelectorAll('.price-amt')).map(e => e.textContent);
+    check('one row per protein, not one per variant',
+      amts.length === reg(CURRY).priceDisplay.length,
+      `${amts.length} price rows for ${reg(CURRY).priceDisplay.length} display entries`);
+    check('sizes sit joined on the line', amts.every(t => t.includes('\u00b7')), amts.join(' | '));
+    check('no price on the weekly menu renders as NaN — the money() failure mode is a string, not a throw',
+      !amts.some(t => /NaN/.test(t)), amts.join(' | '));
+  }
+  const cumin = cardFor(CUMIN);
+  if (cumin) {
+    check('the add-on line survives on the sizes shape',
+      /Asian greens/.test(cumin.textContent), 'the +$ add-on row vanished from the compressed block');
+    check('and no NaN anywhere on the card', !/NaN/.test(cumin.textContent));
+  }
+  const bolo = cardFor(BOLO);
+  if (bolo) {
+    const amts = Array.from(bolo.querySelectorAll('.price-amt')).map(e => e.textContent);
+    check('the flat shape still renders one price per entry',
+      amts.length === reg(BOLO).priceDisplay.length && !amts.some(t => /NaN/.test(t)), amts.join(' | '));
+    check('its add-on line survives too', /porcini/.test(bolo.textContent));
+  }
 }
 
 // Catalog page
@@ -741,8 +819,13 @@ console.log('\npipeline.html');
 // day-dependent gate means the site cannot be deployed on Mondays or Tuesdays,
 // and the failure names the wrong cause when it happens.
 //
-// Every JSDOM that boots a customer page must EITHER stub Date or pass
-// ?preview=1, which is the page's own override.
+// Every JSDOM that boots a customer page must STUB DATE. ?preview=1 is not
+// enough and no longer counts: it opens the order window, it does not stop the
+// clock. The offline-queue block relied on preview alone, aged a queuedAt
+// stamp against the real clock, and went red seven days after its fake
+// DEFAULT_DAY — caught Aug 5 2026. Time-stamped state plus an unpinned clock
+// is the whole class; pin the clock, add preview on top where the window
+// matters.
 {
   const fs = await import('node:fs');
   const offenders = [];
@@ -764,13 +847,13 @@ console.log('\npipeline.html');
       // broken by the day of the week.
       const rendersPage = /^(form|order|menu|landing)\b/i.test(firstArg);
       if (!rendersPage) return;
-      const safe = /preview=1/.test(head) || /w\.Date\s*=/.test(head) || /const Real = w\.Date/.test(head);
+      const safe = /w\.Date\s*=/.test(head) || /const Real = w\.Date/.test(head);
       if (!safe) offenders.push(`${name} #${i + 1}`);
     });
   }
-  check(`no test boots a customer page without controlling the clock (${offenders.length} offenders)`,
+  check(`no test boots a customer page without stubbing the clock (${offenders.length} offenders)`,
     offenders.length === 0,
-    offenders.join(', ') + ' — add ?preview=1 or stub Date');
+    offenders.join(', ') + ' — stub Date in beforeParse; ?preview=1 only opens the order window and does not count');
 }
 
 console.log(failed === 0 ? '\nCUSTOMER PAGES: ALL PASS' : `\nCUSTOMER PAGES: ${failed} FAILURES`);

@@ -224,6 +224,19 @@ ok('customerFlags is published (the flag panel actually reaches customers)',
 ok('orderClosesAt and amendmentsCloseAt have a producer',
   sent.has('orderClosesAt') && sent.has('amendmentsCloseAt'),
   'publishWeek reads both; if nothing sends them they publish as empty forever');
+// The compressed price block reached menu.page.html on Aug 3 and never
+// reached a customer: the ALL_DINNERS projection stripped priceDisplay and
+// toVariants did not rebuild it, so the page's render branch was dead code
+// and the weekly menu fell back to the full variant list. Fifth instance of
+// the wired-on-one-side class. Two cut points, so two checks — the rendered
+// half lives in tests/customer_pages.mjs.
+const menuSrc = readFileSync('src/menu.js', 'utf8');
+ok('the ALL_DINNERS projection carries priceDisplay',
+  /base\.priceDisplay\s*=/.test(menuSrc),
+  'src/menu.js strips it and every downstream consumer sees only variants');
+ok('toVariants forwards priceDisplay into the published dish',
+  /priceDisplay:\s*item\.priceDisplay/.test(publish),
+  'the payload is the second cut point; without this the page branch is dead');
 
 // ── 5. The published payload carries the flags in full shape ────────────────
 // The worker's resolveFlags needs {stage, testers, percent} to evaluate the

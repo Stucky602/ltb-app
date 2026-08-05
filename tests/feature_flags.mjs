@@ -171,9 +171,19 @@ const ok = (n, c, x) => { c ? (p++, console.log('  ✓ ' + n)) : (f++, console.l
   //
   // A gate that depends on what day it is will eventually fail at the worst
   // possible moment.
+  // Clock pinned to a Wednesday as well: customer_pages' guard no longer
+  // accepts ?preview=1 alone, because preview opens the order window and does
+  // nothing about time math (the queue-age failure of Aug 5 2026).
   const dom = new JSDOM(form, {
     runScripts: 'dangerously', url: 'https://ltbaustin.com/?preview=1',
-    beforeParse(w) { w.fetch = () => Promise.resolve({ json: () => Promise.resolve(cfg) }); },
+    beforeParse(w) {
+      const Real = w.Date;
+      const DAY = '2026-07-29T10:00:00'; // a Wednesday, matching customer_pages' DEFAULT_DAY
+      const Fake = function (...a) { return a.length ? new Real(...a) : new Real(DAY); };
+      Fake.now = () => new Real(DAY).getTime(); Fake.parse = Real.parse; Fake.UTC = Real.UTC;
+      Fake.prototype = Real.prototype; w.Date = Fake;
+      w.fetch = () => Promise.resolve({ json: () => Promise.resolve(cfg) });
+    },
   });
   await new Promise(r => setTimeout(r, 300));
   const d = dom.window.document;

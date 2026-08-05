@@ -114,6 +114,11 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
       ...(item.spotlight ? { spotlight: true } : {}), // spotlight dinners route to their own form header
       ...(item.options ? { options: item.options } : {}), // form.html renders pickers from this (Batch 3)
       ...(item.diet ? { diet: item.diet } : {}), // menu.html dietary filter reads veg/pesc tags from this
+      // menu.html renders the compressed price block from this; the order form
+      // ignores it and keeps offering every variant. Without this line the
+      // page's priceDisplay branch is dead code and the weekly menu shows the
+      // Cumin as twelve rows. Presentation only — price truth stays in variants.
+      ...(item.priceDisplay ? { priceDisplay: item.priceDisplay } : {}),
     };
   };
   const allDinners = (activeMenu.dinner || []).map(toVariants);

@@ -25,6 +25,12 @@ export const ALL_DINNERS = DISHES.map(d => {
   // flag; lookups keep working.
   if (OFF_MENU.has(d.name)) base.offMenu = true;
   if (d.diet) base.diet = d.diet; // dietary filter (veg/pesc), read by both menus
+  // The compressed price block. menu.page.html has rendered this since Aug 3
+  // and the catalog already shows it, but this projection stripped it, so the
+  // weekly menu silently fell back to the full variant list. Fifth instance of
+  // the wired-on-one-side class (flags, version stamps, Tex-Mex rice,
+  // WalkEngine). publishWeek's toVariants is the other half of the wire.
+  if (d.priceDisplay && d.priceDisplay.length) base.priceDisplay = d.priceDisplay;
   return base;
 });
 

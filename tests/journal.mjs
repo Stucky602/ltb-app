@@ -245,6 +245,11 @@ const PROTECTED = new Set([
   'src/householdMemories.js',
   'src/passportCabinets.js',
   'src/accommodation.js',
+  // The Rowan publication contract reads every protected store at once to
+  // decide what crosses to the companion app. It is the single densest
+  // concentration of private material in the repo, so a customer surface
+  // reaching it would leak all of them together rather than one.
+  'src/rowanPublication.js',
   'src/householdMemories.js',
 ]);
 

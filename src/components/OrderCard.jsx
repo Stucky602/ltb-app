@@ -100,8 +100,10 @@ function omaIngCost(id, qty, unit, liveCost) {
 
 // "Log what you made" for an omakase item. Rows are menu picks, registry
 // ingredients, or free text; the sum becomes it.cost (costSource manual) so the
-// order's margin is real, and the final charge can only move DOWN from the
-// budget the customer set.
+// order's margin is real. The final charge is WHATEVER KEVIN TYPES: what the
+// customer said up front is shown beside it and flagged when the charge goes
+// past it, but it has never been his job to stay under someone else's guess at
+// what the work would cost.
 function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDishes, restrictions, regular }) {
   const budgetMax = item.budgetMax != null ? item.budgetMax : (item.price || 0);
   const [rows, setRows] = useState((item.components && item.components.length) ? item.components : []);
@@ -149,7 +151,21 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
     return acc;
   }, {});
   const containersOut = Object.values(containersUsed).reduce((a, b) => a + b, 0);
-  const chargeNum = Math.min(budgetMax, Math.max(0, parseFloat(charge) || 0));
+  // ── THE CHARGE IS NOT CAPPED. KEVIN, Aug 5 ────────────────────────────────
+  // This used to be `Math.min(budgetMax, ...)`, which made the customer's
+  // stated number a HARD CEILING on what Kevin could charge. It is not a
+  // ceiling, it is what they said up front, and he decides what the work was
+  // worth. "The max amount is whatever I type."
+  //
+  // The ratchet that made it worse is fixed at the save (see below): with the
+  // clamp in place AND budgetMax falling back to item.price, every save pulled
+  // the ceiling down onto the last charge, one save at a time, with no way back
+  // up. Reducing a total once locked it there permanently.
+  //
+  // Over the stated max is now a VISIBLE fact rather than an impossible one,
+  // and a wild number gets a confirm at save. Neither blocks.
+  const chargeNum = Math.max(0, parseFloat(charge) || 0);
+  const overBudget = budgetMax > 0 && chargeNum > budgetMax;
   const marginPct = chargeNum > 0 ? Math.round((1 - estCost / chargeNum) * 100) : 0;
   const pctOfBudget = budgetMax > 0 ? Math.round((estCost / budgetMax) * 100) : 0;
 
@@ -252,7 +268,25 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
     setTemplates(next); await saveJSON(OMAKASE_TEMPLATES_KEY, next);
   };
 
+  // A wild number gets ONE question, then goes through. Kevin: "if I type
+  // something insane I can get a prompt though." The trigger is deliberately
+  // wide — five times the stated max, or past $2,000 with nothing stated —
+  // because a prompt that fires on an ordinary overage is a prompt he learns to
+  // dismiss without reading, and then it is not protecting anything.
+  const INSANE_MULTIPLE = 5;
+  const INSANE_FLOOR = 2000;
+  const looksInsane = budgetMax > 0
+    ? chargeNum > budgetMax * INSANE_MULTIPLE
+    : chargeNum > INSANE_FLOOR;
+
   const save = async () => {
+    if (looksInsane) {
+      const asked = budgetMax > 0
+        ? `Charge ${currency(chargeNum)} against a stated max of ${currency(budgetMax)}?`
+        : `Charge ${currency(chargeNum)}?`;
+      // eslint-disable-next-line no-alert
+      if (typeof window !== 'undefined' && window.confirm && !window.confirm(`${asked}\n\nThat is well outside the usual range. Save it anyway?`)) return;
+    }
     setCharge(String(chargeNum));
     // Anything typed that the registry does not know about collects in a queue
     // on the Ingredients tab. Nothing auto-writes to ingredients.js: Kevin
@@ -281,6 +315,23 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
         cost: estCost,
         costSource: 'manual',
         price: chargeNum,
+        // THE BUDGET IS FROZEN THE FIRST TIME THE CHARGE MOVES, and this is the
+        // other half of the ratchet fix. `budgetMax` falls back to `item.price`
+        // when the customer never stated one, and this save OVERWRITES
+        // `item.price` with the charge — so the next render recomputed the
+        // budget from the charge, and the two collapsed together a little more
+        // on every save. Stamping it from the price as it stood BEFORE this
+        // write keeps "what they said up front" answerable forever.
+        //
+        // ONLY WHEN THE CHARGE ACTUALLY CHANGED. Stamping on an unchanged save
+        // would leave price === budgetMax on an order that never had a stated
+        // budget, and `omakasePriceUnsettled` reads exactly that pair as "still
+        // sitting at the customer's max, never confirmed" — a fresh false alert
+        // on the deliver screen and in the digest, caused by a fix for
+        // something else.
+        ...(it.budgetMax == null && it.price != null && chargeNum !== it.price
+          ? { budgetMax: it.price }
+          : {}),
         // Both are stored on purpose. The MAP is the record and is what
         // reconciles against inventory; the TOTAL is what the returnables
         // ledger reads, so it does not have to know about container types.
@@ -303,7 +354,7 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
 
   return (
     <div style={{ marginTop: 8, padding: 10, borderRadius: 8, background: 'rgba(212,160,80,0.06)', border: '1px solid #3a453f' }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#D4A050', marginBottom: 8 }}>Log what you made (customer max {currency(budgetMax)})</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#D4A050', marginBottom: 8 }}>Log what you made (they said {currency(budgetMax)})</div>
 
       {restrictions ? (
         <div style={{ fontSize: 11.5, color: '#EF9F27', marginBottom: 8, fontWeight: 600 }}>Standing: {restrictions}</div>
@@ -557,10 +608,21 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
 
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <span style={{ fontSize: 12, color: '#c9d1cd' }}>Final charge $</span>
-        <input type="number" step="0.5" min="0" max={budgetMax} value={charge} onChange={e => setCharge(e.target.value)} style={{ ...inp, width: 80 }} />
-        <span style={{ fontSize: 10.5, color: '#7a8480' }}>max {currency(budgetMax)}</span>
+        {/* NO `max` ATTRIBUTE. It is a number input, and a max there is a hard
+            stop the browser enforces, which is the same cap in a second place. */}
+        <input type="number" step="0.5" min="0" value={charge} onChange={e => setCharge(e.target.value)} style={{ ...inp, width: 80, borderColor: overBudget ? '#D4A050' : '#3a4441' }} />
+        {budgetMax > 0 && (
+          <span style={{ fontSize: 10.5, color: overBudget ? '#D4A050' : '#7a8480' }}>
+            they said {currency(budgetMax)}
+          </span>
+        )}
         <button onClick={save} style={{ padding: '6px 14px', borderRadius: 6, cursor: 'pointer', background: '#2f6f57', color: '#fff', border: 'none', fontWeight: 700, marginLeft: 'auto' }}>Save</button>
       </div>
+      {overBudget && (
+        <div style={{ fontSize: 11, color: '#D4A050', marginTop: 5 }}>
+          {currency(chargeNum - budgetMax)} over what they said. Worth a word before the invoice goes out.
+        </div>
+      )}
       {chargeNum < budgetMax && (
         <input
           value={underNote} onChange={e => setUnderNote(e.target.value)}

@@ -35,6 +35,20 @@ import {
   itemOptions, noteWithoutOptions,
 } from '../utils.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
+// returnSummary WAS USED AND NEVER IMPORTED. Every tap of Edit threw
+// "Can't find variable: returnSummary" before the form drew a single field,
+// because the call sits in the component body rather than behind a handler.
+//
+// Nothing caught it for the same reason the IngredientCardBlock crash survived
+// a 50-command gate: esbuild does not resolve free identifiers, so the bundle
+// built clean with one reference and zero definitions. tests/jsx_symbols.mjs
+// closed this class for <Component> references only; a plain function call was
+// still invisible. It is closed for both now.
+// depositsOutFor was missing the same way and would have thrown at line 204
+// the moment returnSummary was fixed — the second crash was hiding behind
+// the first, so a one-name fix would have produced the identical bug report
+// with a different name in it.
+import { returnSummary, depositsOutFor } from '../containerDeposits.js';
 import { QtyControl, ReviewModal } from './OrderInputs.jsx';
 
 // ─── Spice level picker (registry-declared; writes item.options.spice) ──────

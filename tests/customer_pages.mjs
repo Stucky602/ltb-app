@@ -527,6 +527,23 @@ console.log('menu.html');
       amts.length === reg(BOLO).priceDisplay.length && !amts.some(t => /NaN/.test(t)), amts.join(' | '));
     check('its add-on line survives too', /porcini/.test(bolo.textContent));
   }
+
+  // ── ONE PAIRINGS BLOCK PER CARD ───────────────────────────────────────────
+  // The weekly menu builds its block at render time from `copy.pairings`, so it
+  // cannot inherit the doubled markup the catalog carried. Asserted anyway
+  // because both surfaces read the same canon and the failure is invisible in
+  // source: the duplicate lived in the BUILT card, and every grep-based check
+  // passed while a customer read the same five drinks twice.
+  for (const card of d.querySelectorAll('.dish')) {
+    const name = card.querySelector('.dish-name');
+    const label = name ? name.textContent : '(unnamed)';
+    check(`the weekly menu prints one pairings block for ${label}`,
+      card.querySelectorAll('.pairings').length <= 1,
+      `${card.querySelectorAll('.pairings').length} blocks`);
+    const drinks = Array.from(card.querySelectorAll('.pairing-row b')).map(e => e.textContent);
+    check(`and names no drink twice for ${label}`,
+      new Set(drinks).size === drinks.length, drinks.join(' | '));
+  }
 }
 
 // Catalog page
@@ -535,6 +552,32 @@ console.log('menu.html');
   const dom = boot(catalog, { weekLabel: 'W', dishes: [{ name: 'Bo Ssam' }] }); await sleep(200);
   const d = dom.window.document;
   check('catalog blocks carry the data the filters need', d.querySelectorAll('.dish[data-cuisine]').length > 20);
+
+  // ── NO CARD REPEATS ITS PAIRINGS ──────────────────────────────────────────
+  // Fifteen of twenty-five dinner cards shipped the "Goes well with" block
+  // TWICE, over the identical five drinks, and nothing in an 84-command gate
+  // saw it. `syncMainMenu`'s own check read the FIRST block only, found it
+  // matched canon, and returned; the invariants read prices out of these cards
+  // and never counted anything structural.
+  //
+  // Counted through the DOM rather than by grepping the page, per standing
+  // rule: a duplicate is a structural fact about a card, and the comment
+  // explaining this check would itself be inlined into a text scan.
+  const dupeCards = Array.from(d.querySelectorAll('.dish'))
+    .map(c => [c.querySelector('.dish-name'), c.querySelectorAll('.pairings').length])
+    .filter(([, n]) => n > 1)
+    .map(([n, count]) => `${n ? n.textContent : '(unnamed)'} x${count}`);
+  check(`no catalog card repeats its pairings block (${dupeCards.length} offenders)`,
+    dupeCards.length === 0, dupeCards.join(', '));
+
+  const repeatedDrink = Array.from(d.querySelectorAll('.dish')).map(c => {
+    const drinks = Array.from(c.querySelectorAll('.pairing-row b')).map(e => e.textContent);
+    const dupes = drinks.filter((x, i) => drinks.indexOf(x) !== i);
+    const n = c.querySelector('.dish-name');
+    return dupes.length ? `${n ? n.textContent : '(unnamed)'}: ${[...new Set(dupes)].join('/')}` : null;
+  }).filter(Boolean);
+  check(`no catalog card names the same drink twice (${repeatedDrink.length} offenders)`,
+    repeatedDrink.length === 0, repeatedDrink.join(', '));
   check('diet and cuisine chips render', !!d.getElementById('dietChips') && !!d.getElementById('cuisineChips'));
   const before = Array.from(d.querySelectorAll('.dish[data-name]')).filter(e => e.style.display !== 'none').length;
   dom.window.__catFilter('diet', 'vegan');

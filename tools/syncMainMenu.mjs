@@ -344,7 +344,22 @@ function pairingsBlock(pairs) {
   const rows = pairs.map(p => `<div class="pairing-row"><b>${p.drink}</b> \u2014 ${p.why}</div>`).join('');
   return `<details class="pairings"><summary>Goes well with</summary><div>${rows}</div></details>`;
 }
-const pairingsRe = /<details class="pairings">[\s\S]*?<\/details>|<div class="pairings">.*?<\/div><\/div>/s;
+// A CARD IS ALLOWED EXACTLY ONE PAIRINGS BLOCK, AND THIS USED TO BE UNABLE TO
+// SEE OTHERWISE. Fifteen of twenty-five dinners carried the block TWICE, so the
+// catalog printed "Goes well with" over the same five drinks twice in a row,
+// and every gate run reported the cards as clean.
+//
+// How they got there, and why the check was blind to it, are the same fact.
+// `seg.match()` on a non-global regex returns the FIRST block only. The catalog
+// collapse added the new <details> form without removing the old <div> form;
+// the next --write matched the <div> (earlier in the card), replaced THAT with
+// `want`, and left the <details> standing. Two identical blocks. From then on
+// the first match equalled `want` and this function returned early forever.
+//
+// Match ALL of them now: the first becomes `want`, every later one is deleted.
+// Duplication is reported by name rather than silently repaired, because a
+// second block appearing again would mean something upstream is inserting.
+const pairingsReAll = /<details class="pairings">[\s\S]*?<\/details>|<div class="pairings">.*?<\/div><\/div>/gs;
 function syncPairings(name, pairs) {
   if (OFF_MENU.has(name)) return;
   if (!pairs || !pairs.length) return;
@@ -352,13 +367,18 @@ function syncPairings(name, pairs) {
   if (!b) return;
   let seg = html.slice(b.start, b.end);
   const want = pairingsBlock(pairs);
-  const m = seg.match(pairingsRe);
-  if (m && m[0] === want) return;
+  const found = seg.match(pairingsReAll) || [];
+  if (found.length === 1 && found[0] === want) return;
   drift++;
-  console.log(`  ${name} pairings: ${m ? 'stale' : 'MISSING'} → ${pairs.length} drinks`);
+  const state = found.length > 1 ? `DUPLICATED (${found.length} blocks)` : (found.length ? 'stale' : 'MISSING');
+  console.log(`  ${name} pairings: ${state} → ${pairs.length} drinks`);
   if (write) {
-    if (m) seg = seg.replace(pairingsRe, want);
-    else seg = seg.replace(/<div class="contains">/, want + '<div class="contains">');
+    if (found.length) {
+      let first = true;
+      seg = seg.replace(pairingsReAll, () => { if (first) { first = false; return want; } return ''; });
+    } else {
+      seg = seg.replace(/<div class="contains">/, want + '<div class="contains">');
+    }
     html = html.slice(0, b.start) + seg + html.slice(b.end);
     patched++;
   }

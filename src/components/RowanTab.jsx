@@ -13,7 +13,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  RATING_LABELS, formatAge, topDishes, dishSummary, seriesFor,
+  RATING_LABELS, formatAge, topDishes, dishSummary, seriesFor, ageAt,
   coverage, untried, writtenEntries, capsuleTimeline, vocabularyByAge,
 } from '../rowan.js';
 import { WORKER_BASE, PUBLISH_TOKEN } from '../config.js';

@@ -435,14 +435,18 @@ export default function LTBOrderTracker() {
       return next;
     });
   }, []);
-  const saveEquipment = useCallback((next) => {
-    const clean = (Array.isArray(next) ? next : [])
-      .map(e => ({ name: String(e.name || '').slice(0, 80), note: String(e.note || '').slice(0, 200) }))
-      .filter(e => e.name)
-      .slice(0, 60);
-    setEquipment(clean);
-    saveJSON(EQUIPMENT_KEY, clean).then(r => setError(saveError(r)));
-  }, []);
+  // THE EQUIPMENT WRITER IS GONE, AND IT WAS ALREADY BROKEN. The Jul 30
+  // removal took out equipmentSeed.js, the bootHydrate seeding, the App state
+  // and the backup slot, but left this callback behind. It called
+  // `setEquipment`, a setter that no longer exists, so it would have thrown
+  // "Can't find variable: setEquipment" the moment anything invoked it —
+  // and nothing did, because it was passed to no component either.
+  //
+  // Found by the call-site half of tests/jsx_symbols.mjs on its first run,
+  // which is the entire argument for that check.
+  //
+  // EQUIPMENT_KEY stays in config.js on purpose: nothing reads or restores it,
+  // and an existing device keeps whatever list was typed into it.
   // Stamped each time an archive is downloaded, so the NEXT one knows where it
   // sits in the series.
   const recordArchive = useCallback((entryCount) => {

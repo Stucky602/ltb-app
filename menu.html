@@ -796,15 +796,16 @@
       }
     }
 
-    // Finishing Sauces — always shown after veg; fall back to library if not yet in config
+    // Finishing Sauces — always shown after veg.
+    //
+    // THE LIBRARY FALLBACK IS GONE. This used to rebuild the sauce list from
+    // LIBRARY.sauces whenever config.sauces came back empty, as a bridge for
+    // configs published before sauces were part of the payload. Harmless while
+    // sauces shipped every week, and fatal to the section switches added Aug 7:
+    // an empty array is now how Kevin says "no sauces this week", and a page
+    // that puts them back makes the switch a lie. An empty section is an
+    // empty section.
     var sauces = config.sauces || [];
-    var sauceLib = LIBRARY.sauces || {};
-    var sauceNames = Object.keys(sauceLib);
-    if (sauces.length === 0 && sauceNames.length > 0) {
-      sauces = sauceNames.map(function(n){
-        return { name: n, variants: [{ label: 'Per Container (2oz)', price: sauceLib[n].price || 3 }] };
-      });
-    }
     if (sauces.length){
       html += '<div class="section-head">Finishing Sauces</div>';
       html += '<div class="info-card"><p>'+esc(LIBRARY.static.saucesNote)+'</p></div>';

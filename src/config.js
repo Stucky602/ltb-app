@@ -13,6 +13,11 @@ export const WEEK_NOTES_KEY = 'ltb-week-notes';
 // which is a build-stopping error in esbuild ("no matching export"), so any
 // checkout with WeekTab and without this key cannot build.
 export const WEEK_NOTICE_KEY = 'ltb-week-notice';
+// Which menu sections are on offer. Device-local weekly state, exactly like
+// WEEK_NOTICE_KEY above and deliberately NOT in the backup: it describes this
+// week's shape, not the record, and restoring a month-old backup should not
+// silently re-limit a menu. Absent reads as everything on.
+export const WEEK_SECTIONS_KEY = 'ltb-week-sections';
 export const SHOPPING_KEY = 'ltb-shopping';
 export const WEEK_KEY = 'ltb-week';
 export const PENDING_KEY = 'ltb-pending-orders';

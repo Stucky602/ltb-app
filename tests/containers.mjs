@@ -581,4 +581,45 @@ const SAMPLE_ORDERS = [
   }
 }
 
+// ── THE DEPOSIT SURVIVES A RECOMPUTE ────────────────────────────────────────
+//
+// Kevin, Aug 7: an omakase in three containers billed three dollars over what
+// the invoice lines added up to. Two separate faults, and this guards the one
+// that was silent.
+//
+// `orderTotal` takes the deposit as its EIGHTH argument. OrderForm passed it;
+// the five recompute sites in OrderCard did not, so the total dropped by the
+// deposit the moment Kevin logged an omakase, set a per-lb weight, priced an
+// at-cost extra, or toggled a regular's discount. The charge landed at save and
+// came quietly off again on the next edit, so what a customer owed depended on
+// what Kevin had touched last.
+//
+// A bare `orderTotal(` in OrderCard is the shape of that fault, so that is what
+// this forbids. Described rather than quoted, or this check matches the comment
+// explaining it — six instances of that in this repo already.
+{
+  const fs = await import('node:fs');
+  const src = fs.readFileSync(new URL('../src/components/OrderCard.jsx', import.meta.url), 'utf8')
+    .split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
+  // The helper's OWN call is the one legitimate one, so cut its body out before
+  // counting. Without this the guard reports the fix as the fault.
+  const helperAt = src.indexOf('function totalWithDeposit');
+  const outside = helperAt < 0 ? src : src.slice(0, helperAt) + src.slice(src.indexOf('\n}', helperAt));
+  const bare = (outside.match(/[^a-zA-Z]orderTotal\(/g) || []).length;
+  ok(bare === 0, `OrderCard routes every total through the deposit-aware helper (${bare} bare calls)`);
+  ok(/function totalWithDeposit/.test(src), 'the helper exists');
+  ok(/depositsOutFor\(\{ items \}\)\.cents/.test(src),
+    'and derives the deposit from the items rather than a stored number');
+
+  const form = fs.readFileSync(new URL('../src/components/OrderForm.jsx', import.meta.url), 'utf8');
+  ok(/orderTotal\([^)]*depositCents\)/.test(form.replace(/\n/g, ' ')),
+    'OrderForm still passes the deposit too');
+
+  // And the invoice shows it. The row is what makes the charge checkable; a
+  // correct total nobody can verify is the complaint that started this.
+  const modals = fs.readFileSync(new URL('../src/components/Modals.jsx', import.meta.url), 'utf8');
+  ok(/Container deposit/.test(modals), 'the invoice carries a deposit row');
+  ok(/depositsOutFor/.test(modals), 'built from the same derivation as the charge');
+}
+
 console.log(`CONTAINERS: ALL PASS (${pass} checks)`);

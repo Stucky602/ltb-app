@@ -33,6 +33,7 @@ import {
   parseFormNotes,
   optionsSummary, noteWithoutOptions, itemAddons,
 } from '../utils.js';
+import { depositsOutFor, isJarType } from '../containerDeposits.js';
 import { TEAL_DARK, TEAL_MID, TEAL_LIGHT, GOLD, CREAM, DARK, CARD, styles } from '../styles.js';
 
 // Pre-weigh estimate for a per-lb sous-vide item: avgWeightLb × pricePerLb plus
@@ -212,6 +213,40 @@ export function InvoiceModal({ order, onClose }) {
                 <span>{currency(SURCHARGE)}</span>
               </div>
             )}
+            {/* THE CONTAINER DEPOSIT, WHICH WAS BEING CHARGED AND NEVER SHOWN.
+                Kevin, Aug 7: billed a friend for an omakase in three containers
+                and her total came out three dollars above what the lines added
+                up to. The deposit was in `order.total` all along — orderTotal
+                takes it as its eighth argument — and the invoice had no row for
+                it, so the arithmetic on the card simply did not work.
+                An invoice a customer cannot check is worse than a slightly
+                higher one, and this is a card people are meant to read.
+                Counted from the SAME derivation the charge uses, rather than
+                from a stored number, so the row and the total cannot disagree.
+                Phrased as a deposit and never as a fee: the money comes back
+                when the containers do, and nobody owes a container. */}
+            {(() => {
+              const dep = depositsOutFor(order);
+              if (!dep.cents) return null;
+              const n = Object.values(dep.byType).reduce((s, v) => s + v, 0);
+              const jars = Object.entries(dep.byType)
+                .filter(([t]) => isJarType(t)).reduce((s, [, v]) => s + v, 0);
+              const tubs = n - jars;
+              const parts = [];
+              if (tubs) parts.push(`${tubs} container${tubs === 1 ? '' : 's'} at $1`);
+              if (jars) parts.push(`${jars} jar${jars === 1 ? '' : 's'} at $2`);
+              return (
+                <>
+                  <div style={styles.invoiceTotalRow}>
+                    <span>Container deposit</span>
+                    <span>{currency(dep.cents / 100)}</span>
+                  </div>
+                  <div style={styles.invoiceItemExtra}>
+                    {parts.join(', ')} — back when they are
+                  </div>
+                </>
+              );
+            })()}
             {order.jarSwaps > 0 && (
               <div style={styles.invoiceTotalRow}>
                 <span>Jar swap x{order.jarSwaps}</span>

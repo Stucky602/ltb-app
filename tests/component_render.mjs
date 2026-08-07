@@ -48,6 +48,15 @@ const CASES = [
           addons:[{ id:'a1', request:'Block of good parm', cost:8.5, pending:false },
                   { id:'a2', request:'Extra chili oil', cost:null, pending:true }] }] },
       onClose: () => {} }`],
+  // AN OMAKASE IN THREE CONTAINERS — Kevin's own case, Aug 7. The deposit was
+  // charged into the total and had no row, so the invoice arithmetic came out
+  // three dollars short of the number at the bottom.
+  ['InvoiceModal-deposit', './src/components/Modals.jsx',
+    `{ order: { id:'o2', customer:'A friend', createdAt:'2026-07-20', total: 80,
+        jarSwaps: 0, containerReturns: 0,
+        items: [{ omakase:true, name:'Omakase', variant:'', qty:1, price:75, cost:30,
+          containersUsed:{ round16: 3 } }] },
+      onClose: () => {} }`, 'InvoiceModal'],
   // ── Components split out of App.jsx during the decomposition ──────────────
   // These are here for the branches tests/app_render.mjs CANNOT reach. That
   // harness boots the real app, so it only ever sees the states a healthy boot
@@ -152,14 +161,17 @@ const CASES = [
 // result, which is a confusing way to fail.
 const dir = path.join(process.cwd(), '.render-check');
 mkdirSync(dir, { recursive: true });
-for (const [name, imp, props] of CASES) {
+// A case may render the SAME component under a second name, so one component
+// can be pinned in two states (an invoice with a deposit and one without).
+// `name` is the scratch filename and the label; `exportName` is what to import.
+for (const [name, imp, props, exportName] of CASES.map(c => (c.length === 4 ? c : [c[0], c[1], c[2], c[0]]))) {
   const src = path.join(dir, `${name}.jsx`);
   const out = path.join(dir, `${name}.cjs`);
   writeFileSync(src, `
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ${name} } from '${path.relative(dir, path.resolve(imp)).split(path.sep).join('/')}';
-const html = renderToStaticMarkup(React.createElement(${name}, ${props}));
+import { ${exportName} } from '${path.relative(dir, path.resolve(imp)).split(path.sep).join('/')}';
+const html = renderToStaticMarkup(React.createElement(${exportName}, ${props}));
 if (!html || !html.length) { console.error('EMPTY'); process.exit(1); }
 console.log(html);
 `);
@@ -180,6 +192,22 @@ console.log(html);
     if (name === 'InvoiceModal') {
       check('invoice shows at-cost add-ons as line items', /Block of good parm/.test(stdout));
       check('invoice shows a pending add-on too', /Extra chili oil/.test(stdout));
+      // A PLAIN DINNER CARRIES A DEPOSIT TOO, which is worth pinning because
+      // it is easy to think of this as an omakase quirk. A Large Bolognese
+      // ships in two 32 oz rounds, so it has always been charged $2 and has
+      // always shown nothing. Every invoice was short by its own containers,
+      // not just Kevin's friend's.
+      check('a plain dinner shows its deposit as well', /Container deposit/.test(stdout));
+      check('at the rate its own containers come to', /2 containers at \$1/.test(stdout));
+    }
+    if (name === 'InvoiceModal-deposit') {
+      // The row, the amount, and the count that explains it. All three, because
+      // a row reading "Container deposit $3.00" with nothing under it is the
+      // same unexplained number in a nicer font.
+      check('the invoice shows the container deposit it charged', /Container deposit/.test(stdout));
+      check('with the amount that was added to the total', /\$3\.00/.test(stdout));
+      check('and the count and rate that explain it', /3 containers at \$1/.test(stdout));
+      check('phrased as coming back, never as a fee', /back when they are/.test(stdout));
     }
   } catch (e) {
     const msg = String((e.stderr || e.stdout || e.message)).split('\n')

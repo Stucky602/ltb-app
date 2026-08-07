@@ -546,6 +546,77 @@ console.log('menu.html');
   }
 }
 
+// ── A SWITCHED-OFF SECTION IS GONE FROM BOTH CUSTOMER SURFACES ─────────────
+// Built through the REAL publish filter, not a hand-written config, so the test
+// breaks if applySections and the pages ever stop agreeing. Two pages, because
+// hiding desserts on the menu while the order form still offers them would let
+// someone order a thing Kevin is not making — the failure this feature exists
+// to prevent, arriving through the half of it nobody looked at.
+{
+  const { applySections } = await import('../src/menuSections.js');
+  const FULL = {
+    dishes: [{ name: 'Gumbo', variants: [{ label: 'Small (~4)', price: 40, cost: 20 }] }],
+    spotlight: [],
+    fruit: [{ name: 'Pineapple', variants: [{ label: 'One container', price: 7, cost: 3 }] }],
+    desserts: [{ name: 'Peanut Butter Fudge', variants: [{ label: 'Six pieces', price: 12, cost: 4 }] }],
+    addons: [{ name: 'Queso', variants: [{ label: 'Pint', price: 14, cost: 5 }] }],
+    sauces: [{ name: 'Chimichurri', variants: [{ label: 'Per Container (2oz)', price: 3, cost: 1 }] }],
+    bag: [
+      { name: 'Flank Steak', variants: [{ label: 'Each', price: 22, cost: 11 }] },
+      { name: 'Carrots', variants: [{ label: '~2 servings', price: 6.5, cost: 2.71 }] },
+    ],
+  };
+  const base = { weekLabel: 'Week of Jul 22' };
+
+  const all = boot(menu, { ...base, ...applySections(FULL, null) }, {}); await sleep(250);
+  const allText = all.window.document.getElementById('content').textContent;
+  check('with everything on, the weekly menu shows every section',
+    ['Chimichurri', 'Pineapple', 'Peanut Butter Fudge', 'Queso', 'Carrots', 'Flank Steak'].every(n => allText.includes(n)),
+    allText.slice(0, 200));
+
+  // Kevin's own example: a rough week, two dinners, none of the rest.
+  const rough = applySections(FULL, { bag: false, veg: false, sauces: false, fruit: false, desserts: false, addons: false });
+  const lim = boot(menu, { ...base, ...rough }, {}); await sleep(250);
+  const limText = lim.window.document.getElementById('content').textContent;
+  check('a limited week still shows the dinners', limText.includes('Gumbo'));
+  for (const gone of ['Chimichurri', 'Pineapple', 'Peanut Butter Fudge', 'Queso', 'Carrots', 'Flank Steak']) {
+    check(`and the weekly menu no longer names ${gone}`, !limText.includes(gone));
+  }
+  check('nor does it print an empty section heading',
+    !/Finishing Sauces|Fresh Cut Fruit|Desserts|Add-Ons/.test(limText), limText.slice(0, 300));
+  check('and it does not fall back to saying no menu is published',
+    !/No menu is published/.test(limText));
+
+  const limForm = boot(form, { ...base, ...rough }, {}); await sleep(250);
+  // #content, NOT document.body. The form carries the Carl swap map and the
+  // copy library inside <script> blocks, and `body.textContent` returns those
+  // too — so every one of these names is present in a page that renders none of
+  // them. This check failed three times on that before being pointed at the
+  // element the page actually draws into. Same trap as the CSS rule names
+  // matched out of a <style> block on Jul 30.
+  const formText = limForm.window.document.getElementById('content').textContent;
+  for (const gone of ['Chimichurri', 'Peanut Butter Fudge', 'Queso']) {
+    check(`the ORDER FORM no longer offers ${gone} either`, !formText.includes(gone));
+  }
+  check('and the form still offers the dinners that ARE on', formText.includes('Gumbo'));
+
+  // The sauces fallback specifically: it used to rebuild the list from the copy
+  // library whenever the published array was empty, which made this switch a lie.
+  const noSauce = boot(menu, { ...base, ...applySections(FULL, { sauces: false }) }, {}); await sleep(250);
+  const nsText = noSauce.window.document.getElementById('content').textContent;
+  check('sauces off means no sauces, with no library fallback putting them back',
+    !nsText.includes('Chimichurri') && !nsText.includes('Finishing Sauces'));
+  check('while the rest of that week is untouched',
+    nsText.includes('Gumbo') && nsText.includes('Pineapple') && nsText.includes('Carrots'));
+
+  // The two halves of the bag array split independently.
+  const noVeg = boot(menu, { ...base, ...applySections(FULL, { veg: false }) }, {}); await sleep(250);
+  const nvText = noVeg.window.document.getElementById('content').textContent;
+  check('veg off keeps the bag proteins and drops the vegetables',
+    nvText.includes('Flank Steak') && !nvText.includes('Carrots'));
+  check('and drops the sous vide heading with them', !/Sous Vide Vegetables/.test(nvText), nvText.slice(0, 200));
+}
+
 // Catalog page
 {
   const catalog = fs.readFileSync('main-menu.html', 'utf8');

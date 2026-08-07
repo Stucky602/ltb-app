@@ -40,6 +40,7 @@ import { dishIdFor } from './dishIdentity.js';
 import { saveJSON } from './utils.js';
 import { recordWeek } from './weekLedger.js';
 import { extractNotice } from './weekNotice.js';
+import { applySections, describeSections } from './menuSections.js';
 import { weekOneBottle } from './weekPlanner.js';
 import { SOURCES, auditEntry } from './auditLog.js';
 
@@ -139,9 +140,31 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
   const addons = (activeMenu.addons || []).map(toVariants);
   const bag = (activeMenu.bag || []).map(toVariants);
   const sauces = (activeMenu.sauces || []).map(toVariants);
+  // WHICH SECTIONS ARE ON OFFER THIS WEEK. Everything above is built first and
+  // then emptied, rather than skipped, so the switches cannot change how any
+  // section is CONSTRUCTED — only whether it ships.
+  //
+  // No new published field: each section already has its own whitelisted array
+  // and every consumer gates on that array's length, so "off" is `[]` and the
+  // existing machinery does the rest. A `sections` object would have needed a
+  // worker paste, which is how `notice`, `oneBottle`, and `paused` were each
+  // lost in transit. See src/menuSections.js for the whole argument.
+  //
+  // ABSENT MEANS EVERYTHING ON. A publish from an app that predates this, or a
+  // corrupted store, must produce a full menu — never an empty one.
+  const shown = applySections(
+    { dishes, spotlight, fruit, desserts, addons, bag, sauces },
+    extras && extras.sections
+  );
   const payload = {
     token: PUBLISH_TOKEN,
-    dishes, spotlight, fruit, desserts, addons, bag, sauces,
+    dishes: shown.dishes,
+    spotlight: shown.spotlight,
+    fruit: shown.fruit,
+    desserts: shown.desserts,
+    addons: shown.addons,
+    bag: shown.bag,
+    sauces: shown.sauces,
     menuPdfUrl: menuPdfUrl || '',
     weekLabel: weekLabel || '',
     // One bottle that covers the week, computed from the registry's pairing
@@ -304,11 +327,20 @@ export async function publishWeek(currentWeekDishes, menuPdfUrl, weekLabel, paus
     target: 'week',
     field: 'published',
     from: null,
-    to: dishes.length + spotlight.length,
+    // The count of what actually SHIPPED, not what was selected. With a
+    // section switched off those differ, and the audit log is the record of
+    // what customers could see.
+    to: shown.dishes.length + shown.spotlight.length,
     source: SOURCES.PUBLISH,
     meta: {
       dishes: allDinners.map(d => d.name).slice(0, 40),
       ...(weekLabel ? { weekLabel: String(weekLabel).slice(0, 80) } : {}),
+      // Recorded only when something was withheld, so an ordinary full-menu
+      // week does not grow a line saying nothing happened.
+      ...(() => {
+        const d = describeSections(extras && extras.sections);
+        return d === 'Full menu' ? {} : { sections: d };
+      })(),
     },
   })]);
   return published; // already parsed above; never re-read res

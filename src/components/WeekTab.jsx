@@ -20,8 +20,10 @@ import {
   SURCHARGE, WORKER_BASE, PENDING_POLL_URL, CONFIG_PUBLISH_URL,
   PUBLISH_TOKEN, VAPID_PUBLIC_KEY,
   ORDERS_KEY, CHECKS_KEY, DELIVER_CHECKS_KEY, DISH_NOTES_KEY, WEEK_NOTES_KEY, WEEK_NOTICE_KEY,
+  WEEK_SECTIONS_KEY,
   SHOPPING_KEY, WEEK_KEY, PENDING_KEY, REGULARS_KEY, INVENTORY_KEY,
 } from '../config.js';
+import { MENU_SECTIONS, SECTION_IDS, allSectionsOn, normalizeSections, describeSections } from '../menuSections.js';
 import {
   uid, currency, round2, DISH_CUISINE, dishCuisine, normName,
   MIN_ORDERS_FOR_INSIGHT, localStore, store, PHOTO_PREFIX, PHOTO_TTL_DAYS, fmtBytes,
@@ -224,6 +226,30 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
   const persistNotice = useCallback((text, on) => {
     saveJSON(WEEK_NOTICE_KEY, { text, on }).catch(() => {});
   }, []);
+  // WHICH SECTIONS ARE ON OFFER. Lives beside the notice because they are used
+  // together: a limited week is a shorter menu PLUS a line telling people why.
+  //
+  // Persisted, so a half-set week survives a reload — but see the reset below.
+  // Sections default to all-on and `normalizeSections` treats anything it does
+  // not recognise as on, so a corrupted store cannot produce an empty menu.
+  const [sections, setSections] = useState(() => allSectionsOn());
+  useEffect(() => {
+    loadJSON(WEEK_SECTIONS_KEY, null).then(v => { if (v) setSections(normalizeSections(v)); });
+  }, []);
+  const toggleSection = useCallback((id) => {
+    setSections(prev => {
+      const next = { ...normalizeSections(prev), [id]: !normalizeSections(prev)[id] };
+      saveJSON(WEEK_SECTIONS_KEY, next).catch(() => {});
+      return next;
+    });
+  }, []);
+  const restoreAllSections = useCallback(() => {
+    const next = allSectionsOn();
+    setSections(next);
+    saveJSON(WEEK_SECTIONS_KEY, next).catch(() => {});
+  }, []);
+  const sectionsOn = normalizeSections(sections);
+  const sectionsOff = MENU_SECTIONS.filter(s => !sectionsOn[s.id]);
   const [showPause, setShowPause] = useState(false);
   const [pausing, setPausing] = useState(false);
   const doPause = async () => {
@@ -232,6 +258,11 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
       await onPublish(selected, pdfUrl.trim(), weekLabel.trim() || computeWeekLabel(), {
         paused: true, pausedMsg: pauseMsg.trim(),
       }, { requestCounts: requestCounts || {}, favorites: favorites || [], notice: noticeOn ? notice.trim() : '', customerFlags,
+        // Sent on BOTH publish paths. A paused week publishes empty sections
+        // anyway, but wiring one path and not the other is the exact shape that
+        // lost `customerFlags` for weeks — the field was there, the caller
+        // never sent it, and nothing looked broken.
+        sections: normalizeSections(sections),
         orderClosesAt: fromLocalInput(orderClosesAt), amendmentsCloseAt: fromLocalInput(amendmentsCloseAt) });
       setPublishMsg({ ok: true, text: 'Week paused. The form and menu now say you are off this week.' });
     } catch (e) {
@@ -253,6 +284,7 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
         requestCounts: requestCounts || {},
         favorites: favorites || [],
         notice: noticeOn ? notice.trim() : '',
+        sections: normalizeSections(sections),
         orderClosesAt: fromLocalInput(orderClosesAt),
         amendmentsCloseAt: fromLocalInput(amendmentsCloseAt),
       });
@@ -580,6 +612,57 @@ export function WeekTab({ selected, onToggle, onPublish, liveCostMap, baseCostMa
               {noticeOn
                 ? 'Every publish carries this until you untick the box. Shows on the landing page, the order form, and the menu.'
                 : 'Off. Publishing clears any banner that is currently showing. The text stays here for next time.'}
+            </div>
+
+            {/* ── WHAT IS ON OFFER THIS WEEK ──────────────────────────────
+                Untick a section and it does not publish. It disappears from
+                the weekly menu AND the order form, because both already gate
+                on the section being non-empty. The catalog page is unaffected
+                on purpose: it is the "everything I ever make" page, not this
+                week's. Kevin can still add any item to an order by hand. */}
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #2d3a36' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: sectionsOff.length ? GOLD : '#c9d1cd' }}>
+                  On offer this week
+                </span>
+                {sectionsOff.length > 0 && (
+                  <button
+                    onClick={restoreAllSections}
+                    style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #3a4441',
+                      borderRadius: 6, color: '#9aa5a0', fontSize: 11, padding: '3px 9px', cursor: 'pointer' }}
+                  >Everything back on</button>
+                )}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {MENU_SECTIONS.map(sec => {
+                  const on = sectionsOn[sec.id];
+                  return (
+                    <label
+                      key={sec.id}
+                      title={sec.hint || sec.label}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                        border: '1px solid ' + (on ? '#3a4441' : GOLD), borderRadius: 7,
+                        padding: '5px 9px', background: on ? 'transparent' : 'rgba(212,160,80,0.09)' }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() => toggleSection(sec.id)}
+                        style={{ width: 15, height: 15, accentColor: GOLD, cursor: 'pointer' }}
+                      />
+                      <span style={{ fontSize: 12, color: on ? CREAM : GOLD, fontWeight: on ? 400 : 700 }}>
+                        {sec.label}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 10.5, color: sectionsOff.length ? GOLD : '#7a8480', marginTop: 7, lineHeight: 1.45 }}>
+                {sectionsOff.length === 0
+                  ? 'Everything publishes. Untick anything you are not doing this week.'
+                  : `${describeSections(sectionsOn)}. Unticked sections vanish from the weekly menu and the order form. `
+                    + 'This sticks until you turn it back on, so check it before next week\u2019s publish.'}
+              </div>
             </div>
             {(awayList || []).length > 0 && (
               <div style={{ marginTop: 12, padding: '8px 10px', borderRadius: 6, border: '1px solid #2d3a36', background: 'rgba(255,255,255,0.02)' }}>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { whatWasInOrder, whatWasInOrderText } from '../whatWasInMine.js';
 import { isOmakaseItem } from '../utils.js';
 import { RETURNABLE_TYPES } from '../containers.js';
+import { depositsOutFor } from '../containerDeposits.js';
 import { bakeDeskAnswers } from '../answerDesk.js';
 import { companionHtml, companionContext } from '../companion.js';
 import { INGREDIENT_SEED } from '../ingredients.js';
@@ -344,7 +345,7 @@ function OmakaseLogger({ item, order, onUpdate, allOrders, perLbLiveCost, weekDi
       : it));
     onUpdate({
       items,
-      total: orderTotal(items, order.jarSwaps, order.containerReturns, order.discountType, order.discountValue, order.customCharges, order.waiveSurcharge),
+      total: totalWithDeposit(items, order),
     });
   };
 
@@ -713,6 +714,32 @@ function WhatWasInThis({ order, labelVersions }) {
   );
 }
 
+
+// THE DEPOSIT MUST SURVIVE EVERY RECOMPUTE, and it did not.
+//
+// `orderTotal` takes the deposit as its eighth argument. OrderForm passed it;
+// the five recompute sites in this file did not, so the total silently DROPPED
+// by the deposit the moment Kevin logged an omakase, set a per-lb weight,
+// priced an at-cost extra, or toggled a regular's discount. The charge landed
+// at save and quietly came off again on the next edit, which is worse than
+// never charging it: what a customer owed depended on what Kevin had touched
+// last, and nothing anywhere said so.
+//
+// Derived from the items rather than stored, exactly as OrderForm does it, so
+// there is no second number that can go stale.
+function totalWithDeposit(items, order, discountType, discountValue) {
+  return orderTotal(
+    items,
+    order.jarSwaps,
+    order.containerReturns,
+    discountType === undefined ? order.discountType : discountType,
+    discountValue === undefined ? order.discountValue : discountValue,
+    order.customCharges,
+    order.waiveSurcharge,
+    depositsOutFor({ items }).cents,
+  );
+}
+
 export function OrderCard({ order, regulars, labelVersions, customerFlags, expanded, onToggle, onUpdate, onDelete, onEdit, onMakeRegular, onLinkRegular, allOrders, perLbLiveCost, weekDishes }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -748,7 +775,7 @@ export function OrderCard({ order, regulars, labelVersions, customerFlags, expan
     });
     const patch = {
       items,
-      total: orderTotal(items, order.jarSwaps, order.containerReturns, order.discountType, order.discountValue, order.customCharges, order.waiveSurcharge),
+      total: totalWithDeposit(items, order),
     };
     onUpdate(patch);
     if (photoBase64) await savePhoto(order.id, itemIdx, photoBase64);
@@ -771,7 +798,7 @@ export function OrderCard({ order, regulars, labelVersions, customerFlags, expan
     });
     onUpdate({
       items,
-      total: orderTotal(items, order.jarSwaps, order.containerReturns, order.discountType, order.discountValue, order.customCharges, order.waiveSurcharge),
+      total: totalWithDeposit(items, order),
     });
     setAddonEdit(null);
   };
@@ -807,11 +834,11 @@ export function OrderCard({ order, regulars, labelVersions, customerFlags, expan
     e.stopPropagation();
     if (discountOn) {
       // Turn off
-      const total = orderTotal(order.items, order.jarSwaps, order.containerReturns, null, 0, order.customCharges, order.waiveSurcharge);
+      const total = totalWithDeposit(order.items, order, null, 0);
       onUpdate({ discountType: null, discountValue: 0, total });
     } else {
       // Turn on with the regular's percent
-      const total = orderTotal(order.items, order.jarSwaps, order.containerReturns, 'percent', regularDiscount, order.customCharges, order.waiveSurcharge);
+      const total = totalWithDeposit(order.items, order, 'percent', regularDiscount);
       onUpdate({ discountType: 'percent', discountValue: regularDiscount, total });
     }
   };
